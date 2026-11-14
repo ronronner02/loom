@@ -61,7 +61,8 @@ export function composeTaskDispatch(deps: TaskDispatchDependencies): TaskDispatc
     const node = context ? deps.rigRepo.getRig(context.rigId)?.nodes.find(value => value.id === context.nodeId) : undefined;
     const adapter = node?.runtime ? deps.runtimeAdapters[node.runtime] : undefined;
     if (!context || !session || !node?.cwd || !adapter || adapter.managedTransport !== "direct" || isRetiredTeamNode(deps.rigRepo.db, node.id)) return;
-    if (!(session.startupStatus === "pending" || session.startupStatus === "failed" || session.startupStatus === "attention_required")) return;
+    // Readiness describes the last startup, not whether a direct seat is occupied now.
+    // A stale ready seat is reusable; an unregistered or live receipt still blocks it below.
     const receipts = deps.sessions.db.prepare(`SELECT json_extract(e.payload, '$.sessionName') AS seat FROM events e LEFT JOIN team_attempts a ON a.id = json_extract(e.payload, '$.receipt.attemptId') WHERE e.type = 'managed.attempt.receipt' AND json_extract(e.payload, '$.sessionName') = ? AND (a.id IS NULL OR a.state <> 'stopped')`).all(row.seat) as Array<{ seat: string }>;
     if (receipts.length) return;
     if (deps.liveSessions(runId) >= deps.maxSessions(runId) + ownerMessageSlot(deps.sessions.db, runId, taskId)) return;
