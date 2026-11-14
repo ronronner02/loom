@@ -7,7 +7,7 @@ import type { StartupAction } from "./types.js";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import { declinePath, handbackPath, ownerQuestionNotices, takeTaskComments, taskCommentNote, taskCommentNotices } from "./task-thread.js";
-import { managedTurnPrompt, writeAgentTurnPrompt, agentTurnOutputPaths, boundedOwnerWords, continuationNote, leadProgressNote } from "./agent-turn.js";
+import { managedTurnPrompt, writeAgentTurnPrompt, agentTurnOutputPaths, boundedOwnerWords, continuationNote, leadProgressNote, turnInstructions } from "./agent-turn.js";
 import { leadChatTurnNote, listChatMessages, responseLanguageNote, runLeadTask, takeOwnerMessages, type ResponseLanguage } from "./lead-chat.js";
 import { unassignedOwnerWorkflows } from "./team-workflows.js";
 import type { ScopedAssignment, TeamRole } from "../contracts/team-control.js";
@@ -65,11 +65,12 @@ export class StartupOrchestrator {
       const { runId, assignment } = attempt.context;
       const prompt = managedTurnPrompt({ identity: "", bundle: "", runId, assignment,
         taskBody: this.taskBody(runId, assignment.taskId), outputs: attempt.context.outputs, permissions: attempt.context.permissions,
-        instructions: attempt.context.files.map((file) => ({ path: file.workerPath })),
+        instructions: turnInstructions(attempt.context),
         continuation: this.continuation(runId, assignment.taskId, assignment.role, attempt.attemptId, Boolean(input.continueSessionId),
           attempt.context.mutableStateRoot),
-        taskReportPath: agentTurnOutputPaths(attempt.context.mutableStateRoot, attempt.attemptId).taskReport, workflow: attempt.context.workflow,
-        ...(assignment.role === "lead" ? {} : { ownerWords: this.ownerWords(runId),
+        workflow: attempt.context.workflow,
+        ...(assignment.role === "lead" ? {} : { taskReportPath: agentTurnOutputPaths(attempt.context.mutableStateRoot, attempt.attemptId).taskReport,
+          ownerWords: this.ownerWords(runId),
           evidenceDirectory: this.evidenceDirectory(attempt.context.mutableStateRoot, runId, assignment, attempt.attemptId) }) });
       writeAgentTurnPrompt(attempt.context, prompt);
       this.pending.set(input.nodeId, { sessionId: input.sessionId, binding });
