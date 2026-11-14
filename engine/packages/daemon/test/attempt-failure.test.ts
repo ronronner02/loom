@@ -262,6 +262,59 @@ describe("the owner retry reads the recorded classification", () => {
     expect(retry().reason).toMatch(/no classification/);
   });
 
+  it("dispatches a pending task from a stale ready seat with no attempt receipt", async () => {
+    const { composeTaskDispatch } = await import("../src/domain/task-dispatch.js");
+    const seat = sessions.findResumeContextByName("builder@rig-1")!;
+    const task = governance.findTask("run-1", "task-1")!;
+    expect(db.prepare("SELECT state FROM queue_items WHERE qitem_id = ?").get(task.qitemId)).toEqual({ state: "pending" });
+    expect(db.prepare("SELECT id FROM team_attempts").all()).toEqual([]);
+    expect(sessions.getSessionsForRig("rig-1").find(row => row.id === seat.sessionId)?.startupStatus).toBe("ready");
+    const startNode = vi.fn(async () => {
+      expect(sessions.getSessionsForRig("rig-1").find(row => row.id === seat.sessionId)?.startupStatus).toBe("pending");
+      return { ok: true as const, startupStatus: "ready" as const, continuityOutcome: "fresh" as const };
+    });
+    await composeTaskDispatch({ rigRepo: new RigRepository(db), sessions, startupOrchestrator: { startNode } as never,
+      runtimeAdapters: { "claude-code": { runtime: "claude-code", managedTransport: "direct" } } as never,
+      maxSessions: () => 2, liveSessions: () => 0 })("run-1", "task-1");
+    expect(startNode).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      runId: "run-1", taskId: "task-1", sessionId: seat.sessionId, sessionName: "builder@rig-1",
+    }));
+  });
+
+  it.each(["unregistered", "running"])("keeps a ready seat occupied while its attempt receipt is %s", async state => {
+    const { composeTaskDispatch } = await import("../src/domain/task-dispatch.js");
+    launch();
+    if (state === "running") {
+      await completion().sweep();
+      expect(governance.getAttempt("attempt-1")?.state).toBe("running");
+    } else expect(governance.getAttempt("attempt-1")).toBeNull();
+    const before = sessions.getSessionsForRig("rig-1");
+    const startNode = vi.fn();
+    await composeTaskDispatch({ rigRepo: new RigRepository(db), sessions, startupOrchestrator: { startNode } as never,
+      runtimeAdapters: { "claude-code": { runtime: "claude-code", managedTransport: "direct" } } as never,
+      maxSessions: () => 2, liveSessions: () => 0 })("run-1", "task-1");
+    expect(startNode).not.toHaveBeenCalled();
+    expect(sessions.getSessionsForRig("rig-1")).toEqual(before);
+  });
+
+  it("starts a stale ready seat only once while its launch is in flight", async () => {
+    const { composeTaskDispatch } = await import("../src/domain/task-dispatch.js");
+    let finish!: () => void;
+    const pending = new Promise<void>(resolve => { finish = resolve; });
+    const startNode = vi.fn(async () => {
+      await pending;
+      return { ok: true as const, startupStatus: "ready" as const, continuityOutcome: "fresh" as const };
+    });
+    const dispatch = composeTaskDispatch({ rigRepo: new RigRepository(db), sessions, startupOrchestrator: { startNode } as never,
+      runtimeAdapters: { "claude-code": { runtime: "claude-code", managedTransport: "direct" } } as never,
+      maxSessions: () => 2, liveSessions: () => 0 });
+    const first = dispatch("run-1", "task-1");
+    try {
+      await dispatch("run-1", "task-1");
+      expect(startNode).toHaveBeenCalledTimes(1);
+    } finally { finish(); await first; }
+  });
+
   it.each(["failed", "ready"] as const)("does no pane work for a retired seat with status %s", async status => {
     const seat = sessions.findResumeContextByName("builder@rig-1")!;
     sessions.updateBinding(seat.nodeId, { attachmentType: "tmux", tmuxSession: "builder@rig-1", tmuxPane: "%1" });
@@ -273,7 +326,7 @@ describe("the owner retry reads the recorded classification", () => {
     const respawnPane = vi.fn(async () => ({ ok: true })), startNode = vi.fn(async () => ({ ok: true }));
     await composeTaskDispatch({ rigRepo: new RigRepository(db), sessions,
       tmux: { hasSession: async () => true, listPanes, getPaneExit, respawnPane } as never, startupOrchestrator: { startNode } as never,
-      runtimeAdapters: { "claude-code": { runtime: "claude-code" } } as never,
+      runtimeAdapters: { "claude-code": { runtime: "claude-code", managedTransport: "direct" } } as never,
       maxSessions: () => 2, liveSessions: () => 0,
     })("run-1", "task-1");
     for (const operation of [listPanes, getPaneExit, respawnPane, startNode]) expect(operation).not.toHaveBeenCalled();
