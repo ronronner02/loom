@@ -316,7 +316,7 @@ describe("what a continuation is told", () => {
     expect(continuationNote(db, "run", "task-1", "lead")).toContain("failed again on its retry");
   });
 
-  it("launches a lead turn whose prompt carries its task body, the owner's chat and the run's progress", async () => {
+  it("launches a native lead turn with readable host instructions, its task body and the owner's chat", async () => {
     // U20 removed the tmux launcher that composed these into the prompt, and the native launcher
     // looked the body up by the run's task id as if it were a queue id: every turn was told only
     // "Complete the assigned managed task", and the lead never read what the owner wrote.
@@ -324,8 +324,17 @@ describe("what a continuation is told", () => {
       outputs: [], permissions: ["request-assignment"], sourceSession: "owner", destinationSession: "lead@rig",
       body: "Lead the approved goal." }), binding).status).toBe("accepted");
     appendChatMessage(db, { id: "m1", runId: "run", body: "Please keep the API unchanged.", createdAt: "2026-11-04T00:00:01.000Z" });
+    const corePath = join(stateRoot, "lead-core.md"), frameworkSource = join(stateRoot, "skill-source.md");
+    writeFileSync(corePath, "Read the shared core before planning.\n");
+    writeFileSync(frameworkSource, "Read this entry from its source package.\n");
     const context = { ...manifest("lead-attempt-1"),
-      assignment: { taskId: "task-1", role: "lead", paths: ["src"], dependencies: [] } } as ContextManifest;
+      assignment: { taskId: "task-1", role: "lead", paths: ["src"], dependencies: [] },
+      files: [
+        { kind: "core", path: corePath, workerPath: "/context/core", hash: "sha256:" + "c".repeat(64), readOnly: true },
+        { kind: "framework", path: join(stateRoot, "skill-projection.md"), source: frameworkSource,
+          workerPath: "/context/framework/skill.md", hash: "sha256:" + "d".repeat(64), readOnly: true },
+        { kind: "plan", path: join(root, "plan.md"), workerPath: "/context/plan", hash: "sha256:" + "e".repeat(64), readOnly: true },
+      ] } as ContextManifest;
     const orchestrator = new StartupOrchestrator({ db, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db) });
     const adapter = { project: async () => ({ failed: [] }), deliverStartup: async () => ({ failed: [] }) } as unknown as RuntimeAdapter;
     const started = await orchestrator.startNode({ rigId: "rig", nodeId: "lead-node", sessionId: "s-lead-node",
@@ -337,6 +346,10 @@ describe("what a continuation is told", () => {
       skipHarnessLaunch: true });
     expect(started.ok, JSON.stringify(started)).toBe(true);
     const prompt = readFileSync(agentTurnPromptPath(context), "utf8");
+    expect(prompt).toContain(`- ${corePath}`);
+    expect(prompt).toContain(`- ${frameworkSource}`);
+    expect(prompt).not.toContain("- /context/");
+    expect(prompt).not.toContain(`- ${join(root, "plan.md")}`);
     expect(prompt).toContain("Lead the approved goal.");
     expect(prompt).not.toContain("Complete the assigned managed task.");
     expect(prompt).toContain("Owner: Please keep the API unchanged.");
@@ -386,6 +399,15 @@ describe("what a continuation is told", () => {
     return readFileSync(agentTurnPromptPath(context), "utf8");
   }
 
+  it("keeps worker report-file instructions off native lead turns", async () => {
+    const assignment = { taskId: "task-1", role: "lead" as const, paths: ["src"], dependencies: [] };
+    expect(governance.createTask(command("task-1", { assignment, outputs: [], permissions: ["request-assignment"],
+      sourceSession: "owner", destinationSession: "lead@rig", body: "Plan the requested change." }), binding).status).toBe("accepted");
+    const prompt = await launchedPrompt("lead-node", "lead@rig", assignment, "lead-report-attempt");
+    expect(prompt).not.toContain("Task report file:");
+    expect(prompt).not.toContain("write the structured report there");
+  });
+
   it("gives workers the owner's words verbatim and an evidence directory outside the candidate", async () => {
     // The lead's brief is not the request. A worker reads the owner's goal as written, so a
     // requirement the lead added or dropped is visible against the original.
@@ -398,6 +420,7 @@ describe("what a continuation is told", () => {
     const implementer = await launchedPrompt("a-node", "a@rig", { taskId: "impl", role: "implementer", paths: ["src"], dependencies: [] }, "impl-attempt-1");
     expect(implementer).toContain("The owner's words for this run, verbatim");
     expect(implementer).toContain("Add dark mode to the settings page, keep the API unchanged.");
+    expect(implementer).toContain(`Task report file: ${JSON.stringify(join(stateRoot, "turns", "impl-attempt-1", "report", "task-report.json"))}`);
     expect(implementer).toContain(`Evidence directory (outside the candidate): ${JSON.stringify(join(stateRoot, "turns", "impl-attempt-1", "evidence"))}`);
     // The reviewer is pointed at the latest attempt of the task it reviews, where the captures are.
     db.prepare(`INSERT INTO team_attempts (id, run_id, qitem_id, role, provider, state, identity_json, usage_json, active_ms, created_at, updated_at)
@@ -406,6 +429,7 @@ describe("what a continuation is told", () => {
     const reviewer = await launchedPrompt("rev-node", "reviewer@rig",
       { taskId: "review", role: "reviewer", paths: ["src"], dependencies: [], reviewOf: "impl" }, "review-attempt-1");
     expect(reviewer).toContain("Add dark mode to the settings page, keep the API unchanged.");
+    expect(reviewer).toContain(`Task report file: ${JSON.stringify(join(stateRoot, "turns", "review-attempt-1", "report", "task-report.json"))}`);
     expect(reviewer).toContain(JSON.stringify(join(stateRoot, "turns", "impl-attempt-1", "evidence")));
   });
 
