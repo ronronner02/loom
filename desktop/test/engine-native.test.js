@@ -68,7 +68,11 @@ function nativeDesktop(opts = {}) {
     requestSingleInstanceLock: () => true,
     on(event, fn) { lifecycle.set(event, fn); },
     whenReady: () => Promise.resolve(),
-    quit() {},
+    quit() {
+      let prevented = false;
+      lifecycle.get('before-quit')?.({ preventDefault: () => { prevented = true; } });
+      if (!prevented) vm.runInContext('window', context)?.close();
+    },
     getPath: name => name === 'appData' ? path.join('D:', 'ma', 'tmp', 'appData') : path.join('D:', 'ma', 'tmp', 'userData'),
   };
 
@@ -352,8 +356,9 @@ test('closing while attempts run asks for confirmation and cancel keeps the app 
   await settle();
   const close = fixture.close();
   let prevented = false;
-  await close({ preventDefault: () => { prevented = true; } });
-  assert.equal(prevented, true, 'the close must be held for confirmation');
+  close({ preventDefault: () => { prevented = true; } });
+  assert.equal(prevented, true, 'the close must be held synchronously for confirmation');
+  await settle();
   assert.equal(fixture.messageBoxes.length, 1);
   assert.match(fixture.messageBoxes[0].message, /Resume continues/);
   assert.equal(fixture.window().destroyed, false, 'cancelling keeps the window open');
@@ -363,7 +368,9 @@ test('confirming the close stops the agents and proceeds', async () => {
   const fixture = nativeDesktop({ closeResponse: 0, runningAttempts: 1 });
   await settle();
   const close = fixture.close();
-  await close({ preventDefault: () => {} });
+  close({ preventDefault: () => {} });
+  await settle();
+  assert.equal(fixture.bridgeShutdowns(), 1, 'shutdown completes before the confirmed quit');
   assert.equal(fixture.messageBoxes.length, 1);
   assert.equal(fixture.window().destroyed, true, 'approving closes the window');
 });
@@ -373,9 +380,12 @@ test('no close confirmation is shown when no attempt is running', async () => {
   await settle();
   const close = fixture.close();
   let prevented = false;
-  await close({ preventDefault: () => { prevented = true; } });
-  assert.equal(prevented, false);
+  close({ preventDefault: () => { prevented = true; } });
+  assert.equal(prevented, true, 'the close waits for the asynchronous activity check');
+  await settle();
   assert.equal(fixture.messageBoxes.length, 0);
+  assert.equal(fixture.bridgeShutdowns(), 1);
+  assert.equal(fixture.window().destroyed, true);
 });
 
 test('second-instance focuses the existing window', async () => {
