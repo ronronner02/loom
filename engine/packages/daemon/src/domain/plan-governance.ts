@@ -1188,6 +1188,20 @@ export class PlanGovernance {
 
   /** The follow-up keeps the task's seat and paths, starts from the branch head, and takes the waiting comments. */
   private startFollowUp(ctx: CommandContext, task: TeamTaskAuthority, commentId: string, observedBy: string): Result {
+    // Comments arriving before dispatch belong to one turn, not competing write claims.
+    // Never change the comment set of a turn that already started preparing its context.
+    const waiting = this.db.prepare(`SELECT a.task_id AS taskId, a.held_at AS heldAt
+      FROM team_queue_authority a JOIN queue_items q ON q.qitem_id = a.qitem_id
+      WHERE a.run_id = ? AND a.follow_up_of = ? AND q.state = 'pending'
+        AND NOT EXISTS (SELECT 1 FROM team_attempts t WHERE t.qitem_id = a.qitem_id)
+      ORDER BY a.rowid LIMIT 1`).get(ctx.run.id, task.assignment.taskId) as { taskId: string; heldAt: string | null } | undefined;
+    if (waiting) {
+      moveTaskComments(this.db, ctx.run.id, task.assignment.taskId, waiting.taskId);
+      const effectMayStart = waiting.heldAt === null && ctx.run.state === "approved";
+      return { status: "accepted", value: { messageId: commentId, taskId: waiting.taskId,
+        followUpOf: task.assignment.taskId, queued: !effectMayStart }, effectMayStart,
+        taskId: waiting.taskId, revisionTaskId: waiting.taskId, observedBy };
+    }
     const count = (this.db.prepare("SELECT count(*) AS count FROM team_queue_authority WHERE run_id = ? AND follow_up_of = ?")
       .get(ctx.run.id, task.assignment.taskId) as { count: number }).count;
     const followUpId = `${task.assignment.taskId}-followup-${count + 1}`;
