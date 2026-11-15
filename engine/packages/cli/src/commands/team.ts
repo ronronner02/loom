@@ -1,4 +1,5 @@
 import { resolveDataRoots } from "@multi-agent/daemon/data-paths";
+import type { DocumentPins } from "@multi-agent/daemon/team-control";
 import { realpathSync } from "node:fs";
 import { Command } from "commander";
 import { readFileSync } from "node:fs";
@@ -62,6 +63,35 @@ function ownerToken(deps: TeamStartDeps): string | null {
 class TeamCommandError extends Error {
   readonly code: string;
   constructor(code: string, message: string) { super(message); this.code = code; }
+}
+
+interface PlanApprovalPreview {
+  planApproval?: {
+    plan: { content: string; hash: string } | null;
+    roster: { digest: string } | null;
+    error: string | null;
+    documentVersions?: DocumentPins;
+  } | null;
+  documentWorkflow?: unknown;
+  code?: string;
+  error?: string;
+}
+
+async function readApprovalPayload(client: DaemonClient, runId: string, headers: Record<string, string>): Promise<Record<string, unknown>> {
+  const response = await client.get<PlanApprovalPreview>(`${BASE}/runs/${encodeURIComponent(runId)}/chat`, { headers });
+  if (response.status !== 200) {
+    throw new TeamCommandError(response.data?.code ?? "plan_approval_unavailable",
+      response.data?.error ?? "The current plan approval evidence could not be read.");
+  }
+  const preview = response.data.planApproval;
+  // Only an explicit legacy response can omit the proposal pins.
+  if (preview === null && !response.data.documentWorkflow) return {};
+  if (!preview || preview.error || !preview.plan?.content?.trim() || !preview.plan.hash
+    || !preview.roster?.digest || response.data.documentWorkflow && !preview.documentVersions) {
+    throw new TeamCommandError("plan_approval_unavailable", preview?.error ?? "Wait for a complete plan and roster before approving.");
+  }
+  return { planHash: preview.plan.hash, rosterDigest: preview.roster.digest,
+    ...(preview.documentVersions ? { documentVersions: preview.documentVersions } : {}) };
 }
 
 /** A seat's client, with `claude` accepted as the shorthand the owner types. */
@@ -329,10 +359,11 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
       if (run.status !== 200 || !Number.isSafeInteger(run.data?.run?.entityVersion)) {
         throw new TeamCommandError(run.data?.code ?? "control_unavailable", run.data?.error ?? "The current run version could not be read.");
       }
+      const payload = await readApprovalPayload(client, runId, headers);
       const approved = await client.post<{ status?: string; reason?: string | null; code?: string; error?: string;
         value?: { phase?: string; planRef?: string } | null }>(`${BASE}/runs/${encodeURIComponent(runId)}/plan/approve`,
         { protocolVersion: "1.0", runId, actionId: crypto.randomUUID(),
-          expectedEntityVersion: run.data.run!.entityVersion, idempotencyKey: crypto.randomUUID(), payload: {} }, { headers });
+          expectedEntityVersion: run.data.run!.entityVersion, idempotencyKey: crypto.randomUUID(), payload }, { headers });
       if (approved.status !== 200 || approved.data.status !== "accepted") {
         throw new TeamCommandError(approved.data.code ?? "plan_approval_refused",
           approved.data.reason ?? approved.data.error ?? "The daemon refused the plan approval.");

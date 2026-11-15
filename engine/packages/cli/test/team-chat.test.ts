@@ -103,10 +103,11 @@ describe("multi-agent team chat", () => {
 describe("multi-agent team approve", () => {
   it("posts the owner's approval and reports the run in delivery", async () => {
     const fetchImpl = answering({ status: 200, body: { run: { entityVersion: 7, phase: "planning" } } },
+      { status: 200, body: { planApproval: null } },
       { status: 200, body: { status: "accepted", value: { phase: "delivery", planRef: "plan.md" } } });
     const result = await run(["team", "approve", "run-1"], deps(fetchImpl));
     expect(result.code).toBeUndefined();
-    const [url, init] = calls(fetchImpl)[1]!;
+    const [url, init] = calls(fetchImpl)[2]!;
     expect(url).toBe("http://127.0.0.1:7433/api/team-control/runs/run-1/plan/approve");
     expect(init.method).toBe("POST");
     expect(JSON.parse(String(init.body))).toMatchObject({ runId: "run-1", expectedEntityVersion: 7, payload: {} });
@@ -115,9 +116,58 @@ describe("multi-agent team approve", () => {
 
   it("names the refusal when there is no plan to approve", async () => {
     const fetchImpl = answering({ status: 200, body: { run: { entityVersion: 3 } } },
+      { status: 200, body: { planApproval: null } },
       { status: 409, body: { code: "plan_missing", error: "The lead wrote no plan at plan.md" } });
     const result = await run(["team", "approve", "run-1"], deps(fetchImpl));
     expect(result.code).toBe(1);
     expect(result.lines.join("\n")).toContain("The lead wrote no plan at plan.md");
+  });
+});
+
+describe("current plan approval evidence", () => {
+  const documentVersions = {
+    requirements: { versionId: "requirements-v1", hash: "r".repeat(64) },
+    plan: { versionId: "plan-v2", hash: "p".repeat(64) },
+  };
+  const proposal = {
+    plan: { content: "# Approved plan", hash: "p".repeat(64) },
+    roster: { digest: "s".repeat(64) }, error: null,
+  };
+
+  it.each([false, true])("pins the observed plan and roster (document workflow: %s)", async documentWorkflow => {
+    const fetchImpl = answering(
+      { status: 200, body: { run: { entityVersion: 7, phase: "planning" } } },
+      { status: 200, body: { planApproval: { ...proposal, ...(documentWorkflow ? { documentVersions } : {}) },
+        documentWorkflow: documentWorkflow ? { stage: "plan" } : null } },
+      { status: 200, body: { status: "accepted", value: { phase: "delivery", planRef: "plan.md" } } });
+    const result = await run(["team", "approve", "run-1"], deps(fetchImpl));
+    expect(result.code).toBeUndefined();
+    expect(calls(fetchImpl)).toHaveLength(3);
+    expect(calls(fetchImpl)[1]![0]).toBe("http://127.0.0.1:7433/api/team-control/runs/run-1/chat");
+    const [, init] = calls(fetchImpl)[2]!;
+    expect(JSON.parse(String(init.body))).toMatchObject({ expectedEntityVersion: 7,
+      payload: { planHash: proposal.plan.hash, rosterDigest: proposal.roster.digest,
+        ...(documentWorkflow ? { documentVersions } : {}) } });
+  });
+
+  it("does not submit an incomplete proposal or a document workflow without pins", async () => {
+    const fetchImpl = answering(
+      { status: 200, body: { run: { entityVersion: 7, phase: "planning" } } },
+      { status: 200, body: { planApproval: proposal, documentWorkflow: { stage: "plan" } } });
+    const result = await run(["team", "approve", "run-1"], deps(fetchImpl));
+    expect(result.code).toBe(1);
+    expect(result.lines.join("\n")).toContain("complete plan and roster");
+    expect(calls(fetchImpl).every(([, init]) => init.method === "GET")).toBe(true);
+  });
+
+  it("preserves a changed-plan refusal without approving a newer unseen version", async () => {
+    const fetchImpl = answering(
+      { status: 200, body: { run: { entityVersion: 7, phase: "planning" } } },
+      { status: 200, body: { planApproval: proposal } },
+      { status: 409, body: { code: "plan_changed", error: "The displayed plan changed." } });
+    const result = await run(["team", "approve", "run-1"], deps(fetchImpl));
+    expect(result.code).toBe(1);
+    expect(result.lines.join("\n")).toContain("The displayed plan changed.");
+    expect(calls(fetchImpl)).toHaveLength(3);
   });
 });
