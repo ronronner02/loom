@@ -541,6 +541,47 @@ describe("U4 daemon-recorded outcomes", () => {
     expect(governance.findTask("run", "task-review-1")?.assignment.role).toBe("reviewer");
   });
 
+  it.each(["\n", "\r\n"])("keeps literal triple backticks inside a findings JSON string with delimiter-line framing (%j)", newline => {
+    const report = { findings: [{ id: "R1", severity: "P3", citation: "KTD8", category: "style", file: "src/a.ts",
+      scenario: "The sample includes literal ``` markers." }] };
+    const message = "Reviewer output:" + newline + "```json" + newline + JSON.stringify(report) + newline + "  ```\t" + newline;
+    expect(extractReviewerReport(message)).toEqual(report);
+  });
+
+  it("requires the closing JSON fence to occupy a delimiter line", () => {
+    const report = JSON.stringify({ findings: [] });
+    expect(extractReviewerReport("```json\n" + report + "```")).toBeNull();
+    expect(extractReviewerReport("```json\n" + report + "\n``` trailing prose")).toBeNull();
+  });
+
+  it("records a final blocked report whose evidence contains literal triple backticks", async () => {
+    const observe = completion(() => manifest("diff --git a/src/a.ts b/src/a.ts\n"));
+    await observe.sweep();
+    const reviewer = governance.findTask("run", "task-review-1")!;
+    addAttempt(reviewer.assignment.taskId, "review-attempt", "reviewer");
+    const report = { status: "blocked", evidence: "The parser rejects the literal ``` marker in a Markdown sample.", attemptId: "review-attempt" };
+    writeTurn("review-attempt", "```json\n" + JSON.stringify(report) + "\n```");
+    await observe.sweep();
+    expect(governance.queueState(reviewer.qitemId)).toBe("blocked");
+    expect(governance.getTask(reviewer.qitemId)?.evidence).toMatchObject({ taskReport: report });
+    expect(governance.getRun("run").retriesUsed).toBe(0);
+    expect(existsSync(agentTurnOutputPaths(turnRoot, "review-attempt").taskReport)).toBe(false);
+  });
+
+  it("records normal findings whose scenario contains literal triple backticks", async () => {
+    const observe = completion(() => manifest("diff --git a/src/a.ts b/src/a.ts\n"));
+    await observe.sweep();
+    const reviewer = governance.findTask("run", "task-review-1")!;
+    addAttempt(reviewer.assignment.taskId, "review-attempt", "reviewer");
+    writeTurn("review-attempt", "```json\n" + JSON.stringify({ findings: [{ id: "R1", severity: "P3", citation: "KTD8",
+      category: "style", file: "src/a.ts", scenario: "The sample includes literal ``` markers." }] }) + "\n```");
+    await observe.sweep();
+    expect(governance.queueState(reviewer.qitemId)).toBe("done");
+    expect(db.prepare("SELECT json_extract(payload, '$.payload.verdict') AS verdict FROM events WHERE json_extract(payload, '$.action') = 'review.verdict'").get())
+      .toEqual({ verdict: "approved" });
+    expect(existsSync(agentTurnOutputPaths(turnRoot, "review-attempt").taskReport)).toBe(false);
+  });
+
   it("discards a stale file report before selecting the current final exception", async () => {
     const observe = completion(() => manifest("diff --git a/src/a.ts b/src/a.ts\n"));
     await observe.sweep();

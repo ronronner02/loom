@@ -160,7 +160,7 @@ export function extractReviewerReport(message: string | null): Record<string, un
 /** Findings and exception reports share the reviewer's existing final-message transport. */
 function extractReviewerOutput(message: string | null): Record<string, unknown> | null {
   if (message === null) return null;
-  const blocks = [...message.matchAll(/```json\s*([\s\S]*?)```/gi)];
+  const blocks = [...message.matchAll(/```json\s*([\s\S]*?)^[ \t]*```[ \t]*\r?$/gim)];
   const block = blocks.at(-1)?.[1];
   if (block === undefined) return null;
   try {
