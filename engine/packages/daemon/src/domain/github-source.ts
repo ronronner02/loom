@@ -232,19 +232,22 @@ export function composeGithubSource(deps: GithubSourceDeps) {
      * request's current head. A failed turn records nothing: its comments go to the next turn.
      */
     attemptStopped(attempt: { id: string; runId: string }, declineFile: string): void {
-      const failed = db.prepare("SELECT failure_json IS NOT NULL AS failed FROM team_attempts WHERE id = ?").get(attempt.id) as { failed: number } | undefined;
-      if (!failed || failed.failed) return;
-      const taken = db.prepare(`SELECT t.message_id AS messageId FROM team_github_threads t
-        JOIN team_chat_messages m ON m.id = t.message_id AND m.run_id = t.run_id
-        WHERE t.run_id = ? AND m.delivered_attempt = ? AND t.outcome IS NULL`).all(attempt.runId, attempt.id) as { messageId: string }[];
-      if (!taken.length) return;
-      const declined = new Map(readHandback(declineFile).map(entry => [entry.messageId, entry.reason]));
-      const head = (db.prepare("SELECT head_sha AS headSha FROM team_pull_requests WHERE run_id = ?").get(attempt.runId) as { headSha: string } | undefined)?.headSha ?? null;
-      for (const { messageId } of taken) {
-        const reason = declined.get(messageId);
-        db.prepare("UPDATE team_github_threads SET outcome = ?, reason = ?, head_sha = ?, updated_at = ? WHERE run_id = ? AND message_id = ?")
-          .run(reason ? "declined" : "fixed", reason ?? null, head, now().toISOString(), attempt.runId, messageId);
-      }
+      db.transaction(() => {
+        const failed = db.prepare("SELECT failure_json IS NOT NULL AS failed FROM team_attempts WHERE id = ?").get(attempt.id) as { failed: number } | undefined;
+        if (!failed || failed.failed) return;
+        const taken = db.prepare(`SELECT t.message_id AS messageId FROM team_github_threads t
+          JOIN team_chat_messages m ON m.id = t.message_id AND m.run_id = t.run_id
+          WHERE t.run_id = ? AND m.delivered_attempt = ? AND t.outcome IS NULL`).all(attempt.runId, attempt.id) as { messageId: string }[];
+        if (!taken.length) return;
+        const declined = new Map(readHandback(declineFile).map(entry => [entry.messageId, entry.reason]));
+        const head = (db.prepare("SELECT head_sha AS headSha FROM team_pull_requests WHERE run_id = ?").get(attempt.runId) as { headSha: string } | undefined)?.headSha ?? null;
+        const updatedAt = now().toISOString();
+        for (const { messageId } of taken) {
+          const reason = declined.get(messageId);
+          db.prepare("UPDATE team_github_threads SET outcome = ?, reason = ?, head_sha = ?, updated_at = ? WHERE run_id = ? AND message_id = ?")
+            .run(reason ? "declined" : "fixed", reason ?? null, head, updatedAt, attempt.runId, messageId);
+        }
+      })();
     },
     /** One sweep step: each open team pull request is read at most once a minute, less often after failures. */
     async sweep(): Promise<void> {

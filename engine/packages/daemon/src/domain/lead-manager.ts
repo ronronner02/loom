@@ -1,3 +1,4 @@
+import { pendingFinalization, recordedControlReceipt } from "./attempt-finalization.js";
 import type Database from "better-sqlite3";
 import { TEAM_CONTROL_VERSION, TeamContractError, canonicalJson, parseAssignment, type ControlActor, type ControlRequest, type JsonValue } from "../contracts/team-control.js";
 import { hashBytes, type PlanGovernance } from "./plan-governance.js";
@@ -244,6 +245,8 @@ export function composeLeadManager(dependencies: LeadManagerDependencies): LeadM
      */
     async turnEnd(attempt) {
       if (attempt.role !== "lead") return;
+      if (recordedControlReceipt(db, attempt.runId, "daemon-lead-admission:" + attempt.id)
+        || recordedControlReceipt(db, attempt.runId, "daemon-lead-refusal:" + attempt.id)) return;
       const run = governance.getRun(attempt.runId);
       // A planning lead is the conversation with the owner; its deliverable is the plan, and
       // nothing is admitted before the owner approves it.
@@ -263,38 +266,18 @@ export function composeLeadManager(dependencies: LeadManagerDependencies): LeadM
         // uses, so the reason is its next prompt. Swallowing it would leave the run with a
         // failed task and nobody told why.
         if (error instanceof LeadProposalMissingError) return;
-        const refusal = (() => {
-          try {
-            return governance.refuseLeadTasks(
-              request(attempt.runId, "lead-refusal-" + attempt.id, "daemon-lead-refusal:" + attempt.id),
-              daemon, dependencies.currentBinding(attempt.runId), proposalRefusalReason(error));
-          } catch (refused) {
-            // The same turn observed twice: the stored receipt names the entity version it was
-            // recorded at, so an exact replay cannot be rebuilt. Nothing was refused twice.
-            if (/bound to another exact request/.test((refused as Error).message)) return null;
-            throw refused;
-          }
-        })();
+        const refusal = governance.refuseLeadTasks(
+          request(attempt.runId, "lead-refusal-" + attempt.id, "daemon-lead-refusal:" + attempt.id),
+          daemon, dependencies.currentBinding(attempt.runId), proposalRefusalReason(error));
         if (refusal?.effectMayStart && refusal.revisionTaskId) await dispatchLead(attempt.runId, refusal.revisionTaskId);
         return;
       }
       // The tree keeps every file the lead wrote, so a turn that answered an event still holds
       // the list it delivered earlier. That list is not a new request.
       if (proposalAlreadyAdmitted(db, attempt.runId, tasks, seats, resolutions)) return;
-      const receipt = (() => {
-        try {
-          return governance.admitLeadProposal(
-            request(attempt.runId, "lead-admission-" + attempt.id, "daemon-lead-admission:" + attempt.id),
-            daemon, dependencies.currentBinding(attempt.runId), tasks, seats, dependencies.readMaxSeats?.() ?? 6, resolutions);
-        } catch (error) {
-          // The attempt already admitted its list and the run has moved since: the stored
-          // receipt names the entity version it was recorded at, so an exact replay cannot be
-          // rebuilt. Nothing was admitted twice, which is the fact that matters here.
-          if (/bound to another exact request/.test((error as Error).message)) return null;
-          throw error;
-        }
-      })();
-      if (receipt === null) return;
+      const receipt = governance.admitLeadProposal(
+        request(attempt.runId, "lead-admission-" + attempt.id, "daemon-lead-admission:" + attempt.id),
+        daemon, dependencies.currentBinding(attempt.runId), tasks, seats, dependencies.readMaxSeats?.() ?? 6, resolutions);
       if (receipt.status === "denied") {
         log(`team lead: run=${attempt.runId} refused the lead's task list: ${receipt.reason ?? "no reason recorded"}`);
       }
@@ -316,6 +299,7 @@ export function composeLeadManager(dependencies: LeadManagerDependencies): LeadM
         const runs = db.prepare("SELECT id FROM team_runs WHERE state = 'approved' AND phase = 'delivery' ORDER BY rowid")
           .all() as Array<{ id: string }>;
         for (const { id: runId } of runs) {
+          if (pendingFinalization(db, runId)) continue;
           try {
             const lead = governance.leadTask(runId);
             if (!lead) continue;

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -153,6 +153,32 @@ describe("task threads", () => {
     expect(governance.promoteTaskComments("run")).toEqual(["impl-followup-1"]);
     // The follow-up took the comment, so a second sweep starts nothing.
     expect(governance.promoteTaskComments("run")).toEqual([]);
+  });
+
+  it.each([false, true])("recovers a handed-back comment after a continuation crash (committed: %s)", async committed => {
+    comment("c1", "impl", "Also redo the billing page.");
+    await prompt("impl", "impl-a1");
+    attempt("impl-a1", "impl", "stopped");
+    setState("lead", "done");
+    const report = join(stateRoot, "turns", "impl-a1", "report");
+    mkdirSync(report, { recursive: true });
+    writeFileSync(join(report, "handback.json"), JSON.stringify([{ messageId: "c1", reason: "Billing belongs to another task." }]));
+    const original = governance.continueLeadChat.bind(governance);
+    const continuation = vi.spyOn(governance, "continueLeadChat").mockImplementationOnce((...args) => {
+      if (committed) original(...args);
+      throw new Error("handback continuation crash");
+    });
+    const service = () => composeTaskThreads({ db, governance, turnStateRoot: stateRoot, log: () => {}, dispatch: () => undefined });
+    const stopped = { id: "impl-a1", runId: "run", qitemId: governance.findTask("run", "impl")!.qitemId, role: "implementer" };
+    await expect(service().attemptStopped(stopped)).rejects.toThrow("handback continuation crash");
+    expect(listTaskComments(db, "run", "impl")).toEqual([]);
+    expect(pendingOwnerMessages(db, "run").map(message => message.id)).toEqual(["c1"]);
+    await service().attemptStopped(stopped);
+    expect(queueState("lead")).toBe("pending");
+    expect(db.prepare("SELECT count(*) AS n FROM team_control_requests WHERE idempotency_key = 'handback:impl-a1'").get()).toEqual({ n: 1 });
+    expect(continuation).toHaveBeenCalledTimes(committed ? 1 : 2);
+    await service().attemptStopped(stopped);
+    expect(continuation).toHaveBeenCalledTimes(committed ? 1 : 2);
   });
 
   it("hands a comment back to the lead as an owner message", async () => {

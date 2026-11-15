@@ -1,7 +1,8 @@
+import { pendingFinalization, recordedControlReceipt } from "./attempt-finalization.js";
 import type Database from "better-sqlite3";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { chatBody } from "./lead-chat.js";
+import { chatBody, pendingOwnerMessages } from "./lead-chat.js";
 
 /**
  * Plan KTD5 — a task thread is the owner's chat scoped to one task.
@@ -99,14 +100,15 @@ export function readHandback(file: string): Handback[] {
  */
 export function handBackComments(db: Database.Database, runId: string, taskId: string, attemptId: string,
   entries: readonly Handback[]): Handback[] {
-  const moved: Handback[] = [];
-  for (const entry of entries) {
-    const changed = db.prepare(`UPDATE team_chat_messages SET task_id = NULL, delivered_attempt = NULL
-      WHERE id = ? AND run_id = ? AND task_id = ? AND sender = 'owner' AND delivered_attempt = ?`)
-      .run(entry.messageId, runId, taskId, attemptId).changes;
-    if (changed) moved.push(entry);
-  }
-  return moved;
+  return db.transaction(() => {
+    const moved: Handback[] = [];
+    const move = db.prepare(`UPDATE team_chat_messages SET task_id = NULL, delivered_attempt = NULL
+      WHERE id = ? AND run_id = ? AND task_id = ? AND sender = 'owner' AND delivered_attempt = ?`);
+    for (const entry of entries) {
+      if (move.run(entry.messageId, runId, taskId, attemptId).changes) moved.push(entry);
+    }
+    return moved;
+  })();
 }
 
 export interface TaskThreadDependencies {
@@ -133,25 +135,34 @@ export function composeTaskThreads(dependencies: TaskThreadDependencies) {
   return {
     async attemptStopped(attempt: { id: string; runId: string; qitemId: string | null; role: string }): Promise<void> {
       if (attempt.role !== "implementer" || !attempt.qitemId || !dependencies.turnStateRoot) return;
+      const continuationKey = `handback:${attempt.id}`;
+      if (recordedControlReceipt(dependencies.db, attempt.runId, continuationKey)) return;
       const task = dependencies.db.prepare("SELECT task_id AS taskId FROM team_queue_authority WHERE qitem_id = ?").get(attempt.qitemId) as { taskId: string } | undefined;
       if (!task) return;
       const file = handbackPath(join(dependencies.turnStateRoot, "turns", attempt.id, "report", "task-report.json"));
-      const moved = handBackComments(dependencies.db, attempt.runId, task.taskId, attempt.id, readHandback(file));
-      if (!moved.length) return;
+      const entries = readHandback(file);
+      if (!entries.length) return;
+      const moved = handBackComments(dependencies.db, attempt.runId, task.taskId, attempt.id, entries);
+      if (!moved.length) {
+        // A committed move leaves an owner message waiting even when its continuation failed.
+        const pending = new Set(pendingOwnerMessages(dependencies.db, attempt.runId).map(message => message.id));
+        if (!entries.some(entry => pending.has(entry.messageId))) return;
+      }
       for (const entry of moved) log(`team task thread: task ${task.taskId} handed comment ${entry.messageId} to the lead: ${entry.reason}`);
       const lead = dependencies.db.prepare(`SELECT task_id AS taskId FROM team_queue_authority
         WHERE run_id = ? AND json_extract(assignment_json, '$.role') = 'lead' ORDER BY rowid LIMIT 1`).get(attempt.runId) as { taskId: string } | undefined;
       if (!lead) return;
-      try {
-        dependencies.governance.continueLeadChat({ protocolVersion: "1.0", runId: attempt.runId, actionId: lead.taskId,
-          expectedEntityVersion: dependencies.governance.getRun(attempt.runId).entityVersion, idempotencyKey: `handback:${attempt.id}`, payload: {} },
-        { kind: "daemon", sessionId: "daemon" });
-      } catch { /* A running or pending lead reads the message on its next turn. */ }
+      dependencies.governance.continueLeadChat({ protocolVersion: "1.0", runId: attempt.runId, actionId: lead.taskId,
+        expectedEntityVersion: dependencies.governance.getRun(attempt.runId).entityVersion, idempotencyKey: continuationKey, payload: {} },
+      { kind: "daemon", sessionId: "daemon" });
       await start(attempt.runId, lead.taskId);
     },
     async sweep(): Promise<void> {
       const runs = dependencies.db.prepare("SELECT id FROM team_runs WHERE state = 'approved'").all() as { id: string }[];
-      for (const run of runs) for (const taskId of dependencies.governance.promoteTaskComments(run.id)) await start(run.id, taskId);
+      for (const run of runs) {
+        if (pendingFinalization(dependencies.db, run.id)) continue;
+        for (const taskId of dependencies.governance.promoteTaskComments(run.id)) await start(run.id, taskId);
+      }
     },
   };
 }

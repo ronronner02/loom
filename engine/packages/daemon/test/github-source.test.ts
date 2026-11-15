@@ -173,6 +173,27 @@ describe("the GitHub source", () => {
       expect(taskCommentNote([{ ...listTaskComments(db, "run", "api")[0]!, id: "owner-1" }], "/h.json", "/d.json")).not.toContain("Never post on GitHub");
     });
 
+    it("rolls back a partial comment-outcome batch and replays it at one head", async () => {
+      routes[`${base}/pulls/7/comments`] = [1, 2].map(id => ({ id: 100 + id, node_id: `RC${id}`,
+        body: "Rename this.", path: "src/api/routes.ts", user: user("owner-login"), html_url: `https://x/rc${id}` }));
+      await source().sweep();
+      attempt("att-1");
+      db.exec(`CREATE TRIGGER reject_second_outcome BEFORE UPDATE OF outcome ON team_github_threads
+        WHEN NEW.outcome IS NOT NULL AND EXISTS (SELECT 1 FROM team_github_threads
+          WHERE run_id = NEW.run_id AND message_id <> NEW.message_id AND outcome IS NOT NULL)
+        BEGIN SELECT RAISE(ABORT, 'injected outcome failure'); END`);
+      expect(() => source().attemptStopped({ id: "att-1", runId: "run" }, declineFile)).toThrow("injected outcome failure");
+      expect(db.prepare("SELECT outcome FROM team_github_threads ORDER BY message_id").all()).toEqual([{ outcome: null }, { outcome: null }]);
+      db.exec("DROP TRIGGER reject_second_outcome");
+      source().attemptStopped({ id: "att-1", runId: "run" }, declineFile);
+      const rows = db.prepare("SELECT outcome, head_sha AS head, updated_at AS at FROM team_github_threads ORDER BY message_id").all();
+      expect(rows).toEqual([1, 2].map(() => ({ outcome: "fixed", head: "headsha", at: new Date(clock).toISOString() })));
+      db.prepare("UPDATE team_pull_requests SET head_sha = 'later-head'").run();
+      clock += 1000;
+      source().attemptStopped({ id: "att-1", runId: "run" }, declineFile);
+      expect(db.prepare("SELECT outcome, head_sha AS head, updated_at AS at FROM team_github_threads ORDER BY message_id").all()).toEqual(rows);
+    });
+
     it("replies once with the task's reason to a declined comment", async () => {
       const service = source();
       await service.sweep();

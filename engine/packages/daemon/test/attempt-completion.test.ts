@@ -7,8 +7,9 @@ import type Database from "better-sqlite3";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { TEAM_CONTROL_VERSION, type ControlRequest } from "../src/contracts/team-control.js";
-import { composeAttemptCompletion, extractReviewerReport } from "../src/domain/attempt-completion.js";
+import { composeAttemptCompletion, extractReviewerReport, type AttemptCompletionDependencies } from "../src/domain/attempt-completion.js";
 import { agentTurnOutputPaths } from "../src/domain/agent-turn.js";
+import { bootReconcileAttempts } from "../src/domain/boot-recovery.js";
 import { pendingTasks } from "../src/domain/pending-dispatch.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { WorkflowRuntime, dependencySatisfied } from "../src/domain/workflow-runtime.js";
@@ -53,7 +54,7 @@ describe("U4 daemon-recorded outcomes", () => {
     const policy = unisolatedPolicyCapability(1);
     binding = { ...bindingForGoal({ root, planRef: "plan.md", writePaths: ["src"], policy }),
       limits: { maxSessions: 2, maxActiveMs: 3_600_000, maxRetries: 1, maxReviewRounds: 2 } };
-    db = createDb(":memory:");
+    db = createDb(join(turnRoot, "state.sqlite"));
     initializeDatabase(db);
     db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'fixture')").run();
     const bus = new EventBus(db);
@@ -87,7 +88,7 @@ describe("U4 daemon-recorded outcomes", () => {
   const manifest = (patch: string) => ({ base: "commit" as const, baseIdentifier: "a".repeat(40), files: [{ path: "src/a.ts" }],
     manifestDigest: `sha256:${"b".repeat(64)}`, patch });
 
-  const completion = (candidateManifestFor: (runId: string, taskId: string) => ReturnType<typeof manifest>, readLeadProposal?: (runId: string, taskId: string) => readonly unknown[]) => composeAttemptCompletion({
+  const completion = (candidateManifestFor: (runId: string, taskId: string) => ReturnType<typeof manifest>, readLeadProposal?: (runId: string, taskId: string) => readonly unknown[], overrides: Partial<AttemptCompletionDependencies> = {}) => composeAttemptCompletion({
     db, governance, currentBinding: () => structuredClone(binding), alive: () => false, log: () => {}, turnStateRoot: turnRoot,
     sessions: { findResumeContextByName: () => null, updateStartupStatus: vi.fn() }, candidateManifestFor,
     ...(readLeadProposal ? { readLeadProposal } : {}),
@@ -95,6 +96,7 @@ describe("U4 daemon-recorded outcomes", () => {
       const eventBus = new EventBus(db);
       return new WorkflowRuntime({ db, eventBus, queueRepo: new QueueRepository(db, eventBus) }).taskReportFor(runId, id, turnRoot);
     },
+    ...overrides,
   });
 
   const addAttempt = (taskId: string, id: string, role: "implementer" | "reviewer") => {
@@ -171,6 +173,209 @@ describe("U4 daemon-recorded outcomes", () => {
     expect(db.prepare("SELECT count(*) AS n FROM events WHERE type = 'team.control' AND json_extract(payload, '$.action') = 'task.outcome'").get()).toEqual({ n: 1 });
   });
 
+
+  it("reconciles an unrecorded stopped outcome after a completion restart", async () => {
+    const record = vi.spyOn(governance, "recordTaskOutcome");
+    record.mockImplementationOnce(() => { throw new Error("one-shot outcome persistence failure"); });
+    const candidate = () => manifest("diff --git a/src/a.ts b/src/a.ts\n+++ b/src/a.ts\n");
+
+    await completion(candidate).sweep();
+
+    expect(governance.getAttempt(attemptId)?.state).toBe("stopped");
+    expect(governance.queueState(taskQitemId)).toBe("pending");
+    expect(pendingTasks(db, "run")).toEqual([]);
+
+    db.close();
+    db = createDb(join(turnRoot, "state.sqlite"));
+    initializeDatabase(db);
+    const bus = new EventBus(db);
+    governance = new PlanGovernance(db, bus, new QueueRepository(db, bus), () => new Date("2026-11-06T00:00:00.000Z"),
+      () => unisolatedPolicyCapability(1));
+    await completion(candidate).sweep();
+
+    expect(governance.queueState(taskQitemId)).toBe("done");
+    expect(governance.findTask("run", "task-review-1")?.assignment.role).toBe("reviewer");
+    expect(governance.getRun("run").reviewRoundsUsed).toBe(1);
+    await completion(candidate).sweep();
+    expect(governance.getRun("run").reviewRoundsUsed).toBe(1);
+  });
+
+  it("reuses a committed outcome receipt before rereading candidate evidence", async () => {
+    const original = governance.recordTaskOutcome.bind(governance);
+    const record = vi.spyOn(governance, "recordTaskOutcome").mockImplementationOnce((...args) => {
+      original(...args);
+      throw new Error("crash after the outcome commit");
+    });
+    const candidate = vi.fn(() => manifest("diff --git a/src/a.ts b/src/a.ts\n"));
+    const telemetry = { capture: vi.fn(), recordOutcome: vi.fn() };
+    await completion(candidate, undefined, { telemetry }).sweep();
+    expect(governance.getRun("run").reviewRoundsUsed).toBe(1);
+
+    candidate.mockImplementation(() => { throw new Error("a newer candidate must not be read"); });
+    await completion(candidate, undefined, { telemetry }).sweep();
+
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(candidate).toHaveBeenCalledTimes(1);
+    expect(telemetry.recordOutcome).toHaveBeenLastCalledWith(attemptId, { outcome: "succeeded", retryScheduled: false });
+    expect(governance.getRun("run").reviewRoundsUsed).toBe(1);
+  });
+
+  it("counts a boot-interrupted attempt's retry once across an outcome acknowledgement crash", async () => {
+    await bootReconcileAttempts({ db, governance, observe: async () => "dead", log: () => {} });
+    const original = governance.recordTaskOutcome.bind(governance);
+    vi.spyOn(governance, "recordTaskOutcome").mockImplementationOnce((...args) => {
+      original(...args);
+      throw new Error("crash after retry accounting");
+    });
+    const candidate = vi.fn(() => manifest(""));
+    const telemetry = { capture: vi.fn(), recordOutcome: vi.fn() };
+    await completion(candidate, undefined, { telemetry }).sweep();
+    expect(governance.getRun("run").retriesUsed).toBe(1);
+    await completion(candidate, undefined, { telemetry }).sweep();
+    await completion(candidate, undefined, { telemetry }).sweep();
+    expect(governance.getRun("run").retriesUsed).toBe(1);
+    expect(telemetry.recordOutcome).toHaveBeenLastCalledWith(attemptId, { outcome: "failed", retryScheduled: true });
+    expect(candidate).not.toHaveBeenCalled();
+  });
+
+  it("resumes unfinished turn owners without repeating acknowledged owners or dispatching early", async () => {
+    const first = vi.fn(async () => {});
+    const second = vi.fn(async () => {}).mockRejectedValueOnce(new Error("second owner unavailable"));
+    const dispatchPending = vi.fn(async () => {});
+    const overrides = { stoppedOwners: [{ name: "first", complete: first }, { name: "second", complete: second }], dispatchPending };
+    const candidate = () => manifest("diff --git a/src/a.ts b/src/a.ts\n");
+    await completion(candidate, undefined, overrides).sweep();
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(dispatchPending).not.toHaveBeenCalled();
+    expect(pendingTasks(db, "run")).toEqual([]);
+
+    await completion(candidate, undefined, overrides).sweep();
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).toHaveBeenCalledTimes(2);
+    expect(dispatchPending).toHaveBeenCalledWith("run");
+    await completion(candidate, undefined, overrides).sweep();
+    expect(second).toHaveBeenCalledTimes(2);
+  });
+
+  it("persists stop and enrollment atomically", async () => {
+    db.exec(`CREATE TRIGGER fail_finalization BEFORE INSERT ON team_attempt_finalizations
+      BEGIN SELECT RAISE(ABORT, 'checkpoint failure'); END`);
+    const candidate = vi.fn(() => manifest("diff --git a/src/a.ts b/src/a.ts\n"));
+    await completion(candidate).sweep();
+    expect(governance.getAttempt(attemptId)?.state).toBe("running");
+    expect(candidate).not.toHaveBeenCalled();
+    db.exec("DROP TRIGGER fail_finalization");
+    await completion(candidate).sweep();
+    expect(governance.queueState(taskQitemId)).toBe("done");
+  });
+
+  it("retries integration after the approved reviewer outcome without another verdict", async () => {
+    const candidate = () => manifest("diff --git a/src/a.ts b/src/a.ts\n");
+    await completion(candidate).sweep();
+    addAttempt("task-review-1", "review-attempt", "reviewer");
+    writeTurn("review-attempt", '```json\n{"findings":[]}\n```');
+    const integrateTask = vi.fn(async () => {}).mockRejectedValueOnce(new Error("integration unavailable"));
+    await completion(candidate, undefined, { integrateTask }).sweep();
+    expect(governance.queueState(governance.findTask("run", "task-review-1")!.qitemId)).toBe("done");
+    expect(integrateTask).toHaveBeenCalledTimes(1);
+    expect(db.prepare("SELECT count(*) AS n FROM team_attempt_finalizations").get()).toEqual({ n: 1 });
+    await completion(candidate, undefined, { integrateTask }).sweep();
+    expect(integrateTask).toHaveBeenCalledTimes(2);
+    expect(db.prepare("SELECT count(*) AS n FROM team_attempt_finalizations").get()).toEqual({ n: 0 });
+    expect(db.prepare("SELECT count(*) AS n FROM events WHERE json_extract(payload, '$.action') = 'review.verdict'").get()).toEqual({ n: 1 });
+  });
+
+  it("does not restart after stop is called during boot reconciliation", async () => {
+    let reconciled!: () => void;
+    const boot = new Promise<void>(resolve => { reconciled = resolve; });
+    const alive = vi.fn(() => true);
+    const observe = completion(() => manifest(""), undefined, { reconcileOnBoot: () => boot, alive });
+    observe.start(); observe.stop(); reconciled();
+    await new Promise(resolve => setImmediate(resolve));
+    expect(alive).not.toHaveBeenCalled();
+  });
+
+  it("does not backfill historical manually stopped attempts", async () => {
+    governance.recordUsage(request(attemptId, { expectedAttemptVersion: 1, state: "stopped", usage }));
+    const candidate = vi.fn(() => manifest("diff --git a/src/a.ts b/src/a.ts\n"));
+    await completion(candidate).sweep();
+    expect(candidate).not.toHaveBeenCalled();
+    expect(governance.queueState(taskQitemId)).toBe("pending");
+    expect(governance.getRun("run").reviewRoundsUsed).toBe(0);
+  });
+
+  it("leaves a newer occupant's seat untouched when an older finalization resumes", async () => {
+    const complete = vi.fn(async () => {}).mockRejectedValueOnce(new Error("owner unavailable"));
+    const updateStartupStatus = vi.fn();
+    const sessions = { findResumeContextByName: () => ({ sessionId: "seat" } as
+      NonNullable<ReturnType<AttemptCompletionDependencies["sessions"]["findResumeContextByName"]>>), updateStartupStatus };
+    const candidate = () => manifest("diff --git a/src/a.ts b/src/a.ts\n");
+    const overrides = { sessions, stoppedOwners: [{ name: "owner", complete }] };
+    await completion(candidate, undefined, overrides).sweep();
+    expect(updateStartupStatus).not.toHaveBeenCalled();
+    governance.createTask(request("next", {
+      assignment: { taskId: "next", role: "implementer", paths: ["src"], dependencies: [] },
+      outputs: ["src/b.ts"], permissions: [...roleConfiguration.implementer.permissions],
+      sourceSession: "lead@rig", destinationSession: "implementer@rig", body: "Next task",
+    }), binding);
+    addAttempt("next", "newer-attempt", "implementer");
+
+    await completion(candidate, undefined, { ...overrides, alive: () => true }).sweep();
+
+    expect(governance.getAttempt("newer-attempt")?.state).toBe("running");
+    expect(updateStartupStatus).not.toHaveBeenCalled();
+  });
+
+  it("waits for boot reconciliation before starting timer sweeps", async () => {
+    vi.useFakeTimers();
+    let reconciled!: () => void;
+    const boot = new Promise<void>(resolve => { reconciled = resolve; });
+    const alive = vi.fn(() => true);
+    const observe = completion(() => manifest(""), undefined, { reconcileOnBoot: () => boot, intervalMs: 10, alive });
+    try {
+      observe.start();
+      await vi.advanceTimersByTimeAsync(50);
+      expect(alive).not.toHaveBeenCalled();
+      reconciled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(alive).toHaveBeenCalledTimes(1);
+    } finally {
+      observe.stop();
+      reconciled();
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps polling after a transient first-sweep failure", async () => {
+    vi.useFakeTimers();
+    const alive = vi.fn(() => true);
+    const log = vi.fn();
+    const prepare = db.prepare.bind(db);
+    let fail = true;
+    const fault = vi.spyOn(db, "prepare").mockImplementation(sql => {
+      if (fail && sql.startsWith("SELECT seq, payload FROM events")) {
+        fail = false;
+        throw new Error("one-shot database read failure");
+      }
+      return prepare(sql);
+    });
+    const observe = completion(() => manifest(""), undefined, { intervalMs: 10, alive, log });
+    try {
+      observe.start();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(log).toHaveBeenCalledWith(expect.stringContaining("one-shot database read failure"));
+      expect(alive).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(10);
+      expect(alive).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(10);
+      expect(alive).toHaveBeenCalledTimes(2);
+    } finally {
+      observe.stop();
+      fault.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 
   const writeReport = (id: string, content: unknown) => {
     const path = agentTurnOutputPaths(turnRoot, id).taskReport;

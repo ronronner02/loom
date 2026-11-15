@@ -565,7 +565,7 @@ describe("U5 — the lead turn's end is its reply", () => {
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), "u5-turn-end-"));
-    db = createDb();
+    db = createDb(join(root, "state.sqlite"));
     initializeDatabase(db);
     db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'demo')").run();
     const bus = new EventBus(db);
@@ -583,12 +583,40 @@ describe("U5 — the lead turn's end is its reply", () => {
     writeFileSync(output.lastMessage, text);
   };
   /** One task of the run, in the given queue state. */
-  const task = (taskId: string, role: "implementer" | "reviewer", state: string) => {
+  const task = (taskId: string, role: "lead" | "implementer" | "reviewer", state: string) => {
     db.prepare(`INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, priority, tier, tags, body)
       VALUES (?, '2026-11-05T00:00:00Z', '2026-11-05T00:00:00Z', 'lead@rig', 'a@rig', ?, 'routine', 'mode-1', '[]', 'Work.')`).run(`q-${taskId}`, state);
     db.prepare(`INSERT INTO team_queue_authority (qitem_id, run_id, task_id, assignment_json, outputs_json, permissions_json, evidence_json, entity_version)
       VALUES (?, 'run', ?, ?, '[]', '[]', '{}', 1)`).run(`q-${taskId}`, taskId, JSON.stringify({ taskId, role, paths: ["src"], dependencies: [] }));
   };
+
+  it.each([false, true])("recovers a lead continuation after a crash (command committed: %s)", async committed => {
+    task("lead", "lead", "done");
+    appendChatMessage(db, { id: "m1", runId: "run", body: "First question", createdAt: "2026-11-05T00:00:01Z" });
+    takeOwnerMessages(db, "run", "attempt-1");
+    finalMessage("attempt-1", "The first answer.");
+    appendChatMessage(db, { id: "m2", runId: "run", body: "Second question", createdAt: "2026-11-05T00:00:02Z" });
+    const original = governance.continueLeadChat.bind(governance);
+    vi.spyOn(governance, "continueLeadChat").mockImplementationOnce((...args) => {
+      if (committed) original(...args);
+      throw new Error("continuation crash");
+    });
+    const readEscalation = vi.fn(() => null);
+    const input = { id: "attempt-1", runId: "run", qitemId: "q-lead", role: "lead" };
+    await expect(composeLeadTurnEnd({ db, governance, turnStateRoot: root, readEscalation, dispatch: () => undefined })(input))
+      .rejects.toThrow("continuation crash");
+    expect(listChatMessages(db, "run").filter(message => message.sender === "lead")).toHaveLength(1);
+    expect(governance.queueState("q-lead")).toBe(committed ? "pending" : "done");
+    db.close();
+    db = createDb(join(root, "state.sqlite"));
+    const bus = new EventBus(db);
+    governance = new PlanGovernance(db, bus, new QueueRepository(db, bus), () => new Date("2026-11-05T00:00:00.000Z"), () => policy);
+    await composeLeadTurnEnd({ db, governance, turnStateRoot: root, readEscalation, dispatch: () => undefined })(input);
+    expect(governance.queueState("q-lead")).toBe("pending");
+    expect(listChatMessages(db, "run").filter(message => message.sender === "lead")).toHaveLength(1);
+    expect(db.prepare("SELECT count(*) AS n FROM team_control_requests WHERE idempotency_key = 'lead-chat-continue:attempt-1'").get()).toEqual({ n: 1 });
+    if (committed) expect(readEscalation).toHaveBeenCalledTimes(1);
+  });
 
   it("keeps a turn that needs no owner attention as activity, not chat", async () => {
     // Covers AE4: a turn woken by a team event writes prose; nothing needs the owner, so the

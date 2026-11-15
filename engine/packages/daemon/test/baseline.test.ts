@@ -42,6 +42,7 @@ const tables = [
   "stream_items",
   "team_approval_consumptions",
   "team_approvals",
+  "team_attempt_finalizations",
   "team_attempts",
   "team_bootstraps",
   "team_chat_messages",
@@ -55,6 +56,7 @@ const tables = [
   "team_intake_policies",
   "team_intake_sources",
   "team_integration_commits",
+  "team_integration_intents",
   "team_prompt_versions",
   "team_pull_requests",
   "team_queue_authority",
@@ -95,9 +97,9 @@ describe("fresh team baseline", () => {
     initializeDatabase(db);
     expect(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
       .all().map(row => (row as {name: string}).name)).toEqual(tables);
-    // Captured from the replaced chain, restricted to the retained tables and their objects.
+    // Pins the current baseline; db-upgrades.test.ts checks equivalence with shipped upgrades.
     // This also pins every column type, default, CHECK, UNIQUE and FK declaration.
-    expect(hash(JSON.stringify(schema(db)))).toBe("4134dc2be371a52a38bb0805d9cab088c2bb4f086611eb09030230416d391e5a");
+    expect(hash(JSON.stringify(schema(db)))).toBe("d9df04322a4c6abe270a5e205fc0be1bcedaebe620e653065362f55cb9bbe883");
     expect(schema(db).filter(row => (row as {type: string}).type === "index")).toHaveLength(80);
     expect(schema(db).filter(row => (row as {type: string}).type === "trigger")).toHaveLength(1);
     expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
@@ -169,7 +171,7 @@ describe("fresh team baseline", () => {
     const db = createDb(join(directory(), "failed.sqlite"));
     connections.push(db);
     expect(() => initializeDatabase(db, db.name, { injectFailure: () => {
-      expect(schema(db)).toHaveLength(145);
+      expect(schema(db)).toHaveLength(147);
       expect(db.pragma("user_version", { simple: true })).toBe(BASELINE_VERSION);
       throw new Error("injected baseline failure");
     } })).toThrow("injected baseline failure");
@@ -182,7 +184,7 @@ describe("fresh team baseline", () => {
     expect(schema(reopened)).toEqual([]);
     expect(reopened.pragma("user_version", { simple: true })).toBe(0);
     initializeDatabase(reopened);
-    expect(schema(reopened)).toHaveLength(145);
+    expect(schema(reopened)).toHaveLength(147);
     expect(reopened.pragma("foreign_key_check")).toEqual([]);
   });
 });

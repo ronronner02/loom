@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { createDb } from "../src/db/connection.js";
 import { classificationFor } from "../src/domain/attempt-failure.js";
 import { composeAttemptCompletion } from "../src/domain/attempt-completion.js";
+import { bootReconcileAttempts } from "../src/domain/boot-recovery.js";
 import { AttemptTelemetry } from "../src/domain/attempt-telemetry.js";
 import { nativeThread, nativeUsage, tokenCounts, toolStart, turnTelemetryFixture } from "./helpers/turn-telemetry.js";
 
@@ -179,13 +180,14 @@ describe("attempt telemetry persistence and per-turn usage", () => {
   });
 
   it("persists before pane/seat release and stores the outcome before dispatch", async () => {
+    const successor = fixture.addTask("successor");
     const attempt = fixture.addAttempt("complete");
     fixture.writeSidecars(attempt.id, nativeUsage(), [toolStart, { ...toolStart, seq: 2, status: "completed" }]);
     fixture.setNow("2026-11-07T12:00:10.000Z");
     const order: string[] = [];
     const completion = composeAttemptCompletion({ db: fixture.db, governance: fixture.governance,
       currentBinding: () => fixture.binding, turnStateRoot: fixture.turnRoot, telemetry: store,
-      alive: () => false, paneExit: async () => ({ dead: true, code: 0 }),
+      alive: identity => identity.processStart === "successor-attempt", paneExit: async () => ({ dead: true, code: 0 }),
       releasePane: async () => {
         expect(store.read(attempt)).toMatchObject({ source: "stored", activeMs: 10_000 }); order.push("pane");
       },
@@ -196,14 +198,18 @@ describe("attempt telemetry persistence and per-turn usage", () => {
         } },
       candidateManifestFor: () => ({ base: "commit", baseIdentifier: "a".repeat(40), files: [{ path: "src/result.txt" }],
         manifestDigest: "sha256:" + "b".repeat(64), patch: "diff --git a/src/result.txt b/src/result.txt\n+++ b/src/result.txt\n" }),
-      dispatchPending: async () => {
-        expect(store.analytics({ days: 1 }).totals.succeeded).toBe(1); order.push("dispatch");
+      dispatchPending: async runId => {
+        expect(runId).toBe(attempt.runId);
+        expect(store.analytics({ days: 1 }).totals.succeeded).toBe(1);
+        fixture.addAttempt("successor-attempt", { task: successor });
+        order.push("dispatch");
       },
     });
     await completion.sweep();
     expect(order).toEqual(["pane", "seat", "dispatch"]);
     expect(fixture.governance.getAttempt(attempt.id)!.usage.inputTokens.value).toBeNull();
     await completion.sweep(); expect(order).toHaveLength(3);
+    expect(fixture.governance.getAttempt("successor-attempt")!.state).toBe("running");
   });
 
   it("retains failed attempt history while a provider retry waits in the queue", async () => {
@@ -238,19 +244,59 @@ describe("attempt telemetry persistence and per-turn usage", () => {
     expect(store.read(fixture.governance.getAttempt(attempt.id)!).source).toBe("stored");
   });
 
-  it("keeps an unknown outcome and releases the seat if the outcome metadata write fails", async () => {
+  it("retains the seat until outcome metadata is durable, then releases it once", async () => {
     const attempt = fixture.addAttempt("outcome-write-failure");
     fixture.writeSidecars(attempt.id, nativeUsage());
-    vi.spyOn(store, "recordOutcome").mockImplementationOnce(() => { throw new Error("fixture write failure"); });
-    const released = vi.fn(), log = vi.fn();
+    const recordOutcome = vi.spyOn(store, "recordOutcome").mockImplementationOnce(() => { throw new Error("fixture write failure"); });
+    const released = vi.fn(), dispatchPending = vi.fn(async () => {}), log = vi.fn();
     const completion = composeAttemptCompletion({ db: fixture.db, governance: fixture.governance,
-      currentBinding: () => fixture.binding, telemetry: store, alive: () => false, log,
+      currentBinding: () => fixture.binding, telemetry: store, alive: () => false, log, dispatchPending,
       sessions: { findResumeContextByName: () => ({ sessionId: "session" }) as never, updateStartupStatus: released },
     });
+    const checkpoint = () => fixture.db.prepare(`SELECT progress_json AS progress FROM team_attempt_finalizations
+      WHERE attempt_id = ?`).get(attempt.id) as { progress: string } | undefined;
     await completion.sweep();
-    expect(fixture.governance.getAttempt(attempt.id)!.state).toBe("stopped"); expect(released).toHaveBeenCalledTimes(1);
-    expect(store.read(fixture.governance.getAttempt(attempt.id)!)).toMatchObject({ source: "stored", outcome: "unknown" });
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("telemetry outcome"));
+    const stopped = fixture.governance.getAttempt(attempt.id)!;
+    expect(stopped.state).toBe("stopped");
+    expect(recordOutcome).toHaveBeenCalledTimes(1);
+    expect(released).not.toHaveBeenCalled();
+    expect(dispatchPending).not.toHaveBeenCalled();
+    const captured = store.read(stopped);
+    expect(captured).toMatchObject({ source: "stored", outcome: "unknown" });
+    expect(checkpoint()).toBeDefined();
+    expect(JSON.parse(checkpoint()!.progress).completed).not.toContain("telemetry");
+    expect(log).toHaveBeenCalledWith(expect.stringContaining(`finalization for ${attempt.id} remains pending: fixture write failure`));
+
+    fixture.setNow("2026-11-07T12:00:20.000Z");
+    await completion.sweep();
+    expect(recordOutcome).toHaveBeenCalledTimes(2);
+    expect(recordOutcome).toHaveBeenLastCalledWith(attempt.id, { outcome: "unknown", retryScheduled: false });
+    expect(store.read(stopped)).toEqual(captured);
+    expect(released).toHaveBeenCalledTimes(1);
+    expect(checkpoint()).toBeUndefined();
+    expect(dispatchPending).toHaveBeenCalledWith(attempt.runId);
+    await completion.sweep();
+    expect(recordOutcome).toHaveBeenCalledTimes(2);
+    expect(released).toHaveBeenCalledTimes(1);
+  });
+
+  it("captures a boot-reconciled stop before acknowledging its telemetry", async () => {
+    const attempt = fixture.addAttempt("boot-interrupted");
+    fixture.writeSidecars(attempt.id, nativeUsage());
+    await bootReconcileAttempts({ db: fixture.db, governance: fixture.governance, observe: async () => "dead", log: vi.fn() });
+    const stopped = fixture.governance.getAttempt(attempt.id)!;
+    expect(stopped.state).toBe("stopped");
+    expect(store.read(stopped).source).toBe("unavailable");
+    const capture = vi.spyOn(store, "capture");
+    const completion = composeAttemptCompletion({ db: fixture.db, governance: fixture.governance,
+      currentBinding: () => fixture.binding, telemetry: store, alive: () => false, log: vi.fn(),
+      sessions: { findResumeContextByName: () => null, updateStartupStatus: vi.fn() },
+    });
+    await completion.sweep();
+    expect(store.read(stopped).source).toBe("stored");
+    expect(fixture.db.prepare("SELECT count(*) AS n FROM team_attempt_finalizations").get()).toEqual({ n: 0 });
+    await completion.sweep();
+    expect(capture).toHaveBeenCalledTimes(1);
   });
 
   it("counts an accepted owner retry from its event, not from the number of native attempts", () => {
