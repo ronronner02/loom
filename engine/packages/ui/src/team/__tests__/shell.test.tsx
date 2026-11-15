@@ -71,6 +71,7 @@ describe("command-center shell", () => {
 
   it("defaults to light theme and switches appearance via mobile/drawer selector", async () => {
     const { view } = await show();
+    expect(view.container.querySelector("video, .team-backdrop")).toBeNull();
     expect(view.container.querySelector(".team-shell")!.getAttribute("data-ui-theme")).toBe("light");
     const opener = screen.getByLabelText("Open navigation");
     fireEvent.click(opener);

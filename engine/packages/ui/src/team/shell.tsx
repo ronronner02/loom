@@ -133,7 +133,7 @@ export function ShellFrame({ language, section, appearance, project, projectPick
   onLanguage: (next: "zh-CN" | "en") => void; hrefFor: (section: TeamSection) => string;
   onSelect: (section: TeamSection) => void; onOpenChat: (opener: HTMLButtonElement) => void;
   onSearch: (opener: HTMLElement) => void; onCreateProject?: (opener: HTMLButtonElement) => void;
-  action?: ReactNode; backgroundMotion?: boolean; contextPanel?: ReactNode; children: ReactNode;
+  action?: ReactNode; contextPanel?: ReactNode; children: ReactNode;
 }) {
   const { t } = useTranslation();
   const [navigationOpen, setNavigationOpen] = useState(false);
