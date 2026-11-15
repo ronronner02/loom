@@ -46,11 +46,41 @@ export interface CandidateFacts {
  */
 export function changedPaths(patch: string): string[] {
   const paths: string[] = [];
+  let current = -1;
   for (const line of patch.split("\n")) {
-    const match = /^diff --git a\/(.+) b\/(.+)$/.exec(line);
-    if (match) paths.push(match[2]!);
+    if (line.startsWith("diff --git ")) {
+      current = -1;
+      // Git leaves spaces unquoted. Match identical names before splitting at a possible
+      // " b/" inside the filename; candidate manifests render with --no-renames.
+      const identical = /^diff --git a\/(.+) b\/\1$/.exec(line);
+      const pair = /^diff --git (?:"a\/(?:[^"\\]|\\.)*"|a\/[^"\n]+) ("b\/(?:[^"\\]|\\.)*"|b\/[^"\n]+)$/.exec(line);
+      const path = identical?.[1] ?? (pair ? decodeGitPath(pair[1]!).slice(2) : null);
+      if (path !== null) { current = paths.length; paths.push(path); }
+    } else if (current >= 0) {
+      // Rename/copy metadata disambiguates different names containing spaces and " b/".
+      const destination = /^(?:rename|copy) to (.+)$/.exec(line);
+      if (destination) paths[current] = decodeGitPath(destination[1]!);
+    }
   }
   return paths;
+}
+
+const GIT_PATH_ESCAPES: Readonly<Record<string, number>> = {
+  a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13, '"': 34, "\\": 92,
+};
+
+/** Git's octal escapes encode UTF-8 bytes, not Unicode code points or JSON escapes. */
+function decodeGitPath(encoded: string): string {
+  if (!encoded.startsWith('"')) return encoded;
+  const chunks: Buffer[] = [];
+  for (const match of encoded.slice(1, -1).matchAll(/\\([0-3][0-7]{2}|.)|([^\\]+)/g)) {
+    if (match[2] !== undefined) { chunks.push(Buffer.from(match[2], "utf8")); continue; }
+    const escape = match[1]!;
+    const byte = /^[0-3][0-7]{2}$/.test(escape) ? Number.parseInt(escape, 8) : GIT_PATH_ESCAPES[escape];
+    if (byte === undefined) throw new Error("Invalid quoted Git path in candidate patch");
+    chunks.push(Buffer.from([byte]));
+  }
+  return new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks));
 }
 
 const covers = (path: string, paths: readonly string[]) =>
