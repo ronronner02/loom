@@ -144,6 +144,36 @@ describe("task threads", () => {
     expect(text).toContain("Comment c1: Rename the setting to Appearance.");
   });
 
+  it("coalesces comments into the pending follow-up before its first attempt", async () => {
+    setState("impl", "done");
+    db.prepare("INSERT INTO team_integration_commits (run_id, task_id, commit_sha, subject, committed_at) VALUES ('run', 'impl', ?, 'impl', '2026-11-04T00:00:00Z')")
+      .run("a".repeat(40));
+    const first = comment("c1", "impl", "Rename the setting.");
+    const second = comment("c2", "impl", "Update the label too.");
+    expect(first.revisionTaskId).toBe("impl-followup-1");
+    expect(second).toMatchObject({ status: "accepted", effectMayStart: true, revisionTaskId: "impl-followup-1" });
+    expect(governance.findTask("run", "impl-followup-2")).toBeNull();
+    expect(listTaskComments(db, "run", "impl-followup-1").map(row => row.id)).toEqual(["c1", "c2"]);
+    const text = await prompt("impl-followup-1", "f-a1");
+    expect(text).toContain("Comment c1: Rename the setting.");
+    expect(text).toContain("Comment c2: Update the label too.");
+  });
+
+  it("keeps an unstarted follow-up held when another comment arrives", () => {
+    setState("impl", "done");
+    db.prepare("INSERT INTO team_integration_commits (run_id, task_id, commit_sha, subject, committed_at) VALUES ('run', 'impl', ?, 'impl', '2026-11-04T00:00:00Z')")
+      .run("a".repeat(40));
+    comment("c1", "impl", "Rename the setting.");
+    governance.holdTask(command("hold-follow-up", { taskId: "impl-followup-1", held: true }), owner);
+    expect(comment("c2", "impl", "Wait for the approved label.")).toMatchObject({
+      status: "accepted", effectMayStart: false, revisionTaskId: "impl-followup-1", value: { queued: true },
+    });
+    expect(governance.findTask("run", "impl-followup-2")).toBeNull();
+    expect(listTaskComments(db, "run", "impl-followup-1").map(row => row.id)).toEqual(["c1", "c2"]);
+    expect(governance.holdTask(command("release-follow-up", { taskId: "impl-followup-1", held: false }), owner))
+      .toMatchObject({ effectMayStart: true, revisionTaskId: "impl-followup-1" });
+  });
+
   it("holds a comment on work under review, and starts the follow-up once the change lands", () => {
     setState("impl", "done");
     expect(comment("c1", "impl", "Shorten the label.")).toMatchObject({ status: "accepted", value: { queued: true } });
