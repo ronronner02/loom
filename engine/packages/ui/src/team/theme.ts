@@ -19,9 +19,9 @@ const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)";
 export function readTeamThemePreference(): TeamThemePreference {
   try {
     const saved = localStorage.getItem(TEAM_THEME_KEY);
-    return (TEAM_THEME_PREFERENCES as readonly string[]).includes(saved ?? "") ? saved as TeamThemePreference : "dark";
+    return (TEAM_THEME_PREFERENCES as readonly string[]).includes(saved ?? "") ? saved as TeamThemePreference : "light";
   } catch {
-    return "dark";
+    return "light";
   }
 }
 

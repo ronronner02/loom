@@ -68,30 +68,22 @@ describe("command-center design tokens", () => {
     expect(declarations(".team-shell .ui-main").get("min-height")).toBe("0");
   });
 
-  it("keeps component cards translucent without fading their text or duplicating the skin", () => {
-    const glass = declarations(".team-shell :is(.plate, .ui-card, .ui-column, .ui-task-card, .ui-page-head, .ui-snapshot-warning)");
-    expect(glass.get("background")).toBe("var(--ui-glass-surface)");
-    expect(glass.get("backdrop-filter")).toContain("blur(");
-    expect(glass.get("box-shadow")).toContain("var(--ui-glass-highlight)");
-    expect(glass.has("opacity")).toBe(false);
-    expect(glass.get("--ui-muted")).toBe("var(--ui-text-secondary)");
-    for (const theme of ["dark", "light"]) {
-      const surface = declarations(`.team-shell[data-ui-theme="${theme}"]`).get("--ui-glass-surface");
-      const alpha = Number(surface?.match(/\/\s*([.\d]+)\)/)?.[1]);
-      expect(alpha).toBeGreaterThan(0);
-      expect(alpha).toBeLessThan(0.7);
-    }
+  it("uses solid calm surfaces layered with 1px subtle borders without decorative skins or glassmorphism", () => {
+    const cards = declarations(".team-shell :is(.plate, .ui-card, .ui-column, .ui-task-card, .ui-page-head, .ui-snapshot-warning)");
+    expect(cards.get("background")).toBe("var(--ui-surface)");
+    expect(cards.has("backdrop-filter")).toBe(false);
+    expect(cards.has("opacity")).toBe(false);
     expect(css).not.toMatch(/url\([^)]*skins\//);
+    expect(css).not.toContain("--ui-glass-surface");
     expect(declarations(".team-shell .ui-command-hero").has("background")).toBe(false);
     expect(declarations(".team-shell .ui-command-hero > div:first-child").has("background")).toBe(false);
   });
 
-  it("avoids a second glass layer in sheets and retains solid input and diff surfaces", () => {
+  it("retains solid input, composer and diff surfaces without nested card chrome in sheets", () => {
     const sheet = declarations(".team-shell .sheet-body .plate");
     expect(sheet.get("background")).toBe("none");
-    expect(sheet.get("backdrop-filter")).toBe("none");
     expect(sheet.get("box-shadow")).toBe("none");
-    for (const selector of [".team-shell .input", ".team-shell .diff", ".team-shell .composer textarea"]) {
+    for (const selector of [".team-shell .input", ".team-shell .diff", ".team-shell .composer"]) {
       expect(declarations(selector).get("background")).toBe("var(--surface)");
     }
   });

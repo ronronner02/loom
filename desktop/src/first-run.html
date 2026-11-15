@@ -3,28 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
-    <title>Multi-Agent</title>
+    <title>Loom</title>
     <style>
       :root {
-        --bg: #151619;
-        --surface: #1c1d21;
-        --line: #2c2d34;
-        --text: #ededf0;
-        --muted: #999ba6;
-        --accent: #818cf8;
-        --ok: #34d399;
-        --bad: #f87171;
+        --bg: #faf8f5;
+        --surface: #ffffff;
+        --surface-subtle: #f3f0ea;
+        --line: #e8e2d9;
+        --text: #1c1b1a;
+        --muted: #6e6a64;
+        --accent: #bc5a32;
+        --ok: #5a7a64;
+        --bad: #b42318;
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; min-height: 100%; background: var(--bg); }
       body {
-        font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-        font-size: 14px; color: var(--text);
+        font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+        font-size: 15px; color: var(--text);
         display: flex; align-items: center; justify-content: center;
         min-height: 100vh; padding: 72px 32px 32px;
       }
       .titlebar {
-        position: fixed; inset: 0 0 auto; height: 48px; padding: 0 154px 0 24px;
+        position: fixed; inset: 0 0 auto; height: 52px; padding: 0 154px 0 24px;
         display: flex; align-items: center; background: var(--bg); border-bottom: 1px solid var(--line);
         font-size: 13px; font-weight: 600; user-select: none; -webkit-app-region: drag;
       }
@@ -33,14 +34,14 @@
       .sub { color: var(--muted); margin: 0 0 28px; line-height: 1.55; }
       .panel {
         background: var(--surface); border: 1px solid var(--line);
-        border-radius: 6px; padding: 20px;
+        border-radius: 12px; padding: 20px;
       }
       .panel p { margin: 0 0 12px; line-height: 1.6; }
       .panel p:last-child { margin-bottom: 0; }
       .muted { color: var(--muted); }
       code {
-        font-family: "Cascadia Mono", Consolas, monospace; font-size: 12.5px;
-        background: #24252b; border: 1px solid var(--line); border-radius: 4px;
+        font-family: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace; font-size: 12.5px;
+        background: var(--surface-subtle); border: 1px solid var(--line); border-radius: 6px;
         padding: 1px 5px; color: var(--text);
       }
       ul.dependencies { list-style: none; margin: 0; padding: 0; }
@@ -53,22 +54,22 @@
       .mark { font-weight: 700; }
       .mark.ok { color: var(--ok); }
       .mark.bad { color: var(--bad); }
-      .path { display: block; font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; color: var(--muted); word-break: break-all; }
+      .path { display: block; font-family: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace; font-size: 12px; color: var(--muted); word-break: break-all; }
       .actions { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
       button {
-        font: inherit; font-size: 13px; height: 32px; padding: 0 14px;
-        border-radius: 6px; border: 1px solid var(--line);
-        background: #24252b; color: var(--text); cursor: pointer;
+        font: inherit; font-size: 13px; height: 36px; padding: 0 16px;
+        border-radius: 8px; border: 1px solid var(--line);
+        background: var(--surface); color: var(--text); cursor: pointer;
       }
-      button:hover:not(:disabled) { border-color: #3a3b44; }
-      button.primary { background: var(--accent); border-color: var(--accent); color: #14151a; font-weight: 600; }
-      button:disabled { opacity: 0.5; cursor: default; }
+      button:hover:not(:disabled) { border-color: var(--accent); }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; font-weight: 600; }
+      button:disabled { opacity: 0.4; cursor: default; }
     </style>
   </head>
   <body>
-    <header class="titlebar">Multi-Agent</header>
+    <header class="titlebar">Loom</header>
     <section>
-      <h1 id="title">Starting Multi-Agent</h1>
+      <h1 id="title">Starting Loom</h1>
           <div class="panel" id="panel"></div>
       <div class="actions" id="actions"></div>
     </section>

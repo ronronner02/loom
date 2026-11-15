@@ -16,9 +16,10 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("command-center appearance", () => {
-  it("defaults to dark even when the operating system is light", () => {
-    expect(readTeamThemePreference()).toBe("dark");
-    expect(renderHook(useThemePreference).result.current.theme).toBe("dark");
+  it("defaults to light even when the operating system is dark", () => {
+    dark = true;
+    expect(readTeamThemePreference()).toBe("light");
+    expect(renderHook(useThemePreference).result.current.theme).toBe("light");
   });
 
   it.each(["dark", "light", "system"] as const)("persists the %s preference across loads", preference => {
@@ -39,8 +40,8 @@ describe("command-center appearance", () => {
     expect(localStorage.getItem(TEAM_THEME_KEY)).toBe("light");
   });
 
-  it("uses dark for an obsolete or invalid stored preference", () => {
+  it("uses light for an obsolete or invalid stored preference", () => {
     localStorage.setItem(TEAM_THEME_KEY, "ink");
-    expect(readTeamThemePreference()).toBe("dark");
+    expect(readTeamThemePreference()).toBe("light");
   });
 });

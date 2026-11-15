@@ -26,7 +26,7 @@ beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   const original = window.matchMedia.bind(window);
-  vi.spyOn(window, "matchMedia").mockImplementation(query => ({ ...original(query), matches: mobile && query === "(max-width: 760px)" }));
+  vi.spyOn(window, "matchMedia").mockImplementation(query => ({ ...original(query), matches: mobile && (query === "(max-width: 859px)" || query === "(max-width: 760px)") }));
   vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const path = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, window.location.origin).pathname;
     const response = (body: object) => new Response(JSON.stringify({ protocolVersion: "1.0", ...body }), { headers: { "Content-Type": "application/json" } });
@@ -97,19 +97,18 @@ describe("command-center router integration", () => {
     fireEvent.change(pairing, { target: { value: "fixture-pairing" } });
     fireEvent.submit(pairing.closest("form")!);
     expect(await screen.findByRole("heading", { name: "Sign in to GitHub" })).toBeTruthy();
-    expect(screen.queryByRole("navigation", { name: "Multi-Agent" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Loom" })).toBeNull();
     expect(vi.mocked(fetch).mock.calls.some(([path]) => /\/(teams|runs)(?:\?|$)/.test(String(path)))).toBe(false);
   });
 
-  it("renders replay events in the dedicated live Flow destination", async () => {
+  it("renders replay events in the Overview Flow sub-tab", async () => {
     replayEvents = [{
       seq: 2, createdAt: "2026-11-14 10:00:00", type: "team.control", action: "task.created",
       runId: RUN_ID, taskId: "task-1", attemptId: "attempt-1",
       body: '{"workerSeat":"impl@rig"}', truncated: false,
     }];
     await openShell();
-    const nav = screen.getByRole("navigation", { name: "Multi-Agent" });
-    fireEvent.click(within(nav).getByRole("link", { name: "Flow" }));
+    fireEvent.click(screen.getByRole("button", { name: "Flow" }));
     expect(await screen.findByRole("heading", { name: "Flow" })).toBeTruthy();
     expect(await screen.findByText(/Task assigned/)).toBeTruthy();
     expect(screen.getByRole("button", { name: /Implementer/ })).toBeTruthy();
@@ -124,13 +123,16 @@ describe("command-center router integration", () => {
   it("keeps a project selected across destinations before its first run", async () => {
     const router = await openShell();
     fireEvent.change(screen.getByRole("combobox", { name: "Project" }), { target: { value: "fresh-project" } });
-    expect(await screen.findByRole("heading", { name: "Fresh project" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "What should we work on?" })).toBeTruthy();
     expect(router.state.location.search.team).toBe("fresh-project");
     expect(router.state.location.search.run).toBeUndefined();
     expect(screen.getByRole("button", { name: "Open lead chat" })).toHaveProperty("disabled", false);
-    const nav = screen.getByRole("navigation", { name: "Multi-Agent" });
-    fireEvent.click(within(nav).getByRole("link", { name: "Settings" }));
-    expect(await screen.findByRole("heading", { name: "Settings" })).toBeTruthy();
+    const nav = screen.getByRole("navigation", { name: "Loom" });
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const settingsDialog = await screen.findByRole("dialog", { name: "Settings" });
+    expect(within(settingsDialog).getAllByRole("heading", { name: "Settings" }).length).toBeGreaterThanOrEqual(1);
+    fireEvent.click(within(settingsDialog).getByRole("button", { name: "Close settings" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull());
     fireEvent.click(within(nav).getByRole("link", { name: "Overview" }));
     expect(await screen.findByRole("heading", { name: "Fresh project" })).toBeTruthy();
     expect(router.state.location.search.team).toBe("fresh-project");
@@ -149,7 +151,7 @@ describe("command-center router integration", () => {
 
   it("opens the retained board from the default list and restores its card focus", async () => {
     await openShell();
-    fireEvent.click(within(screen.getByRole("navigation", { name: "Multi-Agent" })).getByRole("link", { name: "Tasks" }));
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Loom" })).getByRole("link", { name: "Tasks" }));
     expect(await screen.findByRole("region", { name: "Task list" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Board" }));
     expect(screen.getByRole("region", { name: "Queued" })).toBeTruthy();
@@ -164,19 +166,19 @@ describe("command-center router integration", () => {
     await waitFor(() => expect(document.activeElement).toBe(card));
   });
 
-  it("opens Workspace layouts and the read-only Reviews gates through the real routes", async () => {
+  it("opens Workspace layouts and the read-only Reviews gates through the Workspace sub-tabs", async () => {
     const renderErrors = vi.spyOn(console, "error").mockImplementation(() => {});
     await openShell();
-    fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open lead chat" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "Keep my original question" } });
     fireEvent.click(screen.getByRole("button", { name: "Close lead chat" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    const nav = screen.getByRole("navigation", { name: "Multi-Agent" });
+    const nav = screen.getByRole("navigation", { name: "Loom" });
     fireEvent.click(within(nav).getByRole("link", { name: "Workspace" }));
     expect(await screen.findByRole("button", { name: "Grid" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Split" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Focus" })).toBeTruthy();
-    fireEvent.click(within(nav).getByRole("link", { name: "Reviews" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reviews & Diffs" }));
     expect(await screen.findByRole("region", { name: "Gates" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Ask the lead" }));
     const panel = screen.getByRole("dialog", { name: "Lead chat" });
@@ -188,13 +190,13 @@ describe("command-center router integration", () => {
   it("keeps the real chat draft mounted while every destination changes the URL", async () => {
     const renderErrors = vi.spyOn(console, "error").mockImplementation(() => {});
     const router = await openShell();
-    const opener = screen.getByRole("button", { name: "Coordinator" });
+    const opener = screen.getByRole("button", { name: "Open lead chat" });
     fireEvent.click(opener);
     const panel = screen.getByRole("dialog", { name: "Lead chat" });
     const field = within(panel).getByRole("textbox", { name: "Message" }) as HTMLTextAreaElement;
     fireEvent.change(field, { target: { value: "Retain this question across sections" } });
-    const nav = screen.getByRole("navigation", { name: "Multi-Agent" });
-    for (const section of ["Documents", "Inbox", "Tasks", "Documents", "Workspace", "Reviews", "Documents", "Analytics", "Settings", "Overview"]) {
+    const nav = screen.getByRole("navigation", { name: "Loom" });
+    for (const section of ["Documents", "Tasks", "Documents", "Workspace", "Documents", "Overview"]) {
       const link = within(nav).getByRole("link", { name: section });
       fireEvent.pointerDown(link); fireEvent.click(link);
       await waitFor(() => expect(router.state.location.pathname).toBe(`/team/${section.toLowerCase()}`));
@@ -202,8 +204,7 @@ describe("command-center router integration", () => {
       expect(link.getAttribute("aria-current")).toBe("page");
       expect(within(panel).getByRole("textbox", { name: "Message" })).toBe(field);
       expect(field.value).toBe("Retain this question across sections");
-      expect(screen.queryAllByRole("heading", { name: section === "Inbox" ? "Inbox" : "Documents" }))
-        .toHaveLength(section === "Documents" || section === "Inbox" ? 1 : 0);
+      expect(screen.queryAllByRole("heading", { name: "Documents" })).toHaveLength(section === "Documents" ? 1 : 0);
     }
     expect(renderErrors).not.toHaveBeenCalled();
     const rows = within(panel).getByRole("region", { name: "Needs your attention" });
@@ -215,7 +216,7 @@ describe("command-center router integration", () => {
   it.each([false, true])("retains the open conversation and route through a failed background account check without exposing gated controls (mobile: %s)", async mobileMode => {
     mobile = mobileMode;
     const router = await openShell();
-    fireEvent.click(within(screen.getByRole("navigation", { name: "Multi-Agent" })).getByRole("link", { name: "Documents" }));
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Loom" })).getByRole("link", { name: "Documents" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/team/documents"));
     fireEvent.click(screen.getByRole("button", { name: "Open lead chat" }));
     const panel = screen.getByRole("dialog", { name: "Lead chat" });
@@ -238,7 +239,7 @@ describe("command-center router integration", () => {
 
   it("uses Ctrl K and Enter to navigate to the selected task", async () => {
     const router = await openShell();
-    const opener = screen.getByRole("button", { name: "Search or jump to…" });
+    const opener = screen.getByRole("button", { name: "Search" });
     opener.focus(); fireEvent.keyDown(window, { key: "k", ctrlKey: true });
     const field = screen.getByRole("combobox", { name: "Search or jump to…" });
     fireEvent.keyDown(field, { key: "ArrowDown" }); fireEvent.keyDown(field, { key: "Enter" });
@@ -252,19 +253,15 @@ describe("command-center router integration", () => {
     await waitFor(() => expect(document.activeElement).toBe(opener));
   });
 
-  it("closes mobile navigation before opening chat and returns focus to the menu trigger", async () => {
+  it("opens chat from top bar on mobile and returns focus to the trigger", async () => {
     mobile = true;
     await openShell();
-    const menu = screen.getByLabelText("Open navigation");
-    menu.style.display = "grid";
-    fireEvent.click(menu);
-    const navigation = screen.getByRole("dialog", { name: "Navigation" });
-    fireEvent.click(within(navigation).getByRole("button", { name: "Coordinator" }));
-    await waitFor(() => expect(navigation.isConnected).toBe(false));
+    const opener = screen.getByRole("button", { name: "Open lead chat" });
+    fireEvent.click(opener);
     const panel = screen.getByRole("dialog", { name: "Lead chat" });
     fireEvent.keyDown(panel, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(menu));
+    await waitFor(() => expect(document.activeElement).toBe(opener));
   });
 
   it("returns focus to the mobile menu after closing Create", async () => {

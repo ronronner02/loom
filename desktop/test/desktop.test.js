@@ -116,11 +116,11 @@ function preload(pick = async () => String.raw`D:\Client Work\fixture`) {
   };
 }
 
-test('keeps the native caption overlay aligned with the shared 48px strip and the window sandboxed', () => {
+test('keeps the native caption overlay aligned with the shared 52px strip and the window sandboxed', () => {
   const fixture = desktop();
   assert.equal(fixture.options.titleBarStyle, 'hidden');
-  assert.equal(fixture.options.titleBarOverlay.height, 48);
-  assert.equal(fixture.options.titleBarOverlay.color, '#151619');
+  assert.equal(fixture.options.titleBarOverlay.height, 52);
+  assert.equal(fixture.options.titleBarOverlay.color, '#faf8f5');
   assert.equal(fixture.options.webPreferences.contextIsolation, true);
   assert.equal(fixture.options.webPreferences.nodeIntegration, false);
   assert.equal(fixture.options.webPreferences.sandbox, true);

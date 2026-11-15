@@ -5,9 +5,9 @@
 # `resources/engine/plugins/github-cli` holds the bundled `gh.exe`. The daemon resolves those
 # paths from its own module URL, so they must stay real files on disk, not archived entries.
 
-appId: dev.multiagent.desktop
-productName: Multi-Agent
-copyright: Copyright © 2026 Multi-Agent
+appId: dev.loom.desktop
+productName: Loom
+copyright: Copyright © 2026 Loom
 
 directories:
   output: dist
@@ -17,6 +17,7 @@ directories:
 # under resources/engine.
 files:
   - src/**/*
+  - build/icon.ico
   - package.json
   - '!test/**'
   - '!scripts/**'
@@ -38,19 +39,19 @@ extraResources:
 
 # x64 only; arm64 is deferred (KTD16).
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:
         - x64
   artifactName: ${productName}-Setup-${version}-${arch}.${ext}
-  signAndEditExecutable: false
 
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
   allowElevation: false
-  shortcutName: Multi-Agent
+  shortcutName: Loom
   # User data is not the installer's: %LOCALAPPDATA%\Multi-Agent and %APPDATA%\Multi-Agent keep
   # their projects, runs and recovery records across both upgrade and uninstall (R23).
   deleteAppDataOnUninstall: false
