@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type Database from "better-sqlite3";
 import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -142,6 +142,7 @@ describe("production launch runs through runtime eligibility and one candidate w
     prepareCalls.count = 0;
   });
   afterEach(() => {
+    vi.restoreAllMocks();
     if (db?.open) db.close();
     // A review packet is written read-only on purpose; restore write bits before
     // removing the enclosure, the same way the packet owner's own teardown does.
@@ -157,7 +158,11 @@ describe("production launch runs through runtime eligibility and one candidate w
   });
 
   /** A control that records what it was asked, and can be told to refuse at any phase. */
-  const control = (options: { assignedTree?: string; observe?: (input: WorkerLaunchInput) => void } = {}) => {
+  const control = (options: {
+    assignedTree?: string;
+    observe?: (input: WorkerLaunchInput) => void;
+    currentBinding?: AssignmentInput["currentBinding"];
+  } = {}) => {
     const calls = { preflight: 0, start: 0, observe: 0 };
     const fake: WorkerLaunchControl = {
       preflight: async input => {
@@ -169,7 +174,7 @@ describe("production launch runs through runtime eligibility and one candidate w
         // mapping here, so a broken production branch cannot be masked by an equivalent
         // one in the fixture.
         const tree = options.assignedTree ?? runtime.assignedTreeFor("run-1", input.attempt.context.assignment);
-        return ({ assignment: { binding, currentBinding: binding, assignment: input.attempt.context.assignment,
+        return ({ assignment: { binding, currentBinding: options.currentBinding ?? binding, assignment: input.attempt.context.assignment,
           outputs: [...input.attempt.context.outputs], permissions: [...input.attempt.context.permissions],
           context: input.attempt.context, observed: { discoveryRoots: [], files: [] }, dependencySatisfied: () => true },
           // The launcher requires each of these to be its own realpath, so the
@@ -282,6 +287,33 @@ describe("production launch runs through runtime eligibility and one candidate w
     expect(result.ok).toBe(false);
     expect(String(result.error)).toMatch(/Run is not approved/);
     expect(calls.preflight).toBe(0);
+  });
+
+  it("rechecks run approval after the control preflight", async () => {
+    const preparation = vi.spyOn(runtime, "prepareLaunchAssignment");
+    const { fake, calls } = control({ observe: () => {
+      db.prepare("UPDATE team_runs SET state = 'blocked' WHERE id = 'run-1'").run();
+    } });
+    const result = await launcher(fake).launch(launchInput());
+    expect(result.ok).toBe(false);
+    expect(calls.preflight).toBe(1);
+    expect(calls.start).toBe(0);
+    // The fixture's incomplete context also refuses later; require the authority gate itself.
+    expect(preparation.mock.results).toHaveLength(1);
+    expect(preparation.mock.results[0]).toMatchObject({ type: "throw",
+      value: { message: "Run is not approved for this assignment" } });
+  });
+
+  it("checks the binding observed by preflight even when the context binding still matches", async () => {
+    const preparation = vi.spyOn(runtime, "prepareLaunchAssignment");
+    const { fake, calls } = control({ currentBinding: { ...binding, planDigest: hashBytes("changed plan") } });
+    const result = await launcher(fake).launch(launchInput());
+    expect(result.ok).toBe(false);
+    expect(calls.preflight).toBe(1);
+    expect(calls.start).toBe(0);
+    expect(preparation.mock.results).toHaveLength(1);
+    expect(preparation.mock.results[0]).toMatchObject({ type: "throw",
+      value: { message: "Run is not approved for this assignment" } });
   });
 
   it("refuses an assignment whose paths leave the approved write scope", async () => {
