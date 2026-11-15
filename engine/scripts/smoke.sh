@@ -51,7 +51,7 @@ npm run test -w packages/daemon -- \
   test/attempt-telemetry.test.ts \
   test/team-telemetry-routes.test.ts \
   test/attempt-completion.test.ts \
-  test/direct-worker-launch.test.ts \
+  test/direct-worker-launch.test.ts test/direct-worker-retention.test.ts \
   test/child-process-supervisor.test.ts \
   test/attempt-failure.test.ts \
   test/team-cancellation.test.ts \
