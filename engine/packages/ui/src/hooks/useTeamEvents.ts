@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { TeamOwnerRead } from "@multi-agent/daemon/team-control";
 import { OwnerReadError, useOwnerSession } from "./useOwnerSession.js";
+import { createTeamInvalidator } from "./team-query-invalidation.js";
 import { streamTeamEvents, type TeamEventState, type TeamReplay } from "./team-event-stream.js";
 
 // Transport lifetimes only. All event data and cursors live in the existing query cache.
@@ -43,9 +44,7 @@ export function useTeamEvents(runId: string, snapshot?: TeamOwnerRead) {
           if (page.runId !== runId) throw new OwnerReadError(502, "invalid_team_replay");
           return page;
         },
-        invalidate: () => {
-          void client.invalidateQueries({ queryKey: ["team", runId], predicate: query => query.queryKey[2] !== "events" });
-        },
+        invalidate: createTeamInvalidator(client, runId, signal),
         permissionFailure: error => error instanceof OwnerReadError && [401, 403].includes(error.status),
       });
     }
