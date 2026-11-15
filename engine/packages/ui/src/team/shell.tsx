@@ -530,6 +530,7 @@ function ProjectShell({ language, onLanguage, appearance }: {
         onOpenRun={nextRun => go("chat", { run: nextRun, task: undefined })} onNewWork={setNewWorkFor} onCreate={openCreate} onOpenExisting={openExisting} />;
     } else {
       content = <ChatMainScreen
+        key={`chat-main:${runId || team?.id}`}
         read={read}
         runId={runId}
         chat={chat.data}

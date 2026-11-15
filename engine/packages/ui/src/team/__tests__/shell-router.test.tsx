@@ -9,6 +9,8 @@ import { FRAMEWORK_CATALOG } from "../../../../daemon/dist/integrations/framewor
 
 vi.mock("@xterm/xterm", () => ({ Terminal: class {} }));
 
+const SECOND_RUN_ID = "f8859201-204f-4abc-8234-55cc82ab8b2b";
+let extraRun = false;
 let mobile = false;
 let signedIn = true;
 let accountFailure = false;
@@ -18,7 +20,7 @@ const unexpected: string[] = [];
 const originalScroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
-  mobile = false; signedIn = true; accountFailure = false; replayEvents = []; unexpected.length = 0;
+  extraRun = false; mobile = false; signedIn = true; accountFailure = false; replayEvents = []; unexpected.length = 0;
   vi.stubGlobal("IntersectionObserver", class { observe() {} disconnect() {} });
   localStorage.clear(); sessionStorage.clear(); queryClient.clear();
   localStorage.setItem("multi-agent.interfaceLanguage", "en");
@@ -37,7 +39,7 @@ beforeEach(() => {
     if (path.endsWith("/github/login")) return response({ state: "idle" });
     if ((init?.method ?? "GET") === "GET") {
       if (path === "/api/team-control/workflows") return response({ workflows: FRAMEWORK_CATALOG });
-      if (path === `/api/team-control/runs/${RUN_ID}/workflows`) return response({ workflows: [] });
+      if (path === `/api/team-control/runs/${RUN_ID}/workflows` || path === `/api/team-control/runs/${SECOND_RUN_ID}/workflows`) return response({ workflows: [] });
       if (path === "/api/team-control/teams/fresh-project/prompt-sections") return response({ revision: 0, sections: [] });
       if (/\/api\/team-control\/teams\/[^/]+\/intake$/.test(path)) return response({ policy: { revision: 0, mode: "observe", rules: [] }, repository: null, items: [] });
       if (path === "/api/team-control/teams/fresh-project/souls") return response({
@@ -54,11 +56,15 @@ beforeEach(() => {
       { id: data.run.rigId, name: "Status board", repository: "/fixture", seats: [] },
       { id: "fresh-project", name: "Fresh project", repository: "/fixture/fresh", seats: [{ role: "lead", client: "codex" }] },
     ] });
-    if (path === "/api/team-control/runs") return response({ runs: [{ id: RUN_ID, rigId: data.run.rigId, rigName: "Status board", displayName: data.run.displayName, state: data.run.state }] });
+    if (path === "/api/team-control/runs") return response({ runs: [
+      { id: RUN_ID, rigId: data.run.rigId, rigName: "Status board", displayName: data.run.displayName, state: data.run.state },
+      ...(extraRun ? [{ id: SECOND_RUN_ID, rigId: data.run.rigId, rigName: "Status board", displayName: "Second run", state: data.run.state }] : []),
+    ] });
     if (path.endsWith("/health")) return response({ health: health() });
-    if (path.endsWith("/read")) return response({ read: data });
+    if (path.endsWith("/read")) return response({ read: path.includes(SECOND_RUN_ID)
+      ? { ...data, runId: SECOND_RUN_ID, run: { ...data.run, id: SECOND_RUN_ID, displayName: "Second run" } } : data });
     if (path.endsWith("/events/stream")) return new Response(new ReadableStream(), { headers: { "Content-Type": "text/event-stream" } });
-    if (path.endsWith("/replay")) return response({ runId: RUN_ID, events: replayEvents, window: data.replay, gap: false });
+    if (path.endsWith("/replay")) return response({ runId: path.includes(SECOND_RUN_ID) ? SECOND_RUN_ID : RUN_ID, events: replayEvents, window: data.replay, gap: false });
     if (path.endsWith("/chat")) return response({ phase: "delivery", pendingDecision: null, messages: [{
       id: "question-1", sender: "lead", kind: "decision", body: "Keep the existing behavior?", options: ["Keep", "Change"], answeredBy: null, createdAt: data.generatedAt,
     }] });
@@ -88,6 +94,30 @@ async function openShell() {
 }
 
 describe("command-center router integration", () => {
+
+  it("clears the main chat draft when switching runs in the same project", async () => {
+    extraRun = true;
+    const router = await openShell();
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Loom" })).getByRole("link", { name: "Chat" }));
+    const field = await screen.findByRole("textbox", { name: "Message" });
+    fireEvent.change(field, { target: { value: "Keep this instruction inside the first run" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Run" }), { target: { value: SECOND_RUN_ID } });
+    await waitFor(() => expect(router.state.location.search.run).toBe(SECOND_RUN_ID));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Message" })).toHaveProperty("value", ""));
+    expect(screen.getByRole("combobox", { name: "Project" })).toHaveProperty("value", data.run.rigId);
+    expect(vi.mocked(fetch).mock.calls.some(([url, init]) => String(url).endsWith("/chat") && init?.method === "POST")).toBe(false);
+  });
+
+  it("clears the main chat draft when switching projects", async () => {
+    await openShell();
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Loom" })).getByRole("link", { name: "Chat" }));
+    const field = await screen.findByRole("textbox", { name: "Message" });
+    fireEvent.change(field, { target: { value: "Only change the original project's credentials" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Project" }), { target: { value: "fresh-project" } });
+    await screen.findByRole("heading", { name: "What should we work on?" });
+    expect((screen.getByRole("textbox", { name: "Message" }) as HTMLTextAreaElement).value).toBe("");
+  });
+
   it("gates the paired app before any project read when GitHub is signed out", async () => {
     signedIn = false;
     const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ["/team/overview"] }), defaultPendingMinMs: 0 });
