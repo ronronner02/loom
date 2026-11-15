@@ -5,25 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Loom</title>
     <link rel="icon" type="image/png" href="/loom-icon.png" />
-    <!-- OPR.0.4.3.29 — pre-paint theme application (no flash-of-wrong-theme).
-         Runs before the module script so the `.dark` class is on <html> before
-         first paint. Mirrors src/lib/theme.ts EXACTLY: key "multi-agent.theme";
-         light/dark are explicit and win; "system" (and any unset/malformed
-         value) follows prefers-color-scheme. Keep the two in sync. -->
+    <!-- Resolve the command-center preference before the first application paint. -->
     <script>
       (function () {
+        var choice = "light";
         try {
-          var stored = localStorage.getItem("multi-agent.theme");
-          var choice = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
-          var dark =
-            choice === "dark" ||
-            (choice === "system" &&
-              typeof window.matchMedia === "function" &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
-          if (dark) document.documentElement.classList.add("dark");
+          var stored = localStorage.getItem("multi-agent.teamTheme");
+          if (stored === "light" || stored === "dark" || stored === "system") choice = stored;
         } catch (e) {
-          /* localStorage/matchMedia unavailable — default to light (no class). */
+          /* An unavailable preference store uses the command-center default. */
         }
+        var dark = choice === "dark" || (choice === "system" &&
+          (typeof window.matchMedia !== "function" || window.matchMedia("(prefers-color-scheme: dark)").matches));
+        document.documentElement.classList.toggle("dark", dark);
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
       })();
     </script>
   </head>

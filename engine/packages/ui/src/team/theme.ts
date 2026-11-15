@@ -60,5 +60,10 @@ export function useThemePreference(): {
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, [preference]);
-  return { preference, theme: resolveTeamTheme(preference, prefersDark), setPreference };
+  const theme = resolveTeamTheme(preference, prefersDark);
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.style.colorScheme = theme;
+  }, [theme]);
+  return { preference, theme, setPreference };
 }
