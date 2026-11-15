@@ -65,7 +65,7 @@ npm run test -w packages/cli -- test/team-start.test.ts test/team-setup.test.ts 
 npm run test -w packages/i18n -- --maxWorkers=2
 
 npm run test -w packages/ui -- \
-  test/team-events.test.tsx test/team-query-invalidation.test.ts test/team-api-source.test.ts \
+  test/team-events.test.tsx test/team-query-invalidation.test.ts test/team-api-source.test.ts test/theme.test.tsx src/team/__tests__/theme.test.tsx \
   src/team/__tests__/shell.test.tsx src/team/__tests__/shell-router.test.tsx \
   src/team/__tests__/overview.test.tsx src/team/__tests__/tasks.test.tsx src/team/__tests__/reviews.test.tsx \
   src/team/__tests__/analytics.test.tsx src/team/__tests__/settings.test.tsx \
