@@ -1714,11 +1714,26 @@ export class QueueRepository {
   }
 
   /**
-   * Transactional handoff: close the source qitem (state=done,
+   * Transactional handoff: close the source qitem (state=handed-off,
    * closure_reason=handed_off_to) and create a new qitem owned by `toSession`,
    * with `handed_off_from` recording the chain. One atomic transaction.
    */
   async handoff(input: QueueHandoffInput): Promise<{ closed: QueueItem; created: QueueItem }> {
+    return this.handoffWithState(input, "handed-off");
+  }
+
+  /**
+   * Variant of {@link handoff} that closes the source qitem as `done`
+   * (terminal closure) instead of `handed-off` (intermediate). Same atomic
+   * close+create, same chain_of_record semantics, same default-nudge behavior.
+   * Use when the source seat is fully complete with the work — no follow-up
+   * tracking needed against the source qitem.
+   */
+  async handoffAndComplete(input: QueueHandoffAndCompleteInput): Promise<{ closed: QueueItem; created: QueueItem }> {
+    return this.handoffWithState(input, "done");
+  }
+
+  private async handoffWithState(input: QueueHandoffInput, state: "handed-off" | "done"): Promise<{ closed: QueueItem; created: QueueItem }> {
     assertLegacyOperationAllowed(this.db);
     const source = this.getById(input.qitemId);
     if (!source) {
@@ -1767,29 +1782,27 @@ export class QueueRepository {
       this.db
         .prepare(
           `UPDATE queue_items
-             SET state = 'handed-off',
+             SET state = ?,
                  ts_updated = ?,
                  handed_off_to = ?,
                  closure_reason = 'handed_off_to',
                  closure_target = ?
            WHERE qitem_id = ?`
         )
-        .run(ts, input.toSession, input.toSession, source.qitemId);
+        .run(state, ts, input.toSession, input.toSession, source.qitemId);
 
       this.transitionLog.append({
         qitemId: source.qitemId,
-        state: "handed-off",
+        state,
         actorSession: input.fromSession,
-        transitionNote: input.transitionNote ?? `handed off to ${input.toSession}`,
+        transitionNote: input.transitionNote ?? `${state === "done" ? "handoff-and-complete" : "handed off"} to ${input.toSession}`,
         closureReason: "handed_off_to",
         closureTarget: input.toSession,
         identityProvenance: input.identityProvenance ?? null, // P21 §4 era-stamp
       });
 
-      // OPR.0.5.8.1 S1b — THE ROUTE THE FOUNDING SPECIMEN TOOK. Row b7a70333 went
-      // handed-off at 10:02:03Z and its timer still fired at 10:18:07Z, because
-      // handoff() is its own transaction and never passes through update().
-      this.retireParkGeneratedTimer(source.qitemId, "park_ended:handed-off");
+      // This transaction bypasses update(), so it must retire the source's park timer itself.
+      this.retireParkGeneratedTimer(source.qitemId, `park_ended:${state}`);
 
       if (this.hasTargetRepoColumn) {
         this.db
@@ -1824,8 +1837,9 @@ export class QueueRepository {
         qitemId: newId,
         state: "pending",
         actorSession: input.fromSession,
-        transitionNote: `handoff from ${source.qitemId}`,
-        identityProvenance: input.identityProvenance ?? null, // P21 §4 era-stamp
+        transitionNote: `${state === "done" ? "handoff-and-complete" : "handoff"} from ${source.qitemId}`,
+        // Preserve the successor audit shape of each existing handoff operation.
+        ...(state === "handed-off" ? { identityProvenance: input.identityProvenance ?? null } : {}),
         ownerNotificationKind: successorNotification?.kind,
         ownerNotificationLevel: successorNotification?.level,
       });
@@ -1845,11 +1859,10 @@ export class QueueRepository {
       });
       events.push({ name: "queue.handed_off", payload: handoffEvent });
 
-      // OPR.0.5.6.26 — a handed-off blocker actuates its attached rows through the one
-      // propagation site, with the update path's exact effect set.
+      // Both closure states release dependents through the same propagation boundary.
       for (const dependentEvent of this.propagateBlockerCompletion({
         qitemId: source.qitemId,
-        terminalState: "handed-off",
+        terminalState: state,
         actorSession: input.fromSession,
         identityProvenance: input.identityProvenance ?? null,
         ts,
@@ -1881,178 +1894,6 @@ export class QueueRepository {
 
     // Closure and successor are persisted. Delivery is separate and recoverable
     // from the committed intent; a slow terminal must not hold the receipt.
-    if (input.nudge !== false) this.deliverWakeIntentAfterCommit(`${WAKE_INTENT_PREFIX}${newId}`);
-
-    return {
-      closed: this.getByIdOrThrow(source.qitemId),
-      created: this.getByIdOrThrow(newId),
-    };
-  }
-
-  /**
-   * Variant of {@link handoff} that closes the source qitem as `done`
-   * (terminal closure) instead of `handed-off` (intermediate). Same atomic
-   * close+create, same chain_of_record semantics, same default-nudge behavior.
-   * Use when the source seat is fully complete with the work — no follow-up
-   * tracking needed against the source qitem.
-   */
-  async handoffAndComplete(input: QueueHandoffAndCompleteInput): Promise<{ closed: QueueItem; created: QueueItem }> {
-    assertLegacyOperationAllowed(this.db);
-    const source = this.getById(input.qitemId);
-    if (!source) {
-      throw new QueueRepositoryError(
-        "qitem_not_found",
-        `qitem ${input.qitemId} not found`
-      );
-    }
-    if (isTerminalState(source.state)) {
-      throw new QueueRepositoryError(
-        "qitem_already_terminal",
-        `qitem ${input.qitemId} is already in terminal state ${source.state}`
-      );
-    }
-    if (!this.validateRig(input.toSession)) {
-      throw destinationValidationError("to_session", input.toSession, this.loadHumanRegistryFn);
-    }
-
-    const newId = newQitemId();
-    const ts = new Date().toISOString();
-    const body = input.body ?? source.body;
-    const priority = input.priority ?? source.priority;
-    const tier = input.tier ?? source.tier;
-    const tags = input.tags ? JSON.stringify(input.tags) : (source.tags ? JSON.stringify(source.tags) : null);
-    const chain = JSON.stringify([...(source.chainOfRecord ?? []), source.qitemId]);
-    const targetRepo = input.targetRepo === undefined ? source.targetRepo : input.targetRepo;
-
-    // OPR.0.4.4.19 FR-4/FR-5 — same new-item enforcement as handoff().
-    const humanRoute = validateHumanRoute({
-      tier,
-      destinationSession: input.toSession,
-      summary: input.summary ?? null,
-      evidenceRef: input.evidenceRef ?? null,
-    });
-    if (!humanRoute.ok) {
-      throw new QueueRepositoryError(humanRoute.code, humanRoute.message, {
-        missingFields: humanRoute.missingFields,
-      });
-    }
-
-    const events: Array<{ name: string; payload: import("./types.js").RigEvent }> = [];
-
-    const txn = this.db.transaction(() => {
-      this.db
-        .prepare(
-          `UPDATE queue_items
-             SET state = 'done',
-                 ts_updated = ?,
-                 handed_off_to = ?,
-                 closure_reason = 'handed_off_to',
-                 closure_target = ?
-           WHERE qitem_id = ?`
-        )
-        .run(ts, input.toSession, input.toSession, source.qitemId);
-
-      this.transitionLog.append({
-        qitemId: source.qitemId,
-        state: "done",
-        actorSession: input.fromSession,
-        transitionNote: input.transitionNote ?? `handoff-and-complete to ${input.toSession}`,
-        closureReason: "handed_off_to",
-        closureTarget: input.toSession,
-        identityProvenance: input.identityProvenance ?? null, // P21 §4 era-stamp
-      });
-
-      // OPR.0.5.8.1 S1b — same structural bypass as handoff(): own transaction,
-      // never routes through update().
-      this.retireParkGeneratedTimer(source.qitemId, "park_ended:done");
-
-      if (this.hasTargetRepoColumn) {
-        this.db
-          .prepare(
-            `INSERT INTO queue_items (
-              qitem_id, ts_created, ts_updated, source_session, destination_session,
-              state, priority, tier, tags, handed_off_from, chain_of_record, body, target_repo
-            ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`
-          )
-          .run(newId, ts, ts, input.fromSession, input.toSession, priority, tier, tags, source.qitemId, chain, body, targetRepo);
-      } else {
-        this.db
-          .prepare(
-            `INSERT INTO queue_items (
-              qitem_id, ts_created, ts_updated, source_session, destination_session,
-              state, priority, tier, tags, handed_off_from, chain_of_record, body
-            ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`
-          )
-          .run(newId, ts, ts, input.fromSession, input.toSession, priority, tier, tags, source.qitemId, chain, body);
-      }
-
-      this.persistSummary(newId, input.summary ?? null);
-      this.persistEvidenceRef(newId, input.evidenceRef ?? null);
-      this.persistMintingGeneration(newId, input.fromSession);
-
-      const successorNotification = this.classifyOwnerNotification({
-        action: "create",
-        destinationSession: input.toSession,
-        nextState: "pending",
-      });
-      this.transitionLog.append({
-        qitemId: newId,
-        state: "pending",
-        actorSession: input.fromSession,
-        transitionNote: `handoff-and-complete from ${source.qitemId}`,
-        ownerNotificationKind: successorNotification?.kind,
-        ownerNotificationLevel: successorNotification?.level,
-      });
-
-      // W1-a: the durable wake intent joins the SAME transaction as the close +
-      // successor create — one act or none (symmetric with handoff()).
-      this.stageWakeIntent(newId, input.fromSession, input.toSession, input.identityProvenance ?? null, input.nudge);
-
-      const handoffEvent = this.eventBus.persistWithinTransaction({
-        type: "queue.handed_off",
-        qitemId: source.qitemId,
-        fromSession: input.fromSession,
-        toSession: input.toSession,
-        closureReason: "handed_off_to",
-        summary: source.summary ?? null,
-      });
-      events.push({ name: "queue.handed_off", payload: handoffEvent });
-
-      // OPR.0.5.6.26 — a done-via-handoff-and-complete blocker actuates its attached rows through the one
-      // propagation site, with the update path's exact effect set (the confirmed R-2 prediction).
-      for (const dependentEvent of this.propagateBlockerCompletion({
-        qitemId: source.qitemId,
-        terminalState: "done",
-        actorSession: input.fromSession,
-        identityProvenance: input.identityProvenance ?? null,
-        ts,
-      })) {
-        events.push({ name: "queue.updated", payload: dependentEvent });
-      }
-
-      const createdEvent = this.eventBus.persistWithinTransaction({
-        type: "queue.created",
-        qitemId: newId,
-        sourceSession: input.fromSession,
-        destinationSession: input.toSession,
-        priority,
-        tier,
-        summary: input.summary ?? null,
-      });
-      events.push({ name: "queue.created", payload: createdEvent });
-
-      // W1-c: the seam guard — the LAST statement in the terminal txn. A close
-      // that intended a wake cannot commit without its durable intent; a throw
-      // here rolls the whole act back at the seam.
-      this.assertTerminalClosureHasIntent(source.qitemId, newId, input.nudge);
-    });
-
-    txn();
-    for (const e of events) {
-      this.eventBus.notifySubscribers(e.payload as import("./types.js").PersistedEvent);
-    }
-
-    // Return the persisted closure and successor without awaiting terminal delivery.
     if (input.nudge !== false) this.deliverWakeIntentAfterCommit(`${WAKE_INTENT_PREFIX}${newId}`);
 
     return {
