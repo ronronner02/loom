@@ -11,7 +11,7 @@ import { agentTurnOutputPaths, readAgentTurnLastMessage, readAgentTurnThreadId }
 import { leadCompletionEvidence, taskCompletionEvidence, type CandidateFacts, type TaskCompletionEvidence } from "./task-completion.js";
 import { recordedFindings } from "./review-loop.js";
 import type { AttemptTelemetry } from "./attempt-telemetry.js";
-import { unreadableTaskReport, type TaskReport } from "./task-report.js";
+import { parseTaskReport, unreadableTaskReport, type TaskReport } from "./task-report.js";
 import { recordWorkflowTurn } from "./team-workflows.js";
 import { observeIdentity } from "./process-termination.js";
 import type { SupervisorExitFacts } from "../adapters/child-process-supervisor.js";
@@ -153,14 +153,19 @@ export interface AttemptCompletion {
 
 /** The final JSON report a reviewer turn must return for automatic verdict recording. */
 export function extractReviewerReport(message: string | null): Record<string, unknown> | null {
+  const value = extractReviewerOutput(message);
+  return value && "findings" in value ? value : null;
+}
+
+/** Findings and exception reports share the reviewer's existing final-message transport. */
+function extractReviewerOutput(message: string | null): Record<string, unknown> | null {
   if (message === null) return null;
   const blocks = [...message.matchAll(/```json\s*([\s\S]*?)```/gi)];
   const block = blocks.at(-1)?.[1];
   if (block === undefined) return null;
   try {
     const value = JSON.parse(block) as unknown;
-    if (!value || typeof value !== "object" || Array.isArray(value)
-      || !("findings" in value)) return null;
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
     return value as Record<string, unknown>;
   } catch {
     return null;
@@ -383,8 +388,10 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
     if (stoppedAttempt.qitemId === null) return null;
     const task = governance.getTask(stoppedAttempt.qitemId);
     if (!task || !["lead", "implementer", "reviewer"].includes(task.assignment.role)) return null;
-    const workflowOutcome = recordWorkflowTurn(dependencies.db, stoppedAttempt, dependencies.turnStateRoot
-      ? readAgentTurnLastMessage(dependencies.turnStateRoot, stoppedAttempt.id) : null);
+    const lastMessage = dependencies.turnStateRoot
+      ? readAgentTurnLastMessage(dependencies.turnStateRoot, stoppedAttempt.id) : null;
+    const workflowOutcome = recordWorkflowTurn(dependencies.db, stoppedAttempt, lastMessage);
+    const reviewerReport = task.assignment.role === "reviewer" ? extractReviewerOutput(lastMessage) : null;
     // A planning lead task is the owner↔lead chat conversation, not a delivery task. Its turn
     // ends in a chat reply and is reopened by the next owner message; completion evidence applies
     // once the run enters delivery and the lead writes its decomposition proposal.
@@ -393,17 +400,25 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
     const subjectTaskId = task.assignment.role === "reviewer" && task.assignment.reviewOf !== undefined
       ? task.assignment.reviewOf : task.assignment.taskId;
     let state: "done" | "failed" | "blocked" | "canceled";
+    // Check each transport before selection; a stale file must not mask the current final report.
+    const forThisAttempt = (report: TaskReport | null): TaskReport | null => {
+      if (report?.attemptId !== undefined && report.attemptId !== stoppedAttempt.id) {
+        log(`team completion: attempt ${stoppedAttempt.id} read a report written by ${report.attemptId}; ignoring it`);
+        return null;
+      }
+      return report;
+    };
     let taskReport: TaskReport | null = null;
     if (task.assignment.role !== "lead" && dependencies.readTaskReport) {
-      try { taskReport = dependencies.readTaskReport(stoppedAttempt.runId, stoppedAttempt.id); }
+      try { taskReport = forThisAttempt(dependencies.readTaskReport(stoppedAttempt.runId, stoppedAttempt.id)); }
       catch (error) { taskReport = unreadableTaskReport(error); }
     }
-    // U4 — a report that names another attempt is stale evidence for this one. The supervisor
-    // clears the per-attempt directory before spawn, and the reader is keyed by attempt id, so
-    // this is the second witness: a report whose own `attemptId` disagrees is not completion.
-    if (taskReport?.attemptId !== undefined && taskReport.attemptId !== stoppedAttempt.id) {
-      log(`team completion: attempt ${stoppedAttempt.id} read a report written by ${taskReport.attemptId}; ignoring it`);
-      taskReport = null;
+    // Existing file reports remain readable; read-only reviewers use their final message.
+    if (!taskReport && reviewerReport && "status" in reviewerReport) {
+      try { taskReport = forThisAttempt(parseTaskReport(reviewerReport)); }
+      catch (error) {
+        taskReport = { ...unreadableTaskReport(error), evidence: "The daemon did not accept the reviewer's final task report." };
+      }
     }
     if (!taskReport && workflowOutcome && task.assignment.role !== "lead"
       && (workflowOutcome.status === "blocked" || workflowOutcome.status === "incomplete")) {
@@ -422,10 +437,8 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
       reasonCode = stoppedAttempt.failure.reasonCode as AttemptReasonCode;
       evidence = { reasonCode };
     } else if (task.assignment.role === "reviewer") {
-      const message = dependencies.turnStateRoot
-        ? readAgentTurnLastMessage(dependencies.turnStateRoot, stoppedAttempt.id) : null;
-      const report = extractReviewerReport(message);
-      if (!report) {
+      const report = reviewerReport;
+      if (!report || !("findings" in report)) {
         state = "failed";
         evidence = { reasonCode: "review_report_missing" };
         reasonCode = "review_report_missing";

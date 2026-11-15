@@ -43,19 +43,20 @@ export interface WorkerArgvInput {
 
 /** The argv for one managed turn, after the executable. */
 export function workerArgv(input: WorkerArgvInput): string[] {
+  const readOnly = input.role === "reviewer" || input.readOnly;
   if (input.client === "claude-code") {
-    return ["-p", "--permission-mode", input.readOnly ? "plan" : "bypassPermissions",
+    return ["-p", "--permission-mode", readOnly ? "plan" : "bypassPermissions",
       "--output-format", "stream-json", "--verbose", "--include-partial-messages",
-      ...(input.readOnly ? ["--tools", "Read,Glob,Grep", "--strict-mcp-config"] : []),
+      ...(readOnly ? ["--tools", "Read,Glob,Grep", "--strict-mcp-config"] : []),
       ...(input.model ? ["--model", input.model] : []), ...(input.effort ? ["--effort", input.effort] : []),
       ...(input.continuing ? ["--resume", input.sessionId] : ["--session-id", input.sessionId])];
   }
-  const sandbox = input.readOnly ? "read-only" : "workspace-write";
+  const sandbox = readOnly ? "read-only" : "workspace-write";
   return ["exec", ...(input.continuing ? ["resume"] : []), "--json", "-o", input.output.lastMessage,
     ...(input.continuing ? ["-c", "sandbox_mode=" + sandbox] : ["-C", input.tree, "-s", sandbox]),
-    ...(input.readOnly ? ["-c", "approval_policy=never"] : ["-c", "sandbox_workspace_write.network_access=true"]),
+    ...(readOnly ? ["-c", "approval_policy=never"] : ["-c", "sandbox_workspace_write.network_access=true"]),
     "-c", "check_for_update_on_startup=false",
-    ...(!input.readOnly && ["implementer", "reviewer"].includes(input.role)
+    ...(!readOnly && ["implementer", "reviewer"].includes(input.role)
       ? ["-c", "sandbox_workspace_write.writable_roots=" + JSON.stringify([input.output.taskReport])] : []),
     ...(input.model ? ["-m", input.model] : []), ...(input.effort ? ["-c", "model_reasoning_effort=" + input.effort] : []),
     ...(input.continuing ? [input.sessionId] : []), "-"];
