@@ -50,6 +50,8 @@ let allowedOrigin = null;
  * offers Reconnect instead of a dead page. Null while the engine is expected to be running.
  */
 let engineExit = null;
+let quitting = false;
+let quitCheck = null;
 
 // ---------------------------------------------------------------- state
 
@@ -99,23 +101,7 @@ function createWindow() {
   // Closing the last window while attempts are running asks for confirmation. The one-line
   // consequence: agents stop, and Resume continues next time. Running attempt state is read from
   // the engine's own /healthz projection.
-  window.on('close', async (event) => {
-    if (!engine) return;
-    const count = await pollRunningAttempts();
-    if (count === undefined || count === 0) return;
-    event.preventDefault();
-    const currentWindow = window;
-    const result = await dialog.showMessageBox(currentWindow, {
-      type: 'warning',
-      buttons: ['Stop agents and quit', 'Keep running'],
-      defaultId: 1,
-      cancelId: 1,
-      title: `Agents are running (${count})`,
-      message: 'Closing stops the running agents. Resume continues the work next time you open the app.',
-    });
-    if (result.response !== 0) return; // Keep running
-    currentWindow.close();
-  });
+  window.on('close', requestQuit);
 
   const contents = window.webContents;
   contents.on('will-navigate', (event, url) => {
@@ -289,10 +275,41 @@ async function pollRunningAttempts() {
     const response = await fetch(`${allowedOrigin}/healthz`, { signal: AbortSignal.timeout(2_500) });
     if (!response.ok) return undefined;
     const body = JSON.parse(await response.text());
-    return typeof body.runningAttempts === 'number' ? body.runningAttempts : 0;
+    return Number.isSafeInteger(body.runningAttempts) && body.runningAttempts >= 0 ? body.runningAttempts : undefined;
   } catch {
     return undefined;
   }
+}
+
+function requestQuit(event) {
+  if (quitting || (!engine && !quitCheck)) return;
+  // Electron makes its close decision synchronously; the probe and dialog run later.
+  event.preventDefault();
+  if (quitCheck) return;
+  quitCheck = (async () => {
+    const count = await pollRunningAttempts();
+    if (count === undefined || count > 0) {
+      const options = {
+        type: 'warning',
+        buttons: ['Stop agents and quit', 'Keep running'],
+        defaultId: 1,
+        cancelId: 1,
+        title: count === undefined ? 'Agents may be running' : `Agents are running (${count})`,
+        message: 'Closing stops the running agents. Resume continues the work next time you open the app.',
+      };
+      const currentWindow = window;
+      const result = currentWindow && !currentWindow.isDestroyed()
+        ? await dialog.showMessageBox(currentWindow, options)
+        : await dialog.showMessageBox(options);
+      if (result.response !== 0) return;
+    }
+    await stopEngine('quit');
+    quitting = true;
+    app.quit();
+  })().catch(error => {
+    quitting = false;
+    console.error(`[desktop] quit failed: ${error.message}`);
+  }).finally(() => { quitCheck = null; });
 }
 
 /**
@@ -519,19 +536,8 @@ if (!app.requestSingleInstanceLock()) {
     void startEngine();
   });
 
-  // The engine is owned by this process: quit runs the daemon's bounded shutdown first, then
-  // lets the app exit. The close confirmation above already asked when attempts were running.
-  let quitting = false;
-  app.on('before-quit', (event) => {
-    if (quitting) return;
-    if (!engine) return;
-    event.preventDefault();
-    quitting = true;
-    void (async () => {
-      await stopEngine('quit');
-      app.quit();
-    })();
-  });
+  // Window close and menu Quit share the confirmation and bounded engine shutdown.
+  app.on('before-quit', requestQuit);
 
   // Closing the last window quits the app, which triggers before-quit above.
   app.on('window-all-closed', () => app.quit());
