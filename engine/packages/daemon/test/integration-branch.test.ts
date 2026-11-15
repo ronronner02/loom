@@ -50,6 +50,7 @@ const git = (cwd: string, ...args: string[]): string =>
 function repository(parent: string): string {
   const root = realpathSync(mkdtempSync(join(parent, "owner-")));
   git(root, "init", "--quiet", "--initial-branch=main");
+  git(root, "config", "core.autocrlf", "false");
   git(root, "config", "user.email", "test@example.invalid");
   git(root, "config", "user.name", "test");
   mkdirSync(join(root, "src"));

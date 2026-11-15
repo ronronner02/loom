@@ -150,7 +150,7 @@ describe("worktree path preflight", () => {
     const repo = repository(directory);
     const worktrees = join(directory, "wt");
     const worktree = planWorktreePath(worktrees, RUN_ID);
-    addWorktree({ repository: repo, worktree, args: ["--detach", worktree, "HEAD"] });
+    addWorktree({ repository: repo, worktree, args: ["-b", runSlug({ runId: RUN_ID }), worktree, "HEAD"] });
     const short = shortPath(worktree);
     if (short === null) return; // This volume does not generate 8.3 names; the CI runner's does.
     expect(short).not.toBe(worktree);
@@ -161,6 +161,20 @@ describe("worktree path preflight", () => {
 });
 
 describe("plan and integration worktrees", () => {
+  it("does not claim a branch for an existing detached plan worktree", () => {
+    const directory = scratch();
+    const repo = repository(directory);
+    const worktrees = join(directory, "wt");
+    const worktree = planWorktreePath(worktrees, "detached-run");
+    addWorktree({ repository: repo, worktree, args: ["--detach", worktree, "HEAD"] });
+    const head = git(worktree, "rev-parse", "HEAD");
+    expect(() => ensurePlanWorktree({ repositoryRoot: repo, worktreeRoot: worktrees, runId: "detached-run" }))
+      .toThrow(/symbolic-ref/);
+    expect(git(worktree, "rev-parse", "HEAD")).toBe(head);
+    expect(git(repo, "branch", "--list", runSlug({ runId: "detached-run" }))).toBe("");
+    expect(isWorktreeOf(repo, worktree)).toBe(true);
+  });
+
   it("creates the run's plan worktree through the policy and reuses it on replay", () => {
     const directory = scratch();
     const repo = repository(directory);
