@@ -1114,9 +1114,7 @@ export class WorkflowRuntime {
     context: ContextManifest;
   }): { candidate: string; manifestDigest: string } {
     if (pendingFinalization(this.db, runId)) throw new Error("managed_finalization_pending");
-    const governance = new PlanGovernance(this.db, this.eventBus, this.queueRepo), run = governance.getRun(runId);
-    if (run.state !== "approved" || input.context.runId !== runId
-      || hashBinding(run.binding) !== hashBinding(input.context.binding)) throw new Error("Run is not approved for this assignment");
+    const { governance, run } = this.approvedRunForAssignment(runId, input.context.runId, input.context.binding);
     const binding = run.binding, assignment = input.assignment;
     const documentError = documentDispatchRefusal(this.db, run, assignment.role, assignment.taskId, input.context.binding);
     if (documentError) throw new Error(documentError);
@@ -1151,7 +1149,7 @@ export class WorkflowRuntime {
     // claims to refuse the launch, so the graph is derived from the run's own
     // authority rows rather than taken from the caller. A caller cannot skip this by
     // omitting an argument: the run is the only source of what its tasks claim.
-    const verdict = validateDependencyGraph(this.runGraph(runId, assignment));
+    const verdict = validateDependencyGraph(this.runGraph(runId, run.bindingDigest, assignment));
     if (!verdict.ok) throw new Error(`Dependency graph refused: ${verdict.reason}`);
     // T043: a reviewer enters the candidate under review; every other assignment gets its own.
     // The reviewer path is lookup-only on purpose — see `reviewedCandidateFor`.
@@ -1669,7 +1667,7 @@ export class WorkflowRuntime {
    * contributes no claim. This is the same "other live tasks" contract
    * `admitTeamAssignment` states for its caller-supplied graph.
    */
-  private runGraph(runId: string, admitted: AssignmentInput["assignment"]): GraphTask[] {
+  private runGraph(runId: string, bindingDigest: string, admitted: AssignmentInput["assignment"]): GraphTask[] {
     const rows = this.db.prepare(
       `SELECT a.task_id AS taskId, a.assignment_json AS assignment, q.state AS state,
          COALESCE(json_extract(a.workflow_json, '$.readOnly'), 0) AS readOnly
@@ -1680,7 +1678,7 @@ export class WorkflowRuntime {
     // resume), while `handed-off` is terminal, so a local list would both miss a
     // live claim and keep a finished one.
     const live = (state: string) => (ACTIVE_QUEUE_STATES as readonly string[]).includes(state);
-    const extensions = new ScopeExtensions(this.db), bindingDigest = new PlanGovernance(this.db, this.eventBus, this.queueRepo).getRun(runId).bindingDigest;
+    const extensions = new ScopeExtensions(this.db);
     const extended = (taskId: string) => extensions.records(runId, taskId)
       .filter(record => record.state === "approved" && record.bindingDigest === bindingDigest)
       .flatMap(record => record.paths.flatMap(path => [path.path, path.canonicalPath]));
@@ -1712,10 +1710,17 @@ export class WorkflowRuntime {
   }
 
   prepareTeamAssignment(runId: string, input: Omit<AssignmentInput, "binding" | "dependencySatisfied">) {
-    const governance = new PlanGovernance(this.db, this.eventBus, this.queueRepo), run = governance.getRun(runId);
-    if (run.state !== "approved" || input.context.runId !== runId || hashBinding(run.binding) !== hashBinding(input.currentBinding)) throw new Error("Run is not approved for this assignment");
+    const { governance, run } = this.approvedRunForAssignment(runId, input.context.runId, input.currentBinding);
     const dependencySatisfied = (taskId: string) => this.dependencySatisfied(governance, runId, taskId);
     return prepareTeamAssignment({ ...input, binding: run.binding, dependencySatisfied });
+  }
+
+  private approvedRunForAssignment(runId: string, contextRunId: string, currentBinding: PlanBinding) {
+    const governance = new PlanGovernance(this.db, this.eventBus, this.queueRepo), run = governance.getRun(runId);
+    if (run.state !== "approved" || contextRunId !== runId || hashBinding(run.binding) !== hashBinding(currentBinding)) {
+      throw new Error("Run is not approved for this assignment");
+    }
+    return { governance, run };
   }
 
   /**
