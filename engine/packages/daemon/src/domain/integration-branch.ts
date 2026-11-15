@@ -1,6 +1,7 @@
 import { tmpdir } from "node:os";
-import { pendingFinalization, recordedControlReceipt } from "./attempt-finalization.js";
+import { recordedControlReceipt } from "./attempt-finalization.js";
 import { documentDispatchRefusal } from "./project-documents.js";
+import { deliveryReadiness, type DeliveryReadiness } from "./delivery-readiness.js";
 import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync, mkdtempSync, rmSync } from "node:fs";
 import { dirname, isAbsolute, resolve, join } from "node:path";
@@ -293,56 +294,9 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
     return { repository, worktree: created.path, branch: created.branch };
   };
 
-  /** The run's own work tasks the owner would still call open: the work, not the management. */
-  const openTasks = (runId: string): Array<{ taskId: string; state: string }> =>
-    (deps.db.prepare(`SELECT a.task_id AS taskId, q.state AS state FROM team_queue_authority a
-      JOIN queue_items q ON q.qitem_id = a.qitem_id
-      WHERE a.run_id = ? AND json_extract(a.assignment_json, '$.role') IN ('implementer', 'reviewer')`)
-      .all(runId) as Array<{ taskId: string; state: string }>)
-      .filter(task => task.state !== "done" && task.state !== "denied" && task.state !== "canceled");
-
-  /**
-   * Every task the run recorded as failed, whatever its role.
-   *
-   * `openTasks` asks only about the work tasks, which is what "still open" means. A failure is a
-   * different question: a lead that never decomposed the plan has failed the run's delivery just
-   * as an implementer has, and neither case may reach the owner's branch. The live acceptance
-   * run showed the gap — its only task was the failed lead and `merge.possible` was true with no
-   * commit landed.
-   */
-  const failedTasks = (runId: string): Array<{ taskId: string; state: string }> =>
-    deps.db.prepare(`SELECT a.task_id AS taskId, q.state AS state FROM team_queue_authority a
-      JOIN queue_items q ON q.qitem_id = a.qitem_id
-      WHERE a.run_id = ? AND q.state = 'failed' ORDER BY a.rowid`).all(runId) as Array<{ taskId: string; state: string }>;
-
-  /** The refusals both the readiness read and the merge itself must apply. */
-  const blocked = (run: TeamRun): { reason: string } | null => {
-    const repair = deps.db.prepare("SELECT repair_reason AS reason FROM team_integration_intents WHERE run_id = ? AND repair_reason IS NOT NULL LIMIT 1")
-      .get(run.id) as { reason: string } | undefined;
-    if (repair) return { reason: `Integration requires repair: ${repair.reason}` };
-    if (pendingFinalization(deps.db, run.id)) return { reason: "A stopped attempt is still being finalized." };
-    const documentError = documentDispatchRefusal(deps.db, run, "implementer");
-    if (documentError) return { reason: documentError };
-    const failed = failedTasks(run.id);
-    if (failed.length) return { reason: `Task(s) failed: ${failed.map(task => task.taskId).join(", ")}` };
-    const lead = governance.leadTask(run.id);
-    if (lead && ["pending", "in-progress", "blocked"].includes(governance.queueState(lead.qitemId) ?? "")) {
-      return { reason: `Task(s) still open: ${lead.taskId}` };
-    }
-    // A branch exists from the run's base commit, so "the branch exists" is not "work landed".
-    // Without this, an owner could merge a branch that carries nothing but the plan.
-    if (governance.integrationRecord(run.id).commits.length === 0) {
-      return { reason: "No task's work has landed on the integration branch yet." };
-    }
-    return null;
-  };
-
-  /** Whether the owner's one merge would go through now, and what stops it when it would not. */
-  const readiness = (run: TeamRun): { possible: boolean; reason: string | null } => {
-    const open = openTasks(run.id);
-    if (open.length) return { possible: false, reason: `Task(s) still open: ${open.map(task => task.taskId).join(", ")}` };
-    const stopped = blocked(run);
-    if (stopped) return { possible: false, reason: stopped.reason };
+  /** Local checkout restrictions apply only after shared delivery readiness. */
+  const readiness = (run: TeamRun, delivery: DeliveryReadiness): { possible: boolean; reason: string | null } => {
+    if (!delivery.possible) return { possible: false, reason: delivery.reason };
     let repository: string;
     try { repository = repositoryOf(run); } catch (error) { return { possible: false, reason: (error as Error).message }; }
     if (!existsSync(repository)) return { possible: false, reason: "The owner's repository is not on this machine." };
@@ -448,6 +402,7 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
     status(runId) {
       const run = governance.getRun(runId);
       const recorded = governance.integrationRecord(runId);
+      const delivery = deliveryReadiness(deps.db, run, recorded.commits.length);
       let repository: string | null = null;
       try { repository = repositoryOf(run); } catch { /* reported by merge, not by a read */ }
       const derived = planWorktreePath(deps.worktreeRoot(), run.id);
@@ -462,8 +417,8 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
         runId, branch, repository,
         worktree: recorded.worktree ?? (existsSync(derived) ? derived : null),
         commits: recorded.commits.map(commit => ({ hash: commit.commitSha.slice(0, 7), subject: commit.subject, task: commit.taskId })),
-        tasksDone: openTasks(runId).length === 0,
-        merge: { ...readiness(run), merged },
+        tasksDone: delivery.tasksDone,
+        merge: { ...readiness(run, delivery), merged },
       };
     },
 
@@ -472,10 +427,8 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
       const branch = branchOf(run);
       const refuse = (code: string, reason: string): MergeOutcome =>
         ({ status: "refused", code, reason, branch, mode: null, head: null });
-      const open = openTasks(runId);
-      if (open.length) return refuse("merge_tasks_open", `${open.length} task(s) are still open: ${open.map(task => task.taskId).join(", ")}`);
-      const stopped = blocked(run);
-      if (stopped) return refuse("merge_not_ready", stopped.reason);
+      const delivery = deliveryReadiness(deps.db, run, governance.integrationRecord(runId).commits.length);
+      if (!delivery.possible) return refuse(delivery.code, delivery.reason);
       let repository: string;
       try { repository = repositoryOf(run); } catch (error) { return refuse("merge_unavailable", (error as Error).message); }
       if (!existsSync(repository)) return refuse("merge_unavailable", "The owner's repository is not on this machine.");

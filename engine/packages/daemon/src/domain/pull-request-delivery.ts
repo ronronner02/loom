@@ -1,8 +1,8 @@
-import { pendingFinalization } from "./attempt-finalization.js";
 import type Database from "better-sqlite3";
 import { execFileSync } from "node:child_process";
 import type { Integration, MergeOutcome } from "./integration-branch.js";
 import type { PlanGovernance } from "./plan-governance.js";
+import { deliveryReadiness } from "./delivery-readiness.js";
 
 /**
  * Plan R17 / KTD13 — a run whose project lives on GitHub ends in a pull request.
@@ -76,9 +76,10 @@ export function composePullRequestDelivery(deps: PullRequestDeliveryDeps) {
 
   /** Push and open (or update) the pull request for one finished run. Returns the record or null when not applicable. */
   async function deliver(runId: string): Promise<PullRequestRecord | null> {
-    if (pendingFinalization(deps.db, runId)) return null;
     const status = deps.integration.status(runId);
     if (!status.tasksDone || status.commits.length === 0 || status.merge.merged === true || !status.repository) return null;
+    const run = deps.governance.getRun(runId);
+    if (!deliveryReadiness(deps.db, run, status.commits.length).possible) return null;
     const head = git(status.repository, ["rev-parse", "--verify", `refs/heads/${status.branch}^{commit}`]);
     const identity = githubIdentity(git(status.repository, ["remote", "get-url", "origin"]) ?? "");
     if (!head || !identity) return null;
@@ -93,7 +94,6 @@ export function composePullRequestDelivery(deps: PullRequestDeliveryDeps) {
     await deps.agent.pushBranch(status.repository, status.branch);
     let pull = existing ? { number: existing.number, url: existing.url } : await deps.agent.findPullRequest(identity, status.branch);
     if (!pull) {
-      const run = deps.governance.getRun(runId);
       const body = ["This is by an automated agent, not a human.", "",
         `Delivers the team run "${run.displayName ?? runId}".`, "",
         ...status.commits.map(commit => `- ${commit.subject}`)].join("\n");
@@ -123,7 +123,19 @@ export function composePullRequestDelivery(deps: PullRequestDeliveryDeps) {
     async merge(runId: string): Promise<MergeOutcome | null> {
       const record = readPullRequest(deps.db, runId);
       if (!record || record.state !== "open") return null;
-      const branch = deps.integration.status(runId).branch;
+      const status = deps.integration.status(runId);
+      const readiness = deliveryReadiness(deps.db, deps.governance.getRun(runId), status.commits.length);
+      const branch = status.branch;
+      if (!readiness.possible) {
+        return { status: "refused", code: readiness.code, reason: readiness.reason, branch, mode: null, head: null };
+      }
+      const currentHead = status.repository === null ? null
+        : git(status.repository, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
+      if (currentHead === null || currentHead !== record.headSha) {
+        return { status: "refused", code: currentHead === null ? "merge_unavailable" : "merge_delivery_pending",
+          reason: currentHead === null ? "The integration branch head could not be verified."
+            : "The latest integrated work has not been pushed to this pull request yet.", branch, mode: null, head: null };
+      }
       await deps.owner.mergePullRequest(record.repository, record.number, record.headSha);
       writePullRequest(deps.db, { ...record, state: "merged" }, now().toISOString());
       return { status: "merged", code: null, reason: null, branch, mode: "pull-request", head: record.headSha };

@@ -72,7 +72,7 @@ export function teamMergeRoutes(options: {
     // keeps the local merge into the owner's checkout.
     try {
       const viaPull = await options.delivery?.()?.merge(runId);
-      if (viaPull) return c.json({ protocolVersion: TEAM_CONTROL_VERSION, ...viaPull }, 200);
+      if (viaPull) return c.json({ protocolVersion: TEAM_CONTROL_VERSION, ...viaPull }, viaPull.status === "merged" ? 200 : 409);
     } catch (error) {
       if (error instanceof GithubCliError) return c.json({ code: error.code, error: error.message }, 502);
       throw error;
