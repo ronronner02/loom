@@ -87,17 +87,10 @@ export interface DirectLaunchFacts {
 /** How often readiness re-reads the turn's observed events. */
 const READINESS_POLL_MS = 50;
 
-/** What one launch keeps, so a later readiness check and a cancel read the same facts. */
-interface LiveTurn {
-  turn: SupervisedTurn;
-  facts: DirectLaunchFacts;
-  receipt: ManagedSessionReceipt;
-  events: WorkerEvent[];
-}
-
 export class DirectWorkerLauncher implements WorkerLauncher {
-  private readonly receipts = new Map<string, ManagedSessionReceipt>();
-  private readonly turns = new Map<string, LiveTurn>();
+  // Readiness and duplicate checks need only admitted identities after a turn ends.
+  private readonly admittedAttemptIds = new Set<string>();
+  private readonly turns = new Map<string, SupervisedTurn>();
   private readonly now: () => number;
 
   constructor(private readonly deps: DirectWorkerLaunchDeps) {
@@ -106,7 +99,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
 
   async launch(input: WorkerLaunchInput): Promise<HarnessLaunchResult> {
     const { attempt, client } = input;
-    if (this.receipts.has(attempt.attemptId)) return this.refuse("managed_attempt_already_started");
+    if (this.admittedAttemptIds.has(attempt.attemptId)) return this.refuse("managed_attempt_already_started");
     if (!Number.isSafeInteger(attempt.deadline) || attempt.deadline <= this.now()) return this.refuse("managed_deadline_expired");
     if (attempt.context.client !== client) return this.refuse("managed_client_mismatch");
     for (const token of [input.resumeToken, input.continueSessionId]) {
@@ -152,10 +145,8 @@ export class DirectWorkerLauncher implements WorkerLauncher {
       // records as interrupted rather than as an unobserved success.
       this.deps.lifecycle?.({ runId: facts.runId, attemptId: facts.attemptId, taskId: facts.taskId,
         fact: "attempt.submitted", evidence: { client, tree } });
-      const events: WorkerEvent[] = [];
       let acknowledged = false;
       const recordEvent = (event: WorkerEvent): void => {
-        events.push(event);
         this.deps.onEvent?.(facts, event);
         // U4 — acknowledgment is the first provider session or turn event, recorded once.
         if (!acknowledged && (event.type === "session.started" || event.type === "turn.started")) {
@@ -185,13 +176,15 @@ export class DirectWorkerLauncher implements WorkerLauncher {
       // one keeps the id it launched under, and the sweep saves the captured thread separately.
       const nativeSessionId = client === "codex" ? readAgentTurnThreadId(output.threadId) ?? sessionId : sessionId;
       const receipt = this.receipt(facts, attempt, client, nativeSessionId, identity);
-      this.receipts.set(attempt.attemptId, receipt);
-      this.turns.set(attempt.attemptId, { turn, facts, receipt, events });
+      this.admittedAttemptIds.add(attempt.attemptId);
+      this.turns.set(attempt.attemptId, turn);
       // The turn's end is recorded as soon as it happens, not when someone asks: `wait()` writes
       // the exit facts beside the attempt's output, and that file is what the completion sweep
       // classifies after the process is gone. Nothing awaits this promise, so a client that runs
       // for minutes never holds the launch open.
-      void turn.wait().catch(() => { /* A turn that cannot report its end is the sweep's problem. */ });
+      void turn.wait().finally(() => {
+        this.turns.delete(attempt.attemptId);
+      }).catch(() => { /* A turn that cannot report its end is the sweep's problem. */ });
       return { ok: true, managedSession: receipt,
         ...(client === "claude-code" ? { resumeToken: sessionId, resumeType: "claude_id" } : {}) };
     } catch (error) {
@@ -226,7 +219,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
   }
 
   /**
-   * Whether the turn this attempt started is running.
+   * Whether this launcher admitted the attempt.
    *
    * A direct child has no composer and no gate screen, so there is nothing to wait for beyond
    * the child existing: the launch itself waited for the client's first provider event, and a
@@ -234,7 +227,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
    * completion sweep's evidence. Only a turn this launcher does not know is unobserved.
    */
   async checkReady(attempt: ManagedAttempt): Promise<ReadinessResult> {
-    return this.turns.has(attempt?.attemptId) ? { ready: true } : { ready: false, code: "managed_identity_unobserved" };
+    return this.admittedAttemptIds.has(attempt?.attemptId) ? { ready: true } : { ready: false, code: "managed_identity_unobserved" };
   }
 
   /**
@@ -245,10 +238,10 @@ export class DirectWorkerLauncher implements WorkerLauncher {
    * it started. Closing stdin first lets a headless client leave on its own.
    */
   async cancel(attemptId: string): Promise<SupervisorResult | null> {
-    const live = this.turns.get(attemptId);
-    if (!live) return null;
-    await live.turn.cancel();
-    return live.turn.wait();
+    const turn = this.turns.get(attemptId);
+    if (!turn) return null;
+    await turn.cancel();
+    return turn.wait();
   }
 
   private refuse(code: string): HarnessLaunchResult {
