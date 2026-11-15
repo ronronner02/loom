@@ -13,7 +13,6 @@ import { TEAM_THEME_PREFERENCES, type useThemePreference } from "./theme.js";
 import { githubStatusKey, useGithubStatus, type GithubStatus } from "./github-gate.js";
 import { clientLabel } from "./display.js";
 import type { TeamSeatSummary } from "./hooks.js";
-import type { useBackgroundPreference } from "./background.js";
 
 export const SETTINGS_SECTIONS = ["general", "github", "appearance", "sessions", "agents"] as const;
 const THEME_ICONS = { dark: Moon, light: Sun, system: Monitor };
@@ -120,7 +119,7 @@ function Sessions({ connection, isolation, address }: { connection: string; isol
 /** Restored section navigation, limited to current owner preferences and read-only seats. */
 export function SettingsScreen({ language, onLanguage, appearance, connection, isolation, address, seats, teamId }: {
   language: InterfaceI18n; onLanguage: (next: "en" | "zh-CN") => void;
-  appearance: ReturnType<typeof useThemePreference>; background?: ReturnType<typeof useBackgroundPreference>;
+  appearance: ReturnType<typeof useThemePreference>;
   connection: string; isolation: "none" | "hardened" | null; address: string; teamId?: string;
   seats: readonly (TeamSeatSummary & { index?: number | null; retired?: boolean })[];
 }) {

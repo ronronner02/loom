@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import type { InterfaceI18n } from "@multi-agent/i18n";
 import { GitBranch, ExternalLink } from "lucide-react";
 import { OwnerReadError, useOwnerSession } from "../hooks/useOwnerSession.js";
-import { Background } from "./background.js";
 import { TEAM_THEME_PREFERENCES, type useThemePreference } from "./theme.js";
 
 export interface GithubStatus { signedIn: boolean; login: string | null; host: string }
@@ -20,7 +19,7 @@ export function useGithubStatus() {
 
 export function EntryFrame({ language, onLanguage, appearance, children }: {
   language: InterfaceI18n; onLanguage: (next: "en" | "zh-CN") => void;
-  appearance: ReturnType<typeof useThemePreference>; backgroundMotion?: boolean; children: ReactNode;
+  appearance: ReturnType<typeof useThemePreference>; children: ReactNode;
 }) {
   const { t } = useTranslation();
   return <div className="team-shell ui-entry" data-ui-theme={appearance.theme} lang={language.language}>

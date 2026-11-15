@@ -8,7 +8,7 @@ import { SettingsScreen } from "../settings.js";
 import { GithubGate, githubStatusKey } from "../github-gate.js";
 import { seats } from "./fixtures.js";
 
-const request = vi.fn(), revoke = vi.fn(), onLanguage = vi.fn(), setPreference = vi.fn(), setMotion = vi.fn();
+const request = vi.fn(), revoke = vi.fn(), onLanguage = vi.fn(), setPreference = vi.fn();
 vi.mock("../../hooks/useOwnerSession.js", async importOriginal => ({
   ...await importOriginal<typeof import("../../hooks/useOwnerSession.js")>(),
   useOwnerSession: () => ({ paired: true, request, revoke }),
@@ -34,7 +34,7 @@ afterEach(() => { cleanup(); cache.clear(); });
 async function show(locale: "en" | "zh-CN" = "en", gated = false, teamId?: string) {
   const language = await createInterfaceI18n({ language: locale });
   const settings = <SettingsScreen language={language} onLanguage={onLanguage}
-      appearance={{ preference: "dark", theme: "dark", setPreference }} background={{ motion: true, setMotion }}
+      appearance={{ preference: "dark", theme: "dark", setPreference }}
       connection="shell.connected" isolation="none" address="http://127.0.0.1:7433" seats={seats} teamId={teamId} />;
   return render(<QueryClientProvider client={cache}><I18nextProvider i18n={language.instance}>
     {gated ? <GithubGate frame={content => content}>{settings}</GithubGate> : settings}
