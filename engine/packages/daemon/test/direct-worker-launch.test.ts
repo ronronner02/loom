@@ -131,6 +131,26 @@ describe("U3 the launcher hands one turn to the supervisor", () => {
     }
   });
 
+  it.each([
+    ["claude-code", false], ["claude-code", true], ["codex", false], ["codex", true],
+  ] as const)("enforces the ordinary reviewer role without a workflow: %s, continuing=%s", async (client, continuing) => {
+    const { result, input, observed } = await launch({ client, role: "reviewer",
+      ...(continuing ? { continueSessionId: threadId } : {}) });
+    expect(result.ok).toBe(true);
+    expect(input.attempt.context.workflow).toBeUndefined();
+    if (client === "claude-code") {
+      expect(observed.args[observed.args.indexOf("--permission-mode") + 1]).toBe("plan");
+      expect(observed.args[observed.args.indexOf("--tools") + 1]).toBe("Read,Glob,Grep");
+      expect(observed.args).toContain("--strict-mcp-config");
+      expect(observed.args).not.toContain("bypassPermissions");
+    } else {
+      if (continuing) expect(observed.args).toContain("sandbox_mode=read-only");
+      else expect(observed.args[observed.args.indexOf("-s") + 1]).toBe("read-only");
+      expect(observed.args).toContain("approval_policy=never");
+      expect(observed.args.some(arg => arg.startsWith("sandbox_workspace_write."))).toBe(false);
+    }
+  });
+
   it.each(["resumeToken", "continueSessionId"] as const)("continues the stored conversation through %s", async key => {
     const { observed, result } = await launch({ [key]: threadId });
     expect(observed.args.slice(0, 2)).toEqual(["exec", "resume"]);

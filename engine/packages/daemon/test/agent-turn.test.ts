@@ -429,7 +429,9 @@ describe("what a continuation is told", () => {
     const reviewer = await launchedPrompt("rev-node", "reviewer@rig",
       { taskId: "review", role: "reviewer", paths: ["src"], dependencies: [], reviewOf: "impl" }, "review-attempt-1");
     expect(reviewer).toContain("Add dark mode to the settings page, keep the API unchanged.");
-    expect(reviewer).toContain(`Task report file: ${JSON.stringify(join(stateRoot, "turns", "review-attempt-1", "report", "task-report.json"))}`);
+    expect(reviewer).not.toContain("Task report file:");
+    expect(reviewer).toContain("final fenced json block");
+    expect(reviewer).toContain("Do not write a task-report file.");
     expect(reviewer).toContain(JSON.stringify(join(stateRoot, "turns", "impl-attempt-1", "evidence")));
   });
 

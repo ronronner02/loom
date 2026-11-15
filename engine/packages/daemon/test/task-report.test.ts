@@ -63,13 +63,25 @@ describe("the structured task report boundary", () => {
     expect(() => runtime.taskReportFor("run", "attempt", root)).toThrow();
   });
 
-  it("exposes only the report destination without adding a source permission", () => {
+  it("keeps the implementer report destination without adding a source permission", () => {
+    const text = managedTurnPrompt({ identity: "", bundle: "", runId: "run", assignment: {
+      taskId: "task", role: "implementer", paths: ["src"], dependencies: [] },
+    taskBody: "Implement the task", outputs: [], permissions: [], instructions: [], continuation: null,
+    taskReportPath: "/turns/attempt/report/task-report.json" });
+    expect(text).toContain('Task report file: "/turns/attempt/report/task-report.json"');
+    expect(text).toContain("outside the candidate");
+    expect(text).toContain("Permissions: []");
+  });
+
+  it("routes reviewer exceptions through the final message without a file grant", () => {
     const text = managedTurnPrompt({ identity: "", bundle: "", runId: "run", assignment: {
       taskId: "review", role: "reviewer", paths: ["src"], dependencies: [] },
     taskBody: "Review the candidate", outputs: [], permissions: [], instructions: [], continuation: null,
     taskReportPath: "/turns/attempt/report/task-report.json" });
-    expect(text).toContain('Task report file: "/turns/attempt/report/task-report.json"');
-    expect(text).toContain("outside the candidate");
+    expect(text).not.toContain("Task report file:");
+    expect(text).not.toContain("/turns/attempt/report/task-report.json");
+    expect(text).toContain("final fenced json block");
+    expect(text).toContain("Do not write a task-report file.");
     expect(text).toContain("Permissions: []");
   });
 });

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type Database from "better-sqlite3";
@@ -474,12 +474,100 @@ describe("U4 daemon-recorded outcomes", () => {
     addAttempt(reviewer.assignment.taskId, "review-attempt", "reviewer");
     writeTurn("review-attempt", "```json\n{\"findings\":[{\"id\":\"R1-2\",\"severity\":\"P3\",\"citation\":\"KTD8\",\"category\":\"style\",\"file\":\"src/a.ts\"}]}\n```");
 
+    expect(existsSync(agentTurnOutputPaths(turnRoot, "review-attempt").taskReport)).toBe(false);
     await observe.sweep();
+    expect(existsSync(agentTurnOutputPaths(turnRoot, "review-attempt").taskReport)).toBe(false);
 
     expect(governance.queueState(reviewer.qitemId)).toBe("done");
     expect(governance.queueState(taskQitemId)).toBe("done");
     expect(db.prepare("SELECT json_extract(payload, '$.payload.verdict') AS verdict FROM events WHERE json_extract(payload, '$.action') = 'review.verdict'").get())
       .toEqual({ verdict: "approved" });
+  });
+
+  it.each(["blocked", "needs-decision", "dropped"] as const)("records a reviewer %s from its final message without a report-file write", async status => {
+    const observe = completion(() => manifest("diff --git a/src/a.ts b/src/a.ts\n"));
+    await observe.sweep();
+    const reviewer = governance.findTask("run", "task-review-1")!;
+    addAttempt(reviewer.assignment.taskId, "review-attempt", "reviewer");
+    writeTurn("review-attempt", "```json\n" + JSON.stringify({ status, evidence: "The task needs the stated disposition.",
+      question: "Which response is required?", attemptId: "review-attempt" }) + "\n```");
+    const path = agentTurnOutputPaths(turnRoot, "review-attempt").taskReport;
+    expect(existsSync(path)).toBe(false);
+    await observe.sweep();
+    expect(governance.queueState(reviewer.qitemId)).toBe(status === "dropped" ? "done" : "blocked");
+    expect(governance.getTask(reviewer.qitemId)?.evidence).toMatchObject({
+      taskReport: { status, attemptId: "review-attempt" }, reportedAttemptId: "review-attempt", validated: false,
+    });
+    expect(governance.getRun("run").retriesUsed).toBe(0);
+    expect(db.prepare("SELECT count(*) AS n FROM events WHERE json_extract(payload, '$.action') = 'review.verdict'").get()).toEqual({ n: 0 });
+    expect(existsSync(path)).toBe(false);
+  });
+
+  it.each([
+    { status: "blocked", evidence: "Valid evidence", unexpected: true },
+    { status: "blocked", evidence: "x".repeat(16_385) },
+    { status: "needs-decision", evidence: "Valid evidence", question: "" },
+    { status: "done", evidence: "Not an exception status" },
+  ])("validates a reviewer's final exception with the existing task-report rules (%#)", async report => {
+    const observe = completion(() => manifest("diff --git a/src/a.ts b/src/a.ts\n"));
+    await observe.sweep();
+    const reviewer = governance.findTask("run", "task-review-1")!;
+    addAttempt(reviewer.assignment.taskId, "review-attempt", "reviewer");
+    writeTurn("review-attempt", "```json\n" + JSON.stringify(report) + "\n```");
+    await observe.sweep();
+    expect(governance.queueState(reviewer.qitemId)).toBe("blocked");
+    expect(governance.getTask(reviewer.qitemId)?.evidence).toMatchObject({ taskReport: {
+      status: "blocked", question: expect.stringContaining("Task report could not be read:"),
+    } });
+    expect(governance.getRun("run").retriesUsed).toBe(0);
+    expect(existsSync(agentTurnOutputPaths(turnRoot, "review-attempt").taskReport)).toBe(false);
+  });
+
+  it("rejects a final exception naming another attempt", async () => {
+    const observe = completion(() => manifest("diff --git a/src/a.ts b/src/a.ts\n"));
+    await observe.sweep();
+    const reviewer = governance.findTask("run", "task-review-1")!;
+    addAttempt(reviewer.assignment.taskId, "review-attempt", "reviewer");
+    writeTurn("review-attempt", "```json\n" + JSON.stringify({ status: "dropped", evidence: "Stale report", attemptId: "other" }) + "\n```");
+    await observe.sweep();
+    expect(governance.queueState(reviewer.qitemId)).toBe("failed");
+    expect(governance.getTask(reviewer.qitemId)?.evidence).toMatchObject({ reasonCode: "review_report_missing" });
+  });
+
+  it("keeps implementer exception reports file-only", async () => {
+    writeTurn(attemptId, "```json\n" + JSON.stringify({ status: "blocked", evidence: "This is not a reviewer." }) + "\n```");
+    await completion(() => manifest("diff --git a/src/a.ts b/src/a.ts\n")).sweep();
+    expect(governance.queueState(taskQitemId)).toBe("done");
+    expect(governance.findTask("run", "task-review-1")?.assignment.role).toBe("reviewer");
+  });
+
+  it("discards a stale file report before selecting the current final exception", async () => {
+    const observe = completion(() => manifest("diff --git a/src/a.ts b/src/a.ts\n"));
+    await observe.sweep();
+    const reviewer = governance.findTask("run", "task-review-1")!;
+    addAttempt(reviewer.assignment.taskId, "review-attempt", "reviewer");
+    writeReport("review-attempt", { status: "dropped", evidence: "Earlier attempt", attemptId: "other" });
+    const report = { status: "blocked", evidence: "Current blocker", attemptId: "review-attempt" };
+    writeTurn("review-attempt", "```json\n" + JSON.stringify(report) + "\n```");
+    await observe.sweep();
+    expect(governance.queueState(reviewer.qitemId)).toBe("blocked");
+    expect(governance.getTask(reviewer.qitemId)?.evidence).toMatchObject({ taskReport: report });
+    expect(governance.getRun("run").retriesUsed).toBe(0);
+    expect(db.prepare("SELECT count(*) AS n FROM events WHERE json_extract(payload, '$.action') = 'review.verdict'").get()).toEqual({ n: 0 });
+  });
+
+  it("keeps a current file report ahead of a different current final exception", async () => {
+    const observe = completion(() => manifest("diff --git a/src/a.ts b/src/a.ts\n"));
+    await observe.sweep();
+    const reviewer = governance.findTask("run", "task-review-1")!;
+    addAttempt(reviewer.assignment.taskId, "review-attempt", "reviewer");
+    const report = { status: "dropped", evidence: "Current file report", attemptId: "review-attempt" };
+    writeReport("review-attempt", report);
+    writeTurn("review-attempt", "```json\n" + JSON.stringify({ status: "blocked", evidence: "Current final report", attemptId: "review-attempt" }) + "\n```");
+    await observe.sweep();
+    expect(governance.queueState(reviewer.qitemId)).toBe("done");
+    expect(governance.getTask(reviewer.qitemId)?.evidence).toMatchObject({ taskReport: report });
+    expect(db.prepare("SELECT count(*) AS n FROM events WHERE json_extract(payload, '$.action') = 'review.verdict'").get()).toEqual({ n: 0 });
   });
 
   it("sends a missing reviewer report to the lead rather than retrying it", async () => {
