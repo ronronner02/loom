@@ -1,3 +1,4 @@
+import { pendingFinalization } from "./attempt-finalization.js";
 import type { RigRepository } from "./rig-repository.js";
 import type { SessionRegistry } from "./session-registry.js";
 import type { RuntimeAdapter, NodeBinding } from "./runtime-adapter.js";
@@ -46,6 +47,7 @@ export function composeTaskDispatch(deps: TaskDispatchDependencies): TaskDispatc
   // The clock is read once per dispatch, so every deadline below agrees about "now".
   const now = () => deps.now?.() ?? new Date();
   return async (runId, taskId) => {
+    if (pendingFinalization(deps.sessions.db, runId)) return;
     const key = runId + "\u0000" + taskId;
     const timing = deps.sessions.db.prepare(`SELECT json_extract(evidence_json, '$.retryNotBefore') AS notBefore FROM team_queue_authority WHERE run_id = ? AND task_id = ?`).get(runId, taskId) as { notBefore: string | null } | undefined;
     if (!retryIsDue(timing?.notBefore, now())) return;

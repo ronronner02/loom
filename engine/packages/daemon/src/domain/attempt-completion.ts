@@ -1,6 +1,8 @@
+import { pendingFinalization, recordedControlReceipt, saveFinalization,
+  type AttemptFinalizationProgress, type FinalizationOutcome, type PreparedAttemptOutcome } from "./attempt-finalization.js";
 import { readFileSync } from "node:fs";
 import type Database from "better-sqlite3";
-import { TEAM_CONTROL_VERSION, jsonValue, type ControlRequest, type JsonValue } from "../contracts/team-control.js";
+import { TEAM_CONTROL_VERSION, jsonValue, type ControlRequest, type JsonObject, type JsonValue } from "../contracts/team-control.js";
 import type { PlanGovernance } from "./plan-governance.js";
 import type { SessionRegistry } from "./session-registry.js";
 import type { NativeAttemptIdentity } from "../contracts/team-control.js";
@@ -8,7 +10,7 @@ import { classifyAttemptFailure, classificationFor, TERMINAL_TAIL_LINES, type At
 import { agentTurnOutputPaths, readAgentTurnLastMessage, readAgentTurnThreadId } from "./agent-turn.js";
 import { leadCompletionEvidence, taskCompletionEvidence, type CandidateFacts, type TaskCompletionEvidence } from "./task-completion.js";
 import { recordedFindings } from "./review-loop.js";
-import type { AttemptOutcome, AttemptTelemetry } from "./attempt-telemetry.js";
+import type { AttemptTelemetry } from "./attempt-telemetry.js";
 import { unreadableTaskReport, type TaskReport } from "./task-report.js";
 import { recordWorkflowTurn } from "./team-workflows.js";
 import { observeIdentity } from "./process-termination.js";
@@ -24,8 +26,8 @@ import type { SupervisorExitFacts } from "../adapters/child-process-supervisor.j
  *
  * This path closes that gap with the receipt and stop writes, then records the task outcome from
  * the daemon's own evidence. Owner commands remain an override, while ordinary implementer,
- * lead and reviewer turns complete through this sweep. All writes are idempotent, so a repeated
- * sweep records nothing twice.
+ * lead and reviewer turns complete through this sweep. Stopping enrolls durable finalization;
+ * completed owners are acknowledged separately and unfinished owners resume on the next sweep.
  */
 
 /** How often receipts are registered and identities re-observed, on the daemon's 1 Hz cadence. */
@@ -104,16 +106,17 @@ export interface AttemptCompletionDependencies {
    * the run's chat. Reading it and storing it belongs to the owner of that conversation, not to
    * this sweep: this is the observation that the turn ended, which is the fact the conversation
    * owner cannot see for itself. It is awaited so a reply is stored before the slot is offered
-   * again, and its failure is logged rather than allowed to stop the sweep.
+   * again. A failed integration stays pending for the next sweep.
    */
   onAttemptStopped?: (attempt: import("../contracts/team-control.js").TeamAttempt) => Promise<void>;
+  /** Each owner is acknowledged separately after its idempotent durable effects complete. */
+  stoppedOwners?: readonly { name: string; complete: (attempt: import("../contracts/team-control.js").TeamAttempt) => void | Promise<void> }[];
   /**
    * U7 — land a task whose review just approved on the run's integration branch.
    *
    * The approval is the trigger: the outcome command records it, and this is the observation
    * that it happened. Awaited so the branch has the commit before the sweep offers the slot
-   * again, and its failure is logged rather than allowed to stop the sweep — the task records
-   * its own conflict, and the lead wakes on that.
+   * again. Its failure retains the finalization checkpoint; a recorded conflict wakes the lead.
    */
   integrateTask?: (runId: string, taskId: string) => Promise<unknown>;
   /**
@@ -208,6 +211,9 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
   const alive = dependencies.alive ?? identityAlive;
   let timer: ReturnType<typeof setInterval> | null = null;
   let sweeping = false;
+  let started = false;
+  let booting = false;
+  let generation = 0;
   /**
    * The highest receipt `seq` this process has already read.
    *
@@ -325,36 +331,9 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
           payload: { expectedAttemptVersion: attempt.entityVersion, state: "stopped", usage: jsonValue(attempt.usage),
             ...(failure === null ? {} : { failure: jsonValue(failure) }) },
         };
-        const recorded = governance.recordUsage(request);
-        if (recorded.status !== "observed" && !recorded.replayed) {
+        const recorded = governance.recordUsage(request, { finalize: true });
+        if (recorded.status !== "observed") {
           log(`team completion: attempt ${attempt.id} stop was not recorded: ${recorded.reason ?? recorded.status}`);
-          continue;
-        }
-        const stopped = governance.getAttempt(attempt.id);
-        let telemetryOutcome: { outcome: AttemptOutcome; retryScheduled: boolean } = {
-          outcome: failure?.reasonCode === "canceled" ? "canceled" : failure === null ? "unknown" : "failed", retryScheduled: false,
-        };
-        if (stopped) {
-          try { telemetryOutcome = await recordAutomaticOutcome(stopped) ?? telemetryOutcome; }
-          catch (error) { log(`team completion: automatic outcome for attempt ${attempt.id} failed: ${error instanceof Error ? error.message : String(error)}`); }
-        }
-        try { dependencies.telemetry?.recordOutcome(attempt.id, telemetryOutcome); }
-        catch (error) {
-          // The capture is already durable and the native stop is recorded. An unavailable
-          // outcome remains unknown; it must not strand the stopped attempt's seat.
-          log(`team completion: telemetry outcome for ${attempt.id} failed: ${error instanceof Error ? error.message : String(error)}`);
-        }
-        releaseSeat(attempt.qitemId, attempt.provider === "codex" ? attempt.id : undefined);
-        // U5 — the turn is over and its seat is free: whoever owns this attempt's conversation
-        // gets its final message now, before the freed slot is offered to the next task.
-        try { await dependencies.onAttemptStopped?.(attempt); } catch (error) {
-          log(`team completion: turn-end owner for attempt ${attempt.id} failed: ${error instanceof Error ? error.message : String(error)}`);
-        }
-        // MVP — the seat and its session slot are free now, so the run's next pending task can
-        // start. A dispatch failure is logged and left for the next freed slot: it must not stop
-        // the rest of the sweep, and a task that cannot start yet is not an error of this one.
-        try { await dependencies.dispatchPending?.(attempt.runId); } catch (error) {
-          log(`team completion: dispatch after attempt ${attempt.id} failed: ${error instanceof Error ? error.message : String(error)}`);
         }
       } catch (error) {
         // A run or attempt that moved under the sweep is re-read on the next tick; one failed
@@ -396,21 +375,21 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
     return classifyAttemptFailure({ canceled, exit: exit === null ? null : { code: exit.code }, terminalTail, now: dependencies.now?.() });
   };
 
-  /** Record the task result the daemon can prove from the stopped turn. */
-  const recordAutomaticOutcome = async (stoppedAttempt: NonNullable<ReturnType<PlanGovernance["getAttempt"]>>): Promise<{ outcome: AttemptOutcome; retryScheduled: boolean } | void> => {
+  /** Freeze the first outcome evidence while the run is fenced from another turn. */
+  const prepareAutomaticOutcome = (stoppedAttempt: NonNullable<ReturnType<PlanGovernance["getAttempt"]>>): PreparedAttemptOutcome | null => {
     // Older embedders and unit fixtures may compose only the stop observer. Production wires at
     // least one worker-output reader; without one there is no daemon-owned evidence to record.
-    if (!dependencies.candidateManifestFor && !dependencies.readLeadProposal && !dependencies.turnStateRoot) return;
-    if (stoppedAttempt.qitemId === null) return;
+    if (!dependencies.candidateManifestFor && !dependencies.readLeadProposal && !dependencies.turnStateRoot) return null;
+    if (stoppedAttempt.qitemId === null) return null;
     const task = governance.getTask(stoppedAttempt.qitemId);
-    if (!task || !["lead", "implementer", "reviewer"].includes(task.assignment.role)) return;
+    if (!task || !["lead", "implementer", "reviewer"].includes(task.assignment.role)) return null;
     const workflowOutcome = recordWorkflowTurn(dependencies.db, stoppedAttempt, dependencies.turnStateRoot
       ? readAgentTurnLastMessage(dependencies.turnStateRoot, stoppedAttempt.id) : null);
     // A planning lead task is the owner↔lead chat conversation, not a delivery task. Its turn
     // ends in a chat reply and is reopened by the next owner message; completion evidence applies
     // once the run enters delivery and the lead writes its decomposition proposal.
     if (task.assignment.role === "lead" && governance.getRun(stoppedAttempt.runId).phase === "planning"
-      && stoppedAttempt.failure === null) return;
+      && stoppedAttempt.failure === null) return null;
     const subjectTaskId = task.assignment.role === "reviewer" && task.assignment.reviewOf !== undefined
       ? task.assignment.reviewOf : task.assignment.taskId;
     let state: "done" | "failed" | "blocked" | "canceled";
@@ -507,52 +486,104 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
       }
     }
 
-    // The classifier is recorded with the stop when available. A failed evidence read has no
-    // process classifier, so stamp its judgment classification onto the stopped attempt first.
-    let currentAttempt = stoppedAttempt;
-    if (state === "failed" && currentAttempt.failure === null && reasonCode !== null) {
-      const failure = classificationFor(reasonCode);
+    const actorSession = governance.taskSeat(task.qitemId);
+    return actorSession ? { taskVersion: task.entityVersion, actorSession, state,
+      evidence: jsonValue(evidence) as JsonObject, reasonCode } : null;
+  };
+
+  const defaultOutcome = (attempt: NonNullable<ReturnType<PlanGovernance["getAttempt"]>>): FinalizationOutcome => ({
+    telemetry: { outcome: attempt.failure?.reasonCode === "canceled" ? "canceled" : attempt.failure ? "failed" : "unknown", retryScheduled: false },
+  });
+
+  const recordAutomaticOutcome = (attempt: NonNullable<ReturnType<PlanGovernance["getAttempt"]>>,
+    progress: AttemptFinalizationProgress): FinalizationOutcome => {
+    const key = `daemon-task-outcome:${attempt.id}`;
+    // A receipt is checked before workflow writes, candidate reads, or current entity versions.
+    const prior = recordedControlReceipt(db, attempt.runId, key);
+    const resultOf = (receipt: NonNullable<typeof prior>): FinalizationOutcome => {
+      if (receipt.status !== "observed" || !progress.outcome) {
+        if (receipt.status !== "observed") log(`team completion: outcome for ${attempt.id} was ${receipt.status}: ${receipt.reason}`);
+        return defaultOutcome(attempt);
+      }
+      const value = receipt.value as { review?: { verdict?: string; taskId?: string }; evidence?: { retryNotBefore?: string } } | null;
+      const state = progress.outcome.state;
+      return { telemetry: { outcome: state === "done" ? "succeeded" : state === "canceled" ? "canceled" : "failed",
+        retryScheduled: state === "failed" && typeof value?.evidence?.retryNotBefore === "string" },
+        ...(value?.review?.verdict === "approved" && typeof value.review.taskId === "string" ? { integrateTaskId: value.review.taskId } : {}) };
+    };
+    if (prior) return resultOf(prior);
+    const task = attempt.qitemId === null ? null : governance.getTask(attempt.qitemId);
+    const latest = task ? db.prepare("SELECT id FROM team_attempts WHERE qitem_id = ? ORDER BY rowid DESC LIMIT 1")
+      .get(task.qitemId) as { id: string } | undefined : null;
+    if (!task || latest?.id !== attempt.id || !["pending", "in-progress", "blocked"].includes(governance.queueState(task.qitemId) ?? "")) {
+      return defaultOutcome(attempt);
+    }
+    if (progress.outcome === undefined) {
+      progress.outcome = prepareAutomaticOutcome(attempt);
+      saveFinalization(db, attempt.id, progress);
+    }
+    const prepared = progress.outcome;
+    if (!prepared || task.entityVersion !== prepared.taskVersion) return defaultOutcome(attempt);
+    let currentAttempt = attempt;
+    if (prepared.state === "failed" && currentAttempt.failure === null && prepared.reasonCode !== null) {
       const observed = governance.recordUsage({
         protocolVersion: TEAM_CONTROL_VERSION, runId: currentAttempt.runId, actionId: currentAttempt.id,
         expectedEntityVersion: governance.getRun(currentAttempt.runId).entityVersion,
         idempotencyKey: `attempt-failure:${currentAttempt.id}:${currentAttempt.entityVersion}`,
-        payload: { expectedAttemptVersion: currentAttempt.entityVersion, state: "stopped", usage: jsonValue(currentAttempt.usage), failure: jsonValue(failure) },
+        payload: { expectedAttemptVersion: currentAttempt.entityVersion, state: "stopped", usage: jsonValue(currentAttempt.usage),
+          failure: jsonValue(classificationFor(prepared.reasonCode)) },
       });
-      if (observed.status !== "observed" && !observed.replayed) {
-        log(`team completion: could not record ${reasonCode} for attempt ${currentAttempt.id}: ${observed.reason ?? observed.status}`);
-        return;
-      }
-      currentAttempt = governance.getAttempt(currentAttempt.id) ?? currentAttempt;
+      if (observed.status !== "observed") return defaultOutcome(attempt);
+      currentAttempt = governance.getAttempt(currentAttempt.id)!;
     }
-
-    const actorSession = governance.taskSeat(task.qitemId);
-    if (!actorSession) return;
-    const run = governance.getRun(currentAttempt.runId);
     const outcome = governance.recordTaskOutcome({
       protocolVersion: TEAM_CONTROL_VERSION, runId: currentAttempt.runId, actionId: task.qitemId,
-      expectedEntityVersion: run.entityVersion,
-      idempotencyKey: `daemon-task-outcome:${currentAttempt.id}`,
-      payload: { expectedTaskVersion: task.entityVersion, state, actorSession, attemptId: currentAttempt.id,
-        expectedAttemptVersion: currentAttempt.entityVersion, evidence,
-        ...(state === "done" ? { closureReason: "no-follow-on" } : {}) },
+      expectedEntityVersion: governance.getRun(currentAttempt.runId).entityVersion, idempotencyKey: key,
+      payload: { expectedTaskVersion: prepared.taskVersion, state: prepared.state, actorSession: prepared.actorSession,
+        attemptId: currentAttempt.id, expectedAttemptVersion: currentAttempt.entityVersion, evidence: prepared.evidence,
+        ...(prepared.state === "done" ? { closureReason: "no-follow-on" } : {}) },
     }, { kind: "daemon", sessionId: "daemon" });
-    if (outcome.status !== "observed" && !outcome.replayed) {
-      log(`team completion: automatic outcome for ${task.assignment.taskId} was not recorded: ${outcome.reason ?? outcome.status}`);
-      return;
-    }
-    const telemetryOutcome = { outcome: (state === "done" ? "succeeded" : state === "canceled" ? "canceled" : "failed") as AttemptOutcome,
-      retryScheduled: governance.getRun(currentAttempt.runId).retriesUsed > run.retriesUsed };
-    // U7 — an approving review is the run's signal to deliver the work it approved: the
-    // implementer's own task lands as one commit on the run's branch. A replay finds the commit
-    // already recorded, so a repeated sweep commits nothing twice.
-    const review = (outcome.value as { review?: { verdict?: string; taskId?: string } } | null)?.review;
-    if (review?.verdict === "approved" && typeof review.taskId === "string" && dependencies.integrateTask) {
-      try { await dependencies.integrateTask(currentAttempt.runId, review.taskId); }
-      catch (error) {
-        log(`team completion: integration of ${review.taskId} failed: ${error instanceof Error ? error.message : String(error)}`);
+    return resultOf(outcome);
+  };
+
+  /** Keep unfinished work durable; one failed owner never replays earlier acknowledged owners. */
+  const finalize = async (): Promise<void> => {
+    const rows = db.prepare(`SELECT f.attempt_id AS id, f.progress_json AS progress FROM team_attempt_finalizations f
+      JOIN team_attempts a ON a.id = f.attempt_id WHERE a.state = 'stopped' AND a.identity_json IS NOT NULL ORDER BY a.rowid`)
+      .all() as Array<{ id: string; progress: string }>;
+    for (const row of rows) {
+      try {
+        const attempt = governance.getAttempt(row.id)!;
+        const progress = JSON.parse(row.progress) as AttemptFinalizationProgress;
+        if (progress.result === undefined) {
+          progress.result = recordAutomaticOutcome(attempt, progress);
+          saveFinalization(db, attempt.id, progress);
+        }
+        const step = async (name: string, complete: () => void | Promise<unknown>) => {
+          if (progress.completed.includes(name)) return;
+          await complete();
+          progress.completed.push(name);
+          saveFinalization(db, attempt.id, progress);
+        };
+        const result = progress.result;
+        await step("integration", () => result.integrateTaskId ? dependencies.integrateTask?.(attempt.runId, result.integrateTaskId) : undefined);
+        await step("telemetry", () => {
+          // Boot-reconciled stops did not pass through the live capture before their stop.
+          if (dependencies.telemetry && !db.prepare("SELECT 1 FROM attempt_telemetry WHERE attempt_id = ?").get(attempt.id)) {
+            dependencies.telemetry.capture(attempt);
+          }
+          dependencies.telemetry?.recordOutcome(attempt.id, result.telemetry);
+        });
+        const owners = [...dependencies.stoppedOwners ?? [],
+          ...(dependencies.onAttemptStopped ? [{ name: "turn-end", complete: dependencies.onAttemptStopped }] : [])];
+        for (const owner of owners) await step(`owner:${owner.name}`, () => owner.complete(attempt));
+        // Owners may reopen durable work, but dispatch stays fenced until every owner finishes.
+        releaseSeat(attempt);
+        db.prepare("DELETE FROM team_attempt_finalizations WHERE attempt_id = ?").run(attempt.id);
+      } catch (error) {
+        log(`team completion: finalization for ${row.id} remains pending: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
-    return telemetryOutcome;
   };
 
   /** Release a pane the launcher held, so the seat's next client starts in a live shell. */
@@ -563,8 +594,13 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
   };
 
   /** Return the seat that ran a stopped attempt to "never launched", so a dispatch may start it. */
-  const releaseSeat = (qitemId: string | null, codexAttemptId?: string): void => {
-    const seat = qitemId === null ? null : governance.taskSeat(qitemId);
+  const releaseSeat = (attempt: NonNullable<ReturnType<PlanGovernance["getAttempt"]>>): void => {
+    const seat = attempt.qitemId === null ? null : governance.taskSeat(attempt.qitemId);
+    if (seat === null || db.prepare(`SELECT 1 FROM team_attempts a JOIN queue_items q ON q.qitem_id = a.qitem_id
+      WHERE q.destination_session = ? AND a.id <> ?
+        AND (a.state <> 'stopped' OR a.rowid > (SELECT rowid FROM team_attempts WHERE id = ?)) LIMIT 1`)
+      .get(seat, attempt.id, attempt.id)) return;
+    const codexAttemptId = attempt.provider === "codex" ? attempt.id : undefined;
     const context = seat === null ? null : sessions.findResumeContextByName(seat);
     if (!context) return;
     if (codexAttemptId && dependencies.turnStateRoot) {
@@ -586,7 +622,7 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
     .all() as Array<{ runId: string }>).map(row => row.runId);
 
   const sweep = async (): Promise<void> => {
-    if (sweeping) return;
+    if (sweeping || booting) return;
     sweeping = true;
     try {
       const receipts = db.prepare("SELECT seq, payload FROM events WHERE type = 'managed.attempt.receipt' AND seq > ? ORDER BY seq")
@@ -601,7 +637,9 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
         }
       }
       await close();
+      await finalize();
       for (const runId of pendingRunIds()) {
+        if (pendingFinalization(db, runId)) continue;
         try { await dependencies.dispatchPending?.(runId); } catch (error) {
           log(`team completion: scheduled dispatch for run=${runId} failed: ${error instanceof Error ? error.message : String(error)}`);
         }
@@ -619,27 +657,37 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
   return {
     sweep,
     start() {
-      if (timer) return;
-      timer = setInterval(() => {
-        // The sweep guard covers timer ticks, startup and explicit observations while I/O waits.
-        sweep().catch(error => log(`team completion: sweep failed: ${error instanceof Error ? error.message : String(error)}`));
-      }, intervalMs);
-      // The daemon's lifetime decides how long this runs; a tick must never be the reason a
-      // process stays alive after its database closed.
-      timer.unref?.();
-      // U4 — a restart first reconciles the attempts its predecessor left running, so the first
-      // sweep reads durable interrupted/recovery_blocked facts instead of stale running rows.
+      if (started) return;
+      started = true;
+      booting = true;
+      const currentGeneration = ++generation;
       void (async () => {
-        try { await dependencies.reconcileOnBoot?.(); }
-        catch (error) { log(`team completion: boot reconciliation failed: ${error instanceof Error ? error.message : String(error)}`); }
-        // A restart is a freed slot too: the run's pending tasks were waiting for one when the
-        // daemon stopped, and nothing else asks the scheduler again. Without this a run resumed
-        // after a restart sits with work nobody starts — measured on the C4 acceptance run, where
-        // the rework the review had just reopened was never dispatched.
-        await sweep().catch(error => log("team completion: startup sweep failed: " + String(error)));
+        try {
+          await dependencies.reconcileOnBoot?.();
+          if (!started || generation !== currentGeneration) return;
+          booting = false;
+          timer = setInterval(() => {
+            sweep().catch(error => log(`team completion: sweep failed: ${error instanceof Error ? error.message : String(error)}`));
+          }, intervalMs);
+          timer.unref?.();
+          await sweep().catch(error => {
+            log(`team completion: startup sweep failed: ${error instanceof Error ? error.message : String(error)}`);
+          });
+        } catch (error) {
+          log(`team completion: startup failed before dispatch: ${error instanceof Error ? error.message : String(error)}`);
+          if (generation === currentGeneration) {
+            started = false;
+            booting = false;
+            if (timer) clearInterval(timer);
+            timer = null;
+          }
+        }
       })();
     },
     stop() {
+      started = false;
+      booting = false;
+      generation += 1;
       if (timer) clearInterval(timer);
       timer = null;
     },

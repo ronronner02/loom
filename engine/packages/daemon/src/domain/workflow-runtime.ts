@@ -1,3 +1,4 @@
+import { pendingFinalization } from "./attempt-finalization.js";
 import { bindingCovers } from "./binding-scope.js";
 import { documentPaths, documentDispatchRefusal, type DocumentEvidence } from "./project-documents.js";
 import { leadRosterPath, parseLeadRoster, type LeadRosterEvidence } from "./lead-roster.js";
@@ -1008,6 +1009,7 @@ export class WorkflowRuntime {
 
   /** Start a delivery lead's next management turn from the integration head. */
   prepareDeliveryLeadTurn(runId: string, taskId: string): boolean {
+    if (pendingFinalization(this.db, runId)) throw new Error("managed_finalization_pending");
     const governance = new PlanGovernance(this.db, this.eventBus, this.queueRepo);
     const run = governance.getRun(runId);
     if (run.phase !== "delivery" || run.state !== "approved"
@@ -1111,6 +1113,7 @@ export class WorkflowRuntime {
     permissions: readonly string[];
     context: ContextManifest;
   }): { candidate: string; manifestDigest: string } {
+    if (pendingFinalization(this.db, runId)) throw new Error("managed_finalization_pending");
     const governance = new PlanGovernance(this.db, this.eventBus, this.queueRepo), run = governance.getRun(runId);
     if (run.state !== "approved" || input.context.runId !== runId
       || hashBinding(run.binding) !== hashBinding(input.context.binding)) throw new Error("Run is not approved for this assignment");

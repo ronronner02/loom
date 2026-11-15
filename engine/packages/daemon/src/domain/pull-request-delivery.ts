@@ -1,3 +1,4 @@
+import { pendingFinalization } from "./attempt-finalization.js";
 import type Database from "better-sqlite3";
 import { execFileSync } from "node:child_process";
 import type { Integration, MergeOutcome } from "./integration-branch.js";
@@ -75,6 +76,7 @@ export function composePullRequestDelivery(deps: PullRequestDeliveryDeps) {
 
   /** Push and open (or update) the pull request for one finished run. Returns the record or null when not applicable. */
   async function deliver(runId: string): Promise<PullRequestRecord | null> {
+    if (pendingFinalization(deps.db, runId)) return null;
     const status = deps.integration.status(runId);
     if (!status.tasksDone || status.commits.length === 0 || status.merge.merged === true || !status.repository) return null;
     const head = git(status.repository, ["rev-parse", "--verify", `refs/heads/${status.branch}^{commit}`]);

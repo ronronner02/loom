@@ -116,7 +116,7 @@ export function ensurePlanWorktree(input: {
   const branch = runSlug({ runId: input.runId, name: input.name });
   if (existsSync(path)) {
     if (!isWorktreeOf(repository, path)) throw new Error("The plan worktree path is occupied by something else");
-    return { path, branch };
+    return { path, branch: git(path, ["symbolic-ref", "--quiet", "--short", "HEAD"]) };
   }
   // KTD10 — the ceiling is checked before Git is asked, so a long root or a long run id is a
   // named refusal rather than `'$GIT_DIR' too big` from inside Git.

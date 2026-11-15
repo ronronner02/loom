@@ -1,3 +1,4 @@
+import { pendingFinalization } from "./domain/attempt-finalization.js";
 import { documentDispatchRefusal } from "./domain/project-documents.js";
 import { managedModelRefusal } from "./domain/team-model-policy.js";
 import { discoverTailscaleSelfNames } from "./middleware/browser-boundary.js";
@@ -199,6 +200,7 @@ function composeDirectLaunch(dependencies: {
     modelRefusal: input => managedModelRefusal(rigRepo.db, input),
     documentRefusal: input => {
       const { runId, assignment, binding } = input.attempt.context;
+      if (pendingFinalization(rigRepo.db, runId)) return "managed_finalization_pending";
       const run = dependencies.governance.getRun(runId);
       return documentDispatchRefusal(rigRepo.db, run, assignment.role, assignment.taskId, binding);
     },
@@ -1136,18 +1138,15 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       // waited for that turn is the next turn's prompt. The conversation owner reads the turn's
       // recorded final message and asks the same dispatch for the next turn. U6 adds the one
       // other thing the turn can say: the decision it asked the owner for.
-      onAttemptStopped: async attempt => {
-        await composeLeadTurnEnd({ db, governance: teamGovernance, turnStateRoot,
+      stoppedOwners: [
+        { name: "lead-chat", complete: composeLeadTurnEnd({ db, governance: teamGovernance, turnStateRoot,
           readEscalation: (runId, taskId) => workflowRuntime ? workflowRuntime.leadEscalationFor(runId, taskId) : null,
-          dispatch: () => deps.teamControl?.dispatch })(attempt);
-        // The decomposition is admitted at the turn's end, after the turn's message is stored,
-        // so the owner reads what the lead said before the tasks it admitted appear.
-        await leadManager.turnEnd(attempt);
-        // Plan R9 — comments an implementer handed back become the lead's owner messages.
-        await taskThreads.attemptStopped(attempt);
-        // Plan R19 — the outcome of the GitHub review comments the turn took, answered on the next sweeps.
-        deps.githubSource?.attemptStopped(attempt, declinePath(agentTurnOutputPaths(turnStateRoot, attempt.id).taskReport));
-      },
+          dispatch: () => deps.teamControl?.dispatch }) },
+        { name: "lead-proposal", complete: attempt => leadManager.turnEnd(attempt) },
+        { name: "task-comments", complete: attempt => taskThreads.attemptStopped(attempt) },
+        { name: "github-comments", complete: attempt => deps.githubSource?.attemptStopped(attempt,
+          declinePath(agentTurnOutputPaths(turnStateRoot, attempt.id).taskReport)) },
+      ],
       // U7 — an approving review is the run's signal to deliver: the implementer's task lands as
       // one commit on the run's branch, through the same owner the merge route reads.
       ...(deps.integration ? { integrateTask: (runId: string, taskId: string) => deps.integration!.integrate(runId, taskId) } : {}),

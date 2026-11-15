@@ -224,6 +224,44 @@ describe("U6 — the lead as manager", () => {
     expect(governance.chatDecision("run")).toBeNull();
   });
 
+  it.each(["admission", "refusal"] as const)("replays a committed lead %s before reading a later proposal", async kind => {
+    endLeadTurn();
+    const list = [{ taskId: "task-2", seat: "a@rig", paths: ["src/a.ts"], dependencies: [], body: "Implement the module" }];
+    if (kind === "admission") {
+      const original = governance.admitLeadProposal.bind(governance);
+      vi.spyOn(governance, "admitLeadProposal").mockImplementationOnce((...args) => { original(...args); throw new Error("after lead command commit"); });
+    } else {
+      const original = governance.refuseLeadTasks.bind(governance);
+      vi.spyOn(governance, "refuseLeadTasks").mockImplementationOnce((...args) => { original(...args); throw new Error("after lead command commit"); });
+    }
+    await expect(leadTurnEnd(kind === "admission" ? list : new Error("invalid proposal"))).rejects.toThrow("after lead command commit");
+    const version = governance.getRun("run").entityVersion;
+    const reader = vi.fn(() => { if (kind === "admission") throw new Error("a newer invalid proposal"); return list; });
+    dispatch.mockClear();
+    await composeLeadManager({ db, governance, readLeadProposal: reader,
+      currentBinding: () => structuredClone(binding), dispatch: () => dispatch as never, log: () => {} })
+      .turnEnd({ id: "attempt-lead", runId: "run", qitemId: leadQitemId, role: "lead" });
+    expect(reader).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(governance.getRun("run").entityVersion).toBe(version);
+    expect(governance.findTask("run", "task-2") !== null).toBe(kind === "admission");
+    expect(db.prepare("SELECT count(*) AS n FROM events WHERE json_extract(payload, '$.action') = 'lead.proposal-refused'").get())
+      .toEqual({ n: kind === "refusal" ? 1 : 0 });
+  });
+
+  it("leaves wake accounting unchanged until pending finalization completes", async () => {
+    endLeadTurn();
+    const task = pauseWorker();
+    db.prepare("INSERT INTO team_attempt_finalizations (attempt_id, progress_json) VALUES (?, ?)").run("attempt-task-2", '{"completed":[]}');
+    await manager(new LeadProposalMissingError()).sweep();
+    expect(wakeEvents()).toEqual([]);
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(governance.queueState(task.qitemId)).toBe("blocked");
+    db.prepare("DELETE FROM team_attempt_finalizations WHERE attempt_id = ?").run("attempt-task-2");
+    await manager(new LeadProposalMissingError()).sweep();
+    expect(wakeEvents()).toHaveLength(1);
+  });
+
   it("admits a valid decomposition with no owner approval, and its tasks dispatch", async () => {
     endLeadTurn();
     const approvalsBefore = (db.prepare("SELECT count(*) AS n FROM team_approvals").get() as { n: number }).n;

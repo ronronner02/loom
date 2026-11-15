@@ -94,6 +94,28 @@ export const TEAM_GITHUB_THREADS_SQL = `CREATE TABLE team_github_threads (
       PRIMARY KEY (run_id, message_id)
     )`;
 
+/** Unfinished stop effects only; historical stopped attempts are not enrolled on upgrade. */
+export const TEAM_ATTEMPT_FINALIZATIONS_SQL = `CREATE TABLE team_attempt_finalizations (
+      attempt_id TEXT PRIMARY KEY REFERENCES team_attempts(id),
+      progress_json TEXT NOT NULL CHECK (json_valid(progress_json))
+    )`;
+
+/** The exact Git write to recover before reading another mutable candidate. */
+export const TEAM_INTEGRATION_INTENTS_SQL = `CREATE TABLE team_integration_intents (
+      run_id TEXT NOT NULL REFERENCES team_runs(id),
+      task_id TEXT NOT NULL,
+      repository TEXT NOT NULL,
+      worktree TEXT NOT NULL,
+      branch TEXT NOT NULL,
+      parent_sha TEXT NOT NULL,
+      tree_sha TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      message TEXT NOT NULL,
+      repair_reason TEXT,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (run_id, task_id)
+    )`;
+
 export const SCHEMA_UPGRADES: readonly SchemaUpgrade[] = [
   // Plan KTD3: a lead message that needs no owner attention is kept as run activity.
   { from: 2, to: 3, sql: "ALTER TABLE team_chat_messages ADD COLUMN visibility TEXT NOT NULL DEFAULT 'chat' CHECK (visibility IN ('chat', 'activity'))" },
@@ -106,6 +128,7 @@ export const SCHEMA_UPGRADES: readonly SchemaUpgrade[] = [
   { from: 6, to: 7, sql: TEAM_GITHUB_SEEN_SQL },
   { from: 7, to: 8, sql: TEAM_INTAKE_SQL },
   { from: 8, to: 9, sql: TEAM_GITHUB_THREADS_SQL },
+  { from: 9, to: 10, sql: [TEAM_ATTEMPT_FINALIZATIONS_SQL, TEAM_INTEGRATION_INTENTS_SQL].join(";\n") },
 ];
 
 /** The steps from `from` to `to`, in order, or null when the chain does not reach. */

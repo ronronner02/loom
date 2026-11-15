@@ -1,3 +1,4 @@
+import { pendingFinalization } from "./attempt-finalization.js";
 import { retryIsDue } from "./attempt-failure.js";
 import type Database from "better-sqlite3";
 import type { TaskDispatch } from "./task-dispatch.js";
@@ -65,6 +66,7 @@ export interface PendingDispatchDependencies {
  * `events` table, so their `seq` values say which came first without depending on resolution.
  */
 export function pendingTasks(db: Database.Database, runId: string, now = new Date()): string[] {
+  if (pendingFinalization(db, runId)) return [];
   const rows = db.prepare(`
     SELECT a.task_id AS taskId, q.state AS state, a.qitem_id AS qitemId, json_extract(a.evidence_json, '$.retryNotBefore') AS retryNotBefore,
       (SELECT count(*) FROM team_attempts t WHERE t.qitem_id = a.qitem_id) AS attempts,

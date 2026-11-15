@@ -1,3 +1,4 @@
+import { enrollFinalization, pendingFinalization } from "./attempt-finalization.js";
 import { defaultSoulId, rosterSoulRefusal, seatHasUnfinishedWork } from "./team-souls.js";
 import { parseWorkflowSelection, readRunWorkflows, resolveAdmittedWorkflow, type TaskWorkflow } from "./team-workflows.js";
 import { approvalDocumentPins, captureDocuments as persistDocumentCapture, currentConfirmed, documentDispatchRefusal,
@@ -2315,6 +2316,7 @@ export class PlanGovernance {
 
 
   private prepareNativeLaunchIntent(ctx: CommandContext): NativeLaunchIntent | string {
+    if (pendingFinalization(this.db, ctx.run.id)) return "Run is completing a stopped attempt";
     const v = object(ctx.request.payload, "nativeLaunch"), qitemId = text(v.qitemId, "qitemId", 256);
     const task = this.getTask(qitemId), item = this.queue.getById(qitemId);
     if (!task || task.runId !== ctx.run.id || !item) throw new Error("Task not found in this run");
@@ -2415,7 +2417,7 @@ export class PlanGovernance {
     });
   }
 
-  recordUsage(raw: ControlRequest<unknown>): ControlReceipt {
+  recordUsage(raw: ControlRequest<unknown>, options: { finalize?: boolean } = {}): ControlReceipt {
     return this.command("attempt.observed", raw, null, (ctx) => {
       const attempt = this.getAttempt(ctx.request.actionId);
       if (!attempt || attempt.runId !== ctx.run.id) throw new Error("Attempt not found in this run");
@@ -2441,6 +2443,7 @@ export class PlanGovernance {
         failure_json = ?, entity_version = entity_version + 1, updated_at = ? WHERE id = ? AND entity_version = ?`)
         .run(state, unknownReason, canonicalJson(usage), usage.activeMs, failure === null ? null : canonicalJson(failure),
           ctx.now, attempt.id, attempt.entityVersion);
+      if (state === "stopped" && options.finalize) enrollFinalization(this.db, attempt.id);
       return { status: "observed", value: this.getAttempt(attempt.id), attemptId: attempt.id };
     });
   }

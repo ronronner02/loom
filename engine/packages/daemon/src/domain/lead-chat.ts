@@ -1,3 +1,4 @@
+import { recordedControlReceipt } from "./attempt-finalization.js";
 import { ownerWorkflowCommand, type WorkflowSelection } from "./team-workflows.js";
 import type Database from "better-sqlite3";
 import { TeamContractError } from "../contracts/team-control.js";
@@ -360,6 +361,8 @@ export function composeLeadTurnEnd(dependencies: LeadTurnEndDependencies): (atte
   };
   return async (attempt) => {
     if (attempt.role !== "lead") return;
+    const continuationKey = `lead-chat-continue:${attempt.id}`;
+    if (recordedControlReceipt(dependencies.db, attempt.runId, continuationKey)) return;
     dependencies.captureDocuments?.(attempt);
     // One reader for either client: a Claude turn's view records its stream-json `result` in
     // this file and a Codex turn writes it through `-o`, so a Codex lead's reply is chat too.
@@ -381,7 +384,7 @@ export function composeLeadTurnEnd(dependencies: LeadTurnEndDependencies): (atte
       const message = escalation
         ? escalation.context ? `${escalation.question}\n\n${escalation.context}` : escalation.question
         : body!;
-      const inserted = dependencies.db.transaction(() => {
+      dependencies.db.transaction(() => {
         const visibility = escalation ? "chat" : leadMessageVisibility(dependencies.db, attempt.runId, attempt.id);
         const recorded = recordLeadReply(dependencies.db, { id: `chat-${attempt.id}`, runId: attempt.runId, attemptId: attempt.id,
           body: message, createdAt: (dependencies.now?.() ?? new Date()).toISOString(),
@@ -392,9 +395,7 @@ export function composeLeadTurnEnd(dependencies: LeadTurnEndDependencies): (atte
           dependencies.db.prepare(`UPDATE team_queue_authority SET display_name = ?
             WHERE run_id = ? AND json_extract(assignment_json, '$.role') = 'lead'`).run(title, attempt.runId);
         }
-        return recorded;
       })();
-      if (!inserted) return;
     }
     if (!pendingOwnerMessages(dependencies.db, attempt.runId).length) return;
     const run = dependencies.governance.getRun(attempt.runId);
@@ -403,7 +404,7 @@ export function composeLeadTurnEnd(dependencies: LeadTurnEndDependencies): (atte
     if (!task || dependencies.governance.openAttemptCount(task.qitemId) > 0) return;
     if (["done", "handed-off"].includes(dependencies.governance.queueState(task.qitemId) ?? "")) {
       dependencies.governance.continueLeadChat({ protocolVersion: "1.0", runId: attempt.runId, actionId: task.taskId,
-        expectedEntityVersion: run.entityVersion, idempotencyKey: `lead-chat-continue:${attempt.id}`, payload: {} },
+        expectedEntityVersion: run.entityVersion, idempotencyKey: continuationKey, payload: {} },
       { kind: "daemon", sessionId: "daemon" });
     }
     const state = dependencies.governance.queueState(task.qitemId);

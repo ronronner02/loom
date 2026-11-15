@@ -163,7 +163,8 @@ async function recordInterrupted(
       failure: jsonValue(failure),
     },
   };
-  governance.recordUsage(request);
+  const recorded = governance.recordUsage(request, { finalize: true });
+  if (recorded.status !== "observed") throw new Error(recorded.reason ?? "Interrupted stop was not recorded");
 }
 
 /**

@@ -1,7 +1,9 @@
+import { tmpdir } from "node:os";
+import { pendingFinalization, recordedControlReceipt } from "./attempt-finalization.js";
 import { documentDispatchRefusal } from "./project-documents.js";
 import { execFileSync } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { existsSync, realpathSync, mkdtempSync, rmSync } from "node:fs";
+import { dirname, isAbsolute, resolve, join } from "node:path";
 import type Database from "better-sqlite3";
 import { TEAM_CONTROL_VERSION, type TeamRun } from "../contracts/team-control.js";
 import type { PlanGovernance } from "./plan-governance.js";
@@ -23,9 +25,9 @@ import { checkedOutBranch, type SourceRefMove } from "./team-workspace.js";
  * module's record which worktree is the delivery base). A candidate is refused as moved only
  * when the owner's own source changed, which is the check `verifySourceUnchanged` still makes.
  *
- * A patch that cannot be applied leaves the branch exactly as it was: the apply happens in the
- * daemon's worktree, every failure resets it to the head it started from, and the task is
- * recorded as failed with `integration_conflict` so the lead can resolve it against that head.
+ * A patch is first applied to a temporary index. A conflict leaves the branch untouched; a
+ * successful tree is recorded as an immutable intent before the live worktree changes. A
+ * restart reconciles that exact tree and message rather than applying the candidate twice.
  */
 
 export interface IntegrationCommit {
@@ -94,10 +96,10 @@ export interface Integration {
 const DAEMON_GIT_ENV = { GIT_AUTHOR_NAME: "multi-agent", GIT_AUTHOR_EMAIL: "multi-agent@localhost",
   GIT_COMMITTER_NAME: "multi-agent", GIT_COMMITTER_EMAIL: "multi-agent@localhost" };
 
-function git(cwd: string, args: readonly string[], input?: string): string {
+function git(cwd: string, args: readonly string[], input?: string, extraEnv: NodeJS.ProcessEnv = {}): string {
   return execFileSync("git", ["-C", cwd, ...args], { windowsHide: true, encoding: "utf8", input,
     stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"], timeout: 120_000,
-    env: { ...process.env, ...DAEMON_GIT_ENV } });
+    env: { ...process.env, ...DAEMON_GIT_ENV, ...extraEnv } });
 }
 
 function gitOrNull(cwd: string, args: readonly string[]): string | null {
@@ -136,6 +138,76 @@ function baseCommit(run: TeamRun): string | undefined {
 /** The branch and worktree this run delivers onto. */
 interface Target { repository: string; worktree: string; branch: string }
 
+interface IntegrationIntent extends Target {
+  runId: string; taskId: string; parentSha: string; treeSha: string; subject: string; message: string; repairReason: string | null;
+}
+
+export class IntegrationRepairRequired extends Error {
+  readonly code = "integration_repair_required";
+  constructor(readonly runId: string, readonly taskId: string, readonly reason: string) {
+    super(`Integration of ${taskId} requires repair: ${reason}`);
+    this.name = "IntegrationRepairRequired";
+  }
+}
+
+/** Build immutable Git objects without changing the live index or worktree before the intent commits. */
+function frozenIntegrationTree(worktree: string, parentSha: string, patch: string): string {
+  const directory = mkdtempSync(join(tmpdir(), "multi-agent-integration-"));
+  const env = { GIT_INDEX_FILE: join(directory, "index") };
+  try {
+    git(worktree, ["read-tree", parentSha], undefined, env);
+    git(worktree, ["apply", "--cached", "--3way", "-"], patch, env);
+    return git(worktree, ["write-tree"], undefined, env).trim();
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+}
+
+/** Match the exact first-parent child, not a display name or a branch's later tip. */
+function integrationWitness(intent: IntegrationIntent): string | null {
+  const ref = `refs/heads/${intent.branch}`;
+  const tip = git(intent.repository, ["rev-parse", "--verify", `${ref}^{commit}`]).trim();
+  const branch = git(intent.worktree, ["rev-parse", "--abbrev-ref", "HEAD"]).trim();
+  if (branch !== intent.branch) throw new IntegrationRepairRequired(intent.runId, intent.taskId, "The integration worktree is no longer on its recorded branch");
+  if (headOf(intent.worktree) !== tip) throw new IntegrationRepairRequired(intent.runId, intent.taskId, "The recorded repository and worktree disagree about the branch head");
+  if (tip === intent.parentSha) return null;
+  const commits = git(intent.repository, ["rev-list", "--first-parent", "--reverse", `${intent.parentSha}..${ref}`]).trim();
+  const sha = commits ? commits.split("\n")[0]! : null;
+  if (!sha) throw new IntegrationRepairRequired(intent.runId, intent.taskId, "The integration branch moved behind the recorded parent");
+  const object = git(intent.repository, ["cat-file", "commit", sha]);
+  const separator = object.indexOf("\n\n");
+  if (separator < 0) throw new IntegrationRepairRequired(intent.runId, intent.taskId, "The recovery commit is malformed");
+  const headers = object.slice(0, separator).split("\n");
+  const parents = headers.filter(line => line.startsWith("parent ")).map(line => line.slice(7));
+  const tree = headers.find(line => line.startsWith("tree "))?.slice(5);
+  if (parents.length !== 1 || parents[0] !== intent.parentSha) throw new IntegrationRepairRequired(intent.runId, intent.taskId, "The recorded parent is not the first-parent predecessor of the recovery commit");
+  if (tree !== intent.treeSha || object.slice(separator + 2) !== intent.message) throw new IntegrationRepairRequired(intent.runId, intent.taskId, "The recovery commit differs from the recorded tree or message");
+  return sha;
+}
+
+function commitIntegrationIntent(intent: IntegrationIntent): string {
+  const existing = integrationWitness(intent);
+  if (existing) return existing;
+  const worktree = intent.worktree;
+  const parentTree = git(worktree, ["rev-parse", `${intent.parentSha}^{tree}`]).trim();
+  const stagedTree = git(worktree, ["write-tree"]).trim();
+  if (git(worktree, ["diff", "--name-only", "--"]).trim()) {
+    throw new IntegrationRepairRequired(intent.runId, intent.taskId, "The integration worktree has unstaged changes");
+  }
+  if (stagedTree !== parentTree && stagedTree !== intent.treeSha) throw new IntegrationRepairRequired(intent.runId, intent.taskId, "The integration index differs from both the parent and intended tree");
+  // The two-tree update retains collision checks; it does not reset unrelated files.
+  if (stagedTree === parentTree) git(worktree, ["read-tree", "-m", "-u", parentTree, intent.treeSha]);
+  if (git(worktree, ["write-tree"]).trim() !== intent.treeSha) throw new IntegrationRepairRequired(intent.runId, intent.taskId, "The staged integration tree differs from its intent");
+  if (git(worktree, ["diff", "--name-only", "--"]).trim()) {
+    throw new IntegrationRepairRequired(intent.runId, intent.taskId, "The integration worktree has unstaged changes");
+  }
+  let commitFailure: unknown;
+  try { git(worktree, ["commit", "--quiet", "--cleanup=verbatim", "--file=-"], intent.message); }
+  catch (error) { commitFailure = error; }
+  const committed = integrationWitness(intent);
+  if (committed) return committed;
+  if (commitFailure !== undefined) throw new Error(`Git commit failed: ${gitFailure(commitFailure)}`);
+  throw new Error("Git commit returned without creating the intended commit");
+}
+
 export function composeIntegration(deps: IntegrationDeps): Integration {
   const log = deps.log ?? ((message: string) => console.warn(message));
   const governance = deps.governance;
@@ -146,6 +218,46 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
     const next = queue.then(work, work);
     queue = next.catch(() => undefined);
     return next;
+  };
+
+  const readIntent = (runId: string, taskId: string): IntegrationIntent | undefined => deps.db.prepare(`
+    SELECT run_id AS runId, task_id AS taskId, repository, worktree, branch, parent_sha AS parentSha,
+      tree_sha AS treeSha, subject, message, repair_reason AS repairReason FROM team_integration_intents
+    WHERE run_id = ? AND task_id = ?`).get(runId, taskId) as IntegrationIntent | undefined;
+
+  const requireRepair = (intent: IntegrationIntent, reason: string): never => {
+    deps.db.prepare("UPDATE team_integration_intents SET repair_reason = ? WHERE run_id = ? AND task_id = ?")
+      .run(reason, intent.runId, intent.taskId);
+    throw new IntegrationRepairRequired(intent.runId, intent.taskId, reason);
+  };
+
+  const recordCommittedIntent = (intent: IntegrationIntent, commitSha: string): IntegrationResult => {
+    const key = `daemon-integration-commit:${intent.taskId}:${commitSha}`;
+    const prior = recordedControlReceipt(deps.db, intent.runId, key);
+    if (prior) return requireRepair(intent, `The integration has a ${prior.status} receipt but no completed record: ${prior.reason ?? "inconsistent storage"}`);
+    let binding: unknown;
+    try { binding = deps.currentBinding?.(intent.runId); }
+    catch (error) { log(`team integration: binding refresh after ${commitSha} failed: ${error instanceof Error ? error.message : String(error)}`); }
+    // A SQLite failure leaves the Git intent resumable, never a candidate conflict.
+    const receipt = governance.recordIntegrationCommit({
+      protocolVersion: TEAM_CONTROL_VERSION, runId: intent.runId, actionId: intent.taskId,
+      expectedEntityVersion: governance.getRun(intent.runId).entityVersion, idempotencyKey: key,
+      payload: { taskId: intent.taskId, commitSha, subject: intent.subject, branch: intent.branch,
+        worktree: intent.worktree, repository: intent.repository, ...(binding === undefined ? {} : { binding }) },
+    }, { kind: "daemon", sessionId: "daemon" });
+    if (receipt.status !== "observed") return requireRepair(intent, `The commit exists but its recording was ${receipt.status}: ${receipt.reason}`);
+    return { taskId: intent.taskId, status: "committed", commitSha, reason: null };
+  };
+
+  const finishIntent = (intent: IntegrationIntent): IntegrationResult => {
+    if (intent.repairReason !== null) throw new IntegrationRepairRequired(intent.runId, intent.taskId, intent.repairReason);
+    let commitSha: string;
+    try { commitSha = commitIntegrationIntent(intent); }
+    catch (error) {
+      if (error instanceof IntegrationRepairRequired) return requireRepair(intent, error.reason);
+      throw error;
+    }
+    return recordCommittedIntent(intent, commitSha);
   };
 
   /** The run's branch name. The record holds it once something landed; the slug derives it before. */
@@ -163,7 +275,8 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
     const recorded = governance.integrationRecord(run.id).repository;
     if (recorded !== null) return recorded;
     const root = realpathSync(run.binding.repository.root);
-    if (checkedOutBranch(root) !== branchOf(run)) return root;
+    const planned = planWorktreePath(deps.worktreeRoot(), run.id);
+    if (checkedOutBranch(root) !== branchOf(run) && (!existsSync(planned) || realpathSync(planned) !== root)) return root;
     const common = git(root, ["rev-parse", "--git-common-dir"]).trim();
     return dirname(isAbsolute(common) ? common : resolve(root, common));
   };
@@ -204,6 +317,10 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
 
   /** The refusals both the readiness read and the merge itself must apply. */
   const blocked = (run: TeamRun): { reason: string } | null => {
+    const repair = deps.db.prepare("SELECT repair_reason AS reason FROM team_integration_intents WHERE run_id = ? AND repair_reason IS NOT NULL LIMIT 1")
+      .get(run.id) as { reason: string } | undefined;
+    if (repair) return { reason: `Integration requires repair: ${repair.reason}` };
+    if (pendingFinalization(deps.db, run.id)) return { reason: "A stopped attempt is still being finalized." };
     const documentError = documentDispatchRefusal(deps.db, run, "implementer");
     if (documentError) return { reason: documentError };
     const failed = failedTasks(run.id);
@@ -237,48 +354,6 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
     return { possible: true, reason: null };
   };
 
-  /** Put the daemon's worktree back exactly where the attempt to land found it. */
-  const restore = (worktree: string, before: string): void => {
-    try { git(worktree, ["reset", "--hard", "--quiet", before]); } catch (error) {
-      log(`team integration: the integration worktree could not be reset: ${gitFailure(error)}`);
-    }
-    // A failed three-way apply can leave files it created behind. The worktree is the daemon's
-    // and was clean before the attempt, so anything untracked now came from the attempt.
-    try { git(worktree, ["clean", "-fdq"]); } catch (error) {
-      log(`team integration: the integration worktree could not be cleaned: ${gitFailure(error)}`);
-    }
-  };
-
-  /** Apply one candidate's patch to the branch head and commit it there, or leave the branch alone. */
-  const applyAndCommit = (worktree: string, patch: string, subject: string, body: string):
-    { ok: true; commitSha: string } | { ok: false; reason: string } => {
-    let before: string;
-    try { before = headOf(worktree); } catch (error) {
-      return { ok: false, reason: `the integration worktree could not be read: ${gitFailure(error)}` };
-    }
-    // The daemon is the only writer here. Anything uncommitted is left over from something the
-    // daemon did not finish, and applying on top of it would commit work nobody approved.
-    if (dirty(worktree)) {
-      restore(worktree, before);
-      return { ok: false, reason: "the integration worktree had uncommitted changes" };
-    }
-    try {
-      // `--3way` is what makes an in-flight candidate land: its patch was computed against the
-      // base it was staged from, and the branch head has moved past that base since.
-      git(worktree, ["apply", "--3way", "-"], patch);
-    } catch (error) {
-      restore(worktree, before);
-      return { ok: false, reason: gitFailure(error) };
-    }
-    try {
-      git(worktree, ["commit", "--quiet", "-m", subject, "-m", body]);
-    } catch (error) {
-      restore(worktree, before);
-      return { ok: false, reason: gitFailure(error) };
-    }
-    return { ok: true, commitSha: headOf(worktree) };
-  };
-
   /**
    * Record that the approved work could not land.
    *
@@ -310,33 +385,24 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
     return { taskId: task.assignment.taskId, status: "conflict", commitSha: null, reason };
   };
 
-  /** Land one task's work, from the candidate the run recorded for it. */
+  /** Freeze one candidate's intended commit before touching the live integration worktree. */
   const land = (run: TeamRun, task: { qitemId: string; assignment: { taskId: string } }, patch: string, target: Target): IntegrationResult => {
-    const subject = governance.taskDisplayName(task.qitemId) ?? task.assignment.taskId;
-    const body = `Run: ${run.displayName}\nTask: ${task.assignment.taskId}`;
-    const landed = applyAndCommit(target.worktree, patch, subject, body);
-    if (!landed.ok) return conflict(run.id, task, landed.reason);
-    // The commit already moved the branch. A binding that cannot be re-read is a fact about the
-    // run, not a reason to forget the commit: it is recorded as the daemon found it.
-    let binding: unknown;
-    try { binding = deps.currentBinding?.(run.id); } catch (error) {
-      log(`team integration: the run's binding could not be refreshed after ${landed.commitSha}: ${(error as Error).message}`);
-    }
-    const receipt = governance.recordIntegrationCommit({
-      protocolVersion: TEAM_CONTROL_VERSION, runId: run.id, actionId: task.assignment.taskId,
-      expectedEntityVersion: governance.getRun(run.id).entityVersion,
-      idempotencyKey: `daemon-integration-commit:${task.assignment.taskId}:${landed.commitSha}`,
-      payload: { taskId: task.assignment.taskId, commitSha: landed.commitSha, subject, branch: target.branch,
-        worktree: target.worktree, repository: target.repository, ...(binding === undefined ? {} : { binding }) },
-    }, { kind: "daemon", sessionId: "daemon" });
-    if (receipt.status !== "observed" && !receipt.replayed) {
-      // The commit is on the branch; the record is what a reader needs. Saying so loudly is the
-      // only honest thing left, and the next attempt records the same commit again.
-      const reason = receipt.reason ?? receipt.status;
-      log(`team integration: ${task.assignment.taskId} landed as ${landed.commitSha} but was not recorded: ${reason}`);
-      return { taskId: task.assignment.taskId, status: "conflict", commitSha: landed.commitSha, reason };
-    }
-    return { taskId: task.assignment.taskId, status: "committed", commitSha: landed.commitSha, reason: null };
+    let intent: IntegrationIntent;
+    try {
+      const branch = checkedOutBranch(target.worktree);
+      if (branch === null) throw new Error("The integration worktree has no checked-out branch");
+      if (dirty(target.worktree)) throw new Error("The integration worktree has uncommitted changes");
+      const parentSha = headOf(target.worktree);
+      const treeSha = frozenIntegrationTree(target.worktree, parentSha, patch);
+      const subject = governance.taskDisplayName(task.qitemId) ?? task.assignment.taskId;
+      intent = { ...target, branch, runId: run.id, taskId: task.assignment.taskId, parentSha, treeSha, subject,
+        message: `${subject}\n\nRun: ${run.displayName}\nTask: ${task.assignment.taskId}\n`, repairReason: null };
+    } catch (error) { return conflict(run.id, task, gitFailure(error)); }
+    deps.db.prepare(`INSERT INTO team_integration_intents (run_id, task_id, repository, worktree, branch,
+      parent_sha, tree_sha, subject, message, repair_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`)
+      .run(intent.runId, intent.taskId, intent.repository, intent.worktree, intent.branch, intent.parentSha,
+        intent.treeSha, intent.subject, intent.message, new Date().toISOString());
+    return finishIntent(intent);
   };
 
   const integrateOne = (runId: string, taskId: string): IntegrationResult => {
@@ -357,6 +423,8 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
     if (governance.queueState(task.qitemId) !== "done") {
       return { taskId, status: "skipped", commitSha: null, reason: "the task has no completed outcome" };
     }
+    const pending = readIntent(runId, taskId);
+    if (pending) return finishIntent(pending);
     let manifest;
     try { manifest = deps.candidateManifest(runId, taskId); } catch (error) {
       return conflict(runId, task, `the task's candidate could not be read: ${(error as Error).message}`);
