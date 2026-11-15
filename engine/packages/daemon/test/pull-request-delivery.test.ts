@@ -9,6 +9,7 @@ import { initializeDatabase } from "../src/db/baseline.js";
 import { composePullRequestDelivery, githubIdentity, readPullRequest, type AgentHost, type OwnerHost } from "../src/domain/pull-request-delivery.js";
 import type { Integration, IntegrationStatus } from "../src/domain/integration-branch.js";
 import type { PlanGovernance } from "../src/domain/plan-governance.js";
+import { teamMergeRoutes } from "../src/routes/team-merge.js";
 
 /**
  * Plan R17 / KTD13 — a GitHub project's finished run becomes one pull request opened by the agent
@@ -32,7 +33,7 @@ describe("pull request delivery", () => {
     mergePullRequest: async (identity, number, head) => { calls.push(`merge ${identity}#${number}@${head.slice(0, 7)}`); },
   };
   const delivery = () => composePullRequestDelivery({ db, agent, owner, log: () => undefined, now: () => new Date(clock),
-    governance: { getRun: () => ({ displayName: "Dark mode" }) } as unknown as PlanGovernance,
+    governance: { getRun: () => ({ id: "run", displayName: "Dark mode", phase: "delivery", binding: {} }) } as unknown as PlanGovernance,
     integration: { status: () => status, merge: () => { throw new Error("local merge not expected"); } } as unknown as Integration });
   const commit = (message: string) => { writeFileSync(join(repo, "f.txt"), message); git(repo, "add", "f.txt"); git(repo, "commit", "-qm", message); };
 
@@ -114,4 +115,113 @@ describe("pull request delivery", () => {
     await service.sweep();
     expect(calls).toEqual([]);
   });
+
+  const task = (taskId: string, role: "lead" | "implementer" | "reviewer", state: string) => {
+    db.prepare(`INSERT INTO queue_items
+      (qitem_id, ts_created, ts_updated, source_session, destination_session, state, body)
+      VALUES (?, ?, ?, 'owner', 'worker', ?, 'Fixture task')`).run(taskId, new Date(clock).toISOString(), new Date(clock).toISOString(), state);
+    db.prepare(`INSERT INTO team_queue_authority (qitem_id, run_id, task_id, assignment_json)
+      VALUES (?, 'run', ?, ?)`).run(taskId, taskId, JSON.stringify({ taskId, role, paths: ["src"], dependencies: [] }));
+  };
+
+  it.each(["pending", "in-progress", "blocked", "failed"])("refuses an open PR merge after a task becomes %s", async state => {
+    const service = delivery();
+    await service.sweep();
+    calls = [];
+    task("followup", "implementer", state);
+    expect(await service.merge("run")).toMatchObject({ status: "refused", code: "merge_tasks_open" });
+    expect(calls).toEqual([]);
+    expect(readPullRequest(db, "run")!.state).toBe("open");
+  });
+
+  it.each(["pending", "failed"])("refuses an open PR merge while the lead is %s", async state => {
+    const service = delivery();
+    await service.sweep();
+    calls = [];
+    task("lead", "lead", state);
+    expect(await service.merge("run")).toMatchObject({ status: "refused", code: "merge_not_ready" });
+    expect(calls).toEqual([]);
+  });
+
+  it("does not create a PR while the delivery lead has failed", async () => {
+    task("lead", "lead", "failed");
+    await delivery().sweep();
+    expect(calls).toEqual([]);
+    expect(readPullRequest(db, "run")).toBeNull();
+  });
+
+  it("waits until the latest integrated branch head is delivered before merging", async () => {
+    const service = delivery();
+    await service.sweep();
+    const previousHead = readPullRequest(db, "run")!.headSha;
+    git(repo, "checkout", "-q", "team/dark-mode"); commit("Reviewed follow-up"); git(repo, "checkout", "-q", "main");
+    calls = [];
+    expect(await service.merge("run")).toMatchObject({ status: "refused", code: "merge_delivery_pending" });
+    expect(calls).toEqual([]);
+    expect(readPullRequest(db, "run")!.headSha).toBe(previousHead);
+    await service.sweep();
+    const delivered = readPullRequest(db, "run")!;
+    expect(delivered.headSha).not.toBe(previousHead);
+    expect(await service.merge("run")).toMatchObject({ status: "merged", head: delivered.headSha });
+  });
+
+  it("does not apply local checkout restrictions to GitHub merge", async () => {
+    const service = delivery();
+    await service.sweep();
+    status = { ...status, merge: { possible: false, reason: "The owner's checkout has uncommitted changes.", merged: false } };
+    calls = [];
+    expect(await service.merge("run")).toMatchObject({ status: "merged", mode: "pull-request" });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatch(/^merge /);
+  });
+
+  it("returns HTTP 409 when an open pull request fails the shared readiness gate", async () => {
+    const service = delivery();
+    await service.sweep();
+    task("followup", "reviewer", "pending");
+    const app = teamMergeRoutes({ credentials: { ownerToken: "fixture-owner" }, legacyTokens: [],
+      integration: { status: () => status } as unknown as Integration, delivery: () => service });
+    const response = await app.request("/runs/run/merge", { method: "POST", headers: {
+      Authorization: "Bearer fixture-owner", "Content-Type": "application/json",
+    }, body: JSON.stringify({ protocolVersion: "1.0", runId: "run", actionId: "run",
+      expectedEntityVersion: 1, idempotencyKey: "fixture-merge", payload: {} }) },
+      { incoming: { socket: { remoteAddress: "127.0.0.1" } } });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ status: "refused", code: "merge_tasks_open" });
+  });
+
+  const recovering = (kind: string) => {
+    if (kind === "repair") {
+      db.prepare(`INSERT INTO team_integration_intents
+        (run_id, task_id, repository, worktree, branch, parent_sha, tree_sha, subject, message, repair_reason, created_at)
+        VALUES ('run', 'impl', ?, ?, 'team/dark-mode', 'parent', 'tree', 'work', 'work', 'Moved tree', ?)`)
+        .run(repo, repo, new Date(clock).toISOString());
+    } else {
+      task("impl", "implementer", "done");
+      db.prepare(`INSERT INTO team_attempts
+        (id, run_id, qitem_id, role, provider, identity_json, state, usage_json, active_ms, created_at, updated_at)
+        VALUES ('attempt', 'run', 'impl', 'implementer', 'codex', '{}', 'stopped', '{}', 1, ?, ?)`)
+        .run(new Date(clock).toISOString(), new Date(clock).toISOString());
+      db.prepare("INSERT INTO team_attempt_finalizations (attempt_id, progress_json) VALUES ('attempt', ?)")
+        .run(JSON.stringify({ completed: [] }));
+    }
+  };
+
+  it.each(["finalization", "repair"])("does not publish while %s is pending", async kind => {
+    recovering(kind);
+    await delivery().sweep();
+    expect(calls).toEqual([]);
+    expect(readPullRequest(db, "run")).toBeNull();
+  });
+
+  it.each(["finalization", "repair"])("does not merge an existing PR while %s is pending", async kind => {
+    const service = delivery();
+    await service.sweep();
+    calls = [];
+    recovering(kind);
+    expect(await service.merge("run")).toMatchObject({ status: "refused", code: "merge_not_ready" });
+    expect(calls).toEqual([]);
+    expect(readPullRequest(db, "run")!.state).toBe("open");
+  });
+
 });
