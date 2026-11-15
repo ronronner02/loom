@@ -1,6 +1,6 @@
 import React, { type ReactNode } from "react";
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OwnerSessionProvider, useOwnerSession } from "../src/hooks/useOwnerSession.js";
 import { teamEventsKey, useTeamEvents } from "../src/hooks/useTeamEvents.js";
@@ -102,9 +102,13 @@ describe("shared owner event stream", () => {
   it("opens once per run with cookie credentials, CSRF, snapshot cursor, and cache invalidation", async () => {
     vi.useFakeTimers();
     const stream = channel(), fetcher = fixture([stream]);
-    const invalidated = vi.spyOn(client, "invalidateQueries");
+    let snapshotVersion = 0;
+    const snapshotKey = ["team", RUN_ID, "read"];
+    const reloadSnapshot = vi.fn(async () => snapshotVersion);
+    client.setQueryData(snapshotKey, snapshotVersion);
     const snapshot = read();
-    const first = renderHook(() => useTeamEvents(RUN_ID, snapshot), { wrapper });
+    const first = renderHook(() => ({ events: useTeamEvents(RUN_ID, snapshot),
+      snapshot: useQuery({ queryKey: snapshotKey, queryFn: reloadSnapshot, staleTime: Infinity }) }), { wrapper });
     const second = renderHook(() => useTeamEvents(RUN_ID, snapshot), { wrapper });
     await flush();
     const calls = fetcher.mock.calls.filter(([path]) => path.endsWith("/events/stream"));
@@ -112,12 +116,16 @@ describe("shared owner event stream", () => {
     expect(calls[0]![1]?.credentials).toBe("include");
     expect(new Headers(calls[0]![1]?.headers).get("X-Multi-Agent-CSRF")).toBe("a".repeat(43));
     expect(new Headers(calls[0]![1]?.headers).get("Last-Event-ID")).toBe("1");
-    invalidated.mockClear();
+    snapshotVersion = 1;
     stream.send(wire(event(2)) + wire(event(2)) + wire(event(4, "attempt.acknowledged")) + wire(event(3, "worker.turn.started")));
     await flush();
-    expect(first.result.current.data?.events.map(event => event.seq)).toEqual([2, 3, 4]);
+    expect(first.result.current.events.data?.events.map(event => event.seq)).toEqual([2, 3, 4]);
     expect(second.result.current.data?.cursor).toBe(4);
-    expect(invalidated).toHaveBeenCalledTimes(3);
+    expect(first.result.current.snapshot.data).toBe(0);
+    expect(reloadSnapshot).not.toHaveBeenCalled();
+    await flush(250);
+    expect(reloadSnapshot).toHaveBeenCalledTimes(1);
+    expect(first.result.current.snapshot.data).toBe(1);
     first.unmount(); expect(stream.cancel).not.toHaveBeenCalled();
     second.unmount(); await flush(); expect(stream.cancel).toHaveBeenCalledTimes(1);
   });
@@ -155,7 +163,11 @@ describe("shared owner event stream", () => {
       + wire({ ...event(3, "worker.tool.completed"), body: JSON.stringify({ type: "tool.completed", provider: "codex", timestamp: at,
         toolCallId: "call-1", tool: "Read", status: "completed" }) }));
     await flush(5);
-    expect(fetcher.mock.calls.length).toBeGreaterThan(before);
+    expect(view.result.current.events.data?.events.map(event => event.seq)).toEqual([2, 3]);
+    expect(fetcher.mock.calls.length).toBe(before);
+    expect(view.result.current.chat.data?.liveTurn?.progress?.blocks[0]?.text).toBe("Before the update");
+    await flush(250);
+    expect(fetcher.mock.calls.length).toBe(before + 2);
     expect(view.result.current.chat.data?.liveTurn?.progress?.blocks[0]?.text).toBe(text);
     expect(view.result.current.activity.data?.records[0]).toMatchObject({ summary, status: "completed" });
     expect(JSON.stringify(view.result.current.events.data)).not.toContain(text);
