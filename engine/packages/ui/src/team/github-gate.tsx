@@ -18,13 +18,12 @@ export function useGithubStatus() {
     queryFn: ({ signal }) => request<GithubStatus>("/github/status", { signal }) });
 }
 
-export function EntryFrame({ language, onLanguage, appearance, backgroundMotion, children }: {
+export function EntryFrame({ language, onLanguage, appearance, children }: {
   language: InterfaceI18n; onLanguage: (next: "en" | "zh-CN") => void;
-  appearance: ReturnType<typeof useThemePreference>; backgroundMotion: boolean; children: ReactNode;
+  appearance: ReturnType<typeof useThemePreference>; backgroundMotion?: boolean; children: ReactNode;
 }) {
   const { t } = useTranslation();
   return <div className="team-shell ui-entry" data-ui-theme={appearance.theme} lang={language.language}>
-    <Background motion={backgroundMotion} />
     <header className="ui-entry-header"><strong>{t("shell.appName")}</strong>
       <div className="ui-entry-preferences">
         <label>{t("team.settings.language")}<select value={language.language} onChange={event => onLanguage(event.target.value as "en" | "zh-CN")}>

@@ -25,7 +25,7 @@ const { daemonEntry } = require('./engine-paths.js');
 const { dependencyRows } = require('./dependencies.js');
 const { isAllowedNavigation, isDaemonHealth } = require('./origin.js');
 
-const BACKGROUND = '#151619';
+const BACKGROUND = '#faf8f5';
 const FIRST_RUN_URL = new URL(`file://${path.join(__dirname, 'first-run.html').replace(/\\/g, '/')}`).href;
 const DAEMON_ENTRY = daemonEntry();
 
@@ -80,9 +80,10 @@ function createWindow() {
     minHeight: Math.min(640, work.height),
     backgroundColor: BACKGROUND,
     show: false,
-    title: 'Multi-Agent',
+    title: 'Loom',
+    icon: path.join(__dirname, '..', 'build', 'icon.ico'),
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: BACKGROUND, symbolColor: '#ededf0', height: 48 },
+    titleBarOverlay: { color: BACKGROUND, symbolColor: '#1c1b1a', height: 52 },
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

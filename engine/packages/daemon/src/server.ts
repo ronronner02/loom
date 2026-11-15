@@ -242,8 +242,7 @@ function fileResponse(filePath: string, rangeHeader?: string): Response {
 function isUiAssetRequestPath(requestPath: string): boolean {
   const relativePath = requestPath.replace(/^\/+/, "");
   return relativePath.startsWith("assets/")
-    || relativePath === "skins/shuimo-danqing/shuimo-danqing-loop.mp4"
-    || relativePath === "skins/shuimo-danqing/shuimo-danqing-still.webp"
+    || relativePath === "loom-icon.png"
     || relativePath === "favicon.ico"
     || relativePath === "robots.txt"
     || relativePath === "manifest.webmanifest";

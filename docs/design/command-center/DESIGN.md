@@ -1,85 +1,61 @@
 # Command-center design
 
-This is the shared token contract for the browser and desktop command center. The shell and current screens use the same variables; the retained run-page names are aliases, not a second palette.
+This is the shared token contract for the browser and desktop command center, aligned with the Muse-style chat-first design specification (`docs/Muse_UI_设计文档.md` and `docs/design-spec-muse-style.pdf`).
 
 ## Color tokens
 
-Dark is the default. An explicit dark or light preference stays fixed; system follows the operating system. Cards use translucent glass over the single page skin. Inputs, code, diffs and overlay panels retain opaque reading surfaces. Raw hex colors belong only in these CSS token definitions, never in components or selector rules.
+Light (`#FAF8F5`) and Dark (`#171615`) share the exact same semantic token vocabulary; `system` follows the operating system. Surfaces are solid and layered with `1px` subtle borders instead of decorative glassmorphism or background skins. Raw hex colors belong only in these CSS token definitions, never in components or selector rules.
 
 | Token | Dark | Light |
 | --- | --- | --- |
-| `--ui-canvas` | `#151619` | `#f6f6f8` |
-| `--ui-surface` | `#1c1d21` | `#ffffff` |
-| `--ui-glass-surface` | `rgb(28 29 33 / .54)` | `rgb(255 255 255 / .58)` |
-| `--ui-glass-border` | `rgb(255 255 255 / .16)` | `rgb(255 255 255 / .46)` |
-| `--ui-glass-highlight` | `rgb(255 255 255 / .09)` | `rgb(255 255 255 / .70)` |
-| `--ui-raised` | `#232429` | `#ffffff` |
-| `--ui-divider` | `#2c2d34` | `#e0e1e7` |
-| `--ui-divider-soft` | `#24252b` | `#edeef2` |
-| `--ui-text` | `#ededf0` | `#20212a` |
-| `--ui-text-secondary` | `#c2c3cc` | `#454857` |
-| `--ui-muted` | `#999ba6` | `#646675` |
-| `--ui-faint` | `#8b8e9b` | `#737583` |
-| `--ui-selection` | `#292b38` | `#ececf6` |
-| `--ui-accent` | `#818cf8` | `#6366f1` |
-| `--ui-accent-press` | `#a5b4fc` | `#4f46e5` |
-| `--ui-on-accent` | `#151619` | `#ffffff` |
-| `--ui-accent-soft` | `#25283c` | `#eeedff` |
-| `--ui-ok` | `#4ade80` | `#168345` |
-| `--ui-warn` | `#fbbf24` | `#8a5900` |
-| `--ui-warn-soft` | `#332a1c` | `#fff5dd` |
-| `--ui-warn-border` | `#725b2e` | `#d9be85` |
+| `--ui-canvas` | `#171615` | `#faf8f5` |
+| `--ui-surface` | `#22211f` | `#ffffff` |
+| `--ui-surface-subtle` | `#1c1b19` | `#f3f0ea` |
+| `--ui-raised` | `#2a2825` | `#ffffff` |
+| `--ui-divider` | `#33312e` | `#e8e2d9` |
+| `--ui-divider-soft` | `#292724` | `#f0ece4` |
+| `--ui-text` | `#f2f0eb` | `#1c1b1a` |
+| `--ui-text-secondary` | `#cfcac2` | `#4b4843` |
+| `--ui-muted` | `#a8a29a` | `#6e6a64` |
+| `--ui-faint` | `#7e7972` | `#8c877f` |
+| `--ui-selection` | `#2f231e` | `#f5ece6` |
+| `--ui-accent` | `#d9734a` | `#bc5a32` |
+| `--ui-accent-press` | `#e58963` | `#a14b28` |
+| `--ui-on-accent` | `#171615` | `#ffffff` |
+| `--ui-accent-soft` | `#2e201a` | `#fbf0eb` |
+| `--ui-ok` | `#6ea07d` | `#5a7a64` |
+| `--ui-warn` | `#e0a84c` | `#b7791f` |
+| `--ui-warn-soft` | `#2e2414` | `#fdf6e9` |
+| `--ui-warn-border` | `#6e5225` | `#e6c891` |
 | `--ui-error` | `#f87171` | `#b42318` |
-| `--ui-error-soft` | `#382124` | `#fff0ed` |
-| `--ui-add-bg` | `#1a3227` | `#e8f4ec` |
-| `--ui-add-ink` | `#86d9a0` | `#27623a` |
-| `--ui-remove-bg` | `#382124` | `#fff0ed` |
-| `--ui-remove-ink` | `#f8a4a4` | `#9f342e` |
-| `--ui-overlay` | `rgb(0 0 0 / .55)` | `rgb(32 33 42 / .22)` |
-| `--ui-shadow` | `rgb(0 0 0 / .35)` | `rgb(32 33 42 / .16)` |
+| `--ui-error-soft` | `#341b1b` | `#fef2f2` |
+| `--ui-add-bg` | `#1a2e22` | `#edf5ef` |
+| `--ui-add-ink` | `#86d9a0` | `#2d6a42` |
+| `--ui-remove-bg` | `#341b1b` | `#fef2f2` |
+| `--ui-remove-ink` | `#f8a4a4` | `#b42318` |
+| `--ui-user-bubble` | `#242b20` | `#eef3e7` |
+| `--ui-ai-bubble` | `#242320` | `#f2efe9` |
+| `--ui-overlay` | `rgb(0 0 0 / .55)` | `rgb(28 27 26 / .28)` |
+| `--ui-shadow` | `rgb(0 0 0 / .32)` | `rgb(28 27 26 / .08)` |
 
 The `--paper`, `--surface`, `--ink`, `--line`, `--accent`, attention, error and diff variables used by the retained screens alias the corresponding semantic tokens in `team.css`.
 
-## Type and layout
+## Type, spacing and layout
 
-- Self-hosted Inter, with system CJK fallbacks; IBM Plex Mono for code and branches. These typefaces need no remote fetch. The shared HTML still requests its pre-existing Material Symbols font; command-center icons use local SVGs and do not depend on it.
-- Headings: 24 px; UI: 14 px; secondary labels: 12 px; footer: 11 px. Headings remain sans-serif in both themes.
-- Sidebar: 188 px. Top bar: 48 px. Footer: at least 28 px. Controls: 32–36 px. Corners: 6 px.
-- New layout uses an 8 px spacing grid. Panels use 16 or 24 px padding.
-- At 760 px and below, the rail becomes a keyboard-accessible menu; the chat uses the whole viewport. Existing run and task layouts keep their mobile behavior.
-
-## Motion and attention
-
-The historical loop is restored without modification. The reduced-motion poster is a frame extracted from that same file. Background playback pauses while the window is blurred or the document is hidden; reduced motion loads only the still image. Cards use an 8 px backdrop blur, a subtle inset highlight and a tinted border; their text remains fully opaque. Muted card text uses the stronger secondary-text color for contrast. Nested cards share the parent glass layer. The overview header never embeds its own skin image. This styling adds no motion.
-
-The notification badge is the length of the same pending-decision array rendered in the chat. A healthy state creates no attention row. Each pending decision carries one question or action; historical chat stays separate. Internal run and task IDs are used for routing, not as labels.
-
-## Scope
-
-This document implements KTD19. The six destinations and persistent lead chat are the shared shell. Their detailed task, workspace, review and analytics screens follow the remaining command-center units; no placeholder metrics, monetary values or unsupported controls are introduced.
-
-## Content flow and long-text behavior
-
-The desktop uses compact, content-first bands rather than a workbench beside an unbounded stack. This extends the existing glass direction; it does not replace the skin or introduce a second design system.
-
-| Surface | Primary content and action | Layout and overflow contract |
-| --- | --- | --- |
-| Project history | Open a planning record, execution, or retained result | Keep those groups distinct. Project selection cards align at the top without stretching to the longest neighbor. Project names and paths use bounded disclosures. Record names use two-line button previews; opening a record exposes its full goal. No invented empty records. |
-| Overview | Select work and inspect its evidence | Heading, measured summary/progress, owner attention, full-width task workbench, integration results, then the three supporting status cards. No tall side rail controlling the task row. |
-| Tasks | Choose a task; inspect its brief, criteria and result | List and inspector use shrinkable columns and bounded independent scroll on a wide workspace. Stack when the content area is 720px or narrower. Empty filters hide the redundant inspector. |
-| Workspace | Read one member's current work and tool activity | Cards keep short identity rows; lengthy activity stays inside its reading area. Split view stacks below an 800px content area. Focus view preserves full text. |
-| Documents | Read, compare and confirm a specific version | The record goal uses the shared three-line disclosure. Navigation and reader stay separate; long documents scroll inside keyboard-focusable reading surfaces. Comparison stacks below an 800px content area. Confirmation remains visible outside document scrolling. |
-| Reviews | Read the candidate diff, findings and recorded gates | Full candidate evidence, bounded findings and unchanged gate semantics. Short diffs use natural height; long code scrolls locally within 560px or 62% of the viewport height. Stack below an 800px content area. A long finding cannot widen the diff. |
-| Analytics | Inspect measured usage | Charts retain their existing dimensions; tables own horizontal overflow. Missing measurements stay unknown. |
-| Settings | Edit policy and inspect saved/effective values | Forms wrap by field, model identifiers wrap inside fixed-layout tables, and only the table scrolls horizontally. Launch evidence occupies at most 320px or 45% of the viewport height, with sticky column headings and a keyboard-focusable scroll area. Every returned record stays accessible; adding rows does not grow the page. No settings are saved by a layout action. |
-| Chat and overlays | Read the dialogue, answer a question or send a message | Viewport-owned panel with an expandable context heading, fixed composer and scrollable history. Stage controls scroll with history; a direct document action remains in the header, so a short viewport never sacrifices the composer to fixed metadata. Preserve full choices and approval consequence text; never clamp them into ambiguous actions. |
-
-- Page/card groups use 16px gaps; headings and actions can wrap. Every flexible child accepts a zero minimum width. Resizing and 200-percent reading must not produce a page-level horizontal scrollbar.
-- Navigable task and record names show at most two lines. Their existing detail entry exposes the full text. Standalone long goals, briefs, event names and findings use a three-line preview with an explicit keyboard-operable expansion button. Rendered overflow is measured again after resizing, so shorter CJK names and narrow headings also get an expansion control. Expanded prose remains complete in a bounded reading area; no bytes are removed from state or storage.
-- Code, diffs, document content and long identifiers have local scrolling or wrapping. Do not clip approval consequences, options, errors or model-policy choices merely to fit a card.
-- The overview defaults to active work while it exists, then exposes completed work. Once the owner chooses a filter, subsequent reads do not override that choice.
-- Empty content uses compact natural height. Equal card heights, viewport fillers and oversized fixed minimum heights must not manufacture blank panels.
-- Supporting status cards form three columns, then two below a 900px content area, then one below 600px. The last card spans the narrow two-column row. These are content-area thresholds, accounting for the sidebar.
-- The verified-account retention wrapper preserves the shell's full viewport height. A failed account read still hides the retained subtree; it does not expose gated controls.
-
-No motion, background asset, execution approval, document version, model policy, route or backend contract changes are introduced by this layout adjustment.
+- **Typography (4 levels)**: Display `28px / 1.25 (600)`, Title `18px / 1.35 (600)`, Body `15px / 1.6 (400)`, Caption `12px / 1.5 (400)`. System font stack with self-hosted `Inter` + CJK fallbacks (`PingFang SC`, `Microsoft YaHei`, `Noto Sans CJK SC`) and `IBM Plex Mono` for code, diffs and hashes.
+- **4pt spacing grid**: `4px`, `8px`, `12px`, `16px`, `24px`, `32px`.
+- **4-level radius**: `8px` (buttons, inputs, tags), `12px` (cards, panels), `16px` (message bubbles, modals, sheets), `9999px` (pill headers, segmented controls, floating composer).
+- **Icons**: Unified `lucide-react` outline icons (`20px` standard, `24px` rail navigation, `1.75px` stroke, rounded caps).
+- **Motion**: `150ms` instant feedback, `200ms` small element, `260ms` panel/page, `ease-out`, no bounce, and `prefers-reduced-motion` disables transitions/animations.
+- **Information Architecture (5 top-level entries, chat-first)**:
+  1. `chat` (Chat / 对话) — Default home. Centered `max-width: 820px` conversation stream, inline decision/plan cards, floating pill composer.
+  2. `overview` (Overview / 总览) — Run progress, PR delivery/merge, system health, Flow view, and usage analytics.
+  3. `tasks` (Tasks / 任务) — Task list/board, nested workbench, and task drawer (with owner comments & hold).
+  4. `workspace` (Workspace / 工作区) — Agent seats, live tool activity, Project Inbox (GitHub Issues), and Reviews & Diffs.
+  5. `documents` (Documents / 文档) — Exploration / Requirements / Plan versions, comparison, and confirmation.
+- **Global Search & Settings**: Search (`Ctrl+K` / `Cmd+K`) and Settings (`Ctrl+,` / `Cmd+,`, including Dedicated Agent GitHub Account & Issue Intake rules) live on the rail/modal rather than occupying top-level navigation tabs.
+- **On-demand Right Context Panel (`320px`)**: Toggled from the agent identity pill in the top bar; displays agent status, pending owner decisions/questions, and run progress without shifting the main column.
+- **Responsive breakpoints**:
+  - `>= 1200px`: `64px` left icon rail + main column + dockable `320px` right context panel.
+  - `860px–1199px`: `64px` left icon rail + main column, context panel as overlay drawer.
+  - `< 860px`: `52px` top bar + full-width main column + `56px` fixed 5-tab bottom navigation bar.

@@ -300,7 +300,7 @@ describe("persistent lead chat", () => {
 
   it("uses a modal panel at the mobile breakpoint", async () => {
     const original = window.matchMedia.bind(window);
-    vi.spyOn(window, "matchMedia").mockImplementation(query => ({ ...original(query), matches: query === "(max-width: 760px)" }));
+    vi.spyOn(window, "matchMedia").mockImplementation(query => ({ ...original(query), matches: query === "(max-width: 859px)" }));
     await show(); fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
     expect(screen.queryByRole("button", { name: "Navigate" })).toBeNull();
     expect(screen.getByRole("dialog", { name: "Lead chat" })).toBeTruthy();

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { FileText, X } from "lucide-react";
+import { Check, ChevronRight, FileText, X } from "lucide-react";
 import { TextPreview } from "./text-preview.js";
 import type { TeamOwnerRead, WorkflowSelection } from "@multi-agent/daemon/team-control";
 import { WorkflowOutcomes, WorkflowPicker } from "./workflows.js";
@@ -14,7 +14,6 @@ import { useAttemptStatus } from "../hooks/useAttemptStatus.js";
 import { usePendingAction } from "../hooks/usePendingAction.js";
 import { ToolCalls } from "./workspace/workspace-view.js";
 import { clockTime } from "./display.js";
-import { Check, ChevronRight } from "./glyphs.js";
 
 type OwnerDecision = { kind: "plan" } | { kind: "resume" } | { kind: "message"; message: ChatMessage };
 
@@ -48,9 +47,9 @@ export function ChatPanel({ open, onOpenChange, opener, read, runId, chat, conne
   useEffect(() => {
     if (draftContext) setDraft(current => current ? current + "\n\n" + draftContext.body : draftContext.body);
   }, [draftContext]);
-  const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 760px)").matches);
+  const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 859px)").matches);
   useEffect(() => {
-    const query = window.matchMedia("(max-width: 760px)");
+    const query = window.matchMedia("(max-width: 859px)");
     const update = () => setMobile(query.matches);
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
@@ -80,9 +79,9 @@ export function ChatPanel({ open, onOpenChange, opener, read, runId, chat, conne
 }
 
 /** Shared with the retained run page, including its existing approval and resume controls. */
-export function LeadConversation({ read, runId, chat, connectionError, draft, onDraftChange, onChanged, documentTools }: {
+export function LeadConversation({ read, runId, chat, connectionError, draft, onDraftChange, onChanged, documentTools, welcome }: {
   read?: TeamOwnerRead; runId: string; chat?: ChatState; connectionError?: boolean; draft: string; onDraftChange: (draft: string) => void; onChanged?: () => void;
-  documentTools?: ReactNode;
+  documentTools?: ReactNode; welcome?: ReactNode;
 }) {
   const { t } = useTranslation();
   const entityVersion = read?.run.entityVersion ?? 0;
@@ -100,6 +99,7 @@ export function LeadConversation({ read, runId, chat, connectionError, draft, on
       setFollowing(element.scrollHeight - element.scrollTop - element.clientHeight < 80);
     }}>
       {documentTools}
+      {welcome}
       <WorkflowOutcomes runId={runId} />
       {chat?.available && chat.messages.filter(message => message.kind !== "decision" || message.answeredBy)
         .map(message => <Turn key={message.id} message={message} />)}
@@ -215,7 +215,7 @@ function stageIntent(body: string): "exploration" | "requirements" | "plan" | nu
   return null;
 }
 
-function Composer({ runId, entityVersion, body, onBodyChange, projectId, onStarted, read, chat, onChanged }: {
+export function Composer({ runId, entityVersion, body, onBodyChange, projectId, onStarted, read, chat, onChanged }: {
   runId: string; entityVersion: number; body: string; onBodyChange: (body: string) => void;
   projectId?: string; onStarted?: (runId: string) => void; read?: TeamOwnerRead; chat?: ChatState; onChanged?: () => void;
 }) {

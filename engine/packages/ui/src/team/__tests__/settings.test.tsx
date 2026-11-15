@@ -121,12 +121,10 @@ describe("command-center settings", () => {
     expect(signal.aborted).toBe(true);
   });
 
-  it("keeps dark, light, system and background motion as real preferences", async () => {
+  it("keeps dark, light and system as real theme preferences", async () => {
     await show(); fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
     fireEvent.click(screen.getByRole("radio", { name: "Light" }));
     expect(setPreference).toHaveBeenCalledWith("light");
-    fireEvent.click(screen.getByRole("checkbox", { name: "Background motion" }));
-    expect(setMotion).toHaveBeenCalledWith(false);
     expect(screen.queryByRole("radio", { name: "Ink" })).toBeNull();
   });
 

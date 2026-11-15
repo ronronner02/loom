@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Dialog from "@radix-ui/react-dialog";
+import { ChevronDown, X } from "lucide-react";
 import { OwnerReadError, useOwnerSession } from "../hooks/useOwnerSession.js";
-import { Caret, Close } from "./glyphs.js";
 import { runsKey, type TeamSummary } from "./hooks.js";
 import type { WorkflowSelection } from "@multi-agent/daemon/team-control";
 import { WorkflowPicker } from "./workflows.js";
@@ -64,7 +64,7 @@ export function StartRunForm({ teams, presetTeamId, onStarted }: {
           <select id="start-team" value={chosen} onChange={event => setTeam(event.target.value)}>
             {(teams ?? []).map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
           </select>
-          <Caret />
+          <ChevronDown aria-hidden="true" />
         </label>
       </div>}
       <WorkflowPicker value={workflow} onChange={setWorkflow} disabled={busy} />
@@ -91,7 +91,7 @@ export function NewWorkSheet({ teams, teamId, open, onOpenChange, onStarted }: {
     <Dialog.Content className="sheet" aria-label={t("team.teams.newWork")}>
       <header className="sheet-head">
         <Dialog.Title className="display" style={{ fontSize: 20, margin: 0 }}>{t("team.teams.newWork")}</Dialog.Title>
-        <Dialog.Close className="more" aria-label={t("team.create.close")}><Close /></Dialog.Close>
+        <Dialog.Close className="more" aria-label={t("team.create.close")}><X aria-hidden="true" /></Dialog.Close>
       </header>
       <div className="sheet-body">
         <StartRunForm teams={teams} presetTeamId={teamId} onStarted={runId => { onOpenChange(false); onStarted(runId); }} />
