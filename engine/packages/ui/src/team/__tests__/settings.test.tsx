@@ -81,14 +81,14 @@ describe("command-center settings", () => {
     expect(request).toHaveBeenCalledWith("/teams/fixture-team/settings", expect.objectContaining({ method: "PUT" }));
   });
 
-  it("reads and persists the default lead through the owner settings route", async () => {
+  it.each(["codex", "gemini"])("reads and persists %s as default lead through the owner settings route", async client => {
     await show();
     const lead = await screen.findByRole("combobox", { name: "Default lead client" }) as HTMLSelectElement;
     await waitFor(() => expect(lead.disabled).toBe(false));
     expect(lead.value).toBe("claude-code");
-    fireEvent.change(lead, { target: { value: "codex" } });
-    await waitFor(() => expect(lead.value).toBe("codex"));
-    expect(request).toHaveBeenCalledWith("/settings", expect.objectContaining({ method: "PUT", body: JSON.stringify({ key: "team.leadClient", value: "codex" }) }));
+    fireEvent.change(lead, { target: { value: client } });
+    await waitFor(() => expect(lead.value).toBe(client));
+    expect(request).toHaveBeenCalledWith("/settings", expect.objectContaining({ method: "PUT", body: JSON.stringify({ key: "team.leadClient", value: client }) }));
     fireEvent.change(screen.getByRole("combobox", { name: "Language" }), { target: { value: "zh-CN" } });
     expect(onLanguage).toHaveBeenCalledWith("zh-CN");
   });

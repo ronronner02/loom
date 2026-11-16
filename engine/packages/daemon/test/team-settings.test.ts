@@ -35,11 +35,11 @@ describe("owner team settings", () => {
   });
   afterEach(() => { if (db?.open) db.close(); rmSync(directory, { recursive: true, force: true }); });
 
-  it("saves project model choices and exposes the persisted launch policy", async () => {
+  it.each(["codex", "gemini"])("saves %s project model choices and exposes the persisted launch policy", async client => {
     db.prepare("INSERT INTO rigs (id, name) VALUES ('project-1', 'model-project')").run();
     db.prepare("INSERT INTO nodes (id, rig_id, logical_id, role, runtime) VALUES ('lead-1', 'project-1', 'lead', 'lead', 'claude-code')").run();
-    const body = { lead: { client: "codex", model: "chosen-lead" },
-      allowedSubagents: [{ client: "claude-code", model: "allowed-worker" }], kind: "test" };
+    const body = { lead: { client, model: "chosen-lead" },
+      allowedSubagents: [{ client: "claude-code", model: "allowed-worker" }, { client: "gemini", model: "allowed-gemini" }], kind: "test" };
     const result = await app.request("/api/team-control/teams/project-1/settings", { method: "PUT",
       headers: { Authorization: "Bearer " + ownerToken, "Content-Type": "application/json" }, body: JSON.stringify(body),
     }, { incoming: { socket: { remoteAddress: "127.0.0.1" } } });
@@ -50,7 +50,7 @@ describe("owner team settings", () => {
     }, { incoming: { socket: { remoteAddress: "127.0.0.1" } } });
     expect(await reloaded.json()).toMatchObject({ settings: { ...body, configured: true } });
     expect(db.prepare("SELECT runtime, model FROM nodes WHERE id = 'lead-1'").get())
-      .toEqual({ runtime: "codex", model: "chosen-lead" });
+      .toEqual({ runtime: client, model: "chosen-lead" });
   });
 
   it("adds local model suggestions to the existing owner settings read", async () => {
@@ -108,11 +108,11 @@ describe("owner team settings", () => {
     } });
   });
 
-  it("persists a default lead without changing other settings", async () => {
-    const response = await request("PUT", { key: "team.leadClient", value: "codex" });
+  it.each(["codex", "gemini"])("persists %s as default lead without changing other settings", async client => {
+    const response = await request("PUT", { key: "team.leadClient", value: client });
     expect(response.status).toBe(200);
-    expect((await response.json()).settings["team.leadClient"]).toMatchObject({ value: "codex", source: "file" });
-    expect(new SettingsStore(store.configPath).resolveOne("team.leadClient").value).toBe("codex");
+    expect((await response.json()).settings["team.leadClient"]).toMatchObject({ value: client, source: "file" });
+    expect(new SettingsStore(store.configPath).resolveOne("team.leadClient").value).toBe(client);
     expect(store.resolveOne("daemon.port").value).toBe(7433);
   });
 

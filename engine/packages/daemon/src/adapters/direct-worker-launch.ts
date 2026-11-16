@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { parseAttemptIdentity } from "../contracts/team-control.js";
 import { WORKER_TURN_START_WINDOW_MS, type WorkerEvent } from "../contracts/worker-events.js";
-import { agentTurnPromptPath, agentTurnOutputPaths, isNativeSessionToken, readAgentTurnThreadId } from "../domain/agent-turn.js";
+import { agentTurnPromptPath, agentTurnOutputPaths, isNativeSessionToken, readAgentTurnThreadId, turnInstructions } from "../domain/agent-turn.js";
 import { hashBytes } from "../domain/plan-governance.js";
 import { resolveExecutable } from "../domain/executable-resolver.js";
 import type { HarnessLaunchResult, ManagedAttempt, ManagedSessionReceipt, ReadinessResult } from "../domain/runtime-adapter.js";
@@ -127,7 +128,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
       // `.cmd` shim Node refuses to start (KTD2).
       const [executable, ...args] = argv;
       if (!executable) return this.refuse("managed_executable_unresolved");
-      const resolved = this.deps.command ? executable : this.resolveExecutable(client);
+      const resolved = this.deps.command ? { path: executable } : this.resolveExecutable(client);
       if (resolved === null) return this.refuse("managed_executable_unresolved");
       // The prompt is the file the orchestrator already wrote for this attempt. A turn whose
       // prompt file is missing has nothing to work on, and is a refusal rather than an empty turn.
@@ -136,9 +137,10 @@ export class DirectWorkerLauncher implements WorkerLauncher {
       const changedModelError = this.deps.modelRefusal?.(input) ?? this.deps.documentRefusal?.(input);
       if (changedModelError) return this.refuse(changedModelError);
 
-      const launch: SupervisorLaunch = { executable: resolved, args, cwd: tree, prompt,
+      const launch: SupervisorLaunch = { executable: resolved.path, args: [...(resolved.args ?? []), ...args], cwd: tree, prompt,
         mutableStateRoot: attempt.context.mutableStateRoot, attemptId: attempt.attemptId,
-        provider: client === "codex" ? "codex" : "claude",
+        provider: client === "claude-code" ? "claude" : client,
+        ...(client === "gemini" ? { env: { GEMINI_CLI_NO_RELAUNCH: "1", ELECTRON_RUN_AS_NODE: "1" } } : {}),
         ...(client === "codex" ? { threadIdPath: output.threadId } : {}) };
       // U4 — the durable intent is recorded before the child exists. A daemon that stops between
       // this fact and the spawn leaves a `submitted` attempt with no process, which boot recovery
@@ -186,7 +188,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
         this.turns.delete(attempt.attemptId);
       }).catch(() => { /* A turn that cannot report its end is the sweep's problem. */ });
       return { ok: true, managedSession: receipt,
-        ...(client === "claude-code" ? { resumeToken: sessionId, resumeType: "claude_id" } : {}) };
+        ...(client !== "codex" ? { resumeToken: sessionId, resumeType: client === "gemini" ? "gemini_id" : "claude_id" } : {}) };
     } catch (error) {
       return this.refuse(error instanceof Error && /^direct_launch_|^managed_/.test(error.message) ? error.message : "managed_launch_unverified");
     }
@@ -261,22 +263,25 @@ export class DirectWorkerLauncher implements WorkerLauncher {
    * installed. A bare name that resolves to nothing is a refusal: `shell: false` would fail
    * anyway, and a `.cmd` target is exactly what the resolver refuses to return.
    */
-  private resolveExecutable(client: WorkerClient): string | null {
+  private resolveExecutable(client: WorkerClient): { path: string; args?: string[] } | null {
     const configuredPath = this.deps.executablePath?.(client);
     // The resolver's names are the clients' own names: a Claude turn is `claude`, not the
     // adapter's `claude-code`.
-    const resolution = resolveExecutable(client === "codex" ? "codex" : "claude", {
+    const resolution = resolveExecutable(client === "claude-code" ? "claude" : client, {
       ...(configuredPath ? { configuredPath } : {}),
       ...(this.deps.bundledRoots ? { bundledRoots: this.deps.bundledRoots } : {}),
     });
-    return resolution.ok ? resolution.path : null;
+    return resolution.ok ? resolution : null;
   }
 
   /** The native argv for one managed turn, from the frozen launch contract. */
   private nativeArgv(client: WorkerClient, input: WorkerLaunchInput, sessionId: string, tree: string,
     output: ReturnType<typeof agentTurnOutputPaths>, continuing: boolean, readOnly: boolean): string[] {
-    return [client === "codex" ? "codex" : "claude",
+    return [client === "claude-code" ? "claude" : client,
       ...workerArgv({ client, tree, output, readOnly, role: input.attempt.context.assignment.role, sessionId,
+        ...(client === "gemini" ? { instructionDirectories: [...new Set(turnInstructions(input.attempt.context).map(file => dirname(file.path)))] } : {}),
+        ...(input.attempt.evidenceDirectory && existsSync(input.attempt.evidenceDirectory)
+          ? { evidenceDirectory: input.attempt.evidenceDirectory } : {}),
         continuing, ...(input.model ? { model: input.model } : {}), ...(input.effort ? { effort: input.effort } : {}) })];
   }
 

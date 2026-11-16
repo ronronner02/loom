@@ -52,7 +52,8 @@ export function isFinished(task: Pick<TeamReviewView, "queueState">): boolean {
 }
 
 export function clientLabel(client: string, t: TFunction): string {
-  return client === "codex" ? t("team.client.codex") : client === "claude-code" ? t("team.client.claude-code") : client;
+  return client === "codex" ? t("team.client.codex") : client === "claude-code" ? t("team.client.claude-code")
+    : client === "gemini" ? t("team.client.gemini") : client;
 }
 
 /**

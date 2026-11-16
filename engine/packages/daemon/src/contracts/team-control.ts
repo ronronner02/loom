@@ -10,7 +10,7 @@ export const TEAM_HEALTH_LIGHTS = ["database", "queueMailbox", "controlTmux", "w
 export type TeamHealthLightName = (typeof TEAM_HEALTH_LIGHTS)[number];
 export interface TeamHealthLight { state: TeamHealthState; checkedAt: string; evidenceRef: string | null; reason: string | null; }
 export interface TeamAttemptHealth {
-  attemptId: string; runId: string; worker: string | null; client: "claude-code" | "codex" | null;
+  attemptId: string; runId: string; worker: string | null; client: "claude-code" | "codex" | "gemini" | null;
   state: string; reasonCode: string | null; resumeSafe: boolean | null; checkedAt: string; evidenceRef: string | null;
 }
 export interface TeamSystemHealth {
@@ -26,7 +26,7 @@ export interface TeamSystemHealth {
 }
 export interface ManagedWorkerHealthEvidence {
   observedAt: string;
-  attempts: Array<{ attemptId: string; runId: string; worker: string; client: "claude-code" | "codex";
+  attempts: Array<{ attemptId: string; runId: string; worker: string; client: "claude-code" | "codex" | "gemini";
     state: "preflight" | "starting" | "running" | "stopped" | "unknown"; provider: "signed_in" | "signed_out" | "unknown";
     policyRevision: number; policyFingerprint: string; clientVersion: string; clientLockDigest: string;
     networkMode: "isolated-allowlist" | "filtered-proxy" | "host-shared" | "unknown"; networkProfileFingerprint: string; evidenceRef: string; }>;
@@ -273,7 +273,7 @@ export interface TeamAttempt {
   runId: string;
   qitemId: string | null;
   role: TeamRole;
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "gemini";
   identity: NativeAttemptIdentity | null;
   unknownReason: string | null;
   state: AttemptState;
@@ -513,7 +513,7 @@ export interface TeamAttemptView {
   taskId: string | null;
   qitemId: string | null;
   role: TeamRole;
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "gemini";
   state: AttemptState;
   unknownReason: string | null;
   session: string | null;

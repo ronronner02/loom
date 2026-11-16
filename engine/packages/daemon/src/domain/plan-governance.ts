@@ -47,7 +47,7 @@ export function hashBinding(binding: unknown): string {
 export interface ProviderPolicyCapability {
   policyRevision: number;
   policyFingerprint: string;
-  verifiedProviders: readonly ("claude" | "codex")[];
+  verifiedProviders: readonly ("claude" | "codex" | "gemini")[];
 }
 
 
@@ -1377,7 +1377,7 @@ export class PlanGovernance {
   }
 
   private reconcilePlanRoster(rigId: string, seats: readonly LeadRosterSeat[], maxSeats: number):
-    { reason: string } | { missing: LeadRosterSeat[]; updated: Array<{ id: string; client: "claude-code" | "codex"; model: string | null; soulId: string | null }>; reviewerSeat: string | null } {
+    { reason: string } | { missing: LeadRosterSeat[]; updated: Array<{ id: string; client: "claude-code" | "codex" | "gemini"; model: string | null; soulId: string | null }>; reviewerSeat: string | null } {
     const reason = rosterRefusal(seats, maxSeats) ?? rosterModelRefusal(this.db, rigId, seats) ?? rosterSoulRefusal(this.db, rigId, seats);
     if (reason) return { reason };
     const existing = this.db.prepare(`SELECT n.id, n.model, n.soul_id AS soulId, n.logical_id AS logicalId, n.role, n.runtime AS client,
@@ -1387,11 +1387,11 @@ export class PlanGovernance {
         id: string; model: string | null; soulId: string | null; logicalId: string; role: LeadRosterSeat["role"]; client: string | null; member: string | null;
       }>;
     const missing = [...seats];
-    const updated: Array<{ id: string; client: "claude-code" | "codex"; model: string | null; soulId: string | null }> = [];
+    const updated: Array<{ id: string; client: "claude-code" | "codex" | "gemini"; model: string | null; soulId: string | null }> = [];
     let reviewerSeat: string | null = null;
     for (const seat of existing) {
       const name = seat.member ?? seat.logicalId;
-      if (!seat.member || (seat.client !== "claude-code" && seat.client !== "codex")) {
+      if (!seat.member || (seat.client !== "claude-code" && seat.client !== "codex" && seat.client !== "gemini")) {
         return { reason: `Existing seat ${name} (${seat.role}, ${seat.client ?? "no client"}) needs a supported client and session before approval.` };
       }
       let index = missing.findIndex(requested => requested.role === seat.role && requested.client === seat.client && requested.model === seat.model);
@@ -2285,7 +2285,7 @@ export class PlanGovernance {
       const state = attemptState(v.state);
       const role = text(v.role, "role");
       if (!ctx.run.binding.roles.some((allowed) => allowed === role)) return deny("Attempt role is outside the binding");
-      if (v.provider !== "claude" && v.provider !== "codex") throw new TeamContractError("provider");
+      if (v.provider !== "claude" && v.provider !== "codex" && v.provider !== "gemini") throw new TeamContractError("provider");
       const identity = v.identity === null ? null : parseAttemptIdentity(v.identity);
       const unknownReason = state === "unknown" ? text(v.unknownReason, "unknownReason") : null;
       if (state !== "unknown" && (identity === null || v.unknownReason !== null)) throw new TeamContractError("attempt.identity");
@@ -2345,7 +2345,7 @@ export class PlanGovernance {
       const bytes = canonicalJson(command);
       if (Buffer.byteLength(bytes, "utf8") > 65_536 || hashBytes(bytes) !== commandDigest) throw new TeamContractError("nativeLaunch.command");
     }
-    if (v.provider !== "claude" && v.provider !== "codex") throw new TeamContractError("provider");
+    if (v.provider !== "claude" && v.provider !== "codex" && v.provider !== "gemini") throw new TeamContractError("provider");
     if (sessionId !== item.destinationSession || !["pending", "in-progress"].includes(item.state)) return "Native launch task/session is not dispatchable";
     if (this.db.prepare("SELECT id FROM team_attempts WHERE qitem_id = ? AND state <> 'stopped' LIMIT 1").get(qitemId)) {
       return "Task already has an unresolved native attempt";

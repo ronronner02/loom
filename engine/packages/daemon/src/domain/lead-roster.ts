@@ -23,7 +23,7 @@ export function parseRosterSeats(value: unknown): LeadRosterSeat[] {
     const seat = object(entry, "roster.seat");
     if (Object.keys(seat).some(key => !["role", "client", "model", "soulId"].includes(key))
       || (seat.role !== "implementer" && seat.role !== "reviewer")
-      || (seat.client !== "claude-code" && seat.client !== "codex")) throw new TeamContractError("roster.seat");
+      || (seat.client !== "claude-code" && seat.client !== "codex" && seat.client !== "gemini")) throw new TeamContractError("roster.seat");
     return { role: seat.role, client: seat.client, ...(seat.model === undefined ? {} : { model: modelId(seat.model) }),
       ...(seat.soulId === undefined ? {} : { soulId: soulId(seat.soulId) }) };
   });

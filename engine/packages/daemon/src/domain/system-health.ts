@@ -112,12 +112,12 @@ function attemptsFromEvidence(now: () => Date, evidence: ManagedWorkerHealthEvid
  * The caller names which attempts it publishes, so this never invents a scope of its own.
  */
 export function attemptsFromRecords(now: () => Date, records: ReadonlyArray<{
-  id: string; runId: string; provider: "claude" | "codex"; state: string;
+  id: string; runId: string; provider: "claude" | "codex" | "gemini"; state: string;
   failure: { reasonCode: string; resumeSafe: boolean } | null;
 }>): Record<string, TeamAttemptHealth> {
   return Object.fromEntries(records.map(attempt => [attempt.id, {
     attemptId: attempt.id, runId: attempt.runId, worker: null,
-    client: attempt.provider === "codex" ? "codex" as const : "claude-code" as const, state: attempt.state,
+    client: attempt.provider === "claude" ? "claude-code" as const : attempt.provider, state: attempt.state,
     reasonCode: attempt.failure?.reasonCode ?? null, resumeSafe: attempt.failure?.resumeSafe ?? null,
     checkedAt: checkedAt(now), evidenceRef: "team_attempts:" + attempt.id,
   }]));
@@ -127,7 +127,7 @@ function validAttempts(value: unknown): value is Record<string, TeamAttemptHealt
     && Object.entries(value).every(([key, entry]) => !!entry && typeof entry === "object"
       && entry.attemptId === key && typeof entry.runId === "string"
       && (entry.worker === null || typeof entry.worker === "string")
-      && (entry.client === null || entry.client === "claude-code" || entry.client === "codex")
+      && (entry.client === null || entry.client === "claude-code" || entry.client === "codex" || entry.client === "gemini")
       && typeof entry.state === "string" && (entry.reasonCode === null || typeof entry.reasonCode === "string")
       && (entry.resumeSafe === null || typeof entry.resumeSafe === "boolean")
       && typeof entry.checkedAt === "string" && Number.isFinite(Date.parse(entry.checkedAt))

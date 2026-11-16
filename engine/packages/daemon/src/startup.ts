@@ -229,7 +229,7 @@ function composeDirectLaunch(dependencies: {
  * launch refuses instead of resuming under an attempt it does not own.
  */
 function recordedManagedReceipt(dependencies: { db: Database.Database; governance: PlanGovernance }, input: {
-  seat: string; nativeToken: string; runId: string; qitemId: string; client: "claude-code" | "codex";
+  seat: string; nativeToken: string; runId: string; qitemId: string; client: "claude-code" | "codex" | "gemini";
 }): import("./domain/runtime-adapter.js").ManagedSessionReceipt | undefined {
   const row = dependencies.db.prepare(`
     SELECT payload FROM events
@@ -274,7 +274,8 @@ function composeManagedAttemptAttachment(dependencies: {
   return async (input: import("./domain/startup-orchestrator.js").StartupInput):
     Promise<import("./domain/runtime-adapter.js").ManagedAttempt | undefined> => {
     const client = input.adapter.runtime;
-    if (client !== "claude-code" && client !== "codex") return undefined;
+    if (client !== "claude-code" && client !== "codex" && client !== "gemini") return undefined;
+    if (client === "gemini" && !dependencies.unisolated) throw new Error("Gemini requires workers.isolation: none");
     const seat = input.sessionName ?? input.binding.tmuxSession;
     if (!seat) return undefined;
     // A seat may be the destination of at most one live task. Two is not a choice this
@@ -460,7 +461,7 @@ export function composeUnisolatedHealthReader(dependencies: { db: Database.Datab
     queueMailbox: () => ({ state: "ok", evidenceRef: "queue:active:" + dependencies.queue.list({ activeOnly: true, compact: true }).length }),
     controlTmux: async () => ({ state: "unknown", evidenceRef: "native:direct-child", reason: "terminal_control_removed" }),
     workerBoundary: unknown, sandboxNetwork: unknown, clients: unknown,
-    latestAttempts: () => attemptsFromRecords(() => new Date(), (dependencies.db.prepare(`SELECT id, run_id AS runId, provider, state, failure_json AS failureJson FROM team_attempts ORDER BY updated_at DESC, id DESC LIMIT 100`).all() as Array<{ id: string; runId: string; provider: "claude" | "codex"; state: string; failureJson: string | null }>).map(row => ({ id: row.id, runId: row.runId, provider: row.provider, state: row.state, failure: storedFailure(row.failureJson) }))),
+    latestAttempts: () => attemptsFromRecords(() => new Date(), (dependencies.db.prepare(`SELECT id, run_id AS runId, provider, state, failure_json AS failureJson FROM team_attempts ORDER BY updated_at DESC, id DESC LIMIT 100`).all() as Array<{ id: string; runId: string; provider: "claude" | "codex" | "gemini"; state: string; failureJson: string | null }>).map(row => ({ id: row.id, runId: row.runId, provider: row.provider, state: row.state, failure: storedFailure(row.failureJson) }))),
   });
 }
 
@@ -771,6 +772,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const { StartupOrchestrator } = await import("./domain/startup-orchestrator.js");
   const { ClaudeCodeAdapter } = await import("./adapters/claude-code-adapter.js");
   const { CodexRuntimeAdapter } = await import("./adapters/codex-runtime-adapter.js");
+  const { GeminiRuntimeAdapter } = await import("./adapters/gemini-runtime-adapter.js");
   const { ProjectionManifestStore } = await import("./domain/projection-manifest-store.js");
   const { hashContent } = await import("./domain/conflict-detector.js");
   const projectionManifestStore = new ProjectionManifestStore(db);
@@ -791,6 +793,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const claudeAdapter = new ClaudeCodeAdapter({ fsOps, ...workerLauncher,
     recordProjection: (targetPath: string, content: string) => projectionManifestStore.record({ targetPath, lastHash: hashContent(content), writtenAt: new Date().toISOString() }) });
   const codexAdapter = new CodexRuntimeAdapter({ fsOps, ...workerLauncher });
+  const geminiAdapter = new GeminiRuntimeAdapter(workerLauncher);
   const { ContextUsageStore } = await import("./domain/context-usage-store.js");
   const contextUsageStore = new ContextUsageStore(db, { stateDir: MULTI_AGENT_HOME, codexHome: configuredCodexHome,
     resolveOccupantBootAt: (nodeId) => sessionRegistry.currentOccupantTenure(nodeId)?.bootAt ?? null });
@@ -804,7 +807,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     ...(managedLaunch ? { managedLaunch } : {}),
     rigRepo, sessionRegistry, daemonLifecycleStore, daemonBootEpoch, eventBus,
     startupOrchestrator,
-    runtimeAdapters: { "claude-code": claudeAdapter, codex: codexAdapter },
+    runtimeAdapters: { "claude-code": claudeAdapter, codex: codexAdapter, gemini: geminiAdapter },
     chatRepo: new ChatRepository(db),
     slowOpRecorder,
     queueRepo: queueRepoInstance,
@@ -1016,6 +1019,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const contextMonitor = new ContextMonitor(db, contextUsageStore, undefined, undefined, {
     "claude-code": claudeAdapter,
     codex: codexAdapter,
+    gemini: geminiAdapter,
   });
 
   // GHOST-STAGE (e/Class-B) — construct the canonical OccupantInvalidator now that both Class-A deps
@@ -1200,9 +1204,10 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       const intakeActor = { kind: "owner" as const, sessionId: "github-intake" };
       deps.githubIntake = composeGithubIntake({ db, agent: deps.githubAgent, owner: deps.github,
         assess: commandAssessor({ resolve: client => {
-          const configured = opts?.directLaunchExecutable?.(client === "codex" ? "codex" : "claude-code");
-          const resolution = resolveExecutable(client === "codex" ? "codex" : "claude", configured ? { configuredPath: configured } : {});
-          return resolution.ok ? resolution.path : null;
+          if (client !== "claude-code" && client !== "codex" && client !== "gemini") return null;
+          const configured = opts?.directLaunchExecutable?.(client);
+          const resolution = resolveExecutable(client === "claude-code" ? "claude" : client, configured ? { configuredPath: configured } : {});
+          return resolution.ok ? resolution : null;
         } }),
         start: async (rigId, goal, displayName) => {
           const outcome = await startTeamRun(teamGovernance, deps.rigRepo,

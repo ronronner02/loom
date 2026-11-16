@@ -53,6 +53,13 @@ it("pins a specialist identity and rejects content or role substitution", () => 
   expect(() => createContextManifest(input)).toThrow(/specialist profile/);
 });
 it.each(["claude-code", "codex"] as const)("%s binds generated and observed hashes and freezes projected authority", client => { const { input, observed } = fixture(); input.client = client; const m = createContextManifest(input); expect(verifyEffectiveContext(m, observed)).toBe(hashBytes(canonicalJson(observed))); expect(Object.isFrozen(m.files[0])).toBe(true); expect(Object.isFrozen(m.binding.writePaths)).toBe(true); expect(readFileSync(m.files[0]!.path, "utf8")).toBe("pinned instructions"); });
+it("admits Gemini context only through the same-identity native path", () => {
+  const { input } = fixture();
+  input.client = "gemini";
+  expect(() => createContextManifest(input)).toThrow("Context role, client or framework mismatch");
+  input.sameIdentity = true;
+  expect(createContextManifest(input)).toMatchObject({ client: "gemini", sameIdentity: true });
+});
 it.each(FRAMEWORK_CATALOG.flatMap(entry => [false, true].map(sameIdentity => ({ entry, sameIdentity }))))(
   "delivers $entry.name from its complete source package (same identity: $sameIdentity)", ({ entry, sameIdentity }) => {
     const { input } = fixture();
@@ -134,7 +141,7 @@ const rewrite = (file: ContextInput["files"][number], content: string) => { chmo
 it.each(["implementer", "reviewer"] as const)("projects the core and the %s charter with their versions", role => {
   const { input, observed } = fixture(role), m = createContextManifest(input);
   expect(m.files.filter(f => f.kind === "core" || f.kind === "charter").map(f => readFileSync(f.path, "utf8"))).toEqual([coreInstructions, roleCharters[role]]);
-  expect(m.instructionVersions).toEqual({ core: "3", charter: role === "implementer" ? "4" : "3" });
+  expect(m.instructionVersions).toEqual({ core: "3", charter: "4" });
   expect(verifyEffectiveContext(m, observed)).toBe(hashBytes(canonicalJson(observed)));
 });
 it.each(["missing-core", "missing-charter", "other-role", "changed-core", "changed-charter", "duplicate-core"])("refuses a projection whose role instructions are wrong: %s", kind => {

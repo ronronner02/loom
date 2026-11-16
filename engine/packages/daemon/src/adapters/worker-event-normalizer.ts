@@ -7,6 +7,7 @@ import {
 } from "../contracts/worker-events.js";
 import { extractClaudeFinalMessage, extractClaudeResumeToken, normalizeClaudeRecord } from "./claude-worker-events.js";
 import { extractCodexFinalMessage, extractCodexResumeToken, normalizeCodexRecord } from "./codex-worker-events.js";
+import { extractGeminiFinalMessage, extractGeminiResumeToken, normalizeGeminiRecord } from "./gemini-worker-events.js";
 
 export interface WorkerEventNormalizerOptions {
   provider: WorkerProvider;
@@ -141,7 +142,7 @@ export class WorkerEventNormalizer {
     const context = this.context();
     const providerEvents = this.options.provider === "claude"
       ? normalizeClaudeRecord(record, context)
-      : normalizeCodexRecord(record, context);
+      : this.options.provider === "gemini" ? normalizeGeminiRecord(record, context) : normalizeCodexRecord(record, context);
     const events = this.suppressDuplicateSessions(providerEvents);
     const acknowledgmentIndex = events.findIndex(event => event.type === "session.started" || event.type === "turn.started");
     if (!this.didAcknowledge && acknowledgmentIndex >= 0) {
@@ -157,8 +158,10 @@ export class WorkerEventNormalizer {
   }
 
   private advanceState(record: unknown): void {
-    const final = this.options.provider === "claude" ? extractClaudeFinalMessage(record) : extractCodexFinalMessage(record);
-    const resume = this.options.provider === "claude" ? extractClaudeResumeToken(record) : extractCodexResumeToken(record);
+    const final = this.options.provider === "claude" ? extractClaudeFinalMessage(record)
+      : this.options.provider === "gemini" ? extractGeminiFinalMessage(record, this.lastFinalMessage) : extractCodexFinalMessage(record);
+    const resume = this.options.provider === "claude" ? extractClaudeResumeToken(record)
+      : this.options.provider === "gemini" ? extractGeminiResumeToken(record) : extractCodexResumeToken(record);
     if (final !== null) this.lastFinalMessage = final;
     if (resume !== null) this.lastResumeToken = resume;
   }

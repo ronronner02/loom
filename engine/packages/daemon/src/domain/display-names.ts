@@ -85,7 +85,7 @@ export function roleLabel(role: string): string {
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
-const CLIENT_LABELS: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex" };
+const CLIENT_LABELS: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex", gemini: "Gemini CLI" };
 
 /** A client's label in the stored English form. Clients localise from the `client` field instead. */
 export function clientLabel(client: string): string {

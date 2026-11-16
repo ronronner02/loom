@@ -13,7 +13,7 @@ export type ResumeResult =
   | { ok: true; managedSession?: ManagedSessionReceipt; appliedLaunch?: AppliedLaunchObservation }
   | { ok: false; code: string; message: string; evidence?: string };
 
-export type WorkerClient = "claude-code" | "codex";
+export type WorkerClient = "claude-code" | "codex" | "gemini";
 export interface WorkerLaunchInput {
   client: WorkerClient;
   attempt: ManagedAttempt;
@@ -56,7 +56,7 @@ export async function resumeManagedAttempt(
   type: string | null, token: string | null, model?: string | null, effort?: string | null,
 ): Promise<ResumeResult> {
   if (!launcher) return { ok: false, code: "managed_launch_unavailable", message: "Managed worker launch is unavailable" };
-  if (type !== (client === "codex" ? "codex_id" : "claude_id") || !token) {
+  if (type !== (client === "claude-code" ? "claude_id" : `${client}_id`) || !token) {
     return { ok: false, code: "managed_identity_mismatch", message: "Managed resume requires an exact native session ID" };
   }
   const result = await launcher.launch({ client, attempt, resumeToken: token, model: model ?? undefined, effort: effort ?? undefined });
@@ -309,6 +309,7 @@ export class RestrictedWorkerLauncher implements WorkerLauncher {
     private admission?: WorkerLaunchAdmission) {}
 
   async launch(input: WorkerLaunchInput): Promise<HarnessLaunchResult> {
+    if (input.client === "gemini") return { ok: false, error: "Gemini requires the native direct-worker launcher" };
     let state: LaunchState;
     // Declared outside the try so the refusal path can tell whether this attempt
     // ever took a claim on the task's candidate.

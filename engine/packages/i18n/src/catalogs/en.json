@@ -262,6 +262,7 @@
   "team.create.close": "Close",
   "team.client.claude-code": "Claude Code",
   "team.client.codex": "Codex",
+  "team.client.gemini": "Gemini CLI",
   "team.state.queued": "Queued",
   "team.state.running": "Running",
   "team.state.reviewing": "In review",

@@ -58,6 +58,20 @@ describe("local native model suggestions", () => {
     ]);
   });
 
+  it("reads Gemini model names under its selected home without treating credentials as models", () => {
+    const geminiHome = join(home, "gemini-home");
+    put(join(geminiHome, ".gemini", "settings.json"), { model: { name: "configured-gemini" },
+      security: { auth: { apiKey: "private-setting" } } });
+    put(join(geminiHome, ".gemini", "oauth_creds.json"), { access_token: "private-credential" });
+    put(join(home, ".gemini", "settings.json"), { model: { name: "default-home-gemini" } });
+    const choices = nativeModelChoices({ home, env: { GEMINI_CLI_HOME: geminiHome, GEMINI_MODEL: "environment-gemini",
+      GEMINI_API_KEY: "private-environment" }, saved: [{ client: "gemini", model: "saved-gemini" }] });
+    expect(choices.filter(choice => choice.client === "gemini").map(choice => choice.model))
+      .toEqual(["configured-gemini", "environment-gemini", "saved-gemini"]);
+    expect(JSON.stringify(choices)).not.toContain("private-");
+    expect(nativeModelChoices({ home, env: {} })).toContainEqual({ client: "gemini", model: "default-home-gemini" });
+  });
+
   it("excludes malformed external IDs and non-model catalog data without exposing it", () => {
     put(join(home, ".codex", "models_cache.json"), { token: "private-cache-value", models: [
       null, "private-raw-value", { slug: "$(private-command)" }, { slug: "invalid model" },

@@ -60,7 +60,7 @@ export function turnTelemetryFixture() {
   };
   addRun("run");
   const qitemId = addTask("task");
-  const addAttempt = (id: string, options: { provider?: "claude" | "codex"; task?: string; runId?: string } = {}) => {
+  const addAttempt = (id: string, options: { provider?: "claude" | "codex" | "gemini"; task?: string; runId?: string } = {}) => {
     const runId = options.runId ?? "run";
     const receipt = governance.recordAttempt(request(runId, id, {
       qitemId: options.task ?? qitemId, role: "implementer", provider: options.provider ?? "claude",
@@ -93,7 +93,7 @@ export function turnTelemetryFixture() {
     cleanup: () => { if (db.open) db.close(); rmSync(root, { recursive: true, force: true }); } };
 }
 
-export function nativeUsage(options: { client?: "claude-code" | "codex"; resumed?: boolean; thread?: string;
+export function nativeUsage(options: { client?: "claude-code" | "codex" | "gemini"; resumed?: boolean; thread?: string;
   counts?: { [K in keyof typeof tokenCounts]: number | null }; model?: string } = {}) {
   const client = options.client ?? "claude-code";
   return { version: 1, available: true, client, nativeSessionId: options.thread ?? nativeThread,

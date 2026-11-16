@@ -2,7 +2,7 @@ import { parsePlanBinding, relativePath, type PlanBinding } from "../../contract
 import { FRAMEWORK_PIN, frameworkEntry, type FrameworkEntry } from "./catalog.js";
 
 export interface FrameworkRequest {
-  client: "claude-code" | "codex";
+  client: "claude-code" | "codex" | "gemini";
   entrypoint: string;
   origin: "user" | "caller";
   binding: PlanBinding;
@@ -26,7 +26,7 @@ export function prepareFrameworkInvocation(request: FrameworkRequest): PreparedF
   const blocked = (reason: string): FrameworkOutcome => ({ status: "blocked", artifacts: [], reason });
   const entry = frameworkEntry(request.entrypoint);
   if (!entry) return blocked("unknown-framework-entrypoint");
-  if (!["claude-code", "codex"].includes(request.client) || !["user", "caller"].includes(request.origin)
+  if (!["claude-code", "codex", "gemini"].includes(request.client) || !["user", "caller"].includes(request.origin)
       || typeof request.input !== "string" || typeof request.readOnly !== "boolean") return blocked("invalid-framework-request");
   if (entry.invocation !== "workflow" && entry.invocation !== request.origin) return blocked(`${entry.invocation}-invocation-required`);
   let binding: PlanBinding;
@@ -45,7 +45,7 @@ export function prepareFrameworkInvocation(request: FrameworkRequest): PreparedF
   return Object.freeze({
     client: request.client, entrypoint: entry.name, origin: request.origin,
     binding, input: request.input, readOnly, revision: FRAMEWORK_PIN.revision,
-    nativeInvocation: `${request.client === "codex" ? "$" : "/"}${entry.name}${review ? " mode:agent" : ""}`,
+    nativeInvocation: `${request.client === "codex" ? "$" : request.client === "gemini" ? "" : "/"}${entry.name}${review ? " mode:agent" : ""}`,
   });
 }
 

@@ -36,13 +36,15 @@ export interface ManagedAttempt {
   deadline: number;
   context: import("../integrations/framework/context-manifest.js").ContextManifest;
   previous?: ManagedSessionReceipt;
+  /** The evidence directory selected by startup for this assignment, not a new source-write grant. */
+  evidenceDirectory?: string | null;
 }
 
 export interface ManagedSessionReceipt {
   identity: import("../contracts/team-control.js").NativeAttemptIdentity;
   attemptId: string;
   runId: string;
-  client: "claude-code" | "codex";
+  client: "claude-code" | "codex" | "gemini";
   contextHash: string;
   workerUid: number;
   processGroupId: number;

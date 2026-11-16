@@ -65,4 +65,24 @@ describe("native model suggestions", () => {
     expect(optionsFor("Lead model")).toEqual(["saved-claude"]);
     expect(optionsFor("Subagent model 1")).toEqual(["saved-codex"]);
   });
+
+  it("selects and saves Gemini for both lead and subagent models", async () => {
+    let settings = saved();
+    request.mockImplementation(async (_path: string, init?: RequestInit) => {
+      if (init?.method === "PUT") settings = { ...settings, ...JSON.parse(String(init.body)) };
+      return { settings, modelChoices: [...choices, { client: "gemini", model: "local-gemini" }] };
+    });
+    await show();
+    fireEvent.change(screen.getByLabelText("Lead client"), { target: { value: "gemini" } });
+    fireEvent.change(screen.getByLabelText("Subagent client 1"), { target: { value: "gemini" } });
+    expect(optionsFor("Lead model")).toEqual(["local-gemini"]);
+    expect(optionsFor("Subagent model 1")).toEqual(["local-gemini"]);
+    fireEvent.change(screen.getByLabelText("Lead model"), { target: { value: "local-gemini" } });
+    fireEvent.change(screen.getByLabelText("Subagent model 1"), { target: { value: "custom-gemini" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save model settings" }));
+    await screen.findByText("Saved. Model policy is enforced on the next managed launch.");
+    expect(settings.lead).toEqual({ client: "gemini", model: "local-gemini" });
+    expect(settings.allowedSubagents).toEqual([{ client: "gemini", model: "custom-gemini" }]);
+    expect((screen.getByLabelText("Lead client") as HTMLSelectElement).value).toBe("gemini");
+  });
 });

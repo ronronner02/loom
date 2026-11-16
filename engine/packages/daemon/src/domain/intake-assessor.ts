@@ -38,6 +38,7 @@ export function parseAssessment(output: string): string[] {
 
 /** The argv after the executable. Codex writes its answer to `answerPath`; Claude prints it. */
 export function assessorArgv(client: string, model: string | null, answerPath: string): string[] {
+  if (client === "gemini") return ["--skip-trust", "--approval-mode", "plan", "--output-format", "text", ...(model ? ["--model", model] : [])];
   if (client === "codex") {
     return ["exec", "-s", "read-only", "-c", "approval_policy=never", "-c", "check_for_update_on_startup=false",
       "-o", answerPath, ...(model ? ["-m", model] : []), "-"];
@@ -46,10 +47,11 @@ export function assessorArgv(client: string, model: string | null, answerPath: s
     ...(model ? ["--model", model] : [])];
 }
 
-export function commandAssessor(options: { resolve: (client: string) => string | null; timeoutMs?: number }): Assessor {
+export function commandAssessor(options: { resolve: (client: string) => string | { path: string; args?: string[] } | null; timeoutMs?: number }): Assessor {
   return input => new Promise<string[]>((resolve, reject) => {
-    const executable = options.resolve(input.client);
-    if (!executable) { reject(new Error(`intake_assessor_unresolved: ${input.client}`)); return; }
+    const resolution = options.resolve(input.client);
+    if (!resolution) { reject(new Error(`intake_assessor_unresolved: ${input.client}`)); return; }
+    const executable = typeof resolution === "string" ? { path: resolution } : resolution;
     const scratch = mkdtempSync(join(tmpdir(), "intake-"));
     const answerPath = join(scratch, "answer.txt");
     const finish = (error: Error | null, output = "") => {
@@ -61,7 +63,9 @@ export function commandAssessor(options: { resolve: (client: string) => string |
       try { resolve(parseAssessment(answer)); } catch (parseError) { reject(parseError as Error); }
     };
     const args = assessorArgv(input.client, input.model, answerPath);
-    const child = spawn(executable, args, { cwd: input.cwd, windowsHide: true, shell: false, stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(executable.path, [...(executable.args ?? []), ...args], { cwd: input.cwd, windowsHide: true, shell: false,
+      stdio: ["pipe", "pipe", "pipe"],
+      ...(input.client === "gemini" ? { env: { ...process.env, GEMINI_CLI_NO_RELAUNCH: "1", ELECTRON_RUN_AS_NODE: "1" } } : {}) });
     let stdout = "";
     let settled = false;
     const settle = (error: Error | null) => { if (!settled) { settled = true; finish(error, stdout); } };

@@ -14,7 +14,7 @@ describe("U12 dependency status over the private parent port", () => {
     return { sent, postMessage: (message: unknown) => { sent.push(message as Record<string, unknown>); } };
   };
 
-  it("answers with the resolver's own output for all four clients", () => {
+  it("answers with the resolver's own output for all five dependencies", () => {
     const reply = port();
     replyToDependencies(reply);
     expect(reply.sent).toHaveLength(1);
@@ -22,7 +22,7 @@ describe("U12 dependency status over the private parent port", () => {
     expect(message.type).toBe("dependencies");
     const resolutions = message.resolutions as Array<{ client: string; ok: boolean }>;
     expect(Array.isArray(resolutions)).toBe(true);
-    expect(resolutions.map(resolution => resolution.client)).toEqual(["claude", "codex", "git", "gh"]);
+    expect(resolutions.map(resolution => resolution.client)).toEqual(["claude", "codex", "gemini", "git", "gh"]);
     // Whatever this host has installed, each entry either carries a path or says why it does not.
     for (const resolution of resolutions as Array<Record<string, unknown>>) {
       if (resolution.ok === true) expect(typeof resolution.path).toBe("string");

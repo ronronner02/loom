@@ -358,6 +358,19 @@ describe("U3 — the owner creates a team", () => {
       teams: [{ id: created.team.id, name: "project", kind: "project", repository: root, seats: defaultSeats }] });
   });
 
+  it("creates and lists Gemini seats without hiding them from an existing project", async () => {
+    const seats = [{ role: "lead", client: "gemini" }, { role: "implementer", client: "gemini", model: "fixture-model" },
+      { role: "reviewer", client: "gemini" }];
+    const created = await create({ repository: repository(directory), seats });
+    expect(created.status).toBe(201);
+    const { team } = await created.json() as { team: { id: string; seats: object[] } };
+    expect(team.seats).toEqual(expect.arrayContaining(seats));
+    expect(team.seats).toHaveLength(3);
+    const listed = await call("/api/team-control/teams");
+    expect(await listed.json()).toMatchObject({ teams: [{ id: team.id, seats: expect.arrayContaining(seats) }] });
+    expect(seatsOf(team.id).map(seat => seat.client)).toEqual(["gemini", "gemini", "gemini"]);
+  });
+
   it("starts work on the team's lead and reviewer without the owner naming a seat", async () => {
     const created = await (await create({ repository: repository(directory), seats: defaultSeats })).json() as Created;
     const response = await start({ goal: "Add a health endpoint", rig: "project" });

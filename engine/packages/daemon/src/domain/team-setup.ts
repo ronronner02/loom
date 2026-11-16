@@ -20,7 +20,7 @@ import { canonicalPath, samePath as canonicalSamePath } from "./platform.js";
  */
 
 export const TEAM_ROLES: readonly TeamRole[] = ["lead", "implementer", "reviewer"];
-const TEAM_CLIENTS = ["claude-code", "codex"] as const;
+const TEAM_CLIENTS = ["claude-code", "codex", "gemini"] as const;
 export type TeamClient = typeof TEAM_CLIENTS[number];
 
 export interface TeamSeatInput {
@@ -174,7 +174,7 @@ function validatedSeats(seats: readonly TeamSeatInput[]): TeamSeat[] {
     }
     const client = parseTeamClient(seat.client);
     if (!client) {
-      throw new TeamSetupError("team_seats_invalid", `Unknown client "${String(seat.client)}" for the ${seat.role} seat; a client is claude-code or codex.`);
+      throw new TeamSetupError("team_seats_invalid", `Unknown client "${String(seat.client)}" for the ${seat.role} seat; a client is claude-code, codex or gemini.`);
     }
     const count = (seen.get(seat.role) ?? 0) + 1;
     // A lead or a reviewer is resolved by its role when a start names none, so two of either
@@ -273,7 +273,7 @@ function sanitiseName(value: string): string {
 /** The seats a rig records: the team's own order, lead first and reviewer last, then by seat. */
 function recordedSeats(db: Database.Database, rigId: string): TeamSeat[] {
   const rows = db.prepare(
-    `SELECT role, runtime, model, soul_id AS soulId FROM nodes WHERE rig_id = ? AND retired_at IS NULL AND runtime IN ('claude-code', 'codex')
+    `SELECT role, runtime, model, soul_id AS soulId FROM nodes WHERE rig_id = ? AND retired_at IS NULL AND runtime IN ('claude-code', 'codex', 'gemini')
       ORDER BY CASE role WHEN 'lead' THEN 0 WHEN 'implementer' THEN 1 WHEN 'reviewer' THEN 2 ELSE 3 END,
         logical_id`).all(rigId) as Array<{ role: string | null; runtime: string; model: string | null; soulId: string | null }>;
   return rows.flatMap(row => TEAM_ROLES.includes(row.role as TeamRole)

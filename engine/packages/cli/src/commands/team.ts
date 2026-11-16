@@ -30,7 +30,7 @@ interface StartReceipt { runId: string; rigId: string; taskId: string; seat: str
 /** The team `multi-agent team create` returns; the daemon keeps the seat names to itself. */
 interface Team {
   id: string; name: string; repository: string;
-  seats: Array<{ role: "lead" | "implementer" | "reviewer"; client: "claude-code" | "codex"; model?: string }>;
+  seats: Array<{ role: "lead" | "implementer" | "reviewer"; client: "claude-code" | "codex" | "gemini"; model?: string }>;
 }
 
 /** The result the daemon serves for one finished task; the shape `TeamTaskResult` publishes. */
@@ -95,11 +95,11 @@ async function readApprovalPayload(client: DaemonClient, runId: string, headers:
 }
 
 /** A seat's client, with `claude` accepted as the shorthand the owner types. */
-function teamClient(value: string, flag: string): "claude-code" | "codex" {
+function teamClient(value: string, flag: string): "claude-code" | "codex" | "gemini" {
   const client = value.trim() === "claude" ? "claude-code" : value.trim();
-  if (client !== "claude-code" && client !== "codex") {
+  if (client !== "claude-code" && client !== "codex" && client !== "gemini") {
     throw new TeamCommandError("team_client_invalid",
-      `${flag} takes claude-code or codex (claude is shorthand for claude-code), not "${value}".`);
+      `${flag} takes claude-code, codex or gemini (claude is shorthand for claude-code), not "${value}".`);
   }
   return client;
 }
@@ -173,9 +173,9 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
     .option("--name <name>", "create a project from this folder with only its configured lead")
     .option("--dry-run", "preview the named project's upload without changing it")
     .option("--yes", "confirm the named project's upload without an interactive prompt")
-    .option("--lead <client>", "the lead seat's client: claude-code or codex", "claude-code")
+    .option("--lead <client>", "the lead seat's client: claude-code, codex or gemini", "claude-code")
     .option("--implementers <clients>", "the implementer seats' clients, comma separated", "claude-code,codex")
-    .option("--reviewer <client>", "the reviewer seat's client: claude-code or codex", "claude-code")
+    .option("--reviewer <client>", "the reviewer seat's client: claude-code, codex or gemini", "claude-code")
     .option("--json", "print the daemon's team as JSON")
     .action(async (repository: string, opts: { name?: string; dryRun?: boolean; yes?: boolean;
       lead: string; implementers: string; reviewer: string; json?: boolean }, command: Command) => {

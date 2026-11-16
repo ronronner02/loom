@@ -92,6 +92,17 @@ describe("delivery roster changes", () => {
     expect(state()).toEqual(before);
   });
 
+  it("admits and assigns a Gemini member through the existing roster path", () => {
+    const member = { role: "implementer" as const, client: "gemini" as const, model: "fixture-model" };
+    expect(parseLeadRoster({ seats: [member] })).toEqual([member]);
+    const receipt = governance.admitLeadProposal(request("add-gemini", {}), daemon, binding,
+      [task("gemini-work", "impl-2@demo")], { add: [member], retire: [] }, 6);
+    expect(receipt.status, receipt.reason ?? "").toBe("accepted");
+    expect(leadRoster(db, { rigId, roles: ["implementer"], excludeSeat: "lead-1@demo" }))
+      .toContainEqual(expect.objectContaining({ member: "impl-2@demo" }));
+    expect(listTeams(db).find(team => team.id === rigId)?.seats).toContainEqual(member);
+  });
+
   it.each(["pending", "in-progress", "blocked"])("keeps specialist identity stable while a seat has %s work", state => {
     const qitem = addTask("assigned", "impl-1@demo");
     db.prepare("UPDATE queue_items SET state = ? WHERE qitem_id = ?").run(state, qitem);

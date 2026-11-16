@@ -2,7 +2,7 @@
  * One additive step that carries a database marked `from` to `to`. The SQL runs in one
  * transaction with the new marker, after a copy of the database is written beside it.
  */
-export interface SchemaUpgrade { from: number; to: number; sql: string }
+export interface SchemaUpgrade { from: number; to: number; sql: string; rebuildsTables?: boolean }
 
 /**
  * Steps from the first shipped baseline (version 2) to today's. A schema change edits
@@ -125,6 +125,39 @@ export const TEAM_ATTACHMENTS_SQL = `CREATE TABLE team_attachments (
       created_at TEXT NOT NULL
     )`;
 
+export const TEAM_ATTEMPTS_SQL = `CREATE TABLE "team_attempts" (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES team_runs(id),
+      qitem_id TEXT,
+      role TEXT NOT NULL CHECK (role IN ('lead', 'implementer', 'reviewer')),
+      provider TEXT NOT NULL CHECK (provider IN ('claude', 'codex', 'gemini')),
+      identity_json TEXT CHECK (identity_json IS NULL OR json_valid(identity_json)),
+      unknown_reason TEXT,
+      state TEXT NOT NULL CHECK (state IN ('running', 'stopped', 'unknown')),
+      usage_json TEXT NOT NULL CHECK (json_valid(usage_json)),
+      active_ms INTEGER NOT NULL CHECK (active_ms >= 0),
+      entity_version INTEGER NOT NULL DEFAULT 1 CHECK (entity_version > 0),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL, failure_json TEXT CHECK (failure_json IS NULL OR json_valid(failure_json)),
+      UNIQUE (id, run_id),
+      FOREIGN KEY (qitem_id, run_id) REFERENCES team_queue_authority(qitem_id, run_id),
+      CHECK ((state = 'unknown' AND unknown_reason IS NOT NULL) OR
+        (state <> 'unknown' AND identity_json IS NOT NULL AND unknown_reason IS NULL))
+    )`;
+
+export const TEAM_BOOTSTRAPS_SQL = `CREATE TABLE "team_bootstraps" (
+      repository TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      lead_client TEXT NOT NULL CHECK (lead_client IN ('claude-code', 'codex', 'gemini')),
+      github_login TEXT NOT NULL,
+      step TEXT NOT NULL CHECK (step IN ('pending', 'folder', 'init', 'ignore', 'commit', 'repo', 'push')),
+      commit_oid TEXT,
+      branch_ref TEXT,
+      remote_url TEXT,
+      team_id TEXT REFERENCES rigs(id) ON DELETE CASCADE,
+      last_error_code TEXT
+    )`;
+
 export const SCHEMA_UPGRADES: readonly SchemaUpgrade[] = [
   // Plan KTD3: a lead message that needs no owner attention is kept as run activity.
   { from: 2, to: 3, sql: "ALTER TABLE team_chat_messages ADD COLUMN visibility TEXT NOT NULL DEFAULT 'chat' CHECK (visibility IN ('chat', 'activity'))" },
@@ -140,6 +173,17 @@ export const SCHEMA_UPGRADES: readonly SchemaUpgrade[] = [
   { from: 9, to: 10, sql: [TEAM_ATTEMPT_FINALIZATIONS_SQL, TEAM_INTEGRATION_INTENTS_SQL].join(";\n") },
   { from: 10, to: 11, sql: [TEAM_ATTACHMENTS_SQL,
     "ALTER TABLE team_chat_messages ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(attachments_json))"].join(";\n") },
+  { from: 11, to: 12, rebuildsTables: true, sql: [
+    TEAM_ATTEMPTS_SQL.replace('"team_attempts"', '"team_attempts_next"'),
+    'INSERT INTO team_attempts_next (rowid, id, run_id, qitem_id, role, provider, identity_json, unknown_reason, state, usage_json, active_ms, entity_version, created_at, updated_at, failure_json) SELECT rowid, * FROM team_attempts',
+    'DROP TABLE team_attempts',
+    'ALTER TABLE team_attempts_next RENAME TO team_attempts',
+    'CREATE INDEX idx_team_attempts_run_state ON team_attempts(run_id, state)',
+    TEAM_BOOTSTRAPS_SQL.replace('"team_bootstraps"', '"team_bootstraps_next"'),
+    'INSERT INTO team_bootstraps_next SELECT * FROM team_bootstraps',
+    'DROP TABLE team_bootstraps',
+    'ALTER TABLE team_bootstraps_next RENAME TO team_bootstraps',
+  ].join(";\n") },
 ];
 
 /** The steps from `from` to `to`, in order, or null when the chain does not reach. */

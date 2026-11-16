@@ -2,13 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { createTestApp } from "./helpers/test-app.js";
-import { attemptsFromManagedWorkerEvidence, createSystemHealthReader, readSystemHealth, readSystemHealthBounded,
+import { attemptsFromManagedWorkerEvidence, attemptsFromRecords, createSystemHealthReader, readSystemHealth, readSystemHealthBounded,
   SYSTEM_HEALTH_TOTAL_TIMEOUT_MS } from "../src/domain/system-health.js";
 
 const ok = (evidenceRef: string) => ({ state: "ok" as const, evidenceRef });
 const failed = (reason: string) => ({ state: "failed" as const, reason });
 
 describe("KTD26 system health", () => {
+  it("preserves the Gemini client identity when validating native attempt health", async () => {
+    const attempts = attemptsFromRecords(() => new Date("2026-11-16T00:00:00Z"), [
+      { id: "attempt", runId: "run", provider: "gemini", state: "stopped", failure: null },
+    ]);
+    const health = await readSystemHealth({ latestAttempts: () => attempts });
+    expect(health.latestAttempts.attempt).toMatchObject({ client: "gemini", state: "stopped", reasonCode: null });
+  });
   it("maps one fixture fault to each matching light", async () => {
     const health = await readSystemHealth({
       database: () => ok("db"), queueMailbox: () => ok("queue"),

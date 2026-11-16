@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Focused smoke suite for CI: the team-control surface plus its two clients.
+# Focused smoke suite for CI: the team-control surface and its execution clients.
 # Each package runs through its own vitest config; the full suite stays out.
 set -euo pipefail
 
@@ -53,13 +53,16 @@ npm run test -w packages/daemon -- \
   test/team-telemetry-routes.test.ts \
   test/attempt-completion.test.ts \
   test/direct-worker-launch.test.ts test/direct-worker-retention.test.ts \
+  test/executable-resolver.test.ts test/desktop-dependencies.test.ts \
+  test/gemini-launch-argv.test.ts test/gemini-worker-events.test.ts test/worker-event-normalizer.test.ts \
+  test/gemini-native-client.test.ts test/gemini-installed-client.test.ts \
   test/child-process-supervisor.test.ts \
   test/attempt-failure.test.ts \
   test/team-cancellation.test.ts \
   test/team-result.test.ts \
   --maxWorkers=2
 
-npm run test -w packages/cli -- test/team-start.test.ts test/team-setup.test.ts test/team-chat.test.ts test/team-apply.test.ts test/thin-cli.test.ts test/github-command.test.ts test/github-sign-in.test.ts --maxWorkers=2
+npm run test -w packages/cli -- test/team-start.test.ts test/team-setup.test.ts test/team-chat.test.ts test/team-apply.test.ts test/thin-cli.test.ts test/github-command.test.ts test/github-sign-in.test.ts test/config-store-extended.test.ts --maxWorkers=2
 
 # The catalog parity check runs here so a key that interpolates without a declared parameter
 # fails CI. Slice A added three such keys and nothing caught it until a later review.

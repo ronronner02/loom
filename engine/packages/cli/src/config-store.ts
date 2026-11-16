@@ -958,7 +958,7 @@ const KEY_CONSTRAINTS: Partial<Record<ValidKey, (raw: string, coerced: string | 
     if (Number(coerced) > 3) throw new Error("Invalid value for team.maxConcurrentAgents: use 1, 2 or 3.");
   },
   "team.leadClient": raw => {
-    if (raw !== "claude-code" && raw !== "codex") throw new Error("Invalid value for team.leadClient: use claude-code or codex.");
+    if (raw !== "claude-code" && raw !== "codex" && raw !== "gemini") throw new Error("Invalid value for team.leadClient: use claude-code, codex or gemini.");
   },
 };
 

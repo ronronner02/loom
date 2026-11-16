@@ -277,7 +277,7 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
       // second row for the same native generation.
       idempotencyKey: "attempt-receipt:" + receipt.attemptId,
       payload: {
-        qitemId: task.qitemId, role: task.role, provider: receipt.client === "codex" ? "codex" : "claude",
+        qitemId: task.qitemId, role: task.role, provider: receipt.client === "claude-code" ? "claude" : receipt.client,
         identity: receipt.identity as unknown as JsonValue, state: "running", unknownReason: null,
         usage: { activeMs: 0, inputTokens: unavailable, outputTokens: unavailable, costUsd: unavailable },
       },

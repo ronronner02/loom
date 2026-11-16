@@ -6,7 +6,7 @@
  * where it is; this file only puts that answer into the owner's terms — a label, the resolved
  * path when found, and one install line when it is not. No second resolver exists.
  *
- * Order is the order the screen shows: the two tools every project needs, then the two clients.
+ * Order is the order the screen shows: the two tools every project needs, then the clients.
  */
 
 const DEPENDENCIES = [
@@ -14,6 +14,7 @@ const DEPENDENCIES = [
   { client: 'gh', label: 'GitHub CLI', missing: 'Reinstall Multi-Agent to restore the bundled gh.exe, or install GitHub CLI: https://cli.github.com.' },
   { client: 'claude', label: 'Claude Code', missing: 'Install Claude Code: npm install -g @anthropic-ai/claude-code.' },
   { client: 'codex', label: 'Codex', missing: 'Install Codex: npm install -g @openai/codex.' },
+  { client: 'gemini', label: 'Gemini CLI', missing: 'Install Gemini CLI: npm install -g @google/gemini-cli.' },
 ];
 
 /**
@@ -27,7 +28,7 @@ function dependencyRows(resolutions) {
   return DEPENDENCIES.map(({ client, label, missing }) => {
     const resolution = found.get(client);
     return resolution && resolution.ok === true
-      ? { client, label, ok: true, path: String(resolution.path) }
+      ? { client, label, ok: true, path: String(resolution.args?.[0] ?? resolution.path) }
       : { client, label, ok: false, reason: resolution && resolution.reason ? String(resolution.reason) : 'not-found', hint: missing };
   });
 }

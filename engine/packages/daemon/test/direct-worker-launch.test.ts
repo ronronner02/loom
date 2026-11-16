@@ -68,13 +68,19 @@ describe("U3 the launcher hands one turn to the supervisor", () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), "u3-launch-"));
-    for (const name of ["codex.exe", "claude.exe"]) writeFileSync(join(root, name), "");
+    for (const name of ["codex.exe", "claude.exe", "gemini.mjs"]) writeFileSync(join(root, name), "");
   });
   afterEach(() => { rmSync(root, { recursive: true, force: true }); });
 
-  const context = (options: { readOnly?: boolean; role?: string; client?: "claude-code" | "codex" } = {}) => ({
+  const context = (options: { readOnly?: boolean; role?: string; client?: "claude-code" | "codex" | "gemini" } = {}) => ({
     runId: "run", assignment: { taskId: "task", role: options.role ?? "implementer", paths: ["plan.md"], dependencies: [] },
     client: options.client ?? "codex", mutableStateRoot: root, projection: { attemptId: "attempt-1" },
+    sameIdentity: true, files: [
+      { kind: "core", path: join(root, "context", "attempt-1", "core.md") },
+      { kind: "charter", path: join(root, "context", "attempt-1", "charter.md") },
+      { kind: "framework", path: join(root, "context", "attempt-1", "framework.md"), source: join(root, "framework", "skill", "SKILL.md") },
+      { kind: "plan", path: join(root, "private", "plan.md") },
+    ],
     ...(options.readOnly ? { workflow: { readOnly: true } } : {}),
     binding: { policyFingerprint: "sha256:" + "b".repeat(64) }, generatedHash: "sha256:" + "a".repeat(64),
   }) as ContextManifest;
@@ -91,7 +97,7 @@ describe("U3 the launcher hands one turn to the supervisor", () => {
       resolveAssignedTree: () => join(root, "candidate tree"),
       // An explicit configured path is used as given, which is how a fixture names a stub. The
       // resolver still requires it to be a launchable file, so the fixtures are real ones.
-      executablePath: client => (client === "codex" ? join(root, "codex.exe") : join(root, "claude.exe")),
+      executablePath: client => join(root, client === "codex" ? "codex.exe" : client === "gemini" ? "gemini.mjs" : "claude.exe"),
       supervise: (launch, deps) => { launches.push(launch); return fakeTurn(launch, deps.onEvent); },
       // U4 — the launcher records its durable lifecycle facts through this recorder.
       lifecycle: fact => { lifecycle.push(fact); },
@@ -122,8 +128,9 @@ describe("U3 the launcher hands one turn to the supervisor", () => {
     expect(result.ok && result.resumeToken).toBeUndefined();
   });
 
-  it("keeps a reviewer read-only for both clients", async () => {
-    for (const [client, expected] of [["claude-code", ["--permission-mode", "plan"]], ["codex", ["-s", "read-only"]]] as const) {
+  it("keeps a reviewer read-only for every client", async () => {
+    for (const [client, expected] of [["claude-code", ["--permission-mode", "plan"]], ["codex", ["-s", "read-only"]],
+      ["gemini", ["--approval-mode", "plan"]]] as const) {
       const { observed } = await launch({ client, readOnly: true });
       const index = observed.args.indexOf(expected[0]);
       expect(index, client).toBeGreaterThanOrEqual(0);
@@ -131,8 +138,21 @@ describe("U3 the launcher hands one turn to the supervisor", () => {
     }
   });
 
+  it.each(["lead", "implementer", "reviewer"])("admits only the %s turn's instruction directories for Gemini", async role => {
+    const { result, observed } = await launch({ client: "gemini", role });
+    expect(result.ok).toBe(true);
+    const directories = observed.args.flatMap((arg, index) => arg === "--include-directories" ? [observed.args[index + 1]] : []);
+    expect(directories).toEqual([
+      ...(role === "implementer" ? [join(root, "turns", "attempt-1")] : []),
+      join(root, "context", "attempt-1"), join(root, "framework", "skill"),
+    ]);
+    expect(directories).not.toContain(root);
+    expect(directories).not.toContain(join(root, "private"));
+  });
+
   it.each([
     ["claude-code", false], ["claude-code", true], ["codex", false], ["codex", true],
+    ["gemini", false], ["gemini", true],
   ] as const)("enforces the ordinary reviewer role without a workflow: %s, continuing=%s", async (client, continuing) => {
     const { result, input, observed } = await launch({ client, role: "reviewer",
       ...(continuing ? { continueSessionId: threadId } : {}) });
@@ -143,6 +163,9 @@ describe("U3 the launcher hands one turn to the supervisor", () => {
       expect(observed.args[observed.args.indexOf("--tools") + 1]).toBe("Read,Glob,Grep");
       expect(observed.args).toContain("--strict-mcp-config");
       expect(observed.args).not.toContain("bypassPermissions");
+    } else if (client === "gemini") {
+      expect(observed.args[observed.args.indexOf("--approval-mode") + 1]).toBe("plan");
+      expect(observed.args).not.toContain("yolo");
     } else {
       if (continuing) expect(observed.args).toContain("sandbox_mode=read-only");
       else expect(observed.args[observed.args.indexOf("-s") + 1]).toBe("read-only");

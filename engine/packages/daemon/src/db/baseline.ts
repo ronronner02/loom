@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-import { TEAM_ATTACHMENTS_SQL, TEAM_ATTEMPT_FINALIZATIONS_SQL, TEAM_INTEGRATION_INTENTS_SQL, SCHEMA_UPGRADES, TEAM_GITHUB_SEEN_SQL, TEAM_GITHUB_THREADS_SQL, TEAM_INTAKE_SQL, TEAM_PROMPT_VERSIONS_SQL, TEAM_PULL_REQUESTS_SQL, upgradePath, type SchemaUpgrade } from "./upgrades.js";
+import { TEAM_ATTEMPTS_SQL, TEAM_BOOTSTRAPS_SQL, TEAM_ATTACHMENTS_SQL, TEAM_ATTEMPT_FINALIZATIONS_SQL, TEAM_INTEGRATION_INTENTS_SQL, SCHEMA_UPGRADES, TEAM_GITHUB_SEEN_SQL, TEAM_GITHUB_THREADS_SQL, TEAM_INTAKE_SQL, TEAM_PROMPT_VERSIONS_SQL, TEAM_PULL_REQUESTS_SQL, upgradePath, type SchemaUpgrade } from "./upgrades.js";
 
 /**
  * Marker written to PRAGMA user_version in the same transaction as the fresh team schema.
@@ -8,9 +8,9 @@ import { TEAM_ATTACHMENTS_SQL, TEAM_ATTEMPT_FINALIZATIONS_SQL, TEAM_INTEGRATION_
  * database the shipped app created is upgraded rather than refused. 2 adds
  * team_seat_mailbox_capabilities and is the first shipped version; 3 adds
  * team_chat_messages.visibility; 4 adds task comments (team_chat_messages.task_id) and task holds
- * and follow-up links (team_queue_authority.held_at, follow_up_of); 5 adds team_prompt_versions; 6 adds team_pull_requests; 7 adds team_github_seen; 8 adds the team_intake_* tables; 9 adds team_github_threads; 10 adds attempt-finalization and Git-integration checkpoints; 11 adds project chat attachments.
+ * and follow-up links (team_queue_authority.held_at, follow_up_of); 5 adds team_prompt_versions; 6 adds team_pull_requests; 7 adds team_github_seen; 8 adds the team_intake_* tables; 9 adds team_github_threads; 10 adds attempt-finalization and Git-integration checkpoints; 11 adds project chat attachments; 12 adds the Gemini execution client.
  */
-export const BASELINE_VERSION = 11;
+export const BASELINE_VERSION = 12;
 
 /**
  * The one-shot schema for the retained team product. The statements are kept as one SQL
@@ -521,25 +521,7 @@ CREATE TABLE team_queue_authority (
       UNIQUE (qitem_id, run_id)
     );
 -- team_attempts
-CREATE TABLE team_attempts (
-      id TEXT PRIMARY KEY,
-      run_id TEXT NOT NULL REFERENCES team_runs(id),
-      qitem_id TEXT,
-      role TEXT NOT NULL CHECK (role IN ('lead', 'implementer', 'reviewer')),
-      provider TEXT NOT NULL CHECK (provider IN ('claude', 'codex')),
-      identity_json TEXT CHECK (identity_json IS NULL OR json_valid(identity_json)),
-      unknown_reason TEXT,
-      state TEXT NOT NULL CHECK (state IN ('running', 'stopped', 'unknown')),
-      usage_json TEXT NOT NULL CHECK (json_valid(usage_json)),
-      active_ms INTEGER NOT NULL CHECK (active_ms >= 0),
-      entity_version INTEGER NOT NULL DEFAULT 1 CHECK (entity_version > 0),
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL, failure_json TEXT CHECK (failure_json IS NULL OR json_valid(failure_json)),
-      UNIQUE (id, run_id),
-      FOREIGN KEY (qitem_id, run_id) REFERENCES team_queue_authority(qitem_id, run_id),
-      CHECK ((state = 'unknown' AND unknown_reason IS NOT NULL) OR
-        (state <> 'unknown' AND identity_json IS NOT NULL AND unknown_reason IS NULL))
-    );
+${TEAM_ATTEMPTS_SQL};
 -- team_approval_consumptions
 CREATE TABLE team_approval_consumptions (
       approval_id TEXT PRIMARY KEY,
@@ -615,18 +597,7 @@ CREATE TABLE team_integration_commits (
       PRIMARY KEY (run_id, task_id)
     );
 -- team_bootstraps
-CREATE TABLE team_bootstraps (
-      repository TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      lead_client TEXT NOT NULL CHECK (lead_client IN ('claude-code', 'codex')),
-      github_login TEXT NOT NULL,
-      step TEXT NOT NULL CHECK (step IN ('pending', 'folder', 'init', 'ignore', 'commit', 'repo', 'push')),
-      commit_oid TEXT,
-      branch_ref TEXT,
-      remote_url TEXT,
-      team_id TEXT REFERENCES rigs(id) ON DELETE CASCADE,
-      last_error_code TEXT
-    );
+${TEAM_BOOTSTRAPS_SQL};
 -- attempt_telemetry
 CREATE TABLE attempt_telemetry (
       attempt_id TEXT PRIMARY KEY REFERENCES team_attempts(id) ON DELETE CASCADE,
@@ -1016,16 +987,23 @@ function upgrade(db: Database.Database, databasePath: string, upgrades: readonly
   const from = userVersion(db);
   const path = upgradePath(upgrades, from, BASELINE_VERSION)!;
   const backupPath = backupBeforeUpgrade(db, databasePath, from);
+  const rebuildsTables = path.some(step => step.rebuildsTables);
+  const foreignKeys = db.pragma("foreign_keys", { simple: true });
   try {
+    // SQLite table rebuilds otherwise cascade deletes into the retained dependent rows.
+    if (rebuildsTables) db.pragma("foreign_keys = OFF");
     db.transaction(() => {
       for (const step of path) {
         db.exec(step.sql);
         db.pragma(`user_version = ${step.to}`);
       }
       options?.injectFailure?.();
+      if (rebuildsTables && (db.pragma("foreign_key_check") as unknown[]).length > 0) throw new Error("Upgrade violated a foreign key");
     })();
   } catch (error) {
     throw new UpgradeFailedError(databasePath, backupPath, error);
+  } finally {
+    if (rebuildsTables) db.pragma(`foreign_keys = ${foreignKeys ? "ON" : "OFF"}`);
   }
 }
 

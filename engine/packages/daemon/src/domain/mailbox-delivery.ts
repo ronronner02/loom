@@ -162,7 +162,7 @@ export class ManagedNativeChannelEvidence {
       if (event.phase === "blocked") this.blocked(event.attemptId);
       await control.record(event);
       const recipient = event.session && recipientOf(event.session.runId, event.attemptId);
-      if (event.phase === "observed" && event.session && event.nativePolicy && event.clientLock && recipient) {
+      if (event.phase === "observed" && event.session && event.session.client !== "gemini" && event.nativePolicy && event.clientLock && recipient) {
         this.verified(event.attemptId, recipient, event.session.client, event.clientLock.version, event.nativePolicy.installedDigest,
           event.session.identity);
       }

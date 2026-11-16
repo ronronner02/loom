@@ -30,7 +30,7 @@ export interface ChatMessage {
 export interface PlanApproval {
   documentVersions?: DocumentPins;
   plan: { content: string; hash: string } | null;
-  roster: { seats: { role: "implementer" | "reviewer"; client: "claude-code" | "codex"; model?: string }[]; digest: string } | null;
+  roster: { seats: { role: "implementer" | "reviewer"; client: "claude-code" | "codex" | "gemini"; model?: string }[]; digest: string } | null;
   error: string | null;
 }
 

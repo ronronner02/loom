@@ -27,7 +27,7 @@ export function ModelSettings({ teamId }: { teamId: string }) {
   const setLead = (update: Partial<TeamModelChoice>) => setDraft({ ...form, lead: { ...form.lead, ...update } });
   const setWorker = (index: number, update: Partial<TeamModelChoice>) => setDraft({ ...form,
     allowedSubagents: form.allowedSubagents.map((item, i) => i === index ? { ...item, ...update } : item) });
-  const clients = <><option value="claude-code">Claude Code</option><option value="codex">Codex</option></>;
+  const clients = <><option value="claude-code">Claude Code</option><option value="codex">Codex</option><option value="gemini">Gemini CLI</option></>;
   const choices = (client: TeamModelChoice["client"]) => [...new Set([
     ...(settings.data?.modelChoices ?? []), ...(saved.lead.model ? [{ client: saved.lead.client, model: saved.lead.model }] : []),
     ...(saved.allowedSubagents ?? []),
@@ -57,7 +57,7 @@ export function ModelSettings({ teamId }: { teamId: string }) {
         <label className="field">{t("models.leadModel")}<input className="input mono" value={form.lead.model} required maxLength={128}
           list={choicesId + "-" + form.lead.client} disabled={busy} onChange={event => setLead({ model: event.target.value })} /></label>
       </div>
-      {(["claude-code", "codex"] as const).map(client => <datalist id={choicesId + "-" + client} key={client}>
+      {(["claude-code", "codex", "gemini"] as const).map(client => <datalist id={choicesId + "-" + client} key={client}>
         {choices(client).map(model => <option key={model} value={model} />)}
       </datalist>)}
       <fieldset className="ui-model-allowlist"><legend>{t("models.allowed")}</legend>

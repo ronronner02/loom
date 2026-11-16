@@ -23,6 +23,25 @@ const schema = (db: Database.Database) => db.prepare(
 ).all();
 const fileHash = (file: string) => createHash("sha256").update(readFileSync(file)).digest("hex");
 
+function versionEleven(file: string): Database.Database {
+  const db = track(new Database(file));
+  db.pragma("foreign_keys = ON");
+  db.exec(readFileSync(new URL("./fixtures/schema-v2.sql", import.meta.url), "utf8").replace(/\r\n/g, "\n"));
+  for (const step of SCHEMA_UPGRADES.filter(step => step.to <= 11)) db.exec(step.sql);
+  db.pragma("user_version = 11");
+  db.exec(`INSERT INTO rigs (id, name) VALUES ('team', 'Project');
+    INSERT INTO team_runs (id, rig_id, binding_json, binding_digest, state, created_at, updated_at)
+      VALUES ('run', 'team', '{}', 'binding', 'approved', 'now', 'now');
+    INSERT INTO team_attempts (rowid, id, run_id, role, provider, unknown_reason, state, usage_json, active_ms, created_at, updated_at)
+      VALUES (37, 'attempt', 'run', 'lead', 'codex', 'interrupted', 'unknown', '{}', 12, 'now', 'now');
+    INSERT INTO attempt_telemetry (attempt_id, started_at, stopped_at, active_ms, usage_json, activity_json, activity_status)
+      VALUES ('attempt', 'now', 'now', 12, '{}', '[]', 'unavailable');
+    INSERT INTO team_attempt_finalizations (attempt_id, progress_json) VALUES ('attempt', '{}');
+    INSERT INTO team_bootstraps (repository, name, lead_client, github_login, step, team_id)
+      VALUES ('project', 'Project', 'codex', 'owner', 'push', 'team');`);
+  return db;
+}
+
 /** A database marked one version below the daemon, holding a row the upgrade must keep. */
 function previousVersion(file: string): Database.Database {
   const db = track(new Database(file));
@@ -52,6 +71,30 @@ afterEach(() => {
 });
 
 describe("schema upgrades from a shipped baseline", () => {
+  it("upgrades version 11 for Gemini while preserving attempt ordinals and dependent rows", () => {
+    const file = join(directory(), "multi-agent.sqlite"), db = versionEleven(file);
+    initializeDatabase(db, file);
+    expect(() => db.exec("UPDATE team_attempts SET provider = 'gemini'; UPDATE team_bootstraps SET lead_client = 'gemini'")).not.toThrow();
+    expect(db.prepare("SELECT rowid, id, active_ms FROM team_attempts").all()).toEqual([{ rowid: 37, id: "attempt", active_ms: 12 }]);
+    expect(db.prepare("SELECT attempt_id FROM attempt_telemetry").all()).toEqual([{ attempt_id: "attempt" }]);
+    expect(db.prepare("SELECT attempt_id FROM team_attempt_finalizations").all()).toEqual([{ attempt_id: "attempt" }]);
+    expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
+    expect(db.pragma("foreign_key_check")).toEqual([]);
+    const fresh = track(new Database(":memory:")); initializeDatabase(fresh);
+    expect(schema(db)).toEqual(schema(fresh));
+  });
+
+  it("rolls back the version 11 table rebuild and restores foreign-key enforcement on failure", () => {
+    const file = join(directory(), "multi-agent.sqlite"), db = versionEleven(file);
+    expect(() => initializeDatabase(db, file, { injectFailure: () => { throw new Error("interrupted rebuild"); } }))
+      .toThrow(UpgradeFailedError);
+    expect(db.pragma("user_version", { simple: true })).toBe(11);
+    expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
+    expect(() => db.exec("UPDATE team_attempts SET provider = 'gemini'")).toThrow();
+    expect(db.prepare("SELECT attempt_id FROM attempt_telemetry").all()).toEqual([{ attempt_id: "attempt" }]);
+    expect(db.pragma("foreign_key_check")).toEqual([]);
+  });
+
   it("upgrades an older marked database in place, keeps its rows and leaves a backup beside it", () => {
     const root = directory(), file = join(root, "multi-agent.sqlite");
     const db = previousVersion(file);

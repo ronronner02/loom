@@ -72,7 +72,7 @@ export function writeAgentTurnPrompt(manifest: ContextManifest, text: string): s
 }
 
 /** The bound on a turn's final message, matching the chat body a reply becomes. */
-const TURN_MESSAGE_LIMIT = 65_536;
+export const TURN_MESSAGE_LIMIT = 65_536;
 
 /**
  * U5 — the final message of any managed attempt, whatever client ran it.

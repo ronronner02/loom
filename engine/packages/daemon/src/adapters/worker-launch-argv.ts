@@ -4,8 +4,8 @@ import type { WorkerClient } from "./worker-launch.js";
 /**
  * U3 — the frozen worker launch argv, one row per client, posture and continuation.
  *
- * This is the contract the plan pins: fresh and continuation, implementer and reviewer, for both
- * clients. It was carried here verbatim from the pane launcher that used to own it, because the
+ * This is the contract the plan pins: fresh and continuation, implementer and reviewer, for each
+ * client. The original rows came from the pane launcher that used to own them, because the
  * flags are not incidental — each one is why a managed turn is watchable, resumable and confined:
  *
  * - **Claude** runs one headless turn (`-p`). `stream-json --verbose` is the only mode the
@@ -17,11 +17,13 @@ import type { WorkerClient } from "./worker-launch.js";
  *   answer lands in the one file every reader knows. An implementer gets `workspace-write`, the
  *   report directory as its only writable root, and network access; a reviewer gets `read-only`
  *   with `approval_policy=never` and no writable roots.
+ * - **Gemini** selects headless mode from piped stdin and streams JSON. It uses `yolo` for a
+ *   writer, `plan` for a reviewer, and session-scoped trust for the admitted candidate tree.
  * - **A continuation** keeps the conversation: Claude replaces `--session-id` with `--resume`,
  *   and Codex prefixes `resume`, sets the sandbox through the config flag (0.160.0 refuses
  *   `-C`/`-s` on `resume`), and appends the session id.
  * - **The trailing `-`** is Codex's stdin marker; Claude's `-p` already reads its prompt from
- *   stdin, so neither client is ever handed its prompt on the command line.
+ *   stdin, so no client is handed its prompt on the command line.
  */
 
 export interface WorkerArgvInput {
@@ -39,11 +41,25 @@ export interface WorkerArgvInput {
   continuing: boolean;
   model?: string;
   effort?: string;
+  /** Existing evidence for a read-only reviewer; selected by the startup coordinator. */
+  evidenceDirectory?: string;
+  /** Directories of the exact managed instructions named by this turn's prompt. */
+  instructionDirectories?: string[];
 }
 
 /** The argv for one managed turn, after the executable. */
 export function workerArgv(input: WorkerArgvInput): string[] {
   const readOnly = input.role === "reviewer" || input.readOnly;
+  if (input.client === "gemini") {
+    // The admitted tree is trusted for this session only; fresh candidate trees have no saved trust.
+    // Piped stdin selects headless mode and keeps the owner's prompt out of the process argv.
+    return ["--output-format", "stream-json", "--skip-trust", "--approval-mode", readOnly ? "plan" : "yolo",
+      ...(input.model ? ["--model", input.model] : []),
+      ...(!readOnly && input.role === "implementer" ? ["--include-directories", input.output.directory]
+        : readOnly && input.evidenceDirectory ? ["--include-directories", input.evidenceDirectory] : []),
+      ...(input.instructionDirectories ?? []).flatMap(directory => ["--include-directories", directory]),
+      ...(input.continuing ? ["--resume", input.sessionId] : ["--session-id", input.sessionId])];
+  }
   if (input.client === "claude-code") {
     return ["-p", "--permission-mode", readOnly ? "plan" : "bypassPermissions",
       "--output-format", "stream-json", "--verbose", "--include-partial-messages",

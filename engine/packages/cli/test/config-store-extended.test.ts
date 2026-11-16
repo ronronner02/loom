@@ -135,13 +135,13 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     } finally { stderr.mockRestore(); }
   });
 
-  it("selects the configured lead client without accepting unsupported clients", () => {
+  it.each(["codex", "gemini"])("selects %s as configured lead without accepting unsupported clients", client => {
     const store = new ConfigStore(configPath);
     expect(store.get("team.leadClient")).toBe("claude-code");
-    store.set("team.leadClient", "codex");
-    expect(new ConfigStore(configPath).get("team.leadClient")).toBe("codex");
+    store.set("team.leadClient", client);
+    expect(new ConfigStore(configPath).get("team.leadClient")).toBe(client);
     expect(() => store.set("team.leadClient", "unsupported")).toThrow(/team.leadClient/);
-    expect(store.get("team.leadClient")).toBe("codex");
+    expect(store.get("team.leadClient")).toBe(client);
   });
 
   it("ui.language defaults to Chinese and persists without replacing other owner settings", () => {
@@ -566,10 +566,10 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     store.set("workspace.root", "/custom/ws");
     const cfg = store.resolve();
     expect(cfg.workspace.root).toBe("/custom/ws");
-    expect(cfg.workspace.slicesRoot).toBe("/custom/ws/missions");
-    expect(cfg.workspace.steeringPath).toBe("/custom/ws/STEERING.md");
-    expect(cfg.workspace.projectsRoot).toBe("/custom/ws/projects");
-    expect(cfg.workspace.catalogPath).toBe("/custom/ws/workspace.yaml");
+    expect(cfg.workspace.slicesRoot).toBe(join("/custom/ws", "missions"));
+    expect(cfg.workspace.steeringPath).toBe(join("/custom/ws", "STEERING.md"));
+    expect(cfg.workspace.projectsRoot).toBe(join("/custom/ws", "projects"));
+    expect(cfg.workspace.catalogPath).toBe(join("/custom/ws", "workspace.yaml"));
     expect(cfg.files.allowlist).toBe("workspace:/custom/ws");
     expect(cfg.progress.scanRoots).toBe("workspace:/custom/ws");
   });
@@ -578,15 +578,15 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     writeFileSync(configPath, JSON.stringify({
       workspace: {
         root: "/custom/ws",
-        slicesRoot: "/custom/ws/slices",
-        steeringPath: "/custom/ws/steering/STEERING.md",
+        slicesRoot: join("/custom/ws", "slices"),
+        steeringPath: join("/custom/ws", "steering", "STEERING.md"),
       },
     }));
     const store = new ConfigStore(configPath);
     const slices = store.resolveWithSource("workspace.slices_root");
     const steering = store.resolveWithSource("workspace.steering_path");
-    expect(slices).toMatchObject({ value: "/custom/ws/missions", source: "default" });
-    expect(steering).toMatchObject({ value: "/custom/ws/STEERING.md", source: "default" });
+    expect(slices).toMatchObject({ value: join("/custom/ws", "missions"), source: "default" });
+    expect(steering).toMatchObject({ value: join("/custom/ws", "STEERING.md"), source: "default" });
   });
 
   it("per-subdir override beats workspace.root cascade", () => {
@@ -595,8 +595,8 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     store.set("workspace.slices_root", "/custom/slices");
     const cfg = store.resolve();
     // workspace.root cascade applies to OTHER subdirs:
-    expect(cfg.workspace.projectsRoot).toBe("/ws/projects");
-    expect(cfg.workspace.catalogPath).toBe("/ws/workspace.yaml");
+    expect(cfg.workspace.projectsRoot).toBe(join("/ws", "projects"));
+    expect(cfg.workspace.catalogPath).toBe(join("/ws", "workspace.yaml"));
     // per-subdir override wins:
     expect(cfg.workspace.slicesRoot).toBe("/custom/slices");
   });
@@ -649,8 +649,8 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
   it("project roots and catalog default under workspace.root and support env overrides", () => {
     const store = new ConfigStore(configPath);
     store.set("workspace.root", "/custom/ws");
-    expect(store.resolve().workspace.projectsRoot).toBe("/custom/ws/projects");
-    expect(store.resolve().workspace.catalogPath).toBe("/custom/ws/workspace.yaml");
+    expect(store.resolve().workspace.projectsRoot).toBe(join("/custom/ws", "projects"));
+    expect(store.resolve().workspace.catalogPath).toBe(join("/custom/ws", "workspace.yaml"));
 
     store.set("workspace.projects_root", "/configured/projects");
     store.set("workspace.catalog_path", "/configured/workspace.yaml");
@@ -1011,11 +1011,11 @@ describe("parseNamedPairs", () => {
 
 describe("deriveWorkspaceDefault", () => {
   it("returns canonical subpaths under workspace root", () => {
-    expect(deriveWorkspaceDefault("workspace.slices_root", "/ws")).toBe("/ws/missions");
-    expect(deriveWorkspaceDefault("workspace.steering_path", "/ws")).toBe("/ws/STEERING.md");
-    expect(deriveWorkspaceDefault("workspace.specs_root", "/ws")).toBe("/ws/specs");
-    expect(deriveWorkspaceDefault("workspace.projects_root", "/ws")).toBe("/ws/projects");
-    expect(deriveWorkspaceDefault("workspace.catalog_path", "/ws")).toBe("/ws/workspace.yaml");
+    expect(deriveWorkspaceDefault("workspace.slices_root", "/ws")).toBe(join("/ws", "missions"));
+    expect(deriveWorkspaceDefault("workspace.steering_path", "/ws")).toBe(join("/ws", "STEERING.md"));
+    expect(deriveWorkspaceDefault("workspace.specs_root", "/ws")).toBe(join("/ws", "specs"));
+    expect(deriveWorkspaceDefault("workspace.projects_root", "/ws")).toBe(join("/ws", "projects"));
+    expect(deriveWorkspaceDefault("workspace.catalog_path", "/ws")).toBe(join("/ws", "workspace.yaml"));
   });
 });
 
