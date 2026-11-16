@@ -208,7 +208,7 @@ export function FlowView({ events, seats, nodeStates, title, className, maxParti
   const nameOf = (node: FlowNode) => (node.role === "lead" && node.label === "Lead" ? roleText("lead") : node.label);
   const nodeName = (id: string) => {
     const node = mapping.nodes.find(value => value.id === id);
-    return node ? nameOf(node) : id;
+    return node ? nameOf(node) : roleText(id === "lead" || id === "owner" || id === "reviewer" || id === "integration" ? id : "worker");
   };
   const intentText = (intent: FlowIntent) => {
     const kind = intent.kind === "delivery" && intent.action.endsWith("denied") ? "delivery-denied" : intent.kind;
@@ -263,7 +263,10 @@ export function FlowView({ events, seats, nodeStates, title, className, maxParti
                 data-selected={isSelected ? "true" : "false"}
                 data-state={node.state}
                 data-avatar-state={avatarState}
-                data-vendor={vendor}
+                data-vendor={vendor ?? "unknown"}
+                data-model={node.model ?? undefined}
+                data-client={node.client}
+                title={[node.model, node.client].filter(Boolean).join(" / ") || undefined}
                 data-walking={isWalking ? "true" : "false"}
                 data-receiving={isReceiving ? "true" : "false"}
                 data-phase={meta?.phase ?? "active"}

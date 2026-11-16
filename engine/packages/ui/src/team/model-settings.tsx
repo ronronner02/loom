@@ -1,21 +1,19 @@
 import { useId, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { TeamModelChoice, TeamModelSettings } from "@multi-agent/daemon/team-control";
 import { OwnerReadError, useOwnerSession } from "../hooks/useOwnerSession.js";
-import { teamsKey } from "./hooks.js";
+import { teamModelSettingsKey, teamsKey, useTeamModelSettings } from "./hooks.js";
 
-interface ModelSettingsReply { settings: TeamModelSettings; modelChoices?: TeamModelChoice[] }
 interface ModelDraft { lead: TeamModelChoice; allowedSubagents: TeamModelChoice[]; kind: "project" | "test" }
 const draftOf = (settings: TeamModelSettings): ModelDraft => ({ lead: { ...settings.lead, model: settings.lead.model ?? "" },
   allowedSubagents: settings.allowedSubagents ?? [], kind: settings.kind });
 
 export function ModelSettings({ teamId }: { teamId: string }) {
-  const { t } = useTranslation(), { paired, request } = useOwnerSession();
+  const { t } = useTranslation(), { request } = useOwnerSession();
   const launchesId = useId(), choicesId = useId();
-  const cache = useQueryClient(), key = ["team", "model-settings", teamId];
-  const settings = useQuery({ queryKey: key, enabled: paired, retry: false, refetchInterval: 5_000,
-    queryFn: ({ signal }) => request<ModelSettingsReply>(`/teams/${encodeURIComponent(teamId)}/settings`, { signal }) });
+  const cache = useQueryClient(), key = teamModelSettingsKey(teamId);
+  const settings = useTeamModelSettings(teamId);
   const [draft, setDraft] = useState<ModelDraft | null>(null);
   const [busy, setBusy] = useState(false), [failure, setFailure] = useState<string | null>(null);
   const saved = settings.data?.settings;

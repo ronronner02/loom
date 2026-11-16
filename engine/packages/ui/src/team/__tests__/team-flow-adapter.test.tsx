@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
-import type { TeamReplayEvent, TeamSeatView } from "@multi-agent/daemon/team-control";
-import { adaptTeamEvents, adaptTeamReplayEvent, mapTeamAttemptStates, mapTeamSeat } from "../flow/team-flow-adapter.js";
-import { attempt, seats } from "./fixtures.js";
+import type { TeamModelSettings, TeamReplayEvent, TeamSeatView } from "@multi-agent/daemon/team-control";
+import { adaptTeamEvents, adaptTeamReplayEvent, mapTeamAttemptStates, mapTeamSeats } from "../flow/team-flow-adapter.js";
+import { mapTeamEvents } from "../flow/flow-events.js";
+import { resolveVendorForNode } from "../flow/vendor-avatars.js";
+import { attempt, RUN_ID, seats } from "./fixtures.js";
+
+const settings = (overrides: Partial<TeamModelSettings> = {}): TeamModelSettings => ({
+  teamId: "rig", kind: "project", configured: true, lead: { client: "claude-code", model: "ds/claude" },
+  allowedSubagents: [{ client: "codex", model: "grok-4" }, { client: "claude-code", model: "qwen3-coder" }],
+  launches: [], ...overrides,
+});
+const launch = (overrides: Partial<TeamModelSettings["launches"][number]> = {}): TeamModelSettings["launches"][number] => ({
+  attemptId: attempt().attemptId, runId: RUN_ID, role: "implementer", client: "codex", state: "running",
+  requestedModel: "ds", observedModel: null, createdAt: "2026-11-16T00:00:00Z", ...overrides,
+});
 
 function event(overrides: Partial<TeamReplayEvent> = {}): TeamReplayEvent {
   return {
@@ -59,7 +71,75 @@ describe("team flow adapter", () => {
       displayName: "Implementer \u00b7 Codex",
       retired: false,
     };
-    expect(mapTeamSeat(seat)).toEqual({ id: "impl@rig", label: "Implementer \u00b7 Codex", role: "implementer" });
+    expect(mapTeamSeats([seat], [attempt({ state: "running", provider: "codex" })])[1]).toMatchObject({
+      id: "impl@rig", label: "Implementer \u00b7 Codex", role: "implementer", client: "codex", model: null,
+    });
+  });
+
+  it("keeps only one configured lead before dispatch, not allowed models or unused seats", () => {
+    const members = mapTeamSeats(seats, [], settings());
+    expect(members).toEqual([expect.objectContaining({ id: "lead", role: "lead", client: "claude-code", model: "ds/claude" })]);
+    expect(resolveVendorForNode(members[0]!)).toBe("deepseek");
+    expect(mapTeamSeats([], [])).toEqual([expect.objectContaining({ id: "lead", model: null })]);
+  });
+
+  it("uses only the launch of the dispatched attempt and prefers its observed model", () => {
+    const current = attempt({ state: "running" });
+    const members = mapTeamSeats(seats, [current], settings({ launches: [
+      launch({ runId: "another-run", observedModel: "grok-4" }),
+      launch({ requestedModel: "custom-routing-alias", observedModel: "deepseek-v3.2", client: "claude-code" }),
+    ] }));
+    expect(members[1]).toMatchObject({ id: current.session, client: "claude-code", model: "deepseek-v3.2",
+      aliases: [current.attemptId, current.taskId] });
+    expect(resolveVendorForNode(members[1]!)).toBe("deepseek");
+  });
+
+  it("uses the requested model before observation without guessing from the client or allowlist", () => {
+    const current = attempt({ state: "running" });
+    const members = mapTeamSeats(seats, [current], settings({ launches: [launch({ requestedModel: "grok-4", client: "claude-code" })] }));
+    expect(resolveVendorForNode(members[1]!)).toBe("grok");
+    const unknown = mapTeamSeats(seats, [current], settings({ launches: [launch({ observedModel: "private-model" })] }));
+    expect(resolveVendorForNode(unknown[1]!)).toBeNull();
+    expect(mapTeamSeats(seats, [current], settings())[1]?.model).toBeNull();
+  });
+
+  it("uses the active attempt's telemetry even when its receipt aged out of the launch audit", () => {
+    const current = attempt({ state: "running" });
+    const observed = new Map([[current.attemptId, "qwen3-coder"]]);
+    expect(mapTeamSeats(seats, [current], settings(), observed)[1]?.model).toBe("qwen3-coder");
+    expect(mapTeamSeats(seats, [current], settings({ launches: [launch({ requestedModel: "grok-4" })] }), observed)[1]?.model).toBe("qwen3-coder");
+  });
+
+  it("does not turn stopped attempts or unregistered launch receipts into members", () => {
+    const members = mapTeamSeats(seats, [attempt()], settings({ launches: [launch({ state: "unregistered" })] }));
+    expect(members.map(member => member.id)).toEqual(["lead"]);
+  });
+
+  it("uses the latest occupant of a seat while preserving an unknown active attempt", () => {
+    expect(mapTeamSeats(seats, [attempt({ state: "running" }), attempt({ attemptId: "newer", state: "stopped" })])
+      .map(member => member.id)).toEqual(["lead"]);
+    expect(mapTeamSeats(seats, [attempt({ state: "unknown" })]).map(member => member.id)).toEqual(["lead", "impl@rig"]);
+  });
+
+  it("names a dispatched attempt without a matching seat without exposing internal IDs", () => {
+    const members = mapTeamSeats([], [attempt({ state: "running", session: null })]);
+    expect(members[1]).toMatchObject({ id: attempt().attemptId, label: "Implementer 1", model: null });
+    expect(resolveVendorForNode(members[1]!)).toBeNull();
+  });
+
+  it("keeps lead receipts on one character and respects later model changes", () => {
+    const current = attempt({ role: "lead", state: "running", session: null, taskId: null });
+    const saved = settings({ launches: [launch({ role: "lead", client: "claude-code", requestedModel: "ds/claude", observedModel: "deepseek-v3.2" })] });
+    const members = mapTeamSeats(seats, [current], saved);
+    expect(members).toHaveLength(1);
+    expect(members[0]?.model).toBe("deepseek-v3.2");
+    const mapping = mapTeamEvents(adaptTeamEvents([event({ runId: RUN_ID, attemptId: current.attemptId, body: "{}" })]), {
+      seats: members, nodeStates: mapTeamAttemptStates([current], seats),
+    });
+    expect(mapping.nodes.map(node => node.id)).toEqual(["lead"]);
+    expect(mapping.intents[0]?.sourceId).toBe("lead");
+    const updated = { ...saved, lead: { client: "claude-code" as const, model: "qwen3-coder" } };
+    expect(mapTeamSeats(seats, [{ ...current, state: "stopped" }], updated)[0]?.model).toBe("qwen3-coder");
   });
 
   it.each([

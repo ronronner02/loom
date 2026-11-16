@@ -17,16 +17,16 @@ import { FlowView } from "./FlowView.js";
 import type { FlowEvent, FlowSeat } from "./flow-events.js";
 
 const PERMANENT_SEATS: readonly FlowSeat[] = [
-  { id: "lead", label: "Lead · Claude", role: "lead" },
-  { id: "gemini", label: "Reviewer · Gemini", role: "reviewer" },
-  { id: "owner", label: "Owner · Kimi", role: "owner" },
+  { id: "lead", label: "Lead · Claude", role: "lead", model: "claude-sonnet-4" },
+  { id: "gemini", label: "Reviewer · Gemini", role: "reviewer", model: "gemini-2.5-pro" },
+  { id: "owner", label: "Owner · Kimi", role: "owner", model: "kimi-k2" },
 ];
 
 const DISPATCHABLE_POOL: readonly FlowSeat[] = [
-  { id: "chatgpt", label: "Implementer · ChatGPT", role: "implementer" },
-  { id: "deepseek", label: "Architect · DeepSeek", role: "implementer" },
-  { id: "qwen", label: "Builder · Qwen", role: "implementer" },
-  { id: "grok", label: "Tester · Grok", role: "integration" },
+  { id: "chatgpt", label: "Implementer · ChatGPT", role: "implementer", model: "gpt-5-codex" },
+  { id: "deepseek", label: "Architect · DeepSeek", role: "implementer", model: "deepseek-v3.2" },
+  { id: "qwen", label: "Builder · Qwen", role: "implementer", model: "qwen3-coder" },
+  { id: "grok", label: "Tester · Grok", role: "integration", model: "grok-4" },
 ];
 
 function makeEvent(

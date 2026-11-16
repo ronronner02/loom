@@ -10,6 +10,37 @@ function event(action: string, offset: number, overrides: Partial<FlowEvent> = {
 }
 
 describe("mapTeamEvents", () => {
+  it("keeps the supplied roster authoritative and canonicalizes the lead", () => {
+    const events = [
+      event("task.created", 0, { entityId: "task-without-a-dispatch", attemptId: null }),
+      event("worker.tool.started", 1, { entityId: "historical-attempt-id" }),
+      event("task.integrated", 2, { entityId: "historical-task-id" }),
+      event("chat.message", 3, { entityId: "lead@rig" }, { source: "owner", target: "lead@rig" }),
+    ];
+    const mapping = mapTeamEvents(events, { seats: [
+      { id: "lead@rig", role: "lead", label: "Lead · Claude Code", model: "ds/claude", client: "claude-code" },
+    ], nodeStates: new Map() });
+    expect(mapping.nodes).toEqual([expect.objectContaining({ id: "lead", model: "ds/claude", client: "claude-code" })]);
+    expect(mapping.events).toEqual(events);
+    expect(mapping.intents).toHaveLength(4);
+    expect(mapping.intents.find(intent => intent.kind === "lead-message")?.targetId).toBe("lead");
+  });
+
+  it("correlates attempt and task identities to dispatched members rather than creating characters", () => {
+    const mapping = mapTeamEvents([
+      event("attempt.admitted", 0, { entityId: "attempt-1", attemptId: "attempt-1" }),
+      event("worker.tool.started", 1, { entityId: "attempt-1", attemptId: "attempt-1" }),
+      event("task.outcome", 2, { entityId: "task-1", attemptId: null, taskId: "task-1" }),
+    ], { seats: [
+      { id: "lead", role: "lead" },
+      { id: "impl@rig", role: "implementer", aliases: ["attempt-1", "task-1"], model: "qwen3-coder", client: "codex" },
+    ], nodeStates: new Map([["impl@rig", "working"]]) });
+    expect(mapping.nodes.map(node => node.id)).toEqual(["lead", "impl@rig"]);
+    expect(mapping.intents.map(intent => [intent.sourceId, intent.targetId])).toEqual([
+      ["lead", "impl@rig"], ["impl@rig", null], ["impl@rig", "lead"],
+    ]);
+  });
+
   it("maps each Flow event kind to the requested visual intent", () => {
     const events = [
       event("task.created", 0, {}, { workerSeat: "worker-1" }),

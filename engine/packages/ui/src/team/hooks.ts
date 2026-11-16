@@ -1,5 +1,5 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
-import type { AttemptActivity, TeamOwnerRead, TeamRunState, TurnUsage } from "@multi-agent/daemon/team-control";
+import type { AttemptActivity, TeamAttemptView, TeamModelChoice, TeamModelSettings, TeamOwnerRead, TeamRunState, TurnUsage } from "@multi-agent/daemon/team-control";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 import { readIntegration, readChat, type ChatState, type IntegrationState } from "./clients.js";
 
@@ -20,6 +20,17 @@ export interface RunSummary {
 
 export const teamsKey = ["team", "teams"] as const;
 export const runsKey = ["team", "runs"] as const;
+
+export const teamModelSettingsKey = (teamId: string) => ["team", "model-settings", teamId] as const;
+
+export function useTeamModelSettings(teamId: string, enabled = true) {
+  const { paired, request } = useOwnerSession();
+  return useQuery({
+    queryKey: teamModelSettingsKey(teamId), enabled: paired && enabled && !!teamId, retry: false, refetchInterval: 5_000,
+    queryFn: ({ signal }) => request<{ settings: TeamModelSettings; modelChoices?: TeamModelChoice[] }>(
+      `/teams/${encodeURIComponent(teamId)}/settings`, { signal }),
+  });
+}
 
 export function useTeams() {
   const { paired, request } = useOwnerSession();
@@ -73,15 +84,33 @@ export function observedTokens(usages: readonly (TurnUsage | undefined)[]): { to
   return { tokens, partial };
 }
 
+function attemptUsageQuery(request: ReturnType<typeof useOwnerSession>["request"], runId: string, attempt: TeamAttemptView) {
+  return {
+    queryKey: ["team", runId, "attempt", attempt.attemptId, "usage", attempt.state],
+    retry: false, staleTime: attempt.state === "stopped" ? Infinity : 0,
+    queryFn: async ({ signal }: { signal: AbortSignal }) => (await request<{ activity: AttemptActivity }>(
+      "/runs/" + encodeURIComponent(runId) + "/attempts/" + encodeURIComponent(attempt.attemptId)
+        + "/activity?after=" + Number.MAX_SAFE_INTEGER, { signal })).activity.usage,
+  };
+}
+
 /** Run totals use each attempt's native telemetry, never governance budget counters or another run's spend. */
 export function useRunTokens(read: TeamOwnerRead | undefined) {
   const { paired, request } = useOwnerSession();
   const queries = useQueries({ queries: (read?.attempts ?? []).map(attempt => ({
-    queryKey: ["team", read!.runId, "attempt", attempt.attemptId, "usage", attempt.state],
-    enabled: paired, retry: false, staleTime: attempt.state === "stopped" ? Infinity : 0,
-    queryFn: async ({ signal }: { signal: AbortSignal }) => (await request<{ activity: AttemptActivity }>(
-      "/runs/" + encodeURIComponent(read!.runId) + "/attempts/" + encodeURIComponent(attempt.attemptId)
-        + "/activity?after=" + Number.MAX_SAFE_INTEGER, { signal })).activity.usage,
+    ...attemptUsageQuery(request, read!.runId, attempt), enabled: paired,
   })) });
   return observedTokens(queries.map(query => query.isError ? undefined : query.data));
+}
+
+/** Live observations also cover attempts older than the bounded launch audit. */
+export function useAttemptModels(read: TeamOwnerRead | undefined, enabled: boolean): ReadonlyMap<string, string> {
+  const { paired, request } = useOwnerSession();
+  const active = (read?.attempts ?? []).filter(attempt => attempt.state !== "stopped");
+  const queries = useQueries({ queries: active.map(attempt => ({
+    ...attemptUsageQuery(request, read!.runId, attempt), enabled: paired && enabled, refetchInterval: 5_000,
+  })) });
+  const models = new Map<string, string>();
+  queries.forEach((query, index) => { if (query.data?.model) models.set(active[index]!.attemptId, query.data.model); });
+  return models;
 }

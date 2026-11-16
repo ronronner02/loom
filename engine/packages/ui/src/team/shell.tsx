@@ -21,7 +21,7 @@ import { OwnerReadError, OwnerSessionProvider, useOwnerSession } from "../hooks/
 import { useTeamRun } from "../hooks/useTeamRun.js";
 import { useAttemptStatus } from "../hooks/useAttemptStatus.js";
 import type { TeamOwnerRead } from "@multi-agent/daemon/team-control";
-import { useIntegration, useRuns, useTeamChat, useTeams, type TeamSummary } from "./hooks.js";
+import { useAttemptModels, useIntegration, useRuns, useTeamChat, useTeamModelSettings, useTeams, type TeamSummary } from "./hooks.js";
 import { DocumentsScreen } from "./documents.js";
 import { InboxScreen } from "./inbox.js";
 import { ProjectHome } from "./project-home.js";
@@ -41,7 +41,7 @@ import { EntryFrame, GithubGate } from "./github-gate.js";
 import { ChatPanel, Composer, LeadConversation, pendingOwnerDecisions, pendingWorkerQuestions, type PendingAttachment } from "./chat-panel.js";
 import { CommandPalette } from "./command-palette.js";
 import { FlowView } from "./flow/FlowView.js";
-import { adaptTeamEvents, mapTeamAttemptStates, mapTeamSeat } from "./flow/team-flow-adapter.js";
+import { adaptTeamEvents, mapTeamAttemptStates, mapTeamSeats } from "./flow/team-flow-adapter.js";
 import { PomoAvatar, resolvePomoAvatarState, type PomoAvatarState } from "./pomo-avatar.js";
 import "./fonts.js";
 import "./team.css";
@@ -439,6 +439,9 @@ function ProjectShell({ language, onLanguage, appearance }: {
       : error instanceof TypeError || data.events.data?.connection === "reconnecting" ? "web.disconnected" : error ? "web.error"
         : (runId ? data.read.isPending : data.health.isPending) ? "web.loading" : "shell.connected";
   const selectedTeamId = read?.run.rigId ?? runs.data?.find(entry => entry.id === runId)?.rigId ?? search.team;
+  const flowVisible = section === "overview" && overviewTab === "flow";
+  const modelSettings = useTeamModelSettings(selectedTeamId ?? "", flowVisible);
+  const observedModels = useAttemptModels(read, flowVisible);
   const team = teams.data?.find(entry => entry.id === selectedTeamId);
   const teamName = team?.name ?? runs.data?.find(entry => entry.id === runId)?.rigName ?? "";
   const runName = read?.run.displayName ?? runs.data?.find(entry => entry.id === runId)?.displayName ?? "";
@@ -605,7 +608,8 @@ function ProjectShell({ language, onLanguage, appearance }: {
           onOpenTasks={() => go("tasks")} onOpenTask={task => go("tasks", { task })}
           onOpenChat={opener => { chatOpener.current = opener; setChatOpen(true); }} />
       : overviewTab === "flow"
-        ? <FlowView events={adaptTeamEvents(data.events.data?.events ?? [], runId)} seats={read?.seats.map(mapTeamSeat)}
+        ? <FlowView key={runId} events={adaptTeamEvents(data.events.data?.events ?? [], runId)}
+            seats={mapTeamSeats(read?.seats ?? [], read?.attempts ?? [], modelSettings.data?.settings, observedModels)}
             nodeStates={mapTeamAttemptStates(read?.attempts ?? [], read?.seats)} />
         : <AnalyticsScreen teamId={selectedTeamId} seats={read?.seats} />}
   </div>;

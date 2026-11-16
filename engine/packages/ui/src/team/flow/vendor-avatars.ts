@@ -3,45 +3,24 @@ import type { FlowNode, FlowNodeState } from "./flow-events.js";
 export type VendorId = "chatgpt" | "claude" | "deepseek" | "gemini" | "grok" | "kimi" | "qwen";
 export type AvatarState = "master" | "working" | "waiting" | "messaging" | "milestone";
 
-const VENDOR_LIST: readonly VendorId[] = [
-  "claude",
-  "chatgpt",
-  "gemini",
-  "deepseek",
-  "qwen",
-  "kimi",
-  "grok",
-];
-
 const VENDOR_MATCHERS: ReadonlyArray<{ vendor: VendorId; pattern: RegExp }> = [
-  { vendor: "claude", pattern: /claude|anthropic|clawd/i },
-  { vendor: "chatgpt", pattern: /chatgpt|codex|openai|gpt/i },
-  { vendor: "gemini", pattern: /gemini|google/i },
-  { vendor: "deepseek", pattern: /deepseek/i },
-  { vendor: "qwen", pattern: /qwen|tongyi|alibaba/i },
-  { vendor: "kimi", pattern: /kimi|moonshot/i },
-  { vendor: "grok", pattern: /grok|xai/i },
+  // Model families precede client-like suffixes in aliases such as ds/claude.
+  { vendor: "deepseek", pattern: /(?:^|[/:._-])(?:deepseek|ds)(?=[\d/:._+-]|$)/i },
+  { vendor: "qwen", pattern: /(?:^|[/:._-])(?:qwen|qwq)(?=[\d/:._+-]|$)/i },
+  { vendor: "grok", pattern: /(?:^|[/:._-])grok(?=[\d/:._+-]|$)/i },
+  { vendor: "kimi", pattern: /(?:^|[/:._-])(?:kimi|moonshot)(?=[\d/:._+-]|$)/i },
+  { vendor: "gemini", pattern: /(?:^|[/:._-])gemini(?=[\d/:._+-]|$)/i },
+  { vendor: "claude", pattern: /(?:^|[/:._-])(?:claude|sonnet|opus|haiku)(?=[\d/:._+-]|$)/i },
+  { vendor: "chatgpt", pattern: /(?:^|[/:._-])(?:chatgpt|gpt|codex|o[134])(?=[\d/:._+-]|$)/i },
 ];
 
-function hashString(value: string): number {
-  let hash = 0;
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
-  }
-  return hash;
-}
-
-export function resolveVendorForNode(node: Pick<FlowNode, "id" | "label" | "role">): VendorId {
-  const hay = `${node.label} ${node.id}`;
+export function resolveVendorForNode(node: Pick<FlowNode, "model">): VendorId | null {
+  const model = node.model?.trim();
+  if (!model) return null;
   for (const { vendor, pattern } of VENDOR_MATCHERS) {
-    if (pattern.test(hay)) return vendor;
+    if (pattern.test(model)) return vendor;
   }
-  if (node.role === "lead") return "claude";
-  if (node.role === "reviewer") return "gemini";
-  if (node.role === "integration") return "qwen";
-  if (node.role === "owner") return "kimi";
-  const idx = hashString(node.id) % VENDOR_LIST.length;
-  return VENDOR_LIST[idx] ?? "chatgpt";
+  return null;
 }
 
 export function resolveAvatarState(nodeState: FlowNodeState, isMessaging = false): AvatarState {
@@ -64,6 +43,6 @@ export function resolveAvatarState(nodeState: FlowNodeState, isMessaging = false
   }
 }
 
-export function getVendorAvatarUrl(vendor: VendorId, state: AvatarState): string {
-  return `/avatars/vendors/${vendor}_${state}.png`;
+export function getVendorAvatarUrl(vendor: VendorId | null, state: AvatarState): string {
+  return vendor ? `/avatars/vendors/${vendor}_${state}.png` : `/avatars/pomo/${state}.png`;
 }
