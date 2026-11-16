@@ -78,4 +78,14 @@ describe("mapTeamEvents", () => {
     expect(mapping.particles.length).toBeLessThanOrEqual(FLOW_DEFAULTS.maxParticles);
     expect(mapping.nodes.some(node => node.role === "lead")).toBe(true);
   });
+
+  it("clears historical activity counts and inferred no-response when a live snapshot is present", () => {
+    const events = [event("attempt.started", 100), event("worker.tool.started", 200)];
+    const historical = mapTeamEvents(events);
+    expect(historical.nodes.find(node => node.id === "worker-1")?.activityCount).toBeGreaterThan(0);
+    const current = mapTeamEvents(events, { nodeStates: new Map() });
+    expect(current.nodes.every(node => node.state === "idle" && node.activityCount === 0)).toBe(true);
+    expect(current.intents.some(intent => intent.state === "no-response")).toBe(false);
+    expect(current.events).toEqual(events);
+  });
 });

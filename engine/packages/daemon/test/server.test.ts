@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
+import { fixDaemonMode } from "../src/domain/plan-governance.js";
 
 const UI_INDEX_HTML = "<!doctype html><html><body><div id=\"root\">Multi-Agent UI</div></body></html>";
 
@@ -79,6 +80,31 @@ describe("Hono server (production app)", () => {
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type")).toContain("text/javascript");
       expect(await res.text()).toContain("console.log('multi-agent');");
+    } finally {
+      rmSync(uiDistDir, { recursive: true, force: true });
+      db.close();
+    }
+  });
+
+  it.each([true, false])("serves character PNGs as assets with managed mode %s", async managed => {
+    const db = createFullTestDb();
+    const uiDistDir = createTempUiDist();
+    const png = Buffer.from("89504e470d0a1a0a", "hex");
+    try {
+      fixDaemonMode(db, managed);
+      for (const file of ["avatars/vendors/chatgpt_master.png", "avatars/pomo/master.png"]) {
+        mkdirSync(join(uiDistDir, file, ".."), { recursive: true });
+        writeFileSync(join(uiDistDir, file), png);
+      }
+      const app = appWithUi(db, uiDistDir);
+      for (const file of ["avatars/vendors/chatgpt_master.png", "avatars/pomo/master.png"]) {
+        const response = await app.request(`/${file}`);
+        expect(response.status, file).toBe(200);
+        expect(response.headers.get("content-type"), file).toBe("image/png");
+        expect(Buffer.from(await response.arrayBuffer()), file).toEqual(png);
+      }
+      expect((await app.request("/avatars/vendors/missing.png")).status).toBe(404);
+      if (managed) expect((await app.request("/index.html")).status).toBe(404);
     } finally {
       rmSync(uiDistDir, { recursive: true, force: true });
       db.close();

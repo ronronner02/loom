@@ -25,10 +25,6 @@ export const FLOW_BEAM_TIMINGS = {
   portalMs: 750,
 } as const;
 
-const AMBIENT_CYCLE_MS = 3_400;
-const AMBIENT_STAGGER_MS = 620;
-const MAX_AMBIENT_INTENTS = 10;
-
 export type FlowColorToken =
   | "--ui-accent"
   | "--ui-accent-press"
@@ -535,8 +531,6 @@ export class FlowRenderer {
       phaseT: number;
     }> = [];
 
-    const seenIds = new Set<string>();
-
     for (const intent of this.intents) {
       if (intent.kind === "static" || intent.kind === "activity" || intent.kind === "lead-message" || !intent.targetId) {
         continue;
@@ -559,7 +553,6 @@ export class FlowRenderer {
       }
       const age = eventAge(intent, now);
       if (age < total) {
-        seenIds.add(intent.id);
         const phase = age < packMs ? "pack" : age < packMs + travelMs ? "fly" : "unpack";
         const phaseT =
           phase === "pack"
@@ -570,43 +563,6 @@ export class FlowRenderer {
         results.push({ intent, elapsed: age, phase, phaseT: clamp01(phaseT) });
       }
     }
-
-    const directed = this.intents
-      .filter(intent => {
-        if (intent.kind === "static" || intent.kind === "activity" || intent.kind === "lead-message" || !intent.targetId) {
-          return false;
-        }
-        const src = this.presences.get(intent.sourceId);
-        const dst = this.presences.get(intent.targetId);
-        if (
-          !src ||
-          src.phase !== "active" ||
-          !dst ||
-          dst.phase !== "active"
-        ) {
-          return false;
-        }
-        if ((!isPermanentRole(src.node) && src.node.state === "complete") || (!isPermanentRole(dst.node) && dst.node.state === "complete")) {
-          return false;
-        }
-        return true;
-      })
-      .slice(-MAX_AMBIENT_INTENTS);
-
-    directed.forEach((intent, index) => {
-      if (seenIds.has(intent.id)) return;
-      const elapsed = (now + index * AMBIENT_STAGGER_MS) % AMBIENT_CYCLE_MS;
-      if (elapsed < total) {
-        const phase = elapsed < packMs ? "pack" : elapsed < packMs + travelMs ? "fly" : "unpack";
-        const phaseT =
-          phase === "pack"
-            ? elapsed / packMs
-            : phase === "fly"
-              ? (elapsed - packMs) / travelMs
-              : (elapsed - packMs - travelMs) / unpackMs;
-        results.push({ intent, elapsed, phase, phaseT: clamp01(phaseT) });
-      }
-    });
 
     return results;
   }

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { routeTree } from "../../routes.js";
 import { queryClient } from "../../lib/query-client.js";
-import { health, read, RUN_ID, task } from "./fixtures.js";
+import { attempt, health, read, RUN_ID, task } from "./fixtures.js";
 import { FRAMEWORK_CATALOG } from "../../../../daemon/dist/integrations/framework/catalog.js";
 
 vi.mock("@xterm/xterm", () => ({ Terminal: class {} }));
@@ -169,6 +169,23 @@ describe("command-center router integration", () => {
     await openShell();
     expect(screen.getByRole("region", { name: "Run summary" })).toBeTruthy();
     expect(within(screen.getByRole("region", { name: "System status" })).getAllByText("Unknown")).toHaveLength(6);
+  });
+
+  it("uses current attempts rather than replay history for Flow working states", async () => {
+    replayEvents = [{
+      seq: 2, createdAt: "2026-11-14 10:00:00", type: "team.control", action: "worker.tool.started",
+      runId: RUN_ID, taskId: "task-1", attemptId: "attempt-1",
+      body: '{"workerSeat":"impl@rig","tool":"read"}', truncated: false,
+    }];
+    await openShell();
+    fireEvent.click(screen.getByRole("button", { name: "Flow" }));
+    const worker = await screen.findByRole("button", { name: /^Implementer/ });
+    expect(worker.getAttribute("data-state")).toBe("idle");
+    for (const [state, expected] of [["running", "working"], ["stopped", "idle"]] as const) {
+      act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: [attempt({ state })] }); });
+      await waitFor(() => expect(worker.getAttribute("data-state")).toBe(expected));
+    }
+    expect(worker.getAttribute("data-avatar-state")).toBe("master");
   });
 
   it("keeps a project selected across destinations before its first run", async () => {
