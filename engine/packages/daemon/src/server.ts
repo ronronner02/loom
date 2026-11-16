@@ -17,6 +17,7 @@ import { getSelfHostId, getSelfHostIdSource } from "./domain/host-identity/fanou
 import type { ChatRepository } from "./domain/chat-repository.js";
 import { MailboxDelivery, createMailboxPromptStateReader, type ManagedNativeChannelEvidence, type NativeChannelStateReader } from "./domain/mailbox-delivery.js";
 import { workspaceBrowseRoutes } from "./routes/workspace.js";
+import { projectFilesRoutes } from "./routes/project-files.js";
 import { createSlowOpRequestMiddleware, type SlowOperationInstrumentation } from "./domain/slow-op-recorder.js";
 import { QueueRepository } from "./domain/queue-repository.js";
 import type { InboxHandler } from "./domain/inbox-handler.js";
@@ -442,6 +443,7 @@ export function createApp(deps: AppDeps): Hono {
   app.use("/api/team-control/*", requireLocalTarget);
   if (ownerSessions) app.route("/api/team-control/owner-session", ownerSessionRoutes(ownerSessions, () => teamOptions.credentials,
     [deps.legacyBearerToken]));
+  app.route("/api/team-control", projectFilesRoutes(deps.rigRepo.db, teamOptions.credentials, [deps.legacyBearerToken]));
   app.route("/api/team-control", teamControlRoutes(teamGovernance, teamOptionsWithRead,
     [deps.legacyBearerToken]));
   // T052 — the managed replay transport. Mounted separately from the legacy

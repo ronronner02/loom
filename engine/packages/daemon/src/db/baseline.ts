@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-import { TEAM_ATTEMPT_FINALIZATIONS_SQL, TEAM_INTEGRATION_INTENTS_SQL, SCHEMA_UPGRADES, TEAM_GITHUB_SEEN_SQL, TEAM_GITHUB_THREADS_SQL, TEAM_INTAKE_SQL, TEAM_PROMPT_VERSIONS_SQL, TEAM_PULL_REQUESTS_SQL, upgradePath, type SchemaUpgrade } from "./upgrades.js";
+import { TEAM_ATTACHMENTS_SQL, TEAM_ATTEMPT_FINALIZATIONS_SQL, TEAM_INTEGRATION_INTENTS_SQL, SCHEMA_UPGRADES, TEAM_GITHUB_SEEN_SQL, TEAM_GITHUB_THREADS_SQL, TEAM_INTAKE_SQL, TEAM_PROMPT_VERSIONS_SQL, TEAM_PULL_REQUESTS_SQL, upgradePath, type SchemaUpgrade } from "./upgrades.js";
 
 /**
  * Marker written to PRAGMA user_version in the same transaction as the fresh team schema.
@@ -8,9 +8,9 @@ import { TEAM_ATTEMPT_FINALIZATIONS_SQL, TEAM_INTEGRATION_INTENTS_SQL, SCHEMA_UP
  * database the shipped app created is upgraded rather than refused. 2 adds
  * team_seat_mailbox_capabilities and is the first shipped version; 3 adds
  * team_chat_messages.visibility; 4 adds task comments (team_chat_messages.task_id) and task holds
- * and follow-up links (team_queue_authority.held_at, follow_up_of); 5 adds team_prompt_versions; 6 adds team_pull_requests; 7 adds team_github_seen; 8 adds the team_intake_* tables; 9 adds team_github_threads; 10 adds attempt-finalization and Git-integration checkpoints.
+ * and follow-up links (team_queue_authority.held_at, follow_up_of); 5 adds team_prompt_versions; 6 adds team_pull_requests; 7 adds team_github_seen; 8 adds the team_intake_* tables; 9 adds team_github_threads; 10 adds attempt-finalization and Git-integration checkpoints; 11 adds project chat attachments.
  */
-export const BASELINE_VERSION = 10;
+export const BASELINE_VERSION = 11;
 
 /**
  * The one-shot schema for the retained team product. The statements are kept as one SQL
@@ -688,7 +688,7 @@ CREATE TABLE "team_chat_messages" (
       kind TEXT NOT NULL DEFAULT 'text',
       options_json TEXT,
       answered_by TEXT, response_language TEXT
-    CHECK (response_language IS NULL OR response_language IN ('en', 'zh-CN')), visibility TEXT NOT NULL DEFAULT 'chat' CHECK (visibility IN ('chat', 'activity')), task_id TEXT,
+    CHECK (response_language IS NULL OR response_language IN ('en', 'zh-CN')), visibility TEXT NOT NULL DEFAULT 'chat' CHECK (visibility IN ('chat', 'activity')), task_id TEXT, attachments_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(attachments_json)),
       CHECK ((sender = 'lead') = (attempt_id IS NOT NULL)),
       CHECK (sender = 'owner' OR delivered_attempt IS NULL)
     );
@@ -698,6 +698,7 @@ ${TEAM_INTAKE_SQL};
 ${TEAM_GITHUB_THREADS_SQL};
 ${TEAM_ATTEMPT_FINALIZATIONS_SQL};
 ${TEAM_INTEGRATION_INTENTS_SQL};
+${TEAM_ATTACHMENTS_SQL};
 -- team_github_seen
 ${TEAM_GITHUB_SEEN_SQL};
 -- team_pull_requests

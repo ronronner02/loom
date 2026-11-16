@@ -27,6 +27,7 @@ npm run test -w packages/daemon -- \
   test/owner-session.test.ts \
   test/team-start.test.ts \
   test/team-setup.test.ts \
+  test/team-project-files.test.ts test/team-attachments.test.ts \
   test/team-settings.test.ts \
   test/native-model-choices.test.ts \
   test/team-model-policy.test.ts \
@@ -71,7 +72,7 @@ npm run test -w packages/ui -- \
   src/team/__tests__/analytics.test.tsx src/team/__tests__/settings.test.tsx \
   src/team/__tests__/github-gate.test.tsx src/team/__tests__/create-project.test.tsx \
   src/team/__tests__/project-home.test.tsx src/team/__tests__/chat-panel.test.tsx \
-  src/team/__tests__/documents.test.tsx \
+  src/team/__tests__/documents.test.tsx src/team/__tests__/project-files.test.tsx \
   src/team/__tests__/souls-workflows.test.tsx \
   src/team/__tests__/model-settings.test.tsx \
   src/team/__tests__/new-task.test.tsx src/team/__tests__/diff.test.tsx src/team/__tests__/intake.test.tsx --maxWorkers=2

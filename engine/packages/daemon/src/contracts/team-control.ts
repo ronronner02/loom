@@ -970,3 +970,14 @@ export interface TeamTaskResult {
   /** A unified diff against `baseIdentifier`; empty for the snapshot lane, which has no history. */
   patch: string;
 }
+
+export const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+export const ATTACHMENTS_PER_MESSAGE = 8;
+
+/** An owner-uploaded file stored separately from the project repository. */
+export interface ProjectAttachment {
+  id: string;
+  name: string;
+  size: number;
+  mediaType: string;
+}

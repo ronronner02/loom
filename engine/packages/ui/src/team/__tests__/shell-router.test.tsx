@@ -39,6 +39,11 @@ beforeEach(() => {
     if (path.endsWith("/github/login")) return response({ state: "idle" });
     if ((init?.method ?? "GET") === "GET") {
       if (path === "/api/team-control/workflows") return response({ workflows: FRAMEWORK_CATALOG });
+      if (path === "/api/team-control/teams/fresh-project/files") {
+        const query = new URL(String(input), window.location.origin).searchParams.get("path");
+        return response(query === "README.md" ? { kind: "file", path: "README.md", content: "# Existing project", hash: "fixture-hash" }
+          : { kind: "directory", path: "", entries: [{ name: "README.md", kind: "file" }] });
+      }
       if (path === `/api/team-control/runs/${RUN_ID}/workflows` || path === `/api/team-control/runs/${SECOND_RUN_ID}/workflows`) return response({ workflows: [] });
       if (path === "/api/team-control/teams/fresh-project/prompt-sections") return response({ revision: 0, sections: [] });
       if (/\/api\/team-control\/teams\/[^/]+\/intake$/.test(path)) return response({ policy: { revision: 0, mode: "observe", rules: [] }, repository: null, items: [] });
@@ -94,6 +99,18 @@ async function openShell() {
 }
 
 describe("command-center router integration", () => {
+  it("opens existing files in Workspace before a project's first conversation", async () => {
+    const router = await openShell();
+    fireEvent.change(screen.getByRole("combobox", { name: "Project" }), { target: { value: "fresh-project" } });
+    await screen.findByRole("heading", { name: "What should we work on?" });
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Loom" })).getByRole("link", { name: "Workspace" }));
+    fireEvent.click(await screen.findByRole("button", { name: "README.md" }));
+    expect(await screen.findByText("# Existing project")).toBeTruthy();
+    expect(router.state.location.search.team).toBe("fresh-project");
+    expect(router.state.location.search.run).toBeUndefined();
+    expect(vi.mocked(fetch).mock.calls.some(([url, init]) => String(url).endsWith("/runs") && init?.method === "POST")).toBe(false);
+  });
+
 
   it("clears the main chat draft when switching runs in the same project", async () => {
     extraRun = true;
@@ -113,9 +130,13 @@ describe("command-center router integration", () => {
     fireEvent.click(within(screen.getByRole("navigation", { name: "Loom" })).getByRole("link", { name: "Chat" }));
     const field = await screen.findByRole("textbox", { name: "Message" });
     fireEvent.change(field, { target: { value: "Only change the original project's credentials" } });
+    fireEvent.change(screen.getByLabelText("Choose attachments"), { target: { files: [new File(["Project notes"], "first-project.md")] } });
+    expect(screen.getByText("first-project.md")).toBeTruthy();
     fireEvent.change(screen.getByRole("combobox", { name: "Project" }), { target: { value: "fresh-project" } });
     await screen.findByRole("heading", { name: "What should we work on?" });
     expect((screen.getByRole("textbox", { name: "Message" }) as HTMLTextAreaElement).value).toBe("");
+    expect(screen.queryByText("first-project.md")).toBeNull();
+    expect(vi.mocked(fetch).mock.calls.some(([url, init]) => String(url).endsWith("/attachments") && init?.method === "POST")).toBe(false);
   });
 
   it("gates the paired app before any project read when GitHub is signed out", async () => {

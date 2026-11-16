@@ -1,3 +1,5 @@
+import { ATTACHMENT_MAX_BYTES, ATTACHMENTS_PER_MESSAGE, type ProjectAttachment } from "../../../daemon/dist/contracts/team-control.js";
+import { Paperclip } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQueryClient } from "@tanstack/react-query";
@@ -35,6 +37,12 @@ export function pendingWorkerQuestions(read: TeamOwnerRead | undefined): TeamOwn
   return (read?.tasks ?? []).filter(task => task.stage === "owner/question" && task.workerReport?.question);
 }
 
+export interface PendingAttachment { id: string; file: File; uploaded?: ProjectAttachment }
+interface AttachmentDraftProps {
+  attachments: PendingAttachment[];
+  onAttachmentsChange: (attachments: PendingAttachment[]) => void;
+}
+
 export function ChatPanel({ open, onOpenChange, opener, read, runId, chat, connectionError, draftContext, project, onStarted, onOpenDocuments, onChanged }: {
   open: boolean; onOpenChange: (open: boolean) => void; opener: RefObject<HTMLButtonElement | null>;
   read?: TeamOwnerRead; runId: string; chat?: ChatState; connectionError?: boolean; draftContext?: { body: string };
@@ -44,6 +52,7 @@ export function ChatPanel({ open, onOpenChange, opener, read, runId, chat, conne
   const { t } = useTranslation();
   // The shell keeps this component mounted; closing its dialog or changing sections keeps the draft.
   const [draft, setDraft] = useState("");
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   useEffect(() => {
     if (draftContext) setDraft(current => current ? current + "\n\n" + draftContext.body : draftContext.body);
   }, [draftContext]);
@@ -71,18 +80,18 @@ export function ChatPanel({ open, onOpenChange, opener, read, runId, chat, conne
       </header>
       {!runId && project ? <section className="chat" aria-label={t("team.chat.message")}>
         <div className="chat-log"><p className="muted">{t("planning.beforeExecution")}</p></div>
-        <Composer runId="" entityVersion={0} body={draft} onBodyChange={setDraft} projectId={project.id} onStarted={onStarted} />
-      </section> : <LeadConversation read={read} runId={runId} chat={chat} connectionError={connectionError} draft={draft} onDraftChange={setDraft} onChanged={onChanged}
+        <Composer runId="" entityVersion={0} body={draft} onBodyChange={setDraft} projectId={project.id} attachments={attachments} onAttachmentsChange={setAttachments} onStarted={onStarted} />
+      </section> : <LeadConversation read={read} runId={runId} chat={chat} connectionError={connectionError} draft={draft} onDraftChange={setDraft} onChanged={onChanged} attachments={attachments} onAttachmentsChange={setAttachments}
         documentTools={chat?.documentWorkflow && <div className="ui-chat-documents"><DocumentStages read={read} chat={chat} onChanged={onChanged} /></div>} />}
     </Dialog.Content>
   </Dialog.Root>;
 }
 
 /** Shared with the retained run page, including its existing approval and resume controls. */
-export function LeadConversation({ read, runId, chat, connectionError, draft, onDraftChange, onChanged, documentTools, welcome }: {
+export function LeadConversation({ read, runId, chat, connectionError, draft, onDraftChange, onChanged, documentTools, welcome, attachments, onAttachmentsChange }: {
   read?: TeamOwnerRead; runId: string; chat?: ChatState; connectionError?: boolean; draft: string; onDraftChange: (draft: string) => void; onChanged?: () => void;
   documentTools?: ReactNode; welcome?: ReactNode;
-}) {
+} & AttachmentDraftProps) {
   const { t } = useTranslation();
   const entityVersion = read?.run.entityVersion ?? 0;
   const pending = pendingOwnerDecisions(read, chat);
@@ -127,7 +136,7 @@ export function LeadConversation({ read, runId, chat, connectionError, draft, on
       {chat && !chat.available && <p className="muted">{t("team.chat.unavailable")}</p>}
     </div>
     {!following && <button className="btn btn-outline ui-chat-latest" onClick={() => setFollowing(true)}>{t("chat.latest")}</button>}
-    {chat?.available && <Composer runId={runId} entityVersion={entityVersion} body={draft} onBodyChange={onDraftChange} read={read} chat={chat} onChanged={onChanged} />}
+    {chat?.available && <Composer runId={runId} entityVersion={entityVersion} body={draft} onBodyChange={onDraftChange} attachments={attachments} onAttachmentsChange={onAttachmentsChange} read={read} chat={chat} onChanged={onChanged} />}
   </section>;
 }
 
@@ -157,6 +166,9 @@ function Turn({ message }: { message: ChatMessage }) {
   return <div className={owner ? "turn turn-owner" : "turn"}>
     <div className="turn-who">{owner ? t("team.chat.you") : t("role.lead")}</div>
     <p className="turn-body" style={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}>{message.body}</p>
+    {!!message.attachments?.length && <ul className="ui-chat-attachments" aria-label={t("chat.attachments")}>
+      {message.attachments.map(attachment => <li key={attachment.id}><Paperclip aria-hidden="true" /><span>{attachment.name}</span></li>)}
+    </ul>}
     {message.kind === "confirmation" && <span className="plate-done"><Check />{t("chat.confirmationRecorded")}</span>}
   </div>;
 }
@@ -215,22 +227,24 @@ function stageIntent(body: string): "exploration" | "requirements" | "plan" | nu
   return null;
 }
 
-export function Composer({ runId, entityVersion, body, onBodyChange, projectId, onStarted, read, chat, onChanged }: {
+export function Composer({ runId, entityVersion, body, onBodyChange, projectId, onStarted, read, chat, onChanged, attachments, onAttachmentsChange }: {
   runId: string; entityVersion: number; body: string; onBodyChange: (body: string) => void;
   projectId?: string; onStarted?: (runId: string) => void; read?: TeamOwnerRead; chat?: ChatState; onChanged?: () => void;
-}) {
+} & AttachmentDraftProps) {
   const { t, i18n } = useTranslation();
   const responseLanguage = i18n.resolvedLanguage === "zh-CN" ? "zh-CN" : "en";
   const { request } = useOwnerSession();
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowSelection | undefined>();
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const attachmentProject = projectId ?? read?.run.rigId;
   const [failed, setFailed] = useState<string | null>(null);
   const question = chat?.pendingDecision ?? chat?.messages.filter(message => message.kind === "decision" && !message.answeredBy).at(-1);
   const planning = runId && read?.run.phase === "planning";
   const workflow = chat?.documentWorkflow, proposal = chat?.planApproval;
-  const intent = planning && !question ? confirmationIntent(body) : null;
-  const nextStage = planning && workflow && !question ? stageIntent(body) : null;
+  const intent = planning && !question && !attachments.length ? confirmationIntent(body) : null;
+  const nextStage = planning && workflow && !question && !attachments.length ? stageIntent(body) : null;
   const version = workflow?.versions.find(document => document.kind === intent);
   const requirements = workflow?.versions.find(document => document.kind === "requirements");
   const requirementsConfirmed = !!requirements && requirements.id === workflow?.confirmed.requirements;
@@ -240,16 +254,30 @@ export function Composer({ runId, entityVersion, body, onBodyChange, projectId, 
   const ready = nextStage ? settled && !workflow?.pendingStage && (nextStage !== "plan" || requirementsConfirmed && !workflow?.error)
     : !intent || settled && (execution ? legacyApproval || !!proposal?.plan?.content.trim() && !!proposal.roster?.digest && !proposal.error
       && (!workflow || !!proposal.documentVersions) : !!version && !workflow?.error && !workflow?.pendingStage);
-  return <form className="composer" onSubmit={async event => {
+  return <form className="composer" aria-busy={busy || undefined} onSubmit={async event => {
     event.preventDefault();
-    if (!body.trim() || sending.current || !ready) return;
+    if ((!body.trim() && !attachments.length) || sending.current || !ready) return;
     sending.current = true;
     setBusy(true); setFailed(null);
     try {
+      let uploaded = [...attachments];
+      for (let index = 0; index < uploaded.length; index++) {
+        const item = uploaded[index]!;
+        if (item.uploaded) continue;
+        if (!attachmentProject) throw new Error(t("chat.attachmentProjectMissing"));
+        const form = new FormData();
+        form.append("file", item.file);
+        const result = await request<{ attachment: ProjectAttachment }>(
+          "/teams/" + encodeURIComponent(attachmentProject) + "/attachments", { method: "POST", body: form });
+        uploaded = uploaded.map(entry => entry.id === item.id ? { ...entry, uploaded: result.attachment } : entry);
+        onAttachmentsChange(uploaded);
+      }
+      const attachmentIds = uploaded.map(entry => entry.uploaded!.id);
+      const message = body.trim() || t("chat.attachmentsMessage");
       if (!runId && projectId) {
         const started = await request<{ runId: string }>("/runs", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ goal: body.trim(), responseLanguage, rig: projectId, planning: true, documentWorkflow: true,
-            ...(selectedWorkflow ? { workflow: selectedWorkflow } : {}) }) });
+          body: JSON.stringify({ goal: message, responseLanguage, rig: projectId, planning: true, documentWorkflow: true,
+            ...(attachmentIds.length ? { attachments: attachmentIds } : {}), ...(selectedWorkflow ? { workflow: selectedWorkflow } : {}) }) });
         if (!started.runId) throw new Error("Missing planning record");
         onStarted?.(started.runId);
       } else if (nextStage) {
@@ -260,8 +288,9 @@ export function Composer({ runId, entityVersion, body, onBodyChange, projectId, 
       } else if (intent && version) {
         await confirmDocument(request, runId, entityVersion, version, body.trim(), responseLanguage);
       } else await sendChatMessage(request, runId, selectedWorkflow
-        ? `/${selectedWorkflow.entrypoint}${selectedWorkflow.readOnly ? " --read-only" : ""}\n${body.trim()}`
-        : body.trim(), entityVersion, question?.id, responseLanguage);
+        ? `/${selectedWorkflow.entrypoint}${selectedWorkflow.readOnly ? " --read-only" : ""}\n${message}`
+        : message, entityVersion, question?.id, responseLanguage, attachmentIds);
+      onAttachmentsChange([]);
       setSelectedWorkflow(undefined);
       onBodyChange(""); onChanged?.();
     }
@@ -277,8 +306,26 @@ export function Composer({ runId, entityVersion, body, onBodyChange, projectId, 
         : workflow ? "documents.approveConsequence" : "chat.legacyApprovalConsequence")
       : t("chat.documentConfirmationConsequence", { kind: t(`documents.kind.${version!.kind}`), version: version!.version })}</p>}
     {failed && <p role="alert" className="composer-error">{failed}</p>}
-    <textarea rows={1} maxLength={65_536} aria-label={t("team.chat.message")} value={body} onChange={event => onBodyChange(event.target.value)} />
-    <button className="btn btn-primary" type="submit" disabled={busy || !body.trim() || !ready}>{t("team.chat.send")}</button>
+    {!!attachments.length && <ul className="ui-chat-attachments" aria-label={t("chat.attachments")}>
+      {attachments.map(item => <li key={item.id}><Paperclip aria-hidden="true" /><span>{item.file.name}</span>
+        <button type="button" className="ui-icon-button" disabled={busy} aria-label={t("chat.removeAttachment", { name: item.file.name })}
+          onClick={() => onAttachmentsChange(attachments.filter(entry => entry.id !== item.id))}><X aria-hidden="true" /></button>
+      </li>)}
+    </ul>}
+    <input ref={fileInput} type="file" hidden multiple disabled={busy || !attachmentProject} aria-label={t("chat.chooseAttachments")}
+      onChange={event => {
+        const files = Array.from(event.target.files ?? []);
+        event.target.value = "";
+        if (attachments.length + files.length > ATTACHMENTS_PER_MESSAGE) { setFailed(t("chat.attachmentCount")); return; }
+        const oversized = files.find(file => file.size > ATTACHMENT_MAX_BYTES);
+        if (oversized) { setFailed(t("chat.attachmentSize", { name: oversized.name })); return; }
+        setFailed(null);
+        onAttachmentsChange([...attachments, ...files.map(file => ({ id: crypto.randomUUID(), file }))]);
+      }} />
+    <button type="button" className="ui-icon-button" disabled={busy || !attachmentProject} aria-label={t("chat.attachFiles")}
+      title={t("chat.attachmentLimits")} onClick={() => fileInput.current?.click()}><Paperclip aria-hidden="true" /></button>
+    <textarea rows={1} maxLength={65_536} disabled={busy} aria-label={t("team.chat.message")} value={body} onChange={event => onBodyChange(event.target.value)} />
+    <button className="btn btn-primary" type="submit" disabled={busy || (!body.trim() && !attachments.length) || !ready}>{t("team.chat.send")}</button>
   </form>;
 }
 

@@ -227,6 +227,7 @@ export function teamLeadRoutes(governance: PlanGovernance, options: LeadProposal
     return c.json({ protocolVersion: TEAM_CONTROL_VERSION, runId, phase: run.phase, planApproval, documentWorkflow, liveTurn,
       messages: messages.map(message => ({ id: message.id, sender: message.sender,
         kind: message.kind, body: message.body, options: message.options,
+        ...(message.attachments?.length ? { attachments: message.attachments } : {}),
         answeredBy: message.answeredBy, createdAt: message.createdAt })),
       // Plan KTD3 — lead turns that needed no owner attention: readable on request, never a notification.
       activity: activity.map(message => ({ id: message.id, body: message.body, createdAt: message.createdAt })),

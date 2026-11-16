@@ -1,3 +1,4 @@
+import { resolveProjectAttachments } from "./project-attachments.js";
 import { enrollFinalization, pendingFinalization } from "./attempt-finalization.js";
 import { defaultSoulId, rosterSoulRefusal, seatHasUnfinishedWork } from "./team-souls.js";
 import { parseWorkflowSelection, readRunWorkflows, resolveAdmittedWorkflow, type TaskWorkflow } from "./team-workflows.js";
@@ -1034,6 +1035,7 @@ export class PlanGovernance {
       if (ctx.run.state === "canceled" || ctx.run.state === "cancel_requested") return deny("Run is closed; the lead is not reading messages");
       const payload = object(ctx.request.payload, "chat");
       const body = chatBody(payload.body, "chat.body");
+      const attachments = resolveProjectAttachments(this.db, ctx.run.rigId, payload.attachments);
       const responseLanguage = parseResponseLanguage(payload.responseLanguage);
       // The decision the owner is answering, when they name one. Checked before anything is
       // written, so a message that names a decision this run does not have is not stored as if
@@ -1050,7 +1052,7 @@ export class PlanGovernance {
       const lead = runLeadTask(this.db, ctx.run.id);
       if (!lead) return deny("This run has no lead task to answer the owner");
       const message = appendChatMessage(this.db, { id: ctx.request.actionId, runId: ctx.run.id,
-        body, createdAt: ctx.now, responseLanguage });
+        body, createdAt: ctx.now, responseLanguage, attachments });
       // The answer is recorded in the same transaction as the message, so a decision is never
       // answered by a message this run did not keep.
       if (answerTo !== null) answerDecision(this.db, answerTo, message.id);
