@@ -8,6 +8,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 # daemon-mode.test.ts runs here now that `workers.isolation: none` is the default: its
 # managed boot no longer needs the provisioned /etc/multi-agent policy.
 npm run test -w packages/daemon -- \
+  test/server.test.ts \
   test/source-brand.test.ts \
   test/windows-hide-child-processes.test.ts \
   test/data-paths.test.ts \
@@ -69,6 +70,7 @@ npm run test -w packages/ui -- \
   test/team-events.test.tsx test/team-query-invalidation.test.ts test/team-api-source.test.ts test/theme.test.tsx src/team/__tests__/theme.test.tsx \
   src/team/__tests__/shell.test.tsx src/team/__tests__/shell-router.test.tsx \
   src/team/__tests__/flow.test.tsx src/team/__tests__/flow-demo.test.tsx src/team/__tests__/avatar-assets.test.ts \
+  src/team/__tests__/flow-events.test.ts src/team/__tests__/team-flow-adapter.test.tsx \
   src/team/__tests__/overview.test.tsx src/team/__tests__/tasks.test.tsx src/team/__tests__/reviews.test.tsx \
   src/team/__tests__/analytics.test.tsx src/team/__tests__/settings.test.tsx \
   src/team/__tests__/github-gate.test.tsx src/team/__tests__/create-project.test.tsx \

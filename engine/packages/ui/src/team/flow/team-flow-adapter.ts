@@ -1,5 +1,5 @@
-import type { TeamReplayEvent, TeamSeatView } from "@multi-agent/daemon/team-control";
-import type { FlowEvent, FlowRole, FlowSeat } from "./flow-events.js";
+import type { TeamAttemptView, TeamReplayEvent, TeamSeatView } from "@multi-agent/daemon/team-control";
+import type { FlowEvent, FlowNodeState, FlowRole, FlowSeat } from "./flow-events.js";
 
 function bodyPayload(body: string): Record<string, unknown> {
   try {
@@ -28,7 +28,7 @@ export function adaptTeamReplayEvent(event: TeamReplayEvent, fallbackRunId = "")
     entityId: entityId(event),
     action: event.action ?? "event.unknown",
     payload: bodyPayload(event.body),
-    createdAt: event.createdAt,
+    createdAt: event.createdAt.includes("T") ? event.createdAt : event.createdAt.replace(" ", "T") + "Z",
     seq: event.seq,
   };
 }
@@ -39,4 +39,20 @@ export function adaptTeamEvents(events: readonly TeamReplayEvent[], fallbackRunI
 
 export function mapTeamSeat(seat: TeamSeatView): FlowSeat {
   return { id: seat.seat, label: seat.displayName, role: seat.role as FlowRole };
+}
+
+export function mapTeamAttemptStates(attempts: readonly TeamAttemptView[], seats: readonly TeamSeatView[] = []): Map<string, FlowNodeState> {
+  const states = new Map<string, FlowNodeState>();
+  // The read model orders attempts oldest first, so the latest task/seat occupant wins.
+  for (const attempt of attempts) {
+    const state = attempt.state === "running" ? "working" : attempt.state === "unknown" ? "ambiguous" : "idle";
+    states.set(attempt.attemptId, state);
+    if (attempt.taskId) states.set(attempt.taskId, state);
+    if (attempt.session) states.set(attempt.session, state);
+    if (attempt.role === "lead") {
+      states.set("lead", state);
+      for (const seat of seats) if (seat.role === "lead") states.set(seat.seat, state);
+    }
+  }
+  return states;
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Keyboard
 import { useTranslation } from "react-i18next";
 import type { MessageKey } from "@multi-agent/i18n";
 import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion.js";
-import { mapTeamEvents, type FlowEvent, type FlowIntent, type FlowNode, type FlowSeat } from "./flow-events.js";
+import { mapTeamEvents, type FlowEvent, type FlowIntent, type FlowNode, type FlowNodeState, type FlowSeat } from "./flow-events.js";
 import { FlowRenderer, layoutFlowNodes, visibleFlowNodes, type NodeVisualState } from "./flow-renderer.js";
 import { getVendorAvatarUrl, resolveAvatarState, resolveVendorForNode } from "./vendor-avatars.js";
 import "./flow.css";
@@ -10,6 +10,7 @@ import "./flow.css";
 export interface FlowViewProps {
   events: readonly FlowEvent[];
   seats?: readonly FlowSeat[];
+  nodeStates?: ReadonlyMap<string, FlowNodeState>;
   title?: string;
   className?: string;
   maxParticles?: number;
@@ -35,7 +36,7 @@ function setSelectedFromKeyboard(event: ReactKeyboardEvent<HTMLButtonElement>, s
   }
 }
 
-export function FlowView({ events, seats, title, className, maxParticles }: FlowViewProps) {
+export function FlowView({ events, seats, nodeStates, title, className, maxParticles }: FlowViewProps) {
   const { t } = useTranslation();
   const reducedMotion = usePrefersReducedMotion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -51,7 +52,7 @@ export function FlowView({ events, seats, title, className, maxParticles }: Flow
   const [stageSize, setStageSize] = useState({ width: 640, height: 500 });
   const [visualMeta, setVisualMeta] = useState<Map<string, Pick<NodeVisualState, "isMessaging" | "isReceiving" | "isWalking" | "phase">>>(() => new Map());
 
-  const mapping = useMemo(() => mapTeamEvents(events, { seats, maxParticles }), [events, maxParticles, seats]);
+  const mapping = useMemo(() => mapTeamEvents(events, { seats, nodeStates, maxParticles }), [events, maxParticles, seats, nodeStates]);
   const paused = manualPaused || windowPaused || reducedMotion;
 
   const showStaticList = reducedMotion || canvasAvailable === false;

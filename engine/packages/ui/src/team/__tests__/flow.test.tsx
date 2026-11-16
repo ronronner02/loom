@@ -141,6 +141,29 @@ describe("FlowView", () => {
     expect(screen.getByText(/Canvas2D is unavailable/i)).toBeTruthy();
     expect(screen.getByLabelText("Flow event list")).toBeTruthy();
   });
+
+  it("clears historical working labels when the current attempt stops", () => {
+    const events = [{ ...LOW_DENSITY_EVENTS[3]!, timestamp: Date.now() - 86_400_000 }];
+    const view = (working: boolean) => <I18nextProvider i18n={languages.get("en")!}>
+      <FlowView events={events} seats={FLOW_FIXTURE_SEATS}
+        nodeStates={new Map([["worker-1", working ? "working" : "idle"]])} />
+    </I18nextProvider>;
+    const { rerender } = render(view(true));
+    expect(screen.getByRole("button", { name: /Worker 1,/ }).getAttribute("data-state")).toBe("working");
+    rerender(view(false));
+    const worker = screen.getByRole("button", { name: /Worker 1,/ });
+    expect(worker.getAttribute("data-state")).toBe("idle");
+    expect(worker.getAttribute("data-avatar-state")).toBe("master");
+  });
+
+  it("does not infer live work from replay history when there are no current attempts", () => {
+    render(<I18nextProvider i18n={languages.get("en")!}>
+      <FlowView events={LOW_DENSITY_EVENTS} seats={FLOW_FIXTURE_SEATS} nodeStates={new Map()} />
+    </I18nextProvider>);
+    for (const node of screen.getAllByRole("button").filter(node => node.hasAttribute("data-state"))) {
+      expect(node.getAttribute("data-state")).toBe("idle");
+    }
+  });
 });
 
 describe("FlowRenderer", () => {
@@ -159,14 +182,32 @@ describe("FlowRenderer", () => {
   it("reports active messaging nodes during message launch", () => {
     const canvas = document.createElement("canvas");
     const renderer = new FlowRenderer({ canvas });
-    const mapping = mapTeamEvents(LOW_DENSITY_EVENTS, { seats: FLOW_FIXTURE_SEATS });
+    const mapping = mapTeamEvents([{ ...LOW_DENSITY_EVENTS[0]!, timestamp: 900 }], { seats: FLOW_FIXTURE_SEATS });
     renderer.setModel(mapping, 0);
     renderer.draw(contextStub(), 900);
     const active = renderer.getActiveMessagingNodes(900);
-    expect(active.size).toBeGreaterThan(0);
+    expect(active).toEqual(new Set(["lead"]));
+    renderer.draw(contextStub(), 2_100);
+    expect(renderer.getNodeVisualStates(2_100).get("worker-1")?.isReceiving).toBe(true);
+    renderer.draw(contextStub(), 2_700);
+    expect([...renderer.getNodeVisualStates(2_700).values()].every(state => !state.isMessaging && !state.isReceiving)).toBe(true);
+    renderer.setModel(mapping, 3_400);
+    expect(renderer.getActiveMessagingNodes(3_400).size).toBe(0);
   });
 
-  it("stops sending ambient beams to completed/departed workers", () => {
+  it("never repeats expired message flights from replay history", () => {
+    const renderer = new FlowRenderer({ canvas: document.createElement("canvas") });
+    const mapping = mapTeamEvents([{ ...LOW_DENSITY_EVENTS[0]!, timestamp: 1_000 }], { seats: FLOW_FIXTURE_SEATS });
+    renderer.setModel(mapping, 10_000);
+    renderer.draw(contextStub(), 11_000);
+    for (const now of [13_600, 13_700, 17_000, 20_400]) {
+      renderer.draw(contextStub(), now);
+      expect(renderer.getActiveMessagingNodes(now).size, `frame ${now}`).toBe(0);
+      expect([...renderer.getNodeVisualStates(now).values()].some(state => state.isMessaging || state.isReceiving)).toBe(false);
+    }
+  });
+
+  it("keeps completed workers departed without replaying old messages", () => {
     const canvas = document.createElement("canvas");
     const renderer = new FlowRenderer({ canvas });
     const now = 10_000;

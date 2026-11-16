@@ -86,6 +86,8 @@ export interface FlowMappingOptions {
   /** Used only when an input event has no timestamp. */
   now?: number;
   seats?: readonly FlowSeat[];
+  /** Current attempt states override replay history; absent nodes are idle. */
+  nodeStates?: ReadonlyMap<string, FlowNodeState>;
 }
 
 export interface FlowMapping {
@@ -342,7 +344,7 @@ export function mapTeamEvents(events: readonly FlowEvent[], options: FlowMapping
   }
 
   for (const [attemptId, intent] of started) {
-    if (acknowledged.has(attemptId)) continue;
+    if (options.nodeStates || acknowledged.has(attemptId)) continue;
     const nodeId = intent.nodeId ?? intent.sourceId;
     const noResponse: FlowIntent = {
       ...intent,
@@ -364,6 +366,12 @@ export function mapTeamEvents(events: readonly FlowEvent[], options: FlowMapping
   const intents = [...staticIntents, ...particles];
   for (const event of options.seats ?? []) {
     if (!nodes.has(event.id)) nodes.set(event.id, { id: event.id, label: event.label ?? event.id, role: event.role ?? roleFor(event.id), state: "idle", activityCount: 0, lastEventAt: 0 });
+  }
+  if (options.nodeStates) {
+    for (const node of nodes.values()) {
+      node.state = options.nodeStates.get(node.id) ?? "idle";
+      if (node.state !== "working" && node.state !== "started" && node.state !== "acknowledged") node.activityCount = 0;
+    }
   }
   return { nodes: [...nodes.values()], intents, particles, staticIntents, events: materializedEvents };
 }

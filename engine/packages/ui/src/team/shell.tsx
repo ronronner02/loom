@@ -41,7 +41,7 @@ import { EntryFrame, GithubGate } from "./github-gate.js";
 import { ChatPanel, Composer, LeadConversation, pendingOwnerDecisions, pendingWorkerQuestions, type PendingAttachment } from "./chat-panel.js";
 import { CommandPalette } from "./command-palette.js";
 import { FlowView } from "./flow/FlowView.js";
-import { adaptTeamEvents, mapTeamSeat } from "./flow/team-flow-adapter.js";
+import { adaptTeamEvents, mapTeamAttemptStates, mapTeamSeat } from "./flow/team-flow-adapter.js";
 import { PomoAvatar, resolvePomoAvatarState, type PomoAvatarState } from "./pomo-avatar.js";
 import "./fonts.js";
 import "./team.css";
@@ -605,7 +605,8 @@ function ProjectShell({ language, onLanguage, appearance }: {
           onOpenTasks={() => go("tasks")} onOpenTask={task => go("tasks", { task })}
           onOpenChat={opener => { chatOpener.current = opener; setChatOpen(true); }} />
       : overviewTab === "flow"
-        ? <FlowView events={adaptTeamEvents(data.events.data?.events ?? [], runId)} seats={read?.seats.map(mapTeamSeat)} />
+        ? <FlowView events={adaptTeamEvents(data.events.data?.events ?? [], runId)} seats={read?.seats.map(mapTeamSeat)}
+            nodeStates={mapTeamAttemptStates(read?.attempts ?? [], read?.seats)} />
         : <AnalyticsScreen teamId={selectedTeamId} seats={read?.seats} />}
   </div>;
 

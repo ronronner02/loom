@@ -243,6 +243,7 @@ function fileResponse(filePath: string, rangeHeader?: string): Response {
 function isUiAssetRequestPath(requestPath: string): boolean {
   const relativePath = requestPath.replace(/^\/+/, "");
   return relativePath.startsWith("assets/")
+    || relativePath.startsWith("avatars/")
     || relativePath === "loom-icon.png"
     || relativePath === "favicon.ico"
     || relativePath === "robots.txt"
