@@ -65,11 +65,11 @@ describe("MVP — the completion path", () => {
     expectedEntityVersion: governance.getRun("run").entityVersion, idempotencyKey: "mvp-completion-" + ++serial, payload });
 
   /** The receipt a direct launch records: the attempt id, the client and the process identity. */
-  const receipt = (attemptId: string, seat: string, processId: number) => {
+  const receipt = (attemptId: string, seat: string, processId: number, paneId: string | null = "%1") => {
     db.prepare("INSERT INTO events (rig_id, node_id, type, payload) VALUES ('rig', 'node-1', 'managed.attempt.receipt', ?)")
       .run(JSON.stringify({ type: "managed.attempt.receipt", rigId: "rig", nodeId: "node-1", sessionId: "session-1",
         runId: "run", sessionName: seat, receipt: { attemptId, runId: "run", client: "claude-code",
-          identity: { nativeSessionId: "native-" + attemptId, tmuxServer: "/control/tmux.sock", paneId: "%1",
+          identity: { nativeSessionId: "native-" + attemptId, tmuxServer: paneId === null ? null : "/control/tmux.sock", paneId,
             processId, processStart: "process-start-1", generation: 1, policyFingerprint: binding.policyFingerprint } } }));
   };
 
@@ -190,6 +190,36 @@ describe("MVP — the completion path", () => {
     expect(governance.getAttempt("attempt-2")).toBeNull();
     // The first attempt keeps its own identity: the ambiguity does not disturb what was recorded.
     expect(governance.getAttempt("attempt-1")?.state).toBe("running");
+  });
+
+  it("admits a native receipt for the submitted task beyond the first two queued tasks", async () => {
+    for (const taskId of ["task-2", "task-3"]) {
+      expect(governance.createTask(command(taskId, { assignment: { taskId, role: "implementer",
+        paths: [`src/${taskId}.ts`], dependencies: [] }, outputs: [], permissions: [...roleConfiguration.implementer.permissions],
+        sourceSession: "lead@rig", destinationSession: "builder@rig", body: `Implement ${taskId}.` }), binding).status).toBe("accepted");
+    }
+    governance.recordAttemptLifecycle({ runId: "run", attemptId: "native-attempt", taskId: "task-3", fact: "attempt.submitted" });
+    receipt("native-attempt", "builder@rig", 4343, null);
+    const observer = completion();
+    await observer.sweep();
+    expect(governance.getAttempt("native-attempt")).toMatchObject({ state: "running",
+      qitemId: governance.findTask("run", "task-3")!.qitemId, identity: { paneId: null, processId: 4343 } });
+    await observer.sweep();
+    expect(governance.getAttempt("native-attempt")?.entityVersion).toBe(1);
+    alive = false;
+    await observer.sweep();
+    expect(governance.getAttempt("native-attempt")?.state).toBe("stopped");
+    expect(seatStatus("builder@rig")).toBe("pending");
+  });
+
+  it("does not attribute a native receipt to a different task on the receipt's seat", async () => {
+    expect(governance.createTask(command("other-task", { assignment: { taskId: "other-task", role: "implementer",
+      paths: ["src/other.ts"], dependencies: [] }, outputs: [], permissions: [...roleConfiguration.implementer.permissions],
+      sourceSession: "lead@rig", destinationSession: "other@rig", body: "Implement the other task." }), binding).status).toBe("accepted");
+    governance.recordAttemptLifecycle({ runId: "run", attemptId: "native-attempt", taskId: "other-task", fact: "attempt.submitted" });
+    receipt("native-attempt", "builder@rig", 4343, null);
+    await completion().sweep();
+    expect(governance.getAttempt("native-attempt")).toBeNull();
   });
 
   it("states the candidate's own evidence, and validates only a non-empty in-scope candidate", async () => {
