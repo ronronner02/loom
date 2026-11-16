@@ -38,7 +38,7 @@ The orchestration engine lives in `engine/` and runs natively as a supervised ch
 
 ### Windows Desktop (Recommended)
 
-1. Download **`Loom-Setup-0.1.0-x64.exe`** from the [GitHub Releases](../../releases) page.
+1. Download **`Loom-Setup-0.1.1-x64.exe`** from the [GitHub Releases](../../releases) page.
 2. Run the per-user installer (no administrator elevation required).
 3. Ensure **Git for Windows** and **Node.js 22 or 24** are installed, and sign in locally to **Claude Code** (`claude`) and/or **Codex** (`codex`) for the assistants you plan to use.
 4. Launch **Loom** and complete the GitHub device sign-in when prompted.
@@ -47,6 +47,12 @@ The orchestration engine lives in `engine/` and runs natively as a supervised ch
 > - Application state: `%LOCALAPPDATA%\Multi-Agent` (SQLite database: `multi-agent.sqlite`)
 > - Configuration: `%APPDATA%\Multi-Agent`
 > - Overrides: `MULTI_AGENT_HOME` (engine root), `MULTI_AGENT_DESKTOP_DATA_DIR` (desktop root)
+
+### Optional self-hosted companion
+
+The separate **`Loom-Companion-0.1.1.zip`** source bundle provides a server scheduler, a dedicated local runner, and mobile reply pages. It is optional: installing or starting the desktop does not connect to a companion or configure a server.
+
+Each operator supplies their own HTTPS host, credentials, and notification channel. No personal server configuration or account pairing is distributed. The companion's tasks are currently independent of desktop teams; automatic desktop-to-phone synchronization is not included in this release. See the [companion setup](companions/loom/README.md) and [integration boundary](companions/loom/INTEGRATION.md).
 
 ---
 
@@ -127,6 +133,7 @@ multi-agent team merge <run-id>
 | `engine/packages/cli` | `multi-agent` CLI entrypoint and browser pairing command |
 | `engine/packages/i18n` | English (`en`) and Simplified Chinese (`zh-CN`) translation catalogs |
 | `desktop/` | Electron desktop wrapper, native folder picker, dependency probe, and Windows NSIS packager |
+| `companions/loom/` | Optional self-hosted scheduler, separate local runner, and mobile reply forms; not part of desktop startup |
 | `docs/` | Architecture, [design system](docs/design/command-center/DESIGN.md), [operations guide](docs/operations.md), and validation records |
 
 ---

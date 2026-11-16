@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.log
+*.zip
+private/
+secrets/
+state/

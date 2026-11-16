@@ -236,7 +236,7 @@ function teamAt(db: Database.Database, root: string): string | null {
 
 function samePath(left: string, right: string): boolean {
   // R15 — one canonical comparison for both hosts: `realpath` then case folding only where the
-  // filesystem folds, so `C:\Users\leo\Repo` and `c:\users\leo\repo` are one team on Windows and
+  // filesystem folds, so case variants identify one team on Windows and may identify
   // two distinct roots on a case-sensitive filesystem.
   try {
     return canonicalSamePath(canonicalPath(left), right);
