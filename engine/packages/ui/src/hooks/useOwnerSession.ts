@@ -4,7 +4,7 @@ import { parseProtocolVersion } from "../../../daemon/dist/contracts/team-contro
 export class OwnerReadError extends Error {
   /** `error` keeps the daemon's own explanation when a refusal has one; `code` stays the mapping key. */
   constructor(readonly status: number, readonly code: string, readonly details: { oversizedPaths?: string[] } = {}, readonly error: string | null = null) {
-    super(code);
+    super(error ?? code);
   }
 }
 
@@ -75,7 +75,7 @@ function usePairedBrowser() {
       if (rejectedSession && (automaticReconnect.current || path === "/owner-session") && credential.current === token) clearSession();
       throw new OwnerReadError(response.status, body.code ?? "read_failed",
         Array.isArray(body.oversizedPaths) ? { oversizedPaths: body.oversizedPaths.filter((path: unknown): path is string => typeof path === "string") } : {},
-        typeof body.error === "string" ? body.error : null);
+        typeof body.error === "string" ? body.error : body.status === "denied" && typeof body.reason === "string" ? body.reason : null);
     }
   }, [clearSession, reconnect]);
   const openStream = useCallback(async (path: string, init: RequestInit): Promise<Response> => {

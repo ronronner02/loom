@@ -240,8 +240,9 @@ export function Composer({ runId, entityVersion, body, onBodyChange, projectId, 
   const fileInput = useRef<HTMLInputElement>(null);
   const attachmentProject = projectId ?? read?.run.rigId;
   const [failed, setFailed] = useState<string | null>(null);
+  const closed = read?.run.state === "canceled" || read?.run.state === "cancel_requested" ? read.run.state : null;
   const question = chat?.pendingDecision ?? chat?.messages.filter(message => message.kind === "decision" && !message.answeredBy).at(-1);
-  const planning = runId && read?.run.phase === "planning";
+  const planning = runId && read?.run.phase === "planning" && !closed;
   const workflow = chat?.documentWorkflow, proposal = chat?.planApproval;
   const intent = planning && !question && !attachments.length ? confirmationIntent(body) : null;
   const nextStage = planning && workflow && !question && !attachments.length ? stageIntent(body) : null;
@@ -251,9 +252,9 @@ export function Composer({ runId, entityVersion, body, onBodyChange, projectId, 
   const execution = intent === "execute" || intent === "plan" && !workflow;
   const settled = !!read && read.run.state === "approved" && !documentDiscussionPending(read, chat);
   const legacyApproval = proposal === null && !workflow;
-  const ready = nextStage ? settled && !workflow?.pendingStage && (nextStage !== "plan" || requirementsConfirmed && !workflow?.error)
+  const ready = !closed && (nextStage ? settled && !workflow?.pendingStage && (nextStage !== "plan" || requirementsConfirmed && !workflow?.error)
     : !intent || settled && (execution ? legacyApproval || !!proposal?.plan?.content.trim() && !!proposal.roster?.digest && !proposal.error
-      && (!workflow || !!proposal.documentVersions) : !!version && !workflow?.error && !workflow?.pendingStage);
+      && (!workflow || !!proposal.documentVersions) : !!version && !workflow?.error && !workflow?.pendingStage));
   return <form className="composer" aria-busy={busy || undefined} onSubmit={async event => {
     event.preventDefault();
     if ((!body.trim() && !attachments.length) || sending.current || !ready) return;
@@ -297,7 +298,8 @@ export function Composer({ runId, entityVersion, body, onBodyChange, projectId, 
     catch (cause) { setFailed(cause instanceof Error ? cause.message : t("web.error")); } finally { sending.current = false; setBusy(false); }
   }}>
     {(!runId || read?.run.phase === "delivery") && !question &&
-      <WorkflowPicker value={selectedWorkflow} onChange={setSelectedWorkflow} disabled={busy} />}
+      <WorkflowPicker value={selectedWorkflow} onChange={setSelectedWorkflow} disabled={busy || !!closed} />}
+    {closed && <p className="composer-confirmation" role="status">{t(`status.run.${closed}`)}</p>}
     {question && <p className="composer-confirmation">{t("chat.answerQuestion")}</p>}
     {nextStage && <p className="composer-confirmation" role="status">{!ready ? t("chat.stageWaiting")
       : t("chat.stageRequestConsequence", { stage: t(`documents.stage.${nextStage}`) })}</p>}
@@ -308,11 +310,11 @@ export function Composer({ runId, entityVersion, body, onBodyChange, projectId, 
     {failed && <p role="alert" className="composer-error">{failed}</p>}
     {!!attachments.length && <ul className="ui-chat-attachments" aria-label={t("chat.attachments")}>
       {attachments.map(item => <li key={item.id}><Paperclip aria-hidden="true" /><span>{item.file.name}</span>
-        <button type="button" className="ui-icon-button" disabled={busy} aria-label={t("chat.removeAttachment", { name: item.file.name })}
+        <button type="button" className="ui-icon-button" disabled={busy || !!closed} aria-label={t("chat.removeAttachment", { name: item.file.name })}
           onClick={() => onAttachmentsChange(attachments.filter(entry => entry.id !== item.id))}><X aria-hidden="true" /></button>
       </li>)}
     </ul>}
-    <input ref={fileInput} type="file" hidden multiple disabled={busy || !attachmentProject} aria-label={t("chat.chooseAttachments")}
+    <input ref={fileInput} type="file" hidden multiple disabled={busy || !!closed || !attachmentProject} aria-label={t("chat.chooseAttachments")}
       onChange={event => {
         const files = Array.from(event.target.files ?? []);
         event.target.value = "";
@@ -322,9 +324,9 @@ export function Composer({ runId, entityVersion, body, onBodyChange, projectId, 
         setFailed(null);
         onAttachmentsChange([...attachments, ...files.map(file => ({ id: crypto.randomUUID(), file }))]);
       }} />
-    <button type="button" className="ui-icon-button" disabled={busy || !attachmentProject} aria-label={t("chat.attachFiles")}
+    <button type="button" className="ui-icon-button" disabled={busy || !!closed || !attachmentProject} aria-label={t("chat.attachFiles")}
       title={t("chat.attachmentLimits")} onClick={() => fileInput.current?.click()}><Paperclip aria-hidden="true" /></button>
-    <textarea rows={1} maxLength={65_536} disabled={busy} aria-label={t("team.chat.message")} value={body} onChange={event => onBodyChange(event.target.value)} />
+    <textarea rows={1} maxLength={65_536} disabled={busy || !!closed} aria-label={t("team.chat.message")} value={body} onChange={event => onBodyChange(event.target.value)} />
     <button className="btn btn-primary" type="submit" disabled={busy || (!body.trim() && !attachments.length) || !ready}>{t("team.chat.send")}</button>
   </form>;
 }

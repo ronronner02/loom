@@ -19,6 +19,8 @@ import { ScopeExtensionError } from "../src/domain/scope-extension.js";
 import { LeadWakePolicy } from "../src/domain/lead-wake-policy.js";
 import { createTestApp } from "./helpers/test-app.js";
 import { leadRosterPath, parseLeadRoster } from "../src/domain/lead-roster.js";
+import { composePendingDispatch, pendingTasks } from "../src/domain/pending-dispatch.js";
+import { saveTeamModelSettings } from "../src/domain/team-model-policy.js";
 
 /**
  * U5 — the owner and the lead agree a plan in a chat, and one approval starts the run.
@@ -231,6 +233,39 @@ describe("U5 — lead chat and plan approval", () => {
       options: null, answeredBy: null, createdAt: expect.any(String) }]);
     expect(pendingOwnerMessages(db, receipt.runId!).map(message => message.body)).toEqual(["Add a health endpoint", "What would you build first?"]);
     expect(leadChatTurnNote(pendingOwnerMessages(db, receipt.runId!))).toContain("Brief public progress updates are shown live");
+  });
+
+  it.each(["pending", "in-progress"])("retries an undelivered replan after startup fails on an idle %s lead", async state => {
+    const { runId } = await planningRun();
+    const task = governance.findTask(runId!, "task-1")!;
+    db.prepare(`INSERT INTO team_attempts (id, run_id, qitem_id, role, provider, identity_json, state,
+      usage_json, active_ms, created_at, updated_at) VALUES ('previous-turn', ?, ?, 'lead', 'claude', ?, 'stopped', ?, 0, ?, ?)`)
+      .run(runId, task.qitemId, JSON.stringify({ nativeSessionId: "previous", tmuxServer: null, paneId: null,
+        processId: process.pid, processStart: "0", generation: 1, policyFingerprint: policy.policyFingerprint }),
+      JSON.stringify({ activeMs: 0, inputTokens: { value: null, reason: "unobserved" },
+        outputTokens: { value: null, reason: "unobserved" }, costUsd: { value: null, reason: "unobserved" } }),
+      "2026-11-04T00:00:00.000Z", "2026-11-04T00:00:00.000Z");
+    takeOwnerMessages(db, runId!, "previous-turn");
+    recordLeadReply(db, { id: "previous-reply", runId: runId!, attemptId: "previous-turn",
+      body: "The plan is ready for approval.", createdAt: "2026-11-04T00:01:00.000Z" });
+    db.prepare("UPDATE queue_items SET state = ? WHERE qitem_id = ?").run(state, task.qitemId);
+    saveTeamModelSettings(db, "rig", { kind: "project", lead: { client: "claude-code", model: "lead-model" },
+      allowedSubagents: [{ client: "claude-code", model: "worker-one" }, { client: "codex", model: "worker-two" }] });
+    expect(pendingTasks(db, runId!)).toEqual([]);
+    // Startup failed before producing an attempt, leaving the saved message undelivered.
+    dispatch.mockClear();
+    const response = await call(`/runs/${runId}/chat`, command(runId!, "replan", { body: "Replan with the added models." }));
+    expect(response.status).toBe(200);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(pendingTasks(db, runId!)).toEqual(["task-1"]);
+    dispatch.mockImplementationOnce(async () => { takeOwnerMessages(db, runId!, "next-turn"); });
+    const sweep = composePendingDispatch({ db, dispatch: () => dispatch, liveSessions: () => 0, maxSessions: () => 2 });
+    await sweep(runId!);
+    expect(dispatch).toHaveBeenCalledTimes(2);
+    expect(pendingOwnerMessages(db, runId!)).toEqual([]);
+    await sweep(runId!);
+    expect(dispatch).toHaveBeenCalledTimes(2);
+    expect(governance.getRun(runId!).phase).toBe("planning");
   });
 
   it("queues a second message while a lead turn is running, and never starts a second turn", async () => {

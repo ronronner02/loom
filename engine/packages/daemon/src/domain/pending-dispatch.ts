@@ -99,6 +99,8 @@ export function pendingTasks(db: Database.Database, runId: string, now = new Dat
   return rows.filter(row => row.openAttempts === 0 && retryIsDue(row.retryNotBefore, now)
     // Never ran, or reopened deliberately and not yet served: both are work nobody is doing.
     && (row.attempts === 0
+      // A failed startup must not strand a new message behind the lead's previous turn.
+      || ownerMessageSlot(db, runId, row.taskId) > 0
       || ((row.lastNote ?? "").startsWith("reopen acknowledged:") && served(row, row.reopenSeq))
       || (/^(?:(?:Daemon|Owner) counted retry of |Lead resolved worker report from )/.test(row.lastNote ?? "") && served(row, row.retrySeq))))
     .map(row => row.taskId);

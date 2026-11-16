@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   candidateManifest, createCandidateWorkspace, readWorkspacePath, resolveWorkspaceBase,
 } from "../src/domain/team-workspace.js";
@@ -37,6 +37,39 @@ const repository = (): string => {
 };
 
 describe.skipIf(process.platform !== "win32")("U1 Windows worker-written-file boundary", () => {
+  it("finishes a manifest when Windows briefly holds its temporary Git directory open", async () => {
+    const root = repository(), signals = temporary("manifest-lock-");
+    const workspace = createCandidateWorkspace({ root, base: resolveWorkspaceBase(root),
+      workspaceRoot: temporary("manifest-candidate-"), label: "cleanup-lock" });
+    writeFileSync(join(workspace.root, "plan.md"), "# Revised plan\n");
+    let holder: ChildProcess | undefined, exited = Promise.resolve(), scratch = "";
+    workspace.checkScope = ({ root: snapshot }) => {
+      scratch = dirname(snapshot);
+      const ready = join(signals, "ready");
+      // A Windows process holds its current directory against deletion until it exits.
+      holder = spawn(process.execPath, ["-e",
+        "require('node:fs').writeFileSync(process.argv[1], 'ready'); setTimeout(() => {}, 200)", ready],
+        { cwd: join(scratch, "patch.git"), stdio: "ignore", windowsHide: true });
+      exited = new Promise<void>((resolve, reject) => { holder!.once("exit", () => resolve()); holder!.once("error", reject); });
+      const deadline = Date.now() + 5_000;
+      while (!existsSync(ready)) {
+        if (Date.now() > deadline) throw new Error("The temporary-directory lock holder did not start");
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+      }
+      return { chainHead: "fixture", scopeDigest: "fixture", extensions: [] };
+    };
+    try {
+      const manifest = candidateManifest(workspace);
+      expect(manifest.patch).toContain("# Revised plan");
+      expect(manifest.files.map(file => file.path)).toEqual(["plan.md", "src/base.ts"]);
+      expect(existsSync(scratch)).toBe(false);
+      expect(existsSync(join(workspace.root, "plan.md"))).toBe(true);
+    } finally {
+      holder?.kill(); await exited;
+      if (scratch) rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
   it("reads a workspace path by name on Windows", () => {
     const root = repository();
     expect(readWorkspacePath(root, "src/base.ts", () => false)).toMatchObject({ kind: "file", content: "export const base = 1;\n" });

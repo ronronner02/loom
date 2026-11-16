@@ -1059,7 +1059,7 @@ function commitLaneManifest(workspace: CandidateWorkspace & { base: { kind: "com
         after: stored.get(staged.get(path)?.objectId ?? "") ?? null })) });
     return { files, patch: rendered.toString("utf8"), cleanedPaths: cleanedPaths.sort(), ...(scope ? { scope } : {}) };
   } finally {
-    rmSync(scratch, { recursive: true, force: true });
+    rmSync(scratch, { recursive: true, force: true, maxRetries: 3 });
   }
 }
 
