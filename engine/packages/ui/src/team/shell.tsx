@@ -42,6 +42,7 @@ import { ChatPanel, Composer, LeadConversation, pendingOwnerDecisions, pendingWo
 import { CommandPalette } from "./command-palette.js";
 import { FlowView } from "./flow/FlowView.js";
 import { adaptTeamEvents, mapTeamSeat } from "./flow/team-flow-adapter.js";
+import { PomoAvatar, resolvePomoAvatarState, type PomoAvatarState } from "./pomo-avatar.js";
 import "./fonts.js";
 import "./team.css";
 
@@ -125,11 +126,11 @@ export function Pairing() {
 
 /** Muse-style slim left icon rail + centered main column + on-demand right context panel. */
 export function ShellFrame({ language, section, appearance, project, projectPicker, runName, runPicker, coordinator,
-  connection, branch, notifications, canChat, contextOpen = false, onToggleContext, onOpenSettings,
+  connection, branch, notifications, canChat, avatarState, contextOpen = false, onToggleContext, onOpenSettings,
   onLanguage, hrefFor, onSelect, onOpenChat, onSearch, onCreateProject, action, contextPanel, children }: {
   language: InterfaceI18n; section: TeamDestination; appearance: ReturnType<typeof useThemePreference>;
   project: string; projectPicker?: ReactNode; runName: string; runPicker?: ReactNode; coordinator: MessageKey;
-  connection: MessageKey; branch: string; notifications: number; canChat: boolean;
+  connection: MessageKey; branch: string; notifications: number; canChat: boolean; avatarState?: PomoAvatarState;
   contextOpen?: boolean; onToggleContext?: () => void; onOpenSettings?: () => void;
   onLanguage: (next: "zh-CN" | "en") => void; hrefFor: (section: TeamSection) => string;
   onSelect: (section: TeamSection) => void; onOpenChat: (opener: HTMLButtonElement) => void;
@@ -139,6 +140,7 @@ export function ShellFrame({ language, section, appearance, project, projectPick
   const { t } = useTranslation();
   const [navigationOpen, setNavigationOpen] = useState(false);
   const navigationTrigger = useRef<HTMLButtonElement>(null);
+  const resolvedAvatarState = avatarState ?? resolvePomoAvatarState(coordinator, { hasPendingOwner: notifications > 0 });
   useEffect(() => {
     const jump = (event: KeyboardEvent) => {
       if (canChat && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
@@ -243,7 +245,9 @@ export function ShellFrame({ language, section, appearance, project, projectPick
               aria-label={t("shell.contextPanel")}
               onClick={() => onToggleContext?.()}
             >
-              <span className="ui-agent-avatar" aria-hidden="true">L</span>
+              <span className="ui-agent-avatar" aria-hidden="true">
+                <PomoAvatar state={resolvedAvatarState} />
+              </span>
               <span>{t("shell.coordinator")}</span>
               <span className="ui-dot" data-state={["shell.active", "status.attempt.working", "status.attempt.started"].includes(coordinator) ? "ok" : "unknown"} aria-hidden="true" />
             </button>
@@ -464,11 +468,18 @@ function ProjectShell({ language, onLanguage, appearance }: {
   const pendingDecisions = paired ? pendingOwnerDecisions(read, chat.data) : [];
   const pendingQuestions = paired ? pendingWorkerQuestions(read) : [];
   const activeSeats = read?.seats.filter(seat => !seat.retired) ?? [];
+  const pomoState = resolvePomoAvatarState(coordinator, {
+    hasPendingOwner: pendingDecisions.length + pendingQuestions.length > 0,
+    isMessaging: !!chat.data?.liveTurn?.progress?.sequence,
+    isMilestone: !!read && read.tasks.length > 0 && read.tasks.every(t => t.stage === "done"),
+  });
 
   const contextPanel = <>
     <div className="ui-context-head">
       <div className="ui-context-identity">
-        <span className="ui-context-avatar" aria-hidden="true">L</span>
+        <span className="ui-context-avatar" aria-hidden="true">
+          <PomoAvatar state={pomoState} />
+        </span>
         <div>
           <strong>{t("shell.coordinator")}</strong>
           <div className="ui-status" style={{ fontSize: 12, color: "var(--ui-muted)", marginTop: 2 }}>
@@ -609,6 +620,7 @@ function ProjectShell({ language, onLanguage, appearance }: {
     branch={readableBranch(integration.data?.branch ?? "")}
     notifications={pendingDecisions.length + pendingQuestions.length}
     canChat={paired && (!!runId || !!team?.seats.some(seat => seat.role === "lead"))}
+    avatarState={pomoState}
     contextOpen={contextOpen}
     onToggleContext={() => setContextOpen(open => !open)}
     onOpenSettings={() => setSettingsOpen(true)}
