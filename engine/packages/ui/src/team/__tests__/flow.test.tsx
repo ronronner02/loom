@@ -258,11 +258,33 @@ describe("FlowRenderer", () => {
 });
 
 describe("vendor avatars", () => {
-  it("maps seat names and states to transparent vendor avatar state assets", () => {
-    expect(resolveVendorForNode({ id: "lead@rig", label: "Lead · Claude", role: "lead" })).toBe("claude");
-    expect(resolveVendorForNode({ id: "impl@rig", label: "Implementer · Codex", role: "implementer" })).toBe("chatgpt");
-    expect(resolveVendorForNode({ id: "rev@rig", label: "Reviewer · Gemini", role: "reviewer" })).toBe("gemini");
-    expect(resolveVendorForNode({ id: "ds@rig", label: "DeepSeek", role: "implementer" })).toBe("deepseek");
+  it.each([
+    ["ds", "deepseek"], ["ds/claude", "deepseek"], ["deepseek/deepseek-v3.2", "deepseek"],
+    ["grok-4", "grok"], ["xai/grok-code-fast-1", "grok"], ["grok/claude", "grok"],
+    ["qwen3-coder", "qwen"], ["qwen/qwen3-coder", "qwen"], ["qwen/codex", "qwen"],
+    ["claude-sonnet-4-5", "claude"], ["opus", "claude"], ["gpt-5-codex", "chatgpt"],
+    ["gemini-2.5-pro", "gemini"], ["kimi-k2", "kimi"],
+  ])("uses the model %s for the %s character independently of the client", (model, expected) => {
+    for (const client of ["claude-code", "codex"]) {
+      const node = { id: `${client}@rig`, label: `Implementer · ${client}`, role: "implementer" as const, client, model };
+      expect(resolveVendorForNode(node)).toBe(expected);
+    }
+  });
+
+  it.each(["lead", "reviewer", "integration", "owner", "worker"] as const)("does not invent a vendor for a %s with no known model", role => {
+    for (const model of [undefined, null, "", "custom-private-model"]) {
+      const node = { id: "claude@rig", label: "Codex", role, model };
+      expect(resolveVendorForNode(node)).toBeNull();
+    }
+  });
+
+  it("uses existing neutral assets when model identity is unknown", () => {
+    for (const state of ["master", "working", "waiting", "messaging", "milestone"] as const) {
+      expect(getVendorAvatarUrl(null, state)).toBe(`/avatars/pomo/${state}.png`);
+    }
+  });
+
+  it("maps activity states to transparent avatar state assets", () => {
     expect(resolveAvatarState("working", false)).toBe("working");
     expect(resolveAvatarState("waiting", false)).toBe("waiting");
     expect(resolveAvatarState("complete", false)).toBe("milestone");

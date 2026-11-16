@@ -3,9 +3,9 @@ import type { FlowEvent, FlowSeat } from "./flow-events.js";
 const BASE_TIME = Date.parse("2026-11-10T00:00:00.000Z");
 
 export const FLOW_FIXTURE_SEATS: readonly FlowSeat[] = [
-  { id: "lead", label: "Lead", role: "lead" },
-  { id: "worker-1", label: "Worker 1", role: "implementer" },
-  { id: "reviewer", label: "Reviewer", role: "reviewer" },
+  { id: "lead", label: "Lead", role: "lead", model: "claude-sonnet-4" },
+  { id: "worker-1", label: "Worker 1", role: "implementer", model: "gpt-5-codex" },
+  { id: "reviewer", label: "Reviewer", role: "reviewer", model: "gemini-2.5-pro" },
 ];
 
 function event(action: string, offset: number, overrides: Partial<FlowEvent> = {}, payload: Record<string, unknown> = {}): FlowEvent {

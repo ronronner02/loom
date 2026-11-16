@@ -1,4 +1,4 @@
-import type { TeamAttemptView, TeamReplayEvent, TeamSeatView } from "@multi-agent/daemon/team-control";
+import type { TeamAttemptView, TeamModelSettings, TeamReplayEvent, TeamSeatView } from "@multi-agent/daemon/team-control";
 import type { FlowEvent, FlowNodeState, FlowRole, FlowSeat } from "./flow-events.js";
 
 function bodyPayload(body: string): Record<string, unknown> {
@@ -37,8 +37,38 @@ export function adaptTeamEvents(events: readonly TeamReplayEvent[], fallbackRunI
   return events.map(event => adaptTeamReplayEvent(event, fallbackRunId));
 }
 
-export function mapTeamSeat(seat: TeamSeatView): FlowSeat {
-  return { id: seat.seat, label: seat.displayName, role: seat.role as FlowRole };
+/** Configured seats are capacity, not dispatches. Only the lead stays between attempts. */
+export function mapTeamSeats(seats: readonly TeamSeatView[], attempts: readonly TeamAttemptView[], settings?: TeamModelSettings,
+  observedModels?: ReadonlyMap<string, string>): FlowSeat[] {
+  const latest = new Map<string, TeamAttemptView>();
+  for (const attempt of attempts) latest.set(attempt.role === "lead" ? "lead" : attempt.session ?? attempt.attemptId, attempt);
+  const launchFor = (attempt: TeamAttemptView | undefined) => attempt && settings?.launches.find(launch =>
+    launch.attemptId === attempt.attemptId && launch.runId === attempt.runId);
+  const namedLead = seats.find(seat => seat.role === "lead" && !seat.retired);
+  const leadAttempt = latest.get("lead"), leadLaunch = launchFor(leadAttempt);
+  const matchesLeadConfig = leadLaunch?.client === settings?.lead.client && leadLaunch?.requestedModel === settings?.lead.model;
+  const currentLeadLaunch = leadAttempt?.state !== "stopped" || matchesLeadConfig ? leadLaunch : undefined;
+  const observedLead = leadAttempt && leadAttempt.state !== "stopped" ? observedModels?.get(leadAttempt.attemptId) : undefined;
+  const members: FlowSeat[] = [{
+    id: "lead", role: "lead", label: "Lead",
+    client: currentLeadLaunch?.client ?? settings?.lead.client ?? namedLead?.client,
+    model: observedLead ?? currentLeadLaunch?.observedModel ?? currentLeadLaunch?.requestedModel ?? settings?.lead.model ?? null,
+    aliases: [...seats.filter(seat => seat.role === "lead").map(seat => seat.seat),
+      ...attempts.filter(attempt => attempt.role === "lead").flatMap(attempt =>
+        [attempt.attemptId, ...(attempt.taskId ? [attempt.taskId] : []), ...(attempt.session ? [attempt.session] : [])])],
+  }];
+  for (const [id, attempt] of latest) {
+    if (attempt.role === "lead" || attempt.state === "stopped") continue;
+    const seat = seats.find(seat => seat.seat === attempt.session);
+    const launch = launchFor(attempt);
+    members.push({
+      id, role: attempt.role as FlowRole, label: seat?.displayName ?? `${attempt.role[0]!.toUpperCase()}${attempt.role.slice(1)} ${members.length}`,
+      client: launch?.client ?? (attempt.provider === "claude" ? "claude-code" : attempt.provider),
+      model: observedModels?.get(attempt.attemptId) ?? launch?.observedModel ?? launch?.requestedModel ?? null,
+      aliases: [attempt.attemptId, ...(attempt.taskId ? [attempt.taskId] : [])],
+    });
+  }
+  return members;
 }
 
 export function mapTeamAttemptStates(attempts: readonly TeamAttemptView[], seats: readonly TeamSeatView[] = []): Map<string, FlowNodeState> {

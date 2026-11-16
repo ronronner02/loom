@@ -2,6 +2,7 @@ import React from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
+import type { TeamModelSettings } from "@multi-agent/daemon/team-control";
 import { routeTree } from "../../routes.js";
 import { queryClient } from "../../lib/query-client.js";
 import { attempt, health, read, RUN_ID, task } from "./fixtures.js";
@@ -15,12 +16,15 @@ let mobile = false;
 let signedIn = true;
 let accountFailure = false;
 let replayEvents: object[] = [];
+let flowSettings: TeamModelSettings | undefined;
+let observedFlowModel: string | null = null;
 const data = read({ tasks: [task({ queueState: "pending", stage: "queued" }), task({ taskId: "task-2", displayName: "Filter chips", queueState: "pending", stage: "queued" })] });
 const unexpected: string[] = [];
 const originalScroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
-  extraRun = false; mobile = false; signedIn = true; accountFailure = false; replayEvents = []; unexpected.length = 0;
+  extraRun = false; mobile = false; signedIn = true; accountFailure = false; replayEvents = []; flowSettings = undefined; unexpected.length = 0;
+  observedFlowModel = null;
   vi.stubGlobal("IntersectionObserver", class { observe() {} disconnect() {} });
   localStorage.clear(); sessionStorage.clear(); queryClient.clear();
   localStorage.setItem("multi-agent.interfaceLanguage", "en");
@@ -53,10 +57,16 @@ beforeEach(() => {
         seats: [{ nodeId: "fresh-lead", role: "lead", soulId: "coordinator", member: "lead@fresh-project" }],
       });
     }
-    if (/\/teams\/[^/]+\/settings$/.test(path)) return response({ settings: { teamId: "fresh-project", kind: "project", configured: false,
+    if (/\/teams\/[^/]+\/settings$/.test(path)) return response({ settings: flowSettings ?? { teamId: "fresh-project", kind: "project", configured: false,
       lead: { client: "codex", model: null }, allowedSubagents: null, launches: [] } });
     if (path.endsWith("/settings")) return response({ settings: { "team.leadClient": { value: "claude-code", source: "default" } } });
     if (path.endsWith("/analytics")) return response({ analytics: null });
+    if (/\/attempts\/[^/]+\/activity$/.test(path)) return response({ activity: {
+      attemptId: attempt().attemptId, state: "running", source: "live", records: [], nextSeq: 0, activityStatus: "unavailable",
+      startedAt: data.generatedAt, stoppedAt: null, activeMs: 0, outcome: "unknown",
+      usage: { model: observedFlowModel, status: observedFlowModel ? "partial" : "unavailable", reason: null,
+        inputTokens: null, outputTokens: null, cacheReadInputTokens: null, cacheWriteInputTokens: null, reasoningOutputTokens: null },
+    } });
     if (path === "/api/team-control/teams") return response({ teams: [
       { id: data.run.rigId, name: "Status board", repository: "/fixture", seats: [] },
       { id: "fresh-project", name: "Fresh project", repository: "/fixture/fresh", seats: [{ role: "lead", client: "codex" }] },
@@ -162,7 +172,8 @@ describe("command-center router integration", () => {
     fireEvent.click(screen.getByRole("button", { name: "Flow" }));
     expect(await screen.findByRole("heading", { name: "Flow" })).toBeTruthy();
     expect(await screen.findByText(/Task assigned/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Implementer/ })).toBeTruthy();
+    expect(within(screen.getByRole("list", { name: "Team seats" })).getAllByRole("button")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /^Implementer/ })).toBeNull();
   });
 
   it("publishes the restored Overview summary through the real route", async () => {
@@ -171,7 +182,7 @@ describe("command-center router integration", () => {
     expect(within(screen.getByRole("region", { name: "System status" })).getAllByText("Unknown")).toHaveLength(6);
   });
 
-  it("uses current attempts rather than replay history for Flow working states", async () => {
+  it("shows workers only while dispatched and preserves history after they stop", async () => {
     replayEvents = [{
       seq: 2, createdAt: "2026-11-14 10:00:00", type: "team.control", action: "worker.tool.started",
       runId: RUN_ID, taskId: "task-1", attemptId: "attempt-1",
@@ -179,13 +190,42 @@ describe("command-center router integration", () => {
     }];
     await openShell();
     fireEvent.click(screen.getByRole("button", { name: "Flow" }));
+    expect(screen.queryByRole("button", { name: /^Implementer/ })).toBeNull();
+    act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: [attempt({ state: "running" })] }); });
     const worker = await screen.findByRole("button", { name: /^Implementer/ });
-    expect(worker.getAttribute("data-state")).toBe("idle");
-    for (const [state, expected] of [["running", "working"], ["stopped", "idle"]] as const) {
-      act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: [attempt({ state })] }); });
-      await waitFor(() => expect(worker.getAttribute("data-state")).toBe(expected));
-    }
-    expect(worker.getAttribute("data-avatar-state")).toBe("master");
+    expect(worker.getAttribute("data-state")).toBe("working");
+    expect(worker.getAttribute("data-vendor")).toBe("unknown");
+    act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: [attempt({ state: "stopped" })] }); });
+    await waitFor(() => expect(screen.queryByRole("button", { name: /^Implementer/ })).toBeNull());
+    expect(within(screen.getByRole("list", { name: "Team seats" })).getAllByRole("button")).toHaveLength(1);
+    expect(within(screen.getByLabelText("Flow event list")).getByText(/Tool activity/)).toBeTruthy();
+  });
+
+  it("renders actual models from the settings endpoint without making the allowlist a permanent cast", async () => {
+    flowSettings = {
+      teamId: data.run.rigId, kind: "project", configured: true,
+      lead: { client: "claude-code", model: "ds/claude" },
+      allowedSubagents: [{ client: "codex", model: "grok-4" }, { client: "claude-code", model: "qwen3-coder" }],
+      launches: [{ attemptId: attempt().attemptId, runId: RUN_ID, client: "codex", role: "implementer",
+        requestedModel: "grok-4", observedModel: null, state: "running", createdAt: data.generatedAt }],
+    };
+    observedFlowModel = "qwen3-coder";
+    replayEvents = [{ seq: 2, createdAt: data.generatedAt, type: "team.control", action: "worker.tool.started",
+      runId: RUN_ID, taskId: "task-1", attemptId: attempt().attemptId, body: '{}', truncated: false }];
+    await openShell();
+    fireEvent.click(screen.getByRole("button", { name: "Flow" }));
+    const members = within(screen.getByRole("list", { name: "Team seats" }));
+    const lead = members.getByRole("button", { name: /^Lead/ });
+    await waitFor(() => expect(lead.getAttribute("data-vendor")).toBe("deepseek"));
+    expect(lead.getAttribute("title")).toBe("ds/claude / claude-code");
+    expect(members.getAllByRole("button")).toHaveLength(1);
+    act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: [attempt({ state: "running", provider: "codex" })] }); });
+    const worker = await members.findByRole("button", { name: /^Implementer/ });
+    await waitFor(() => expect(worker.getAttribute("data-vendor")).toBe("qwen"));
+    expect(worker.querySelector("img")?.getAttribute("src")).toBe("/avatars/vendors/qwen_working.png");
+    expect(worker.getAttribute("title")).toBe("qwen3-coder / codex");
+    expect(members.getAllByRole("button")).toHaveLength(2);
+    expect(screen.getByLabelText("Flow event list").textContent).not.toContain(attempt().attemptId);
   });
 
   it("keeps a project selected across destinations before its first run", async () => {

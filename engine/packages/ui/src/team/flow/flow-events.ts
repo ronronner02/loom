@@ -51,12 +51,17 @@ export interface FlowSeat {
   id: string;
   label?: string;
   role?: FlowRole;
+  client?: string;
+  model?: string | null;
+  aliases?: readonly string[];
 }
 
 export interface FlowNode {
   id: string;
   label: string;
   role: FlowRole;
+  client?: string;
+  model?: string | null;
   state: FlowNodeState;
   activityCount: number;
   lastEventAt: number;
@@ -85,6 +90,7 @@ export interface FlowMappingOptions {
   maxParticles?: number;
   /** Used only when an input event has no timestamp. */
   now?: number;
+  /** When supplied, only these members (and the lead) become characters. */
   seats?: readonly FlowSeat[];
   /** Current attempt states override replay history; absent nodes are idle. */
   nodeStates?: ReadonlyMap<string, FlowNodeState>;
@@ -316,8 +322,12 @@ export function mapTeamEvents(events: readonly FlowEvent[], options: FlowMapping
   }
 
   const nodes = new Map<string, FlowNode>();
+  const aliases = new Map<string, string>();
   for (const seat of options.seats ?? []) {
-    nodes.set(seat.id, { id: seat.id, label: seat.label ?? seat.id, role: seat.role ?? roleFor(seat.id), state: "idle", activityCount: 0, lastEventAt: 0 });
+    const id = seat.role === "lead" ? LEAD_ID : seat.id;
+    for (const alias of [seat.id, ...(seat.aliases ?? [])]) aliases.set(alias, id);
+    nodes.set(id, { id, label: seat.label ?? id, role: seat.role ?? roleFor(id),
+      client: seat.client, model: seat.model, state: "idle", activityCount: 0, lastEventAt: 0 });
   }
   nodes.set(LEAD_ID, nodes.get(LEAD_ID) ?? { id: LEAD_ID, label: "Lead", role: "lead", state: "idle", activityCount: 0, lastEventAt: 0 });
 
@@ -329,18 +339,18 @@ export function mapTeamEvents(events: readonly FlowEvent[], options: FlowMapping
   for (const { event, index, time } of unique.values()) {
     materializedEvents.push(event);
     const intent = intentFor(event, index, time);
-    if (intent) rawIntents.push(intent);
+    if (intent) {
+      intent.sourceId = aliases.get(intent.sourceId) ?? intent.sourceId;
+      if (intent.targetId) intent.targetId = aliases.get(intent.targetId) ?? intent.targetId;
+      if (intent.nodeId) intent.nodeId = aliases.get(intent.nodeId) ?? intent.nodeId;
+      rawIntents.push(intent);
+    }
     if (event.action === "attempt.started" && event.attemptId) started.set(event.attemptId, intent ?? stateIntent(event, time, sourceAndTarget(event, "started").sourceId, "started", "Attempt started"));
     if (event.action === "attempt.acknowledged" && event.attemptId) acknowledged.add(event.attemptId);
     if (intent) {
-      const route = sourceAndTarget(event, intent.kind);
-      ensureNode(nodes, route.sourceId, event, time, intent.state ?? (intent.kind === "activity" ? "working" : undefined));
-      if (route.targetId) ensureNode(nodes, route.targetId, event, time);
-      if (intent.kind === "activity" && intent.nodeId) ensureNode(nodes, intent.nodeId, event, time, "working");
+      if (!options.seats || nodes.has(intent.sourceId)) ensureNode(nodes, intent.sourceId, event, time, intent.state);
+      if (intent.targetId && (!options.seats || nodes.has(intent.targetId))) ensureNode(nodes, intent.targetId, event, time);
     }
-    if (intent?.kind === "started" && intent.nodeId) ensureNode(nodes, intent.nodeId, event, time, "started");
-    if (intent?.kind === "acknowledgment" && intent.nodeId) ensureNode(nodes, intent.nodeId, event, time, "acknowledged");
-    if (intent?.kind === "delivery" && intent.nodeId) ensureNode(nodes, intent.nodeId, event, time, intent.state);
   }
 
   for (const [attemptId, intent] of started) {
@@ -364,9 +374,6 @@ export function mapTeamEvents(events: readonly FlowEvent[], options: FlowMapping
   const staticIntents = coalesced.filter(intent => intent.kind === "static");
   const particles = coalesced.filter(intent => intent.kind !== "static").slice(-maxParticles);
   const intents = [...staticIntents, ...particles];
-  for (const event of options.seats ?? []) {
-    if (!nodes.has(event.id)) nodes.set(event.id, { id: event.id, label: event.label ?? event.id, role: event.role ?? roleFor(event.id), state: "idle", activityCount: 0, lastEventAt: 0 });
-  }
   if (options.nodeStates) {
     for (const node of nodes.values()) {
       node.state = options.nodeStates.get(node.id) ?? "idle";
