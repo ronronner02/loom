@@ -5,11 +5,13 @@ import { FRAMEWORK_CATALOG, FRAMEWORK_PIN, frameworkEntry } from "../src/integra
 describe("pinned framework catalog", () => {
   it("accounts for exactly the upstream entrypoints at the approved revision", () => {
     const names = FRAMEWORK_CATALOG.map(entry => entry.name).sort();
-    expect(FRAMEWORK_PIN.revision).toBe("74655dc86b1270bb52239e0f8bc9517de7a7071c");
-    expect(names).toHaveLength(38);
-    expect(new Set(names).size).toBe(38);
+    expect(FRAMEWORK_PIN.repository).toBe("ronronner02/spec-first");
+    expect(FRAMEWORK_PIN.revision).toBe("8e480ce7921f7a05c6d480e2204d57176554168c");
+    expect(names).toHaveLength(39);
+    expect(new Set(names).size).toBe(39);
     expect(createHash("sha256").update(names.join("\n")).digest("hex"))
-      .toBe("56a8997eaf50bf658f444cf254c850e788afb9f92d5cda55e8af21092d8f66f5");
+      .toBe("9ab39c32023f5dcbe981273341b1d74f9ee90e1bce2cb52d238f3e657b569ef2");
+    expect(frameworkEntry("spec-diagnose")).toMatchObject({ status: "gated", invocation: "user" });
   });
   it("classifies every entry and exposes a prerequisite for gated or deferred capabilities", () => {
     for (const entry of FRAMEWORK_CATALOG) {

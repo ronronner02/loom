@@ -15,7 +15,7 @@ export function parseWorkflowSelection(value: unknown): WorkflowSelection {
     || input.readOnly !== undefined && typeof input.readOnly !== "boolean"
     || input.ownerMessageId !== undefined && (typeof input.ownerMessageId !== "string" || !input.ownerMessageId
       || input.ownerMessageId.length > 256 || /[\u0000-\u0020\u007f]/.test(input.ownerMessageId))) throw new TeamContractError("workflow");
-  return { entrypoint: entry.name, readOnly: input.readOnly === true || entry.name === "spec-code-review",
+  return { entrypoint: entry.name, readOnly: input.readOnly === true || entry.name === "spec-code-review" || entry.name === "spec-diagnose",
     ...(input.input === undefined ? {} : { input: input.input as string }),
     ...(input.ownerMessageId === undefined ? {} : { ownerMessageId: input.ownerMessageId as string }) };
 }

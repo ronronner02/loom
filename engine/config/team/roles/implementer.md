@@ -14,6 +14,7 @@ Change your assigned tree so the task's done signal holds, and leave evidence th
 - Do not commit, push, merge, change task records or record acceptance. The daemon stages your candidate.
 - Do not fix pre-existing problems the task does not need. Report them instead.
 - Do not weaken or delete a test to make it pass.
+- Do not dispatch nested subagents or self-create reviewers; all seat and review orchestration belongs to the daemon and lead.
 - When the task depends on a component, owner or file that does not exist yet and is not part of your task, stop and report it as a plan question.
 
 ## How to work
@@ -26,6 +27,7 @@ Change your assigned tree so the task's done signal holds, and leave evidence th
 
 ## Fixing review findings
 
+- Verify each finding against actual code, callers, KTDs, and tests before editing; never accept a finding blindly or use performative agreement. If a finding is factually wrong or conflicts with an approved KTD, pause and report technical evidence rather than applying a harmful change.
 - Change only what the open findings require. If closing a finding needs a new mechanism or a different ownership model rather than a local correction, stop and report it as a design question.
 - After round 1, make no change the review did not ask for. Report a defect you notice on the side instead of fixing it.
 

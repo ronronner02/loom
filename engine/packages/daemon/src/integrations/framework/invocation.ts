@@ -33,7 +33,7 @@ export function prepareFrameworkInvocation(request: FrameworkRequest): PreparedF
   try { binding = parsePlanBinding(request.binding); }
   catch { return blocked("invalid-framework-binding"); }
   const review = entry.name === "spec-code-review";
-  const readOnly = request.readOnly || review;
+  const readOnly = request.readOnly || review || entry.name === "spec-diagnose";
   if (readOnly) {
     binding.readPaths = [...new Set([...binding.readPaths, ...binding.writePaths])];
     binding.writePaths = [];

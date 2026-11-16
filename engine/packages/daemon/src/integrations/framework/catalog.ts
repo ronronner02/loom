@@ -1,6 +1,6 @@
 export const FRAMEWORK_PIN = Object.freeze({
-  repository: "leo-kuang-ai/spec-first",
-  revision: "74655dc86b1270bb52239e0f8bc9517de7a7071c",
+  repository: "ronronner02/spec-first",
+  revision: "8e480ce7921f7a05c6d480e2204d57176554168c",
 });
 
 const entries = [
@@ -13,6 +13,7 @@ const entries = [
   ["spec-compound-refresh", "gated", "user", "An explicit bounded knowledge refresh request"],
   ["spec-compound", "gated", "user", "Requested knowledge capture with verified source evidence"],
   ["spec-debug", "supported", "workflow", ""],
+  ["spec-diagnose", "gated", "user", "A scoped retrospective session/run problem statement (read-only)"],
   ["spec-doc-review", "supported", "workflow", ""],
   ["spec-dogfood", "gated", "workflow", "Browser capability and an exact authorized origin"],
   ["spec-explain", "gated", "user", "An explicit teaching request"],

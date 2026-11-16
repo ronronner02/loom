@@ -14,14 +14,15 @@ export function WorkflowPicker({ value, onChange, disabled }: {
       return result;
     } });
   const selected = catalog.data?.workflows.find(entry => entry.name === value?.entrypoint);
+  const lockedReadOnly = (name?: string) => name === "spec-code-review" || name === "spec-diagnose";
   return <div className="ui-workflow-picker">
     <label className="field">{t("workflows.select")}<select className="input" value={value?.entrypoint ?? ""} disabled={disabled || !catalog.data}
-      onChange={event => onChange(event.target.value ? { entrypoint: event.target.value as WorkflowSelection["entrypoint"], readOnly: event.target.value === "spec-code-review" } : undefined)}>
+      onChange={event => onChange(event.target.value ? { entrypoint: event.target.value as WorkflowSelection["entrypoint"], readOnly: lockedReadOnly(event.target.value) } : undefined)}>
       <option value="">{t("workflows.automatic")}</option>
       {catalog.data?.workflows.map(entry => <option key={entry.name} value={entry.name} disabled={entry.invocation === "caller"}>
         {entry.name}{entry.invocation === "caller" ? ` · ${t("workflows.callerOnly")}` : ""}</option>)}
     </select></label>
-    {value && <label className="ui-motion-toggle"><input type="checkbox" checked={value.readOnly} disabled={disabled || selected?.name === "spec-code-review"}
+    {value && <label className="ui-motion-toggle"><input type="checkbox" checked={value.readOnly} disabled={disabled || lockedReadOnly(selected?.name)}
       onChange={event => onChange({ ...value, readOnly: event.target.checked })} />{t("workflows.readOnly")}</label>}
     {selected?.prerequisite && <details className="muted"><summary>{t("workflows.prerequisite")}</summary><p>{selected.prerequisite}</p></details>}
     {catalog.isError && <button type="button" className="btn btn-outline" onClick={() => void catalog.refetch()}>{t("workflows.retryCatalog")}</button>}
