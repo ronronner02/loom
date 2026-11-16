@@ -25,6 +25,7 @@ import { useIntegration, useRuns, useTeamChat, useTeams, type TeamSummary } from
 import { DocumentsScreen } from "./documents.js";
 import { InboxScreen } from "./inbox.js";
 import { ProjectHome } from "./project-home.js";
+import { ProjectFiles } from "./project-files.js";
 import { CreateProject, ProjectsScreen } from "./create-project.js";
 import { Overview } from "./overview.js";
 import { TasksScreen } from "./tasks.js";
@@ -37,7 +38,7 @@ import { isFinished, namedSeat, readableBranch, taskName } from "./display.js";
 import { isRunActive } from "./clients.js";
 import { TEAM_THEME_PREFERENCES, useThemePreference } from "./theme.js";
 import { EntryFrame, GithubGate } from "./github-gate.js";
-import { ChatPanel, Composer, LeadConversation, pendingOwnerDecisions, pendingWorkerQuestions } from "./chat-panel.js";
+import { ChatPanel, Composer, LeadConversation, pendingOwnerDecisions, pendingWorkerQuestions, type PendingAttachment } from "./chat-panel.js";
 import { CommandPalette } from "./command-palette.js";
 import { FlowView } from "./flow/FlowView.js";
 import { adaptTeamEvents, mapTeamSeat } from "./flow/team-flow-adapter.js";
@@ -332,6 +333,7 @@ function ChatMainScreen({ read, runId, chat, connectionError, project, onStarted
 }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState("");
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const examples = [
     t("chat.examplePlan"),
     t("chat.exampleFix"),
@@ -351,7 +353,7 @@ function ChatMainScreen({ read, runId, chat, connectionError, project, onStarted
           ))}
         </div>
       </div>
-      <Composer runId="" entityVersion={0} body={draft} onBodyChange={setDraft} projectId={project.id} onStarted={onStarted} />
+      <Composer runId="" entityVersion={0} body={draft} onBodyChange={setDraft} projectId={project.id} attachments={attachments} onAttachmentsChange={setAttachments} onStarted={onStarted} />
     </div>;
   }
 
@@ -363,6 +365,8 @@ function ChatMainScreen({ read, runId, chat, connectionError, project, onStarted
       connectionError={connectionError}
       draft={draft}
       onDraftChange={setDraft}
+      attachments={attachments}
+      onAttachmentsChange={setAttachments}
       onChanged={onChanged}
       welcome={chat?.available && chat.messages.length === 0 && !chat.liveTurn ? (
         <div className="ui-chat-welcome">
@@ -412,7 +416,7 @@ function ProjectShell({ language, onLanguage, appearance }: {
   const [chatOpen, setChatOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(() => rawSection === "settings");
-  const [workspaceTab, setWorkspaceTab] = useState<"work" | "inbox" | "reviews">(() =>
+  const [workspaceTab, setWorkspaceTab] = useState<"files" | "work" | "inbox" | "reviews">(() =>
     rawSection === "reviews" ? "reviews" : rawSection === "inbox" ? "inbox" : "work");
   const [overviewTab, setOverviewTab] = useState<"summary" | "flow" | "analytics">(() =>
     rawSection === "analytics" ? "analytics" : rawSection === "flow" ? "flow" : "summary");
@@ -543,7 +547,7 @@ function ProjectShell({ language, onLanguage, appearance }: {
       />;
     }
   }
-  else if (!runId) content = team ? <ProjectHome team={team} runs={currentRuns} section={section}
+  else if (!runId && section !== "workspace") content = team ? <ProjectHome team={team} runs={currentRuns} section={section}
     onOpenRun={(id, destination) => {
       if (destination === "reviews") { setWorkspaceTab("reviews"); go("workspace", { run: id, task: undefined }); }
       else go(destination, { run: id, task: undefined });
@@ -559,11 +563,14 @@ function ProjectShell({ language, onLanguage, appearance }: {
     onOpenReviews={task => { setWorkspaceTab("reviews"); go("workspace", { task }); }} onNewTask={() => { if (selectedTeamId) setNewWorkFor(selectedTeamId); }} />;
   else if (section === "workspace") content = <div className="ui-screen">
     <div className="ui-subtabs" role="group" aria-label={t("nav.workspace")}>
-      <button type="button" aria-pressed={workspaceTab === "work"} onClick={() => setWorkspaceTab("work")}>{t("workspace.tabWork")}</button>
-      <button type="button" aria-pressed={workspaceTab === "inbox"} onClick={() => setWorkspaceTab("inbox")}>{t("workspace.tabInbox")}</button>
-      <button type="button" aria-pressed={workspaceTab === "reviews"} onClick={() => setWorkspaceTab("reviews")}>{t("workspace.tabReviews")}</button>
+      <button type="button" aria-pressed={!runId || workspaceTab === "files"} onClick={() => setWorkspaceTab("files")}>{t("files.title")}</button>
+      <button type="button" disabled={!runId} aria-pressed={!!runId && workspaceTab === "work"} onClick={() => setWorkspaceTab("work")}>{t("workspace.tabWork")}</button>
+      <button type="button" disabled={!runId} aria-pressed={!!runId && workspaceTab === "inbox"} onClick={() => setWorkspaceTab("inbox")}>{t("workspace.tabInbox")}</button>
+      <button type="button" disabled={!runId} aria-pressed={!!runId && workspaceTab === "reviews"} onClick={() => setWorkspaceTab("reviews")}>{t("workspace.tabReviews")}</button>
     </div>
-    {workspaceTab === "work"
+    {!runId || workspaceTab === "files"
+      ? selectedTeamId ? <ProjectFiles key={"files-" + selectedTeamId} projectId={selectedTeamId} /> : null
+      : workspaceTab === "work"
       ? <WorkspaceScreen key={"workspace-" + runId} read={read} selectedTaskId={taskId} />
       : workspaceTab === "inbox"
         ? <InboxScreen teamId={selectedTeamId} onOpenRun={id => go("overview", { run: id, task: undefined })} />

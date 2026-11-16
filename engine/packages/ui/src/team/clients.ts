@@ -1,4 +1,4 @@
-import type { AttemptActivity, TeamAttemptView, TurnProgress, DocumentPins, ProjectDocumentStage, ProjectDocumentVersion, ProjectDocumentWorkflow } from "@multi-agent/daemon/team-control";
+import type { ProjectAttachment, AttemptActivity, TeamAttemptView, TurnProgress, DocumentPins, ProjectDocumentStage, ProjectDocumentVersion, ProjectDocumentWorkflow } from "@multi-agent/daemon/team-control";
 import { OwnerReadError, type useOwnerSession } from "../hooks/useOwnerSession.js";
 
 /**
@@ -20,6 +20,7 @@ export interface ChatMessage {
   sender: "owner" | "lead";
   kind: "text" | "decision" | "confirmation";
   body: string;
+  attachments?: ProjectAttachment[];
   /** A decision's 2–4 choices; null on a text turn. */
   options: string[] | null;
   answeredBy: string | null;
@@ -80,10 +81,11 @@ export async function readChat(request: Request, runId: string, signal?: AbortSi
  * U6 — `POST /runs/:runId/chat`. Answering a decision sends the chosen option's text with
  * `answerTo`, which is how the lead knows which question it answers.
  */
-export async function sendChatMessage(request: Request, runId: string, body: string, entityVersion: number, answerTo?: string, responseLanguage?: ResponseLanguage): Promise<void> {
+export async function sendChatMessage(request: Request, runId: string, body: string, entityVersion: number, answerTo?: string, responseLanguage?: ResponseLanguage, attachments?: string[]): Promise<void> {
   await request(`/runs/${encodeURIComponent(runId)}/chat`, {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: controlBody(runId, crypto.randomUUID(), entityVersion, { body, ...(answerTo ? { answerTo } : {}), ...(responseLanguage ? { responseLanguage } : {}) }),
+    body: controlBody(runId, crypto.randomUUID(), entityVersion, { body, ...(answerTo ? { answerTo } : {}),
+      ...(responseLanguage ? { responseLanguage } : {}), ...(attachments?.length ? { attachments } : {}) }),
   });
 }
 

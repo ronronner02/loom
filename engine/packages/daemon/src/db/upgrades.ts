@@ -116,6 +116,15 @@ export const TEAM_INTEGRATION_INTENTS_SQL = `CREATE TABLE team_integration_inten
       PRIMARY KEY (run_id, task_id)
     )`;
 
+export const TEAM_ATTACHMENTS_SQL = `CREATE TABLE team_attachments (
+      id TEXT PRIMARY KEY,
+      rig_id TEXT NOT NULL REFERENCES rigs(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      size INTEGER NOT NULL CHECK (size >= 0),
+      media_type TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`;
+
 export const SCHEMA_UPGRADES: readonly SchemaUpgrade[] = [
   // Plan KTD3: a lead message that needs no owner attention is kept as run activity.
   { from: 2, to: 3, sql: "ALTER TABLE team_chat_messages ADD COLUMN visibility TEXT NOT NULL DEFAULT 'chat' CHECK (visibility IN ('chat', 'activity'))" },
@@ -129,6 +138,8 @@ export const SCHEMA_UPGRADES: readonly SchemaUpgrade[] = [
   { from: 7, to: 8, sql: TEAM_INTAKE_SQL },
   { from: 8, to: 9, sql: TEAM_GITHUB_THREADS_SQL },
   { from: 9, to: 10, sql: [TEAM_ATTEMPT_FINALIZATIONS_SQL, TEAM_INTEGRATION_INTENTS_SQL].join(";\n") },
+  { from: 10, to: 11, sql: [TEAM_ATTACHMENTS_SQL,
+    "ALTER TABLE team_chat_messages ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(attachments_json))"].join(";\n") },
 ];
 
 /** The steps from `from` to `to`, in order, or null when the chain does not reach. */

@@ -209,7 +209,7 @@ body:has(.team-shell) > #root { height: 100%; }
 
 /* --- composer ----------------------------------------------------------- */
 .team-shell .composer {
-  flex: 0 0 auto; display: grid; grid-template-columns: 1fr auto; align-items: end; gap: var(--sp-2);
+  flex: 0 0 auto; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: var(--sp-2);
   padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
   margin: var(--sp-2) 0 var(--sp-4);
   border: 1px solid var(--line);
@@ -1097,3 +1097,28 @@ html[data-desktop="true"] .team-shell .ui-entry-header :is(button, a, input, sel
   .team-shell .ui-attention-list > li { grid-template-columns: minmax(0, 1fr); }
   .team-shell .ui-attention-list > li > .btn { grid-column: auto; grid-row: auto; justify-self: start; }
 }
+
+.team-shell .ui-file-breadcrumbs { display: flex; flex-wrap: wrap; align-items: center; margin-bottom: var(--sp-3); overflow-wrap: anywhere; }
+.team-shell .ui-file-breadcrumbs > span { display: inline-flex; min-width: 0; align-items: center; }
+.team-shell .ui-file-breadcrumbs .btn { white-space: normal; overflow-wrap: anywhere; min-width: 0; }
+.team-shell .ui-project-file-layout { display: grid; grid-template-columns: minmax(160px, 260px) minmax(0, 1fr); gap: var(--sp-4); }
+.team-shell .ui-project-file-list { padding: var(--sp-2); min-width: 0; align-self: start; max-height: 60vh; overflow: auto; }
+.team-shell .ui-project-file-list ul { list-style: none; margin: 0; padding: 0; }
+.team-shell .ui-project-file-list button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: var(--sp-2); text-align: left; border-radius: var(--r-md); }
+.team-shell .ui-project-file-list button:hover, .team-shell .ui-project-file-list button[aria-pressed="true"] { background: var(--ui-selection); }
+.team-shell .ui-project-file-list svg { flex: 0 0 20px; width: 20px; height: 20px; }
+.team-shell .ui-project-file-list span, .team-shell .ui-project-file-preview h2 { overflow-wrap: anywhere; min-width: 0; }
+.team-shell .ui-project-file-preview { min-width: 0; }
+.team-shell .ui-project-file-preview h2 { font-size: 14px; }
+.team-shell .ui-project-file-preview pre { max-height: 60vh; overflow: auto; font: 12px/1.6 var(--font-mono); }
+@media (max-width: 859px) {
+  .team-shell .ui-project-file-layout { grid-template-columns: minmax(0, 1fr); }
+  .team-shell .ui-project-file-list { max-height: 32vh; }
+}
+
+.team-shell .ui-chat-attachments { list-style: none; display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: 0; margin: var(--sp-2) 0; }
+.team-shell .ui-chat-attachments li { display: flex; align-items: center; gap: var(--sp-2); max-width: 100%; min-width: 0; padding: 4px 8px; border: 1px solid var(--ui-divider); border-radius: var(--r-md); background: var(--ui-surface-subtle); }
+.team-shell .ui-chat-attachments span { min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+.team-shell .ui-chat-attachments svg { flex: 0 0 16px; width: 16px; height: 16px; }
+.team-shell .composer > .ui-chat-attachments, .team-shell .composer-error { grid-column: 1 / -1; }
+.team-shell .composer > .ui-icon-button { align-self: center; }

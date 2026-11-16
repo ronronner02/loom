@@ -1,3 +1,4 @@
+import { resolveProjectAttachments } from "../domain/project-attachments.js";
 import { execFileSync } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -218,6 +219,7 @@ export async function startTeamRun(
     if (!match) return c.json({ code: "rig_not_found", error: "No rig matches that id or name." }, 404);
     rig = match;
   }
+  const attachments = resolveProjectAttachments(rigRepo.db, rig.id, v.attachments);
   const node = firstAgentNode(rigRepo, rig.id);
   // C3 — an opt-in lead. Without a lead seat the start is exactly the pre-C3 start: one
   // implementer task on the named (or default) seat. With one, the run's first task is the
@@ -235,6 +237,10 @@ export async function startTeamRun(
   const documentWorkflow = v.documentWorkflow === true;
   const maxSessions = Number(options.settingsStore?.resolveOne("team.maxConcurrentAgents").value ?? 3);
   const leadSeat = v.lead === undefined ? seatForRole(rigRepo, rig, "lead") : text(v.lead, "lead", 256);
+  if (attachments.length) {
+    if (leadSeat === null) throw new TeamContractError("attachments");
+    chatBody(goal, "goal");
+  }
   if (planning && leadSeat === null) {
     return c.json({ code: "lead_required",
       error: "A planning run needs a lead seat: name one, or create a team with `multi-agent team create`." }, 400);
@@ -343,8 +349,8 @@ export async function startTeamRun(
   if (created.status !== "accepted") {
     return c.json({ code: "start_refused", runId: run.id, error: created.reason ?? "The task was refused." }, 409);
   }
-  if (planning || initialWorkflowRequest) appendChatMessage(rigRepo.db, { id: run.id + ":initial", runId: run.id,
-    body: initialWorkflowRequest ?? goal, createdAt: run.createdAt, responseLanguage });
+  if (planning || initialWorkflowRequest || attachments.length) appendChatMessage(rigRepo.db, { id: run.id + ":initial", runId: run.id,
+    body: initialWorkflowRequest ?? goal, createdAt: run.createdAt, responseLanguage, attachments });
   // The task exists, so the agent that has to do it starts now. This runs after the response
   // is built rather than inside the request: opening a seat's terminal and waiting for its
   // client to become ready is a launch, and a launch is not what a start request waits on.

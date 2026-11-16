@@ -67,6 +67,119 @@ async function show(data = read(), conversation = chat, connectionError = false)
 }
 
 describe("persistent lead chat", () => {
+  it("starts the first conversation with uploaded attachment references", async () => {
+    const language = await createInterfaceI18n({ language: "en" }), onStarted = vi.fn();
+    const file = new File(["Requirements"], "requirements.md", { type: "text/markdown" });
+    request.mockImplementation(async (path: string) => path.endsWith("/attachments")
+      ? { attachment: { id: "requirements-file", name: file.name, size: file.size, mediaType: file.type } } : { runId: "new-run" });
+    render(<I18nextProvider i18n={language.instance}><ChatPanel open onOpenChange={() => {}}
+      opener={{ current: null }} runId="" project={{ id: "project-1", name: "My project" }} onStarted={onStarted} /></I18nextProvider>);
+    fireEvent.change(screen.getByLabelText("Choose attachments"), { target: { files: [file] } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "Plan this project" } });
+    expect(request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith("new-run"));
+    expect(JSON.parse(request.mock.calls.find(([path]) => path === "/runs")![1].body))
+      .toMatchObject({ goal: "Plan this project", rig: "project-1", attachments: ["requirements-file"], planning: true });
+  });
+
+  it("keeps the draft on upload failure and sends no message until retry succeeds", async () => {
+    await show(); fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
+    const file = new File(["Notes"], "notes.md");
+    fireEvent.change(screen.getByLabelText("Choose attachments"), { target: { files: [file] } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "Use these notes" } });
+    request.mockRejectedValueOnce(new Error("Upload offline"));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Upload offline");
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveProperty("value", "Use these notes");
+    expect(screen.getByText("notes.md")).toBeTruthy();
+    expect(request.mock.calls.some(([path]) => path.endsWith("/chat"))).toBe(false);
+    request.mockImplementation(async (path: string) => path.endsWith("/attachments")
+      ? { attachment: { id: "notes-file", name: file.name, size: file.size, mediaType: "" } } : {});
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(screen.queryByText("notes.md")).toBeNull());
+    expect(request.mock.calls.filter(([path]) => path.endsWith("/chat"))).toHaveLength(1);
+  });
+
+  it("reuses the accepted upload when sending the chat message fails", async () => {
+    await show(); fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
+    const file = new File(["Notes"], "notes.md");
+    fireEvent.change(screen.getByLabelText("Choose attachments"), { target: { files: [file] } });
+    let sends = 0;
+    request.mockImplementation(async (path: string) => {
+      if (path.endsWith("/attachments")) return { attachment: { id: "notes-file", name: file.name, size: file.size, mediaType: "" } };
+      if (++sends === 1) throw new Error("Chat offline");
+      return {};
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Chat offline");
+    fireEvent.click(screen.getByRole("button", { name: "Close lead chat" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(screen.queryByText("notes.md")).toBeNull());
+    expect(request.mock.calls.filter(([path]) => path.endsWith("/attachments"))).toHaveLength(1);
+    expect(request.mock.calls.filter(([path]) => path.endsWith("/chat"))).toHaveLength(2);
+  });
+
+  it("removes unsent files locally and bounds file size and count", async () => {
+    await show(); fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
+    const input = screen.getByLabelText("Choose attachments");
+    fireEvent.change(input, { target: { files: [new File(["Notes"], "notes.md")] } });
+    fireEvent.click(screen.getByRole("button", { name: "Remove notes.md" }));
+    expect(screen.queryByText("notes.md")).toBeNull();
+    const large = new File([], "large.pdf");
+    Object.defineProperty(large, "size", { value: 10 * 1024 * 1024 + 1 });
+    fireEvent.change(input, { target: { files: [large] } });
+    expect(screen.getByRole("alert").textContent).toContain("large.pdf exceeds the 10 MiB attachment limit.");
+    fireEvent.change(input, { target: { files: Array.from({ length: 9 }, (_, i) => new File([""], "file-" + i)) } });
+    expect(screen.getByRole("alert").textContent).toContain("Attach up to 8 files per message.");
+    expect(request).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Send" })).toHaveProperty("disabled", true);
+  });
+
+  it("does not treat an attachment-bearing message as an execution approval shortcut", async () => {
+    await show(planningRead(), documentChat(true)); fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
+    const file = new File(["Notes"], "notes.md");
+    fireEvent.change(screen.getByLabelText("Choose attachments"), { target: { files: [file] } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Message" }), { target: { value: "approve plan" } });
+    request.mockImplementation(async (path: string) => path.endsWith("/attachments")
+      ? { attachment: { id: "notes-file", name: file.name, size: file.size, mediaType: "" } } : {});
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(request.mock.calls.some(([path]) => path.endsWith("/chat"))).toBe(true));
+    expect(request.mock.calls.some(([path]) => path.endsWith("/plan/approve") || path.endsWith("/documents/confirm"))).toBe(false);
+  });
+
+  it("renders saved attachment filenames as part of the conversation", async () => {
+    await show(read(), { ...chat, messages: [{ id: "attached-message", sender: "owner", kind: "text", body: "Use this file",
+      options: null, answeredBy: null, createdAt: "2026-11-16T00:00:00Z",
+      attachments: [{ id: "file-id", name: "reference.pdf", size: 42, mediaType: "application/pdf" }] }] });
+    fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
+    expect(screen.getByText("reference.pdf")).toBeTruthy();
+    expect(screen.getByRole("list", { name: "Attachments" })).toBeTruthy();
+  });
+
+  it("keeps attachments in a closed draft and uploads only on send", async () => {
+    await show(); fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
+    const file = new File(["Notes"], "notes.md", { type: "text/markdown" });
+    fireEvent.change(screen.getByLabelText("Choose attachments"), { target: { files: [file] } });
+    expect(screen.getByText("notes.md")).toBeTruthy();
+    expect(request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Close lead chat" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
+    expect(screen.getByText("notes.md")).toBeTruthy();
+    request.mockImplementation(async (path: string) => path.endsWith("/attachments")
+      ? { attachment: { id: "uploaded-notes", name: file.name, size: file.size, mediaType: file.type } } : {});
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(request.mock.calls.some(([path]) => path.endsWith("/chat"))).toBe(true));
+    const sent = request.mock.calls.find(([path]) => path.endsWith("/chat"))!;
+    expect(JSON.parse(sent[1].body).payload).toMatchObject({ body: "Attached files", attachments: ["uploaded-notes"] });
+    expect(request.mock.calls[0]![0]).toBe("/teams/" + read().run.rigId + "/attachments");
+    expect((request.mock.calls[0]![1].body as FormData).get("file")).toBe(file);
+    await waitFor(() => expect(screen.queryByText("notes.md")).toBeNull());
+  });
+
   it("uses the current interface language for typed chat after switching languages", async () => {
     const view = await show();
     fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
