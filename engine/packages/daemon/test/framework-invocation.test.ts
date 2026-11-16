@@ -150,4 +150,14 @@ describe("bounded framework invocation", () => {
     bridge.invoke.mockRejectedValue(new Error("native transport stopped"));
     await expect(invokeFramework(request, bridge)).rejects.toThrow("native transport stopped");
   });
+  it("normalizes spec-diagnose to read-only even when invoked without --read-only", async () => {
+    const { request, bridge } = fixture();
+    request.entrypoint = "spec-diagnose";
+    request.origin = "user";
+    request.readOnly = false;
+    await invokeFramework(request, bridge);
+    const prepared = bridge.invoke.mock.calls[0]![0] as FrameworkRequest;
+    expect(prepared.readOnly).toBe(true);
+    expect(prepared.binding.writePaths).toEqual([]);
+  });
 });

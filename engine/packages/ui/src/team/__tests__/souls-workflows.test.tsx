@@ -62,7 +62,7 @@ describe("specialist and workflow owner controls", () => {
     expect((screen.getByLabelText("身份名称") as HTMLInputElement).value).toBe("My interface specialist");
     expect(within(picker).getByRole("option", { name: "Owner research identity · v1" })).toBeTruthy();
   });
-  it("lists all 38 workflows while keeping caller helpers distinct and code review read-only", async () => {
+  it("lists all 39 workflows while keeping caller helpers distinct and code review / diagnose read-only", async () => {
     request.mockResolvedValue({ workflows: FRAMEWORK_CATALOG });
     function Picker() {
       const [value, onChange] = useState<WorkflowSelection>();
@@ -70,10 +70,13 @@ describe("specialist and workflow owner controls", () => {
     }
     await show(<Picker />);
     const picker = await screen.findByLabelText("Workflow");
-    await waitFor(() => expect(within(picker).getAllByRole("option")).toHaveLength(39));
+    await waitFor(() => expect(within(picker).getAllByRole("option")).toHaveLength(40));
     expect((within(picker).getByRole("option", { name: "spec-commit · Caller only" }) as HTMLOptionElement).disabled).toBe(true);
     fireEvent.change(picker, { target: { value: "spec-code-review" } });
-    const readonly = screen.getByRole("checkbox", { name: "Read-only execution" }) as HTMLInputElement;
+    let readonly = screen.getByRole("checkbox", { name: "Read-only execution" }) as HTMLInputElement;
+    expect(readonly.checked).toBe(true); expect(readonly.disabled).toBe(true);
+    fireEvent.change(picker, { target: { value: "spec-diagnose" } });
+    readonly = screen.getByRole("checkbox", { name: "Read-only execution" }) as HTMLInputElement;
     expect(readonly.checked).toBe(true); expect(readonly.disabled).toBe(true);
     fireEvent.change(picker, { target: { value: "spec-test-browser" } });
     fireEvent.click(screen.getByText("Execution requirements"));

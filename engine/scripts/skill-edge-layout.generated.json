@@ -128,6 +128,13 @@
       ],
       "category": "pm"
     },
+    "receiving-code-review": {
+      "edges": [
+        "canonical",
+        "spec"
+      ],
+      "category": "process"
+    },
     "requirements-writer": {
       "edges": [
         "canonical",
@@ -141,6 +148,13 @@
         "spec"
       ],
       "category": "pods"
+    },
+    "session-diagnostics": {
+      "edges": [
+        "canonical",
+        "spec"
+      ],
+      "category": "process"
     },
     "software-for-agents": {
       "edges": [

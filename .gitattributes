@@ -1,2 +1,7 @@
 # Shell scripts run inside WSL straight from this checkout; keep LF on Windows.
 *.sh text eol=lf
+# Skill trees are hashed byte-for-byte into skill-edge-digests.generated.json; keep LF across platforms.
+engine/skills/** text eol=lf
+engine/packages/daemon/specs/agents/shared/skills/** text eol=lf
+engine/packages/daemon/assets/plugins/multi-agent-core/skills/** text eol=lf
+engine/scripts/skill-edge-digests.generated.json text eol=lf

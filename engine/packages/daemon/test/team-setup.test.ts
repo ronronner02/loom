@@ -122,7 +122,7 @@ describe("U3 — the owner creates a team", () => {
     const team = createTeam(db, { repository: repository(directory), seats: defaultSeats as import("../src/domain/team-setup.js").TeamSeatInput[] });
     const catalog = await call("/api/team-control/workflows");
     expect(catalog.status).toBe(200);
-    expect((await catalog.json() as { workflows: unknown[] }).workflows).toHaveLength(38);
+    expect((await catalog.json() as { workflows: unknown[] }).workflows).toHaveLength(39);
     expect((await call("/api/team-control/workflows", {}, workerToken)).status).toBe(403);
     const response = await start({ rig: team.id, goal: "Explain the design", workflow: { entrypoint: "spec-explain", readOnly: true } });
     expect(response.status).toBe(201);

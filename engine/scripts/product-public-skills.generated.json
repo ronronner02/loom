@@ -30,6 +30,8 @@
   },
   "vendored_ship_with_provenance": [
     "agent-browser",
+    "receiving-code-review",
+    "session-diagnostics",
     "systematic-debugging",
     "test-driven-development",
     "verification-before-completion",
