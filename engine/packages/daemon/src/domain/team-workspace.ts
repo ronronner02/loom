@@ -1059,7 +1059,17 @@ function commitLaneManifest(workspace: CandidateWorkspace & { base: { kind: "com
         after: stored.get(staged.get(path)?.objectId ?? "") ?? null })) });
     return { files, patch: rendered.toString("utf8"), cleanedPaths: cleanedPaths.sort(), ...(scope ? { scope } : {}) };
   } finally {
-    rmSync(scratch, { recursive: true, force: true, maxRetries: 3 });
+    // Node 22 skips rmSync's built-in retries when the first rmdir reports EBUSY.
+    for (let retries = 0; ; retries++) {
+      try {
+        rmSync(scratch, { recursive: true, force: true });
+        break;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (retries === 3 || (code !== "EBUSY" && code !== "EPERM")) throw error;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100 * (retries + 1));
+      }
+    }
   }
 }
 
