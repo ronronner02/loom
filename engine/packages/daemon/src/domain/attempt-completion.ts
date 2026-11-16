@@ -231,28 +231,21 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
   /**
    * The task a seat is working, resolved from the run's own rows.
    *
-   * The receipt names the seat, not the task: the launch composition decided the task before
-   * the client started, and the queue destination is that decision made durable. A seat with
-   * no single live task has nothing to admit, so the attempt stays unrecorded and the owner
-   * action refuses it rather than attaching the receipt to a guess.
-   *
-   * One seat can hold two live tasks — two completed implementers are two pending reviews on
-   * the same reviewer seat — and the launch recorded which of them its pane is running. That
-   * stamp is the tie-break: without it the seat is ambiguous and a real turn would run with no
-   * attempt to observe.
+   * A native launch records its task in the submitted lifecycle fact before spawning; older
+   * pane launches carry a task stamp. Match that exact task before limiting the seat lookup,
+   * because a seat may have several queued tasks. Without a stamp, only one live task is
+   * sufficient evidence, and a stamp for another seat must never fall back to that guess.
    */
-  const taskForSeat = (runId: string, sessionName: string, paneTaskId: string | null) => {
+  const taskForSeat = (runId: string, sessionName: string, taskId: string | null) => {
     const rows = db.prepare(`
-      SELECT a.qitem_id AS qitemId, a.task_id AS taskId, json_extract(a.assignment_json, '$.role') AS role
+      SELECT a.qitem_id AS qitemId, json_extract(a.assignment_json, '$.role') AS role
       FROM team_queue_authority a
       JOIN queue_items q ON q.qitem_id = a.qitem_id
       JOIN team_runs r ON r.id = a.run_id
       WHERE a.run_id = ? AND q.destination_session = ? AND q.state IN ('pending', 'in-progress')
-        AND r.state = 'approved'
-      LIMIT 2`).all(runId, sessionName) as Array<{ qitemId: string; taskId: string; role: string }>;
-    if (rows.length === 1) return { qitemId: rows[0]!.qitemId, role: rows[0]!.role };
-    const stamped = paneTaskId === null ? [] : rows.filter(row => row.taskId === paneTaskId);
-    return stamped.length === 1 ? { qitemId: stamped[0]!.qitemId, role: stamped[0]!.role } : null;
+        AND r.state = 'approved' AND (? IS NULL OR a.task_id = ?)
+      LIMIT 2`).all(runId, sessionName, taskId, taskId) as Array<{ qitemId: string; role: string }>;
+    return rows.length === 1 ? { qitemId: rows[0]!.qitemId, role: rows[0]!.role } : null;
   };
 
   /** Admit the attempt a launch receipt names, unless it is already recorded. */
@@ -264,14 +257,17 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
     // A resume re-enters the attempt it recorded, so its row already exists and keeps its own
     // history. Only the first observation of a native generation admits a new row.
     if (governance.getAttempt(receipt.attemptId)) return;
-    // U3 — a native turn records no pane, so there is no stamp to read and the seat's own task
-    // rows are the only evidence. A seat with two live tasks then stays ambiguous, as before.
     const paneId = receipt.identity.paneId;
-    const paneTaskId = (paneId !== null && dependencies.paneTask ? await dependencies.paneTask(paneId) : null) ?? null;
-    const task = taskForSeat(receipt.runId, sessionName, paneTaskId);
+    const submitted = paneId === null ? db.prepare(`SELECT json_extract(payload, '$.taskId') AS taskId FROM events
+      WHERE type = 'team.control' AND json_extract(payload, '$.runId') = ?
+        AND json_extract(payload, '$.attemptId') = ? AND json_extract(payload, '$.action') = 'attempt.submitted'
+      ORDER BY seq DESC LIMIT 1`).get(receipt.runId, receipt.attemptId) as { taskId: string | null } | undefined : undefined;
+    const taskId = submitted?.taskId
+      ?? (paneId !== null && dependencies.paneTask ? await dependencies.paneTask(paneId) : null) ?? null;
+    const task = taskForSeat(receipt.runId, sessionName, taskId);
     if (!task) {
       log(`team completion: no single live task on ${sessionName} for run=${receipt.runId}` +
-        `${paneTaskId === null ? "" : ` (the pane's stamp names ${paneTaskId})`}; attempt ${receipt.attemptId} is unrecorded`);
+        `${taskId === null ? "" : ` (the launch names ${taskId})`}; attempt ${receipt.attemptId} is unrecorded`);
       return;
     }
     const request: ControlRequest<unknown> = {
