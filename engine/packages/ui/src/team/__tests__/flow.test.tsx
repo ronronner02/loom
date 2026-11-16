@@ -7,6 +7,7 @@ import { FlowView } from "../flow/FlowView.js";
 import { HIGH_DENSITY_EVENTS, HIGH_DENSITY_SEATS, LOW_DENSITY_EVENTS, FLOW_FIXTURE_SEATS } from "../flow/fixtures.js";
 import { mapTeamEvents } from "../flow/flow-events.js";
 import { FlowRenderer } from "../flow/flow-renderer.js";
+import { getVendorAvatarUrl, resolveAvatarState, resolveVendorForNode } from "../flow/vendor-avatars.js";
 
 function contextStub(): CanvasRenderingContext2D {
   const noop = () => {};
@@ -57,6 +58,13 @@ describe("FlowView", () => {
     expect(screen.getByRole("button", { name: /Reviewer, reviewer/i })).toBeTruthy();
   });
 
+  it("sizes the canvas to the available mobile stage instead of clipping it", () => {
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(380);
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(360);
+    const { container } = show();
+    expect(container.querySelector("canvas")?.style.height).toBe("380px");
+  });
+
   it("pauses and resumes the frame loop", () => {
     let next = 0;
     const callbacks = new Map<number, FrameRequestCallback>();
@@ -105,6 +113,21 @@ describe("FlowView", () => {
     expect(screen.getAllByText("task assigned", { exact: false }).length).toBeGreaterThan(0);
   });
 
+  it.each(["reduced motion", "unavailable canvas"])("keeps idle team members selectable with %s", (mode) => {
+    if (mode === "reduced motion") {
+      Object.defineProperty(window, "matchMedia", { configurable: true, value: vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })) });
+    } else {
+      Object.defineProperty(HTMLCanvasElement.prototype, "getContext", { configurable: true, value: vi.fn(() => null) });
+    }
+    render(<I18nextProvider i18n={languages.get("en")!}>
+      <FlowView events={[]} seats={[{ id: "lead", role: "lead" }, { id: "idle-worker", label: "Idle worker", role: "implementer" }]} />
+    </I18nextProvider>);
+    const worker = screen.getByRole("button", { name: /Idle worker, implementer/i });
+    fireEvent.click(worker);
+    expect(worker.getAttribute("aria-pressed")).toBe("true");
+    expect(worker.closest(".flow-view")?.getAttribute("data-render-mode")).toBe("static");
+  });
+
   it("renders its controls and states from the active interface language", () => {
     show("zh-CN");
     expect(screen.getByRole("button", { name: "暂停" })).toBeTruthy();
@@ -131,5 +154,86 @@ describe("FlowRenderer", () => {
     renderer.draw(contextStub(), Date.now());
     const elapsed = performance.now() - start;
     expect(elapsed).toBeLessThan(250);
+  });
+
+  it("reports active messaging nodes during message launch", () => {
+    const canvas = document.createElement("canvas");
+    const renderer = new FlowRenderer({ canvas });
+    const mapping = mapTeamEvents(LOW_DENSITY_EVENTS, { seats: FLOW_FIXTURE_SEATS });
+    renderer.setModel(mapping, 0);
+    renderer.draw(contextStub(), 900);
+    const active = renderer.getActiveMessagingNodes(900);
+    expect(active.size).toBeGreaterThan(0);
+  });
+
+  it("stops sending ambient beams to completed/departed workers", () => {
+    const canvas = document.createElement("canvas");
+    const renderer = new FlowRenderer({ canvas });
+    const now = 10_000;
+    const mapping = mapTeamEvents(
+      [
+        {
+          type: "team.control",
+          protocolVersion: "1.0",
+          eventId: "e1",
+          runId: "r1",
+          taskId: "t1",
+          attemptId: "a1",
+          entityId: "chatgpt",
+          action: "task.created",
+          payload: { leadSeat: "lead", workerSeat: "chatgpt" },
+          timestamp: now - 5_000,
+          seq: 1,
+        },
+        {
+          type: "team.control",
+          protocolVersion: "1.0",
+          eventId: "e2",
+          runId: "r1",
+          taskId: "t1",
+          attemptId: "a1",
+          entityId: "chatgpt",
+          action: "task.outcome",
+          payload: { workerSeat: "chatgpt", leadSeat: "lead", status: "done" },
+          timestamp: now - 4_000,
+          seq: 2,
+        },
+      ],
+      {
+        seats: [
+          { id: "lead", label: "Lead", role: "lead" },
+          { id: "chatgpt", label: "ChatGPT", role: "implementer" },
+        ],
+      },
+    );
+    renderer.setModel(mapping, now);
+    renderer.draw(contextStub(), now + 800);
+    renderer.draw(contextStub(), now + 3_100);
+    renderer.draw(contextStub(), now + 3_900);
+    const states = renderer.getNodeVisualStates(now + 3_900);
+    expect(states.get("chatgpt")?.phase).toBe("gone");
+    expect(renderer.getActiveMessagingNodes(now + 3_900).size).toBe(0);
+  });
+});
+
+describe("vendor avatars", () => {
+  it("maps seat names and states to transparent vendor avatar state assets", () => {
+    expect(resolveVendorForNode({ id: "lead@rig", label: "Lead · Claude", role: "lead" })).toBe("claude");
+    expect(resolveVendorForNode({ id: "impl@rig", label: "Implementer · Codex", role: "implementer" })).toBe("chatgpt");
+    expect(resolveVendorForNode({ id: "rev@rig", label: "Reviewer · Gemini", role: "reviewer" })).toBe("gemini");
+    expect(resolveVendorForNode({ id: "ds@rig", label: "DeepSeek", role: "implementer" })).toBe("deepseek");
+    expect(resolveAvatarState("working", false)).toBe("working");
+    expect(resolveAvatarState("waiting", false)).toBe("waiting");
+    expect(resolveAvatarState("complete", false)).toBe("milestone");
+    expect(resolveAvatarState("working", true)).toBe("messaging");
+    expect(getVendorAvatarUrl("claude", "working")).toBe("/avatars/vendors/claude_working.png");
+  });
+
+  it("renders vendor avatar images on FlowView nodes", () => {
+    show();
+    const leadBtn = screen.getByRole("button", { name: /Lead, lead/i });
+    const img = leadBtn.querySelector("img.flow-node-avatar") as HTMLImageElement | null;
+    expect(img).toBeTruthy();
+    expect(img?.getAttribute("src")).toMatch(/^\/avatars\/vendors\/claude_(master|working|waiting|messaging|milestone)\.png$/);
   });
 });

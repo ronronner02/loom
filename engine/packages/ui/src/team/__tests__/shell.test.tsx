@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createInterfaceI18n } from "@multi-agent/i18n";
 import { I18nextProvider } from "react-i18next";
 import { ShellFrame, TEAM_SECTIONS, teamSection, showsNewWork, type TeamSection } from "../shell.js";
+import { getPomoAvatarUrl, resolvePomoAvatarState } from "../pomo-avatar.js";
 import { TEAM_THEME_KEY, useThemePreference } from "../theme.js";
 import { read, task } from "./fixtures.js";
 
@@ -137,5 +138,24 @@ describe("command-center shell", () => {
     expect(showsNewWork(read({ tasks: [task({ queueState: "done" })] }))).toBe(true);
     expect(showsNewWork(read({ run: { ...read().run, state: "canceled" }, tasks: [task({ queueState: "pending" })] }))).toBe(true);
     expect(showsNewWork(undefined)).toBe(false);
+  });
+
+  it("maps coordinator status to animated Pomo avatar states and renders it in the shell", async () => {
+    expect(resolvePomoAvatarState("shell.idle")).toBe("master");
+    expect(resolvePomoAvatarState("status.attempt.started")).toBe("waking");
+    expect(resolvePomoAvatarState("status.attempt.working")).toBe("working");
+    expect(resolvePomoAvatarState("status.attempt.running")).toBe("working");
+    expect(resolvePomoAvatarState("status.attempt.no-response")).toBe("waiting");
+    expect(resolvePomoAvatarState("status.attempt.stopped", { isMilestone: true })).toBe("milestone");
+    expect(resolvePomoAvatarState("status.attempt.working", { hasPendingOwner: true })).toBe("waiting");
+    expect(resolvePomoAvatarState("status.attempt.working", { isMessaging: true })).toBe("messaging");
+    expect(getPomoAvatarUrl("working")).toBe("/avatars/pomo/working.png");
+
+    await show();
+    const pill = screen.getByRole("button", { name: "Status & context" });
+    const img = pill.querySelector("img.ui-pomo-avatar") as HTMLImageElement | null;
+    expect(img).toBeTruthy();
+    expect(img?.getAttribute("data-pomo-state")).toBe("waiting");
+    expect(img?.getAttribute("src")).toBe("/avatars/pomo/waiting.png");
   });
 });
