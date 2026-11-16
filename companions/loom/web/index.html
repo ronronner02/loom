@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#faf8f5"><title>Loom</title>
+  <link rel="stylesheet" href="/control/style.css"><script src="/control/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><h1>Loom<span class="dot" aria-hidden="true"></span></h1><button id="logout" class="quiet" hidden>Sign out</button></header>
+    <p id="error" role="alert" hidden></p>
+    <section id="login" class="card compact">
+      <h2>Your workspace, within reach.</h2>
+      <form id="login-form"><label for="key">Access key</label><input id="key" type="password" autocomplete="current-password" required>
+        <button type="submit">Sign in</button></form>
+    </section>
+    <div id="workspace" hidden>
+      <div class="status-row"><span id="connection" role="status">Connecting</span><span id="notifications"></span></div>
+      <section id="attention" hidden><h2>Needs your attention</h2><div id="questions"></div></section>
+      <section class="card">
+        <form id="task-form">
+          <div class="form-heading"><h2>What’s next?</h2><select id="target" aria-label="Local workspace" required></select></div>
+          <label class="sr-only" for="prompt">Task</label><textarea id="prompt" rows="4" maxlength="20000" placeholder="Describe a task to run on your computer…" required></textarea>
+          <div class="form-footer"><span id="queue-hint"></span><button id="submit" type="submit">Run locally <span aria-hidden="true">↗</span></button></div>
+        </form>
+      </section>
+      <section><div class="section-heading"><h2>Tasks</h2><span id="count" class="muted"></span></div><div id="jobs"></div></section>
+    </div>
+  </main>
+</body>
+</html>

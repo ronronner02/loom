@@ -1,0 +1,5 @@
+FROM ghcr.io/easychen/ask4me@sha256:02b380e5f3dfafff465c5df1a3cb2a73c2470464bf859ecd5d2ff7c769b1bf20
+USER root
+RUN apk add --no-cache python3
+COPY notify_astrbot.py /usr/local/bin/loom-notify
+RUN chmod 0555 /usr/local/bin/loom-notify

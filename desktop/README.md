@@ -1,4 +1,4 @@
-# Multi-Agent for Windows
+# Loom for Windows
 
 A native Windows window around the Multi-Agent team UI. The engine is the app's own child
 process: the window starts it, connects to it, and shows your projects. No WSL, no terminal, and
@@ -103,18 +103,22 @@ npm run dist
    `engine/config/toolchain/gh-lock.json`, verifies its SHA-256, and extracts `gh.exe` to
    `desktop/resources/engine/plugins/github-cli/`. The daemon's executable resolver looks there
    after an explicit configured path and before PATH, so GitHub sign-in needs no separate install.
-3. `electron-builder --win nsis --x64` writes `desktop/dist/Multi-Agent-Setup-<version>-x64.exe`.
+3. `electron-builder --win nsis --x64` writes `desktop/dist/Loom-Setup-<version>-x64.exe`.
 
-The build is unsigned, so Windows shows a SmartScreen warning on first run: choose **More info**
-then **Run anyway**. Signing, auto-update and publishing are out of scope, so the installer is the
-whole delivery. Installing N+1 over N replaces the program files; uninstalling removes them but
+The build is unsigned, so Windows may show a SmartScreen warning on first run. Verify the release
+source and published checksum before running an installer. Signing and auto-update remain deferred;
+publishing is a separate release operation, not a side effect of `npm run dist`.
+Installing N+1 over N replaces the program files; uninstalling removes them but
 keeps `%LOCALAPPDATA%\Multi-Agent` and `%APPDATA%\Multi-Agent`, including recovery records of
 interrupted runs.
 
 The engine tree must be rebuilt before staging (`npm run stage:check` fails when the staged copy
-is older than the engine build). The packaged-engine test runs the packaged `Multi-Agent.exe` with
+is older than the engine build). The packaged-engine test runs Electron with
 `ELECTRON_RUN_AS_NODE=1`, so it loads better-sqlite3 from the staged tree and opens a real
 database without opening a window.
+
+The optional [companion](../companions/loom/README.md) is distributed separately. Its source, server
+credentials, private configuration, and independent runner are not staged into this installer.
 
 The app runs the daemon from `resources/engine/packages/daemon/dist/index.js` when packaged, and
 from `engine/packages/daemon/dist/index.js` in a source checkout (`src/engine-paths.js`). Run the

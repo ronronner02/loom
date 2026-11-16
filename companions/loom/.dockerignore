@@ -1,0 +1,9 @@
+.git
+node_modules
+src
+scripts
+private
+state
+dist/test
+*.db
+*.env

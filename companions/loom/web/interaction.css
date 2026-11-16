@@ -1,0 +1,101 @@
+:root {
+  --reply-canvas: #faf8f5;
+  --reply-surface: #fff;
+  --reply-text: #1c1b1a;
+  --reply-muted: #6e6a64;
+  --reply-border: #e8e2d9;
+  --reply-accent: #26634b;
+  --reply-accent-soft: #eaf1ec;
+  --reply-danger: #b42318;
+  --reply-danger-soft: #fff4f2;
+  --reply-radius: 12px;
+  --reply-space-1: 4px;
+  --reply-space-2: 8px;
+  --reply-space-3: 12px;
+  --reply-space-4: 16px;
+  --reply-space-5: 20px;
+  --reply-space-6: 24px;
+  --reply-space-7: 28px;
+  --reply-space-8: 32px;
+  --reply-space-10: 40px;
+  --reply-feedback: 150ms ease-out;
+}
+.loom-interaction, .loom-interaction * { box-sizing: border-box; }
+body.loom-interaction {
+  max-width: none; margin: 0; padding: 0;
+  min-height: 100svh; background: var(--reply-canvas); color: var(--reply-text);
+  font: 16px/1.65 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.loom-topbar {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--reply-space-4);
+  min-height: 72px; max-width: 760px; margin: auto; padding: var(--reply-space-2) var(--reply-space-6);
+  border-bottom: 1px solid var(--reply-border);
+}
+.loom-brand { display: inline-flex; align-items: center; gap: var(--reply-space-2); font-size: 20px; font-weight: 650; letter-spacing: -.6px; }
+.loom-brand::before { content: ""; width: 8px; height: 8px; background: var(--reply-accent); border-radius: 50%; }
+.loom-main { max-width: 760px; margin: auto; padding: var(--reply-space-10) var(--reply-space-6) calc(var(--reply-space-8) + env(safe-area-inset-bottom, 0px)); }
+.loom-status { color: var(--reply-muted); font-size: 13px; }
+.loom-interaction .loom-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.loom-interaction h1 { margin: 0; font-size: 30px; line-height: 1.25; font-weight: 650; letter-spacing: -.9px; text-wrap: balance; }
+.loom-form { margin: 0; }
+.loom-interaction #app { padding: var(--reply-space-7); background: var(--reply-surface); border: 1px solid var(--reply-border); border-radius: 16px; }
+.loom-interaction #app .vertical-layout { display: flex; flex-direction: column; gap: var(--reply-space-6); min-width: 0; }
+.loom-interaction #app .vertical-layout-item, .loom-interaction #app .control { min-width: 0; }
+.loom-interaction #app label { display: block; margin: 0 0 var(--reply-space-3); font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--reply-text); }
+.loom-interaction #app input, .loom-interaction #app textarea, .loom-interaction #app select {
+  display: block; width: 100%; max-width: 100%; min-height: 48px; margin: 0; padding: var(--reply-space-3) var(--reply-space-4);
+  border: 1px solid var(--reply-border); border-radius: var(--reply-radius);
+  background: var(--reply-surface); color: var(--reply-text); font: inherit;
+  transition: border-color var(--reply-feedback), background-color var(--reply-feedback);
+}
+.loom-interaction #app textarea { min-height: 176px; line-height: 1.65; resize: vertical; }
+.loom-interaction #app textarea:disabled {
+  min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent;
+  color: var(--reply-text); -webkit-text-fill-color: var(--reply-text); opacity: 1;
+  font-size: 18px; line-height: 1.6; resize: none; overflow: hidden;
+}
+.loom-interaction.loom-approval #app textarea:disabled { font-size: 16px; }
+.loom-interaction #app select { appearance: auto; cursor: pointer; padding-right: var(--reply-space-3); }
+.loom-interaction #app input[type="checkbox"], .loom-interaction #app input[type="radio"] { display: inline-block; width: 20px; min-height: 20px; padding: 0; accent-color: var(--reply-accent); }
+.loom-interaction #app input:focus, .loom-interaction #app textarea:focus, .loom-interaction #app select:focus { outline: 2px solid var(--reply-accent); outline-offset: 2px; border-color: var(--reply-accent); }
+.loom-interaction #app .validation { margin: var(--reply-space-2) 0 0; font-size: 13px; line-height: 1.5; color: var(--reply-muted); overflow-wrap: anywhere; }
+.loom-interaction #app .validation:empty { display: none; }
+.loom-interaction #app .validation_error { color: var(--reply-danger); }
+.loom-interaction #app .control:not(.loom-touched) .validation_error { display: none; }
+.loom-interaction #app .loom-touched .invalid { border-color: var(--reply-danger); }
+.loom-actionbar {
+  padding: var(--reply-space-5) 0 max(var(--reply-space-3), env(safe-area-inset-bottom, 0px));
+  background: var(--reply-canvas); margin: 0;
+}
+.loom-interaction button, .loom-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--reply-space-3);
+  width: 100%; min-height: 52px; padding: var(--reply-space-3) var(--reply-space-5); margin: 0;
+  border: 1px solid var(--reply-accent); border-radius: var(--reply-radius);
+  background: var(--reply-accent); color: var(--reply-surface);
+  font: 600 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  cursor: pointer; text-decoration: none;
+  transition: opacity var(--reply-feedback), background-color var(--reply-feedback);
+}
+.loom-interaction button:hover, .loom-primary:hover { background: var(--reply-accent); opacity: .9; }
+.loom-interaction button:active, .loom-primary:active { opacity: .8; }
+.loom-interaction button:disabled { opacity: .4; cursor: default; }
+.loom-interaction :focus-visible { outline: 2px solid var(--reply-accent); outline-offset: 4px; }
+.loom-interaction #err { margin: var(--reply-space-4) 0 0; }
+.loom-interaction .err { padding: var(--reply-space-3) var(--reply-space-4); border: 1px solid var(--reply-danger); border-radius: var(--reply-radius); background: var(--reply-danger-soft); color: var(--reply-danger); font-size: 14px; }
+.loom-confirmation { margin: var(--reply-space-6) 0 0; padding: var(--reply-space-10) var(--reply-space-7) var(--reply-space-7); border: 1px solid var(--reply-border); border-radius: 16px; background: var(--reply-surface); }
+.loom-confirmation h1 { margin-top: var(--reply-space-6); }
+.loom-confirmation p { color: var(--reply-muted); margin: var(--reply-space-3) 0 var(--reply-space-7); }
+.loom-success-icon { display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; color: var(--reply-accent); background: var(--reply-accent-soft); }
+.loom-success-icon svg { width: 28px; height: 28px; }
+@media (max-width: 600px) {
+  .loom-topbar { min-height: 52px; padding: var(--reply-space-1) var(--reply-space-5); }
+  .loom-main { padding: var(--reply-space-7) var(--reply-space-4) calc(var(--reply-space-6) + env(safe-area-inset-bottom, 0px)); }
+  .loom-interaction h1 { font-size: 28px; letter-spacing: -.7px; }
+  .loom-interaction #app { padding: var(--reply-space-5); }
+  .loom-interaction #app textarea:disabled { font-size: 17px; }
+  .loom-confirmation { margin-top: var(--reply-space-4); padding: var(--reply-space-8) var(--reply-space-6) var(--reply-space-6); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loom-interaction *, .loom-interaction *::before, .loom-interaction *::after { transition: none !important; animation: none !important; }
+}
