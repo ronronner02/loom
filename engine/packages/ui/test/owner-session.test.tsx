@@ -117,6 +117,19 @@ describe("desktop owner-session reconnect", () => {
     expect(result.current.paired).toBe(true);
   });
 
+  it("preserves a denied command's explanation without treating it as a lost connection", async () => {
+    const reason = "Run is closed; the lead is not reading messages";
+    request.mockResolvedValueOnce(response(403, { status: "denied", reason, value: null, effectMayStart: false }));
+    const { result } = renderHook(useOwnerSession, { wrapper });
+    await act(async () => {
+      await expect(result.current.request("/runs/fixture/chat", { method: "POST" }))
+        .rejects.toMatchObject({ status: 403, error: reason, message: reason });
+    });
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(reconnect).not.toHaveBeenCalled();
+    expect(result.current.paired).toBe(true);
+  });
+
   it("never replays a request that was cancelled while reconnecting", async () => {
     const connection = deferred<string>(); reconnect.mockReturnValue(connection.promise);
     request.mockResolvedValueOnce(denied());

@@ -67,6 +67,29 @@ async function show(data = read(), conversation = chat, connectionError = false)
 }
 
 describe("persistent lead chat", () => {
+  it.each(["canceled", "cancel_requested"] as const)("keeps the draft but closes the composer after a run becomes %s", async state => {
+    const language = await createInterfaceI18n({ language: "en" });
+    const panel = (runState: "approved" | typeof state) => <I18nextProvider i18n={language.instance}>
+      <ChatPanel open onOpenChange={() => {}} opener={{ current: null }} runId={RUN_ID}
+        read={read({ run: { ...planningRead().run, state: runState } })} chat={planningChat()} />
+    </I18nextProvider>;
+    const view = render(panel("approved"));
+    const message = screen.getByRole("textbox", { name: "Message" });
+    fireEvent.change(message, { target: { value: "Replan with the added models." } });
+    fireEvent.change(screen.getByLabelText("Choose attachments"), {
+      target: { files: [new File(["Notes"], "notes.md")] },
+    });
+    view.rerender(panel(state));
+    expect(message).toHaveProperty("value", "Replan with the added models.");
+    expect(message).toHaveProperty("disabled", true);
+    expect(screen.getByText("notes.md")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Send" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Attach files" })).toHaveProperty("disabled", true);
+    expect(screen.getByText(language.instance.t(`status.run.${state}`))).toBeTruthy();
+    fireEvent.submit(message.closest("form")!);
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it("starts the first conversation with uploaded attachment references", async () => {
     const language = await createInterfaceI18n({ language: "en" }), onStarted = vi.fn();
     const file = new File(["Requirements"], "requirements.md", { type: "text/markdown" });
