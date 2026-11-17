@@ -14,7 +14,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
-import { hasRsync, supportsSymlinks } from "./platform-commands.mjs";
+import { supportsSymlinks } from "./platform-commands.mjs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -23,7 +23,6 @@ import {
   EXCLUDES,
   parseChanges,
   buildStaleMessage,
-  checkMode,
   checkModeAbsolute,
 } from "./mirror-skills.mjs";
 
@@ -99,25 +98,14 @@ test("source SKILL.md inventory is non-empty (sanity check)", () => {
   );
 });
 
-test("mirror is in sync with source (drift-detect via --check)", { skip: hasRsync() ? false : "rsync is not installed" }, () => {
-  // The load-bearing assertion: skills/_canonical/ must not drift from
-  // packages/daemon/specs/agents/shared/skills/. Failing this means
-  // someone edited the source without running `npm run mirror-skills`.
-  // Fix: run the script and re-commit.
-  if (!existsSync(TARGET_DIR)) {
-    // First-time bootstrap: target doesn't exist yet. The check would
-    // report every source file as a pending change. Skip in that case
-    // and let the operator run the initial mirror.
-    return;
-  }
-  const { stale, changes } = checkMode(execFileSync);
-  assert.equal(
-    stale,
-    false,
-    stale
-      ? `mirror drift detected (${changes.length} change(s)). Run: npm run mirror-skills`
-      : "",
-  );
+// The load-bearing assertion: no recorded edge may drift from the source. This runs the real
+// `--check` entry — a digest comparison, no external tool — so it holds on every platform.
+const ENGINE_ROOT = join(import.meta.dirname, "..");
+test("mirror is in sync with source (drift-detect via --check)", () => {
+  const result = execFileSync(process.execPath, [join(import.meta.dirname, "mirror-skills.mjs"), "--check"], {
+    cwd: ENGINE_ROOT, encoding: "utf8", stdio: "pipe",
+  });
+  assert.equal(result.trim(), "");
 });
 
 test("excluded patterns are absent in the mirror target", () => {
