@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
   mkdirSync,
@@ -9,6 +10,7 @@ import {
   readdirSync,
   rmSync,
   lstatSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -634,12 +636,14 @@ function isExcludedPath(path) {
 function walkFiles(root) {
   const stat = lstatSync(root, { throwIfNoEntry: false });
   if (!stat) return [];
+  // Report in POSIX form so one message (and every assertion on it) reads the same on any OS.
+  const display = root.replaceAll("\\", "/");
   if (stat.isSymbolicLink()) {
-    throw new Error(`${root}: symlink entries are not allowed`);
+    throw new Error(`${display}: symlink entries are not allowed`);
   }
   if (stat.isFile()) return [root];
   if (!stat.isDirectory()) {
-    throw new Error(`${root}: unsupported filesystem entry`);
+    throw new Error(`${display}: unsupported filesystem entry`);
   }
   return readdirSync(root)
     .sort()
@@ -657,25 +661,36 @@ function copyTree(sourceRoot, targetRoot) {
 /**
  * Copy `sourceRoot` over `targetRoot`, deleting target entries the source no longer has.
  *
- * This is the apply step the edges used to delegate to an external rsync. Doing it in Node keeps
- * the authoring flow runnable on Windows (where no rsync exists) and makes the reported changes
- * exact rather than parsed from another tool's output.
+ * This is the apply step the edges used to delegate to an external rsync (`-a`, so permissions
+ * were always part of the contract). Doing it in Node keeps the authoring flow runnable on Windows
+ * (where no rsync exists) and makes the reported changes exact rather than parsed from another
+ * tool's output. A file whose bytes match but whose executable bit differs is a `mode` change, the
+ * same distinction rsync's `.f...p` itemization carries.
  */
 function syncTree(sourceRoot, targetRoot) {
   const changes = [];
   const sourceFiles = new Map(walkFiles(sourceRoot).map((path) => [relative(sourceRoot, path), path]));
   for (const [rel, sourcePath] of [...sourceFiles].sort(([a], [b]) => a.localeCompare(b))) {
+    const posixRel = rel.replaceAll("\\", "/");
     const targetPath = join(targetRoot, rel);
-    let identical = false;
+    const sourceMode = lstatSync(sourcePath).mode & 0o777;
+    let targetStat = null;
     try {
-      identical = readFileSync(targetPath).equals(readFileSync(sourcePath));
+      targetStat = statSync(targetPath);
     } catch {
-      identical = false;
+      targetStat = null;
     }
-    if (identical) continue;
+    if (targetStat?.isFile() && readFileSync(targetPath).equals(readFileSync(sourcePath))) {
+      if ((targetStat.mode & 0o777) === sourceMode) continue;
+      chmodSync(targetPath, sourceMode);
+      changes.push({ path: posixRel, reason: "mode" });
+      continue;
+    }
     mkdirSync(dirname(targetPath), { recursive: true });
     copyFileSync(sourcePath, targetPath);
-    changes.push({ path: rel.replaceAll("\\", "/"), reason: "write" });
+    // `copyFileSync` gives a new file the source's mode, but an existing target keeps its own.
+    chmodSync(targetPath, sourceMode);
+    changes.push({ path: posixRel, reason: "write" });
   }
   const walkTarget = (dir, rel = "") => {
     if (!existsSync(dir)) return;

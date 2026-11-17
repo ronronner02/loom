@@ -132,7 +132,8 @@ test('the NSIS artifact is per-user and keeps app data on uninstall', { timeout:
   assert.match(config, /deleteAppDataOnUninstall: false/, 'uninstall keeps %LOCALAPPDATA% and %APPDATA% data');
   assert.match(config, /publish: null/, 'publishing is disabled');
   // The bundled executable is a real file under the extraResources tree, not an asar entry.
-  assert.match(config, /from: resources\/engine\n\s+to: engine/);
+  // `\r?\n`: a Windows checkout may hand this file CRLF line endings.
+  assert.match(config, /from: resources\/engine\r?\n\s+to: engine/);
   assert.match(config, /github-cli/, 'the bundled gh.exe stays a real shipped file');
   assert.match(config, /- x64/, 'the shipped architecture is x64 only');
 });
