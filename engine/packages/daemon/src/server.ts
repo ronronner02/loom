@@ -13,7 +13,6 @@ import { teamEventsRoutes } from "./routes/events.js";
 import type { TranscriptStore } from "./domain/transcript-store.js";
 import type { AgentActivityStore } from "./domain/agent-activity-store.js";
 import { jsonBodyErrorHandler, trackJsonBodyParseErrors } from "./middleware/json-body-error.js";
-import { getSelfHostId, getSelfHostIdSource } from "./domain/host-identity/fanout-contract.js";
 import type { ChatRepository } from "./domain/chat-repository.js";
 import { MailboxDelivery, createMailboxPromptStateReader, type NativeChannelStateReader } from "./domain/mailbox-delivery.js";
 import { workspaceBrowseRoutes } from "./routes/workspace.js";
@@ -508,24 +507,6 @@ export function createApp(deps: AppDeps): Hono {
     // {semver, commit, dirty, builtAt}; dev runs add NOTHING (stampFields is
     // {} without a stamp — no invented identity, legacy bodies preserved).
     const stamp = stampFields();
-    // 51-09 increment 3 (arch ruling 2e1b737f; local always-suffix rendering since
-    // superseded by the 2026-08-27 root invariant) — expose the daemon's boot-reconciled
-    // self-host id so the CLI edge can detect cross-host targets, self-resolve a
-    // self-suffixed reply hint, and construct the origin triple at the FORWARDING
-    // boundary (ONE identity source). ADDITIVE
-    // on the FR-7 stamp precedent: ABSENT before the boot reconcile (getSelfHostId
-    // is null → {} → no invented identity, legacy bodies byte-preserved). NEVER
-    // ownName/host.name (display-only, DP4 — the conflation this slice kills).
-    const self = getSelfHostId();
-    // Slice 14 §2c — legibility BEFORE the cross-machine failure. A host running a generated id is
-    // in a materially different state from one running its registered name (remote callers cannot
-    // resolve it), and until now nothing said which state you were in until a message failed.
-    const selfHost = self
-      ? {
-          selfHostId: self,
-          selfHostIdSource: getSelfHostIdSource(),
-        }
-      : {};
     const monitor = deps.eventLoopMonitor;
     const slowOperations = deps.slowOpRecorder?.snapshot
       ? { slowOperations: deps.slowOpRecorder.snapshot() }
@@ -551,14 +532,13 @@ export function createApp(deps: AppDeps): Hono {
     } catch { runningAttempts = undefined; }
     const attemptCount = runningAttempts !== undefined ? { runningAttempts } : {};
     if (!monitor) {
-      return c.json({ status: "ok", pid: process.pid, ...stamp, ...selfHost, ...slowOperations, ...bind, ...stuckSweep, ...wakeLadder, ...attemptCount });
+      return c.json({ status: "ok", pid: process.pid, ...stamp, ...slowOperations, ...bind, ...stuckSweep, ...wakeLadder, ...attemptCount });
     }
     const eventLoop = monitor.snapshot();
     return c.json({
       status: "ok",
       pid: process.pid,
       ...stamp,
-      ...selfHost,
       eventLoop,
       routeTimings: deps.routeTimingRecorder?.snapshot() ?? {},
       ...slowOperations,

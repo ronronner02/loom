@@ -1,5 +1,4 @@
 import type { Context } from "hono";
-import { getSelfHostId } from "../domain/host-identity/fanout-contract.js";
 
 /**
  * P21 sender-provenance chokepoint — the ONE shared route helper that generalizes P18's inline
@@ -35,24 +34,13 @@ export const SENDER_IDENTITY_HEADER = "x-multi-agent-session";
 export const ORIGIN_UNKNOWN_HEADER = "x-multi-agent-origin-unknown";
 
 /**
- * #131 — ONE canonicalizer for the transport identity. Inside one instance a seat is bare `member@rig`
- * (local-bare-identity invariant), but the CLI host-qualifies its sender with THIS daemon's own
- * self-host id whenever its loopback locality probe is slow or fails (client.ts identityHeaders), so a
- * loaded daemon saw `member@rig@<selfHostId>` and every strict actor compare (claim, unclaim, handoff…)
- * refused the seat's own work. A trailing `@<selfHostId>` names this host, so it resolves to the local
- * canonical seat. A FOREIGN host qualifier is a genuine cross-host origin and is preserved verbatim; an
- * unqualified name, a pre-boot (null) self id, or a shape that is not member@rig@host is unchanged.
- * Case-sensitive, matching resolvesToLocalHost.
- *
- * Scope: this canonicalizes the SENDER only. The CLI cannot fix it at the source, because a slow or
- * failed locality probe is precisely the case where the CLI knows least; the daemon knows its own id.
- * Destinations are deliberately untouched: a self-suffixed destination still refuses with the C4
- * teaching (destinationRigTeaching in queue-repository.ts) and is never auto-stripped here.
+ * The transport identity as this daemon records it. A seat inside one instance is bare
+ * `member@rig`; a host qualifier names where a sender came from, and this daemon serves one host,
+ * so a three-part value keeps only its `member@rig` prefix. Any other shape is unchanged.
  */
-export function canonicalSenderSession(session: string, selfId: string | null = getSelfHostId()): string {
-  if (!selfId) return session;
+export function canonicalSenderSession(session: string): string {
   const parts = session.split("@");
-  if (parts.length !== 3 || parts.some(p => !p) || parts[2] !== selfId) return session;
+  if (parts.length !== 3 || parts.some(part => !part)) return session;
   return `${parts[0]}@${parts[1]}`;
 }
 

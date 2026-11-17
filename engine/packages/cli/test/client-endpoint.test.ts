@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import http from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DaemonClient, remoteDaemonClient } from "../src/client.js";
+import { DaemonClient } from "../src/client.js";
 import { allowFetchTarget, resetFetchAllowlist } from "./fetch-guard.js";
 
 describe("default client endpoint selection", () => {
@@ -124,13 +124,13 @@ describe("default client endpoint selection", () => {
     expect(new DaemonClient().baseUrl).toBe("http://127.0.0.1:7433");
   });
 
-  it("preserves remote destination and origin identity while local state exists", async () => {
+  it("stamps the seat identity it derives from the environment on every request", async () => {
     writeState(state());
     vi.stubEnv("MULTI_AGENT_SESSION_NAME", "author@fixture");
     const fetchImpl = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => new Response("{}"));
-    const client = remoteDaemonClient(url => new DaemonClient(url, { fetchImpl }), "http://remote.invalid:28006", "origin-fixture");
+    const client = new DaemonClient("http://remote.invalid:28006", { fetchImpl });
     await client.post("/api/proof/judge", { fixture: true });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(fetchImpl.mock.calls[0]).toEqual(["http://remote.invalid:28006/api/proof/judge", expect.objectContaining({ headers: expect.objectContaining({ "X-Multi-Agent-Session": "author@fixture@origin-fixture" }) })]);
+    expect(fetchImpl.mock.calls[0]).toEqual(["http://remote.invalid:28006/api/proof/judge", expect.objectContaining({ headers: expect.objectContaining({ "X-Multi-Agent-Session": "author@fixture" }) })]);
   });
 });

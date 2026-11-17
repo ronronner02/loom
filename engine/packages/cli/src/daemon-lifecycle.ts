@@ -6,7 +6,6 @@ import { blockedConnectionGuidance, isBlockedConnectionCode } from "./daemon-rea
 import type { DaemonStartLock } from "./daemon-start-lock.js";
 import { DAEMON_STOP_WAIT_MS, DAEMON_SHUTDOWN_RECEIPT, type DaemonShutdownReceipt } from "@multi-agent/daemon/daemon-shutdown";
 import { ConfigStore } from "./config-store.js";
-import { readLocalOrigin } from "./local-origin.js";
 import { MULTI_AGENT_HOME } from "@multi-agent/daemon/data-paths";
 export interface DaemonState {
   pid: number;
@@ -1035,61 +1034,6 @@ async function fetchDaemonProbe(deps: LifecycleDeps, url: string, timeoutMs: num
   } finally {
     if (timer) clearTimeout(timer);
   }
-}
-
-/**
- * 51-09 increment 3 — best-effort read of the daemon's boot-reconciled self-host
- * id from `/healthz`, for the CLI-direct send edge (the `From:` triple + the
- * reply-hint self-strip). ONE identity source (rider b): the same `/healthz`
- * field the daemon exposes, fetched on the SAME resolved local-daemon `url` the
- * send already uses — no second resolution path. Bounded by the existing
- * `HEALTHZ_PROBE_TIMEOUT_MS` (one timeout convention, not a new knob). C1
- * fail-open: returns `undefined` on ANY error / timeout / missing field — never
- * throws, never a hard daemon dependency, no new failure mode on the plain send
- * path (the envelope simply renders today's two-part form).
- */
-export async function fetchSelfHostId(deps: LifecycleDeps, url: string): Promise<string | undefined> {
-  try {
-    const base = url.replace(/\/+$/, "");
-    const res = await fetchDaemonProbe(deps, `${base}/healthz`, HEALTHZ_PROBE_TIMEOUT_MS);
-    if (!res.ok || !res.json) return undefined;
-    const body = (await res.json()) as { selfHostId?: unknown } | null;
-    const id = body?.selfHostId;
-    return typeof id === "string" && id.length > 0 ? id : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * This host's own identity AND where it came from, for the surfaces that must make the state legible
- * before a cross-machine message fails. Same fail-open contract as `fetchSelfHostId`: unreachable
- * daemon yields undefined rather than a new failure mode.
- */
-export async function fetchSelfHostIdentity(
-  deps: LifecycleDeps,
-  url: string,
-): Promise<{ selfHostId: string; selfHostIdSource?: string } | undefined> {
-  try {
-    const base = url.replace(/\/+$/, "");
-    const res = await fetchDaemonProbe(deps, `${base}/healthz`, HEALTHZ_PROBE_TIMEOUT_MS);
-    if (!res.ok || !res.json) return undefined;
-    const body = (await res.json()) as { selfHostId?: unknown; selfHostIdSource?: unknown } | null;
-    const id = body?.selfHostId;
-    if (typeof id !== "string" || id.length === 0) return undefined;
-    const source = body?.selfHostIdSource;
-    return {
-      selfHostId: id,
-      ...(typeof source === "string" && source.length > 0 ? { selfHostIdSource: source } : {}),
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-/** Resolve this instance's persisted identity even during an outage; never read it from the target. */
-export async function resolveOriginSelfHostId(_deps: LifecycleDeps): Promise<string | undefined> {
-  return readLocalOrigin();
 }
 
 const defaultSleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));

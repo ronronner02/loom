@@ -257,7 +257,17 @@ export interface ComposedRigAgents {
 // each host's own composed set (arch Q1 — each host is authoritative for
 // its own time-derived ▲; the fleet never recomputes exception truth). ---
 
-import type { PerHostStatus } from "../host-identity/fanout-contract.js";
+/** A fleet host's reachability, as the fan-out read reports it. Closed on purpose: an SSH-declared
+ *  host is never a silently thinner payload (`unsupported-transport`), and `auth-failed` is its
+ *  own class because the fix (rotate the bearer) differs from `unreachable` (check the host). */
+export interface PerHostStatus {
+  hostId: string;
+  status: "ok" | "unreachable" | "unsupported-transport" | "auth-failed";
+  /** Honest failure detail, rendered muted next to the host chip/row. */
+  error?: string;
+  /** The step a transport-level failure classified, when one did. Advisory: `status` is the contract. */
+  failedStep?: string;
+}
 
 /** One fleet NEEDS-YOU row: the per-host row carried VERBATIM (kind-agnostic
  *  — whatever DerivedException the host composed flows through; the WF-4 Q6
@@ -325,8 +335,8 @@ export interface ComposedFleet {
   rollup: ComposedFleetRollup;
   needsYou: { items: FleetNeedsYouItem[]; provenance: string };
   /** One entry per fleet member — local first, then registry order. EVERY
-   *  member appears with its status (omission-proof, the AggregatedPayload
-   *  convention); counts present only on "ok" rows (absent-not-zero). */
+   *  member appears with its status (omission-proof); counts present only on
+   *  "ok" rows (absent-not-zero). */
   hosts: FleetHostRollup[];
   settled: FleetSettledRow[];
   settledProvenance: string;

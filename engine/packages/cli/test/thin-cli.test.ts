@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createProgram } from "../src/index.js";
 import { DaemonClient } from "../src/client.js";
 import { runProgram } from "../src/cli-error.js";
-import * as localOrigin from "../src/local-origin.js";
 
 const baseUrl = "http://127.0.0.1:27451";
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
@@ -68,15 +67,15 @@ describe("thin CLI surface", () => {
     expect(fetchImpl.mock.calls).toHaveLength(2);
     expect(JSON.parse(result.out[0]!)).toMatchObject({ error: { code: "owner_control_required" } });
   });
-  it("never reads the local identity database for an owner command", async () => {
+  it("an owner command reads nothing local beyond the daemon it addresses", async () => {
     vi.stubEnv("MULTI_AGENT_SESSION_NAME", "worker@team");
     vi.stubEnv("MULTI_AGENT_URL", baseUrl);
-    const origin = vi.spyOn(localOrigin, "readLocalOrigin").mockImplementation(() => { throw new Error("No database reads allowed"); });
     const fetchImpl = vi.fn(async (url: string) => url.endsWith("/healthz") ? json({})
       : json({ result: { schema: "multi-agent-team-result/v1" } }));
     const output = await run(["team", "result", "run", "--task", "task"], fetchImpl as typeof fetch);
     expect(output.code).toBe(0);
-    expect(origin).not.toHaveBeenCalled();
+    // The daemon probe and the read: no other endpoint is contacted.
+    expect(fetchImpl.mock.calls.map(call => call[0])).toEqual([baseUrl + "/healthz", baseUrl + "/api/team-control/runs/run/tasks/task/result"]);
   });
   it("reads a finished result without inspecting its repository", async () => {
     const result = { schema: "multi-agent-team-result/v1", taskId: "task", patch: "patch bytes", repositoryRoot: "Z:\\unmounted" };
