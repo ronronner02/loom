@@ -17,8 +17,6 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
-import { assembleBundle } from "../src/domain/context-packs/bundle-assembler.js";
-import { ContextPackLibraryService } from "../src/domain/context-packs/context-pack-library-service.js";
 import { parseManifest } from "../src/domain/context-packs/manifest-parser.js";
 import { composeProfile } from "../src/domain/context-packs/profile-composer.js";
 
@@ -155,12 +153,10 @@ function writeRigFixture(options: {
   const fixturePath = mkdtempSync(join(tmpdir(), "public-world-rig-"));
   temporaryRoots.push(fixturePath);
   const installState = join(fixturePath, "installed-ref");
-  const library = new ContextPackLibraryService({ roots: [{ path: STATIC_ROOT, sourceType: "builtin" }] });
-  library.scan();
-  const publicEntry = library.getByRef("world-public")!;
-  const exampleEntry = library.getByRef("world-example")!;
-  const sourcePath = publicEntry.sourcePath;
+  const sourcePath = join(STATIC_ROOT, "world-public");
+  const exampleSourcePath = join(STATIC_ROOT, "world-example");
   const manifest = manifestAt(sourcePath);
+  const exampleManifest = manifestAt(exampleSourcePath);
   const profile = composeProfile({
     atoms: manifest.atoms ?? [],
     situation: "fresh",
@@ -168,12 +164,32 @@ function writeRigFixture(options: {
     budgetTokens: 0,
     readFile: (ref) => readFileSync(join(sourcePath, ref), "utf8"),
   });
+  const packFiles = manifest.files.map((file) => ({
+    path: file.path,
+    role: file.role ?? null,
+    summary: file.summary ?? null,
+    absolutePath: join(sourcePath, file.path),
+    bytes: 0,
+  }));
+  const bundled = (name: string, version: string, purpose: string | undefined, files: typeof packFiles) => {
+    const sections: string[] = [`# Multi-Agent Context Pack: ${name} v${version}`];
+    if (purpose) sections.push(purpose.trim());
+    for (const file of files) {
+      sections.push(file.summary
+        ? `## File: ${file.path} (role: ${file.role ?? ""}) — ${file.summary}`
+        : `## File: ${file.path} (role: ${file.role ?? ""})`);
+      sections.push(readFileSync(file.absolutePath, "utf8").trimEnd());
+    }
+    return sections.join("\n\n") + "\n";
+  };
   const showJson = JSON.stringify({
-    ...publicEntry,
-    sourcePath: options.showSourcePath ?? publicEntry.sourcePath,
+    relativePath: "world-public",
+    sourceType: "builtin",
+    sourcePath: options.showSourcePath ?? sourcePath,
   });
   const listJson = options.listJson ?? JSON.stringify([
-    ...library.list(),
+    { relativePath: "world-public", sourceType: "builtin", sourcePath },
+    { relativePath: "world-example", sourceType: "builtin", sourcePath: exampleSourcePath },
     { relativePath: "world/install", sourceType: "user_file", sourcePath: "/fixture/private-world" },
   ]);
   const configRoot = options.configRoot === undefined
@@ -181,7 +197,7 @@ function writeRigFixture(options: {
     : `'${options.configRoot}'`;
   writeFileSync(
     join(fixturePath, "world-public-get.txt"),
-    options.publicGet ?? assembleBundle({ packEntry: publicEntry }).text,
+    options.publicGet ?? bundled(manifest.name, manifest.version, manifest.purpose, packFiles),
   );
   writeFileSync(join(fixturePath, "world-public-profile.json"), options.profileJson ?? JSON.stringify(profile));
   writeFileSync(
@@ -190,7 +206,11 @@ function writeRigFixture(options: {
   );
   writeFileSync(
     join(fixturePath, "world-example-get.txt"),
-    options.exampleGet ?? assembleBundle({ packEntry: exampleEntry }).text,
+    options.exampleGet ?? bundled(exampleManifest.name, exampleManifest.version, exampleManifest.purpose,
+      (exampleManifest.files ?? []).map((file) => ({
+        path: file.path, role: file.role ?? null, summary: file.summary ?? null,
+        absolutePath: join(exampleSourcePath, file.path), bytes: 0,
+      }))),
   );
   writeFileSync(join(fixturePath, "world-public-show.json"), showJson);
   writeFileSync(join(fixturePath, "context-list.json"), listJson);

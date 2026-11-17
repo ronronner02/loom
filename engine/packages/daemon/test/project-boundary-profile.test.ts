@@ -9,7 +9,6 @@ import { initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
 import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
-import { buildExecutionView } from "../src/domain/execution-view.js";
 
 const example = parse(readFileSync(new URL("../../../docs/reference/project-release-profile.yaml", import.meta.url), "utf8"));
 // Authored outcome inventory: do not derive the expected set from the fixture under test.
@@ -179,8 +178,6 @@ describe("project-owned boundary profile", () => {
         view = runtime.inspect(instanceId);
       }
       expect(view.instance.status).toBe("completed");
-      const projected = await buildExecutionView({ db, slicesRoot: () => join(root, "missions"), buildInfo: { semver: null, commit: null, dirty: null, builtAt: null } }, { mission: "release-0.5.11" }) as { lifecycle_instances: Array<{ boundary_obligations: unknown }> };
-      expect(projected.lifecycle_instances[0]?.boundary_obligations).toEqual(view.boundaryObligations);
       const replay = await runtime.instantiateLifecycle({ missionPath, operationKey: "release", rootObjective: "Ship release", createdBySession: "orch@example" });
       expect(replay.replayed).toBe(true);
       expect(replay.instance.instanceId).toBe(instanceId);

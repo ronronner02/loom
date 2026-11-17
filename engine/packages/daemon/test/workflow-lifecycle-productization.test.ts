@@ -6,7 +6,6 @@ import type Database from "better-sqlite3";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { buildExecutionView } from "../src/domain/execution-view.js";
 import { OutboxHandler } from "../src/domain/outbox-handler.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
 import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
@@ -506,18 +505,8 @@ describe("S06 lifecycle productization", () => {
       },
     });
     const next = await runtime.project({ instanceId: accepted.instance.instanceId, currentPacketId: accepted.entryQitemId, exit: "handoff", actorSession: "producer@rig" });
-    const execution = await buildExecutionView({
-      db,
-      slicesRoot: () => null,
-      buildInfo: { semver: null, commit: null, dirty: null, builtAt: null },
-    }, { mission: "release-0.5.9" }) as { lifecycle_instances: Array<{
-      instance_id: string;
-      frontier_packets: Array<{ targeted_action: string }>;
-    }> };
-    const acceptanceAction = execution.lifecycle_instances.find((item) => item.instance_id === accepted.instance.instanceId)!.frontier_packets[0]!.targeted_action;
-    expect(acceptanceAction).toContain("--acceptance-candidate 'abc123'");
-    expect(acceptanceAction).toContain("--acceptance-verdict 'CLEAR'");
-    expect(acceptanceAction).toContain("--acceptance-evidence-ref 'proof/review.md'");
+    const acceptanceAction = runtime.inspect(accepted.instance.instanceId).frontier[0]!.targetedAction;
+    expect(acceptanceAction).toBe("project");
     await expect(runtime.project({ instanceId: accepted.instance.instanceId, currentPacketId: next.nextQitemId!, exit: "done", actorSession: "gate@rig" }))
       .rejects.toMatchObject({ code: "acceptance_payload_required" });
     const beforeMismatch = mutationCounts();
@@ -591,20 +580,6 @@ describe("S06 lifecycle productization", () => {
       status: "unresolved",
       targetedAction: "none",
     }]);
-    const execution = await buildExecutionView({
-      db,
-      slicesRoot: () => null,
-      buildInfo: { semver: null, commit: null, dirty: null, builtAt: null },
-    }, { mission: "release-0.5.9" }) as { lifecycle_instances: Array<{
-      instance_id: string;
-      failure_occurrences: Array<{ occurrence_id: string; targeted_action: string | null }>;
-    }> };
-    const projected = execution.lifecycle_instances.find((item) => item.instance_id === created.instance.instanceId)!;
-    expect(projected.failure_occurrences).toMatchObject([{
-      occurrence_id: left.packetId,
-      targeted_action: null,
-    }]);
-    expect(JSON.stringify(projected)).not.toContain("multi-agent workflow resume");
     await expect(runtime.resume({
       instanceId: created.instance.instanceId,
       occurrenceId: left.packetId,

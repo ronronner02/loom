@@ -31,8 +31,6 @@ import { RequestPhaseObserver } from "./domain/request-phase-observer.js";
 import { QueueRepository, isBlockerLive } from "./domain/queue-repository.js";
 import { createWorkflowFrontierPredicate } from "./domain/workflow-frontier-guard.js";
 import { OutboxHandler } from "./domain/outbox-handler.js";
-import { ViewProjector } from "./domain/view-projector.js";
-import { wireViewEventBridge } from "./domain/view-event-bridge.js";
 import { WatchdogJobsRepository } from "./domain/watchdog-jobs-repository.js";
 import { WatchdogHistoryLog } from "./domain/watchdog-history-log.js";
 import { WorkflowRuntime, dependencySatisfied } from "./domain/workflow-runtime.js";
@@ -548,15 +546,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // db.transaction commits atomically with the close + successor create.
   const outboxHandlerInstance = new OutboxHandler(db);
   queueRepoInstance.attachOutbox(outboxHandlerInstance);
-  // PL-004 Phase B — view-projector. Constructed early so both the
-  // viewProjector dep slot and the view-event-bridge can share one instance.
-  const viewProjectorInstance = new ViewProjector(db, eventBus);
-  // PL-004 Phase B R1 (closes guard BLOCKER 2): wire the view event bridge
-  // so queue/inbox/project mutations emit view.changed for affected built-in
-  // views. SSE consumers on /api/views/:name/sse now receive change events
-  // when underlying state mutates.
-  if (!managed) wireViewEventBridge(eventBus, viewProjectorInstance);
-
   // PL-004 Phase C — watchdog supervision tree. Repository + history-log
   // are constructed early; the policy engine + scheduler are constructed
   // after SessionTransport is available so the engine can wire delivery.
@@ -692,7 +681,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     outboxHandler: outboxHandlerInstance,
     shadowCapture: shadow.capture,
     shadowCaptureError: shadow.error,
-    viewProjector: viewProjectorInstance,
     watchdogJobsRepo: watchdogJobsRepoInstance,
     watchdogHistoryLog: watchdogHistoryLogInstance,
     agentActivityStore,

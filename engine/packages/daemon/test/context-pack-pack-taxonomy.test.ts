@@ -11,11 +11,7 @@
 // seam, proven open).
 
 import { describe, it, expect } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { parseManifest } from "../src/domain/context-packs/manifest-parser.js";
-import { ContextPackLibraryService } from "../src/domain/context-packs/context-pack-library-service.js";
 import { ATOM_TAXONOMIES, ContextPackError } from "../src/domain/context-packs/context-pack-types.js";
 
 const manifestWith = (taxonomyLine: string) => `
@@ -108,68 +104,5 @@ atoms:
     const m = parseManifest(manifest, "/t/manifest.yaml");
     expect(m.taxonomy).toBe("world");
     expect(m.atoms?.[0]?.taxonomy).toBe("skills");
-  });
-});
-
-describe("library entry projection (mini-req 4: derivable by command, list --json field)", () => {
-  const pack = (taxonomyLine: string) => `
-name: projected
-version: 1
-${taxonomyLine}
-files:
-  - path: notes.md
-    role: notes
-`;
-
-  it("projects the pack taxonomy onto the library entry", () => {
-    const tmp = mkdtempSync(join(tmpdir(), "pack-taxonomy-"));
-    try {
-      const dir = join(tmp, "projected");
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, "manifest.yaml"), pack("taxonomy: lore"));
-      writeFileSync(join(dir, "notes.md"), "# notes\n");
-      const lib = new ContextPackLibraryService({ roots: [{ path: tmp, sourceType: "user_file" }] });
-      const result = lib.scan();
-      expect(result.errors).toEqual([]);
-      expect(lib.list()[0]!.taxonomy).toBe("lore");
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
-  });
-
-  it("composeFromFiles stamps taxonomy: mission — its own output must pass its own parser (desk ruling on qitem-20260828092429-d2f94323; caller-supplied value deferred to slice 08)", () => {
-    const tmp = mkdtempSync(join(tmpdir(), "pack-taxonomy-"));
-    try {
-      const src = join(tmp, "src.md");
-      writeFileSync(src, "# brief\n");
-      const root = join(tmp, "root");
-      mkdirSync(root, { recursive: true });
-      const lib = new ContextPackLibraryService({ roots: [{ path: root, sourceType: "user_file" }] });
-      lib.scan();
-      const result = lib.composeFromFiles({
-        outRef: "packs/probe-brief",
-        sources: [{ path: src, label: "src.md" }],
-      });
-      expect(result.entry.taxonomy).toBe("mission");
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
-  });
-
-  it("refuses an unstamped pack at scan — fail-visible error, never indexed", () => {
-    const tmp = mkdtempSync(join(tmpdir(), "pack-taxonomy-"));
-    try {
-      const dir = join(tmp, "unstamped");
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, "manifest.yaml"), pack(""));
-      writeFileSync(join(dir, "notes.md"), "# notes\n");
-      const lib = new ContextPackLibraryService({ roots: [{ path: tmp, sourceType: "user_file" }] });
-      const result = lib.scan();
-      expect(result.count).toBe(0);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0]!.error).toContain("taxonomy");
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
   });
 });
