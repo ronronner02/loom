@@ -4,11 +4,8 @@ import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { InboxHandler } from "../src/domain/inbox-handler.js";
 import { StreamStore } from "../src/domain/stream-store.js";
 import { ViewProjector } from "../src/domain/view-projector.js";
-import { ClassifierLeaseManager } from "../src/domain/classifier-lease-manager.js";
-import { ProjectClassifier } from "../src/domain/project-classifier.js";
 import { wireViewEventBridge } from "../src/domain/view-event-bridge.js";
 import type { PersistedEvent } from "../src/domain/types.js";
 
@@ -24,11 +21,8 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
   let db: Database.Database;
   let bus: EventBus;
   let queueRepo: QueueRepository;
-  let inbox: InboxHandler;
   let streamStore: StreamStore;
   let projector: ViewProjector;
-  let leaseMgr: ClassifierLeaseManager;
-  let classifier: ProjectClassifier;
   let captured: PersistedEvent[];
 
   beforeEach(() => {
@@ -36,11 +30,8 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
     initializeDatabase(db);
     bus = new EventBus(db);
     queueRepo = new QueueRepository(db, bus);
-    inbox = new InboxHandler(db, bus, queueRepo);
     streamStore = new StreamStore(db, bus);
     projector = new ViewProjector(db, bus);
-    leaseMgr = new ClassifierLeaseManager(db, bus);
-    classifier = new ProjectClassifier(db, bus, leaseMgr);
     captured = [];
     bus.subscribe((e) => captured.push(e));
     wireViewEventBridge(bus, projector);
@@ -188,53 +179,6 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
     ]);
   });
 
-  it("inbox.absorbed triggers view.changed for recently-active + pod-load + activity", async () => {
-    const drop = inbox.drop({
-      destinationSession: "bob@rig",
-      senderSession: "alice@rig",
-      body: "test",
-    });
-    captured.length = 0;
-    await inbox.absorb(drop.inboxId, "bob@rig");
-    const events = viewChangedEvents();
-    const absorbEvents = events.filter((e) => e.cause === "inbox.absorbed");
-    expect(absorbEvents.map((e) => e.viewName).sort()).toEqual(["activity", "pod-load", "recently-active"]);
-  });
-
-  it("inbox.denied triggers view.changed for activity only", () => {
-    const drop = inbox.drop({
-      destinationSession: "bob@rig",
-      senderSession: "alice@rig",
-      body: "test",
-    });
-    captured.length = 0;
-    inbox.deny(drop.inboxId, "bob@rig", "off-topic");
-    const events = viewChangedEvents();
-    const denyEvents = events.filter((e) => e.cause === "inbox.denied");
-    expect(denyEvents.map((e) => e.viewName)).toEqual(["activity"]);
-  });
-
-  it("project.classified triggers view.changed for activity only", () => {
-    streamStore.emit({ streamItemId: "stream-1", sourceSession: "discovery@rig", body: "x" });
-    leaseMgr.acquire("alice@rig");
-    captured.length = 0;
-    classifier.classify({
-      streamItemId: "stream-1",
-      classifierSession: "alice@rig",
-      leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
-      classificationType: "idea",
-    });
-    const events = viewChangedEvents();
-    const classifyEvents = events.filter((e) => e.cause === "project.classified");
-    expect(classifyEvents.map((e) => e.viewName)).toEqual(["activity"]);
-  });
-
-  it("classifier.lease_acquired does NOT trigger view.changed (lease lifecycle is project SSE, not view SSE)", () => {
-    leaseMgr.acquire("alice@rig");
-    const events = viewChangedEvents();
-    expect(events.filter((e) => e.cause === "classifier.lease_acquired")).toHaveLength(0);
-  });
-
   it("notifyViewChanged persists only and view.changed does not echo through the bridge", () => {
     projector.notifyViewChanged("recently-active", "manual-test");
     captured.length = 0;
@@ -257,18 +201,12 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
         closureReason: "handed_off_to",
         summary: null,
       }));
-      register(bus.persistWithinTransaction({
-        type: "inbox.denied",
-        inboxId: "inbox-w2b-denied",
-        destinationSession: "bob@rig",
-        senderSession: "alice@rig",
-        reason: "ordering discriminator",
-      }));
+      register(bus.persistWithinTransaction({ type: "proof.sources_changed", scope: "w2b", revision: "1" }));
     });
 
     expect(captured.slice(0, 2).map((event) => event.type)).toEqual([
       "queue.handed_off",
-      "inbox.denied",
+      "proof.sources_changed",
     ]);
     const replayed = bus.replayAll(0);
     expect(captured.map((event) => event.seq)).toEqual([1, 2, 3, 4, 5, 6]);
@@ -282,7 +220,7 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
       "recently-active:queue.handed_off",
       "pod-load:queue.handed_off",
       "activity:queue.handed_off",
-      "activity:inbox.denied",
+      "execution:proof.sources_changed",
     ]);
   });
 

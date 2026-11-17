@@ -194,11 +194,9 @@ Each count below is the number of `type` literals per prefix in the union body
 | `mission_control.*` | 4 | audit/notification (`:308`–`:313`; detail in `mission-control.md`) |
 | `bootstrap.*` | 5 | legacy bootstrap-run events |
 | `restore.*` | 4 | restore start/complete/subset-complete/reconcile (detail in `lifecycle-snapshot-restore.md`) |
-| `classifier.*` | 4 | classifier-lease lifecycle |
 | `qitem.*` | 2 | `qitem.fallback_routed` (`:253`), `qitem.closure_overdue` (`:254`) |
 | `proof.*` | 2 | `proof.judged`, `proof.sources_changed` — one union member (`:109`) |
 | `pod.*` | 2 | `pod.created` (`:215`), `pod.deleted` (`:216`) |
-| `inbox.*` | 2 | `inbox.absorbed` (`:255`), `inbox.denied` (`:256`) |
 | `continuity.*` | 2 | `continuity.sync` (`:230`), `continuity.degraded` (`:231`) |
 | `agent.*` | 2 | `agent.activity` (`:151`), `agent.session_identity` (`:158`) |
 | singletons | 12 | one type each: `workflow_spec.*`, `view.*`, `transport.*` (`:155`), `topology.*` (`:138`), `stream.*` (`:245`), `snapshot.*`, `project.*`, `kernel.*`, `event.*` (`:110`), `chat.*` (`:239`), `bundle.*`, `binding.*` |

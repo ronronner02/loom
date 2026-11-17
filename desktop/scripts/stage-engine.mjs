@@ -163,7 +163,6 @@ function assertLayout() {
   const required = [
     'packages/daemon/dist/index.js',
     'packages/daemon/package.json',
-    'packages/daemon/assets/claude-team-permissions.cjs',
     'packages/daemon/dist/builtins/workflow-specs/basic-loop.yaml',
     'packages/ui/dist/index.html',
     'config/team/core.md',

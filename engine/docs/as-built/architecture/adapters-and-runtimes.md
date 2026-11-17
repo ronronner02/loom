@@ -134,62 +134,21 @@ preview of the same mapping for an unopened bundle (see
   seat's `-p <profile>` or `-s workspace-write`. Codex with `auto` gets the
   same: its selected profile, or the `-s workspace-write` floor without one.
 
-**Non-interruptive mode** (`nonInterruptiveArgs()` in
-`packages/daemon/src/adapters/non-interruptive.ts:12`) adds per-launch
-arguments only for a `full_bypass` seat whose rig has it on
-(`rigs.non_interruptive`): Claude Code gets
-`--settings '{"skipDangerousModePermissionPrompt":true}'` (unless an explicit
-non-bypass `permissionMode` is set), and Codex gets
-`-c notice.hide_full_access_warning=true -c notice.hide_gpt5_1_migration_prompt=true`.
-It never changes permissions or native settings files. `rig up
---non-interruptive` and `--no-non-interruptive` save the choice; otherwise the
-rig spec's `non_interruptive`, then the setting `launch.non_interruptive`,
-supplies the default (`packages/daemon/src/domain/bootstrap-orchestrator.ts:739`).
+**Non-interruptive mode, kernel operational default and team default.**
+These three launch-argument builders (`non-interruptive.ts`,
+`kernel-authority.ts`, `native-permission-store.ts`, and the
+`assets/claude-team-permissions.cjs` hook they point at) belonged to the
+retired pane-era launcher. Nothing on the live direct-worker path called them:
+`startup.ts` imported them and constructed none, and the managed launch takes
+its posture from the binding instead. They have been removed. `launchPosture`,
+`permissionMode` and the rig's persisted `non_interruptive` column remain on
+the binding and rig rows.
 
-**Kernel operational default.** `NativePermissionStore.launchOverride()`
-(`native-permission-store.ts:47`) gives a Claude Code or Codex seat in the
-persisted rig named `kernel` operational launch arguments when the seat has no
-explicit permission choice, its member and rig declare no permission policy,
-and (for Codex) it has no `-p` profile (`launchDefault`, `:28`). Fresh start,
-continue, restore and handover all take this decision per launch.
-`operationalLaunchArgs()` (`packages/daemon/src/adapters/kernel-authority.ts:56`)
-then replaces the non-interruptive arguments for that seat:
-
-- Claude Code keeps the floor, `--permission-mode acceptEdits`, and gets
-  `--settings` whose `permissions.allow` is `KERNEL_CLAUDE_ALLOW`
-  (`:9`): `Skill`, `Read`, `Edit`, `Write`, `Glob`, `Grep`, `WebFetch`, `Bash(<command>:*)`
-  for 39 operational commands (`rig`, `tmux`, `node`, `npm`, `git`, `ssh`, `python3` and
-  others), `Bash(command -v:*)` (`:16`), two read-only provider login checks (`Bash(claude auth status:*)`,
-  `Bash(codex login status:*)`, `:18`), and `Read(~/**)` (`:19`), plus the `PreToolUse`
-  hook described under the team default. It is not
-  the bypass flag, and the user's own ask and deny rules still apply.
-- Codex gets the `full_bypass` posture, `-s danger-full-access -a never`, plus
-  the two notice flags above.
-
-It writes no settings file. If the rig lookup fails, the seat keeps its floor.
-`rig seat status` reports the source as "kernel operational default"
-(`kernel_default`, `native-permission-store.ts:182`).
-
-**Team default.** Under the same conditions, a Claude Code or Codex seat in any
-other rig gets `teamPermissionDefault` instead (`native-permission-store.ts:38`,
-`:56`), on the same launch paths. A Claude Code seat at the floor with no native
-permission mode keeps `--permission-mode acceptEdits` and gets
-`--settings` (`kernel-authority.ts:64–66`):
-`TEAM_CLAUDE_ALLOW` (`:25`) is `Skill`, `Read(./**)`, `Glob`, `Grep`,
-`Bash(rig:*)`, eight read-only shell commands and 17 test-runner commands, and
-`TEAM_CLAUDE_ASK` (`:32`) asks before 41 `rig` lifecycle commands such as `up`,
-`down`, `seat stop` and `bundle install`. The settings carry the allow list and a
-`PreToolUse` Bash hook, `packages/daemon/assets/claude-team-permissions.cjs`, that applies
-both lists (`kernel-authority.ts:43–53`): it asks before a lifecycle command unless the
-command only asks for `--help` or `-h`, allows a simple literal command that matches an
-allow rule, and otherwise leaves the decision to Claude (`claude-team-permissions.cjs:234`,
-`:240`). Without the hook file, the settings carry both lists as plain `allow` and `ask`
-rules (`kernel-authority.ts:46`). A Codex seat launching at
-`-s workspace-write` gets `--add-dir` for the workspace root (`workspace.root`)
-and its pod's state directory, each created first and skipped with a warning if
-it is the home directory or an ancestor of it
-(`packages/daemon/src/domain/codex-team-workspace.ts:18`), on fresh, fork and
-resume launches (`codex-runtime-adapter.ts:378`, `codex-resume.ts:103`).
+A Codex seat launching at `-s workspace-write` still gets `--add-dir` for the
+workspace root (`workspace.root`) and its pod's state directory, each created
+first and skipped with a warning if it is the home directory or an ancestor of
+it (`packages/daemon/src/domain/codex-team-workspace.ts:18`), on fresh, fork
+and resume launches (`codex-runtime-adapter.ts:378`, `codex-resume.ts:103`).
 
 ### ClaudeCodeAdapter (`claude-code-adapter.ts:55`)
 
@@ -258,8 +217,7 @@ resume launches (`codex-runtime-adapter.ts:378`, `codex-resume.ts:103`).
   fresh launch whose thread id is not captured returns `{ ok: true }` with its
   applied launch but no token (`:466`). Every Codex launch, fresh, fork or resume,
   also carries `-c check_for_update_on_startup=false`, so a managed seat leaves Codex
-  upgrades to the operator (`kernel-authority.ts:60`, added to the posture at
-  `codex-runtime-adapter.ts:363`).
+  upgrades to the operator.
 - **Network default.** On the plain `-s workspace-write` floor,
   `domain/codex-network-default.ts` asks a one-shot `codex app-server` for the
   effective configuration; when it allows it, the launch adds

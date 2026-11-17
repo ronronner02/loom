@@ -62,7 +62,8 @@ Five host-scoped tables back the primitive, one per migration `023`–`027` in
   `:158`–`171`).
 - **`inbox_entries`** (`026_inbox_entries.ts`) — mailbox-style asynchronous
   deposit; idempotent on `inbox_id`. State: `pending | absorbed | denied`
-  (`INBOX_STATES`, `inbox-handler.ts:5`).
+  (`INBOX_STATES`). No daemon code writes it today: the `InboxHandler` that
+  did was constructed but never called, and has been removed.
 - **`outbox_entries`** (`027_outbox_entries.ts`) — sender-side record;
   symmetric to inbox; idempotent on `outbox_id`. Delivery state (**7** values,
   `OUTBOX_DELIVERY_STATES` at `outbox-handler.ts:28`;
@@ -78,9 +79,9 @@ migration set.
 
 ## 2. The six host-scoped services
 
-Six host-scoped domain services in `packages/daemon/src/domain/` implement the
-layer (**6** files:
-`ls packages/daemon/src/domain/{stream-store,queue-repository,queue-transition-log,hot-potato-enforcer,inbox-handler,outbox-handler}.ts | wc -l`).
+Five host-scoped domain services in `packages/daemon/src/domain/` implement the
+layer (**5** files:
+`ls packages/daemon/src/domain/{stream-store,queue-repository,queue-transition-log,hot-potato-enforcer,outbox-handler}.ts | wc -l`).
 Routes import these; services are Hono-free:
 
 - **`stream-store.ts`** — L1 stream: idempotent emit (on `stream_item_id`),
@@ -103,15 +104,6 @@ Routes import these; services are Hono-free:
   `QueueRepository.transitionLog` (`queue-repository.ts:666`).
 - **`hot-potato-enforcer.ts`** — pure validator for the load-bearing API
   contract (see §3).
-- **`inbox-handler.ts`** — mailbox handler: drop (idempotent on `inbox_id`,
-  `:100`), absorb (promotes a pending entry to a `queue_item`, idempotent,
-  `:155`), deny (records reason, `:215`). The handler has no auth hook
-  (`inbox-handler.ts:71`); identity comes from the route. `POST /inbox/drop`
-  takes the sender only from the `X-OpenRig-Session` header through
-  `requireSenderIdentity` (`routes/queue.ts:1094`) and answers 400
-  `actor_required` without it. Absorb and deny (`:1121`, `:1135`) use the
-  header when present; otherwise they accept the body's `receiverSession` and
-  record it as `claimed:v1` (`routes/require-sender-identity.ts:83`–`92`).
 - **`outbox-handler.ts`** — sender-side outbox: idempotent record (`:130`),
   delivery-state marks (`markDelivered` `:239`, `markFailed` `:256`,
   `markIndeterminate` `:280`), list (`listForSender` `:339`). It also holds the
@@ -284,7 +276,7 @@ message-passing closure (never 2PC).**
   (they do not dereference in B's DB) — plus provenance tags `cross-host` +
   `from-host:<self-declared name>` (the forwarding daemon's OS hostname,
   `routes/queue.ts:54`; honest best-effort, not authenticated identity).
-- **Boundary discipline.** Claim, update and inbox routes take no `hostId` and
+- **Boundary discipline.** Claim and update routes take no `hostId` and
   stay local (after a cross-host handoff the successor lives where its worker
   lives). Without a `hostId`, with `local`, or with this daemon's own resolved
   host id (an exact, case-sensitive match), create and handoff take the
@@ -304,14 +296,14 @@ this module covers only the coordination families below.
 Coordination events emitted by these services: `stream.emitted`
 (`StreamStore.emit`, declared at `types.ts:245`); `queue.created` /
 `queue.handed_off` / `queue.claimed` / `queue.unclaimed` / `queue.updated` /
-`qitem.fallback_routed` / `qitem.closure_overdue` (QueueRepository); `inbox.absorbed` (`types.ts:255`) /
-`inbox.denied` (InboxHandler). `qitem.closure_overdue` (`types.ts:254`) is
+`qitem.fallback_routed` / `qitem.closure_overdue` (QueueRepository).
+`qitem.closure_overdue` (`types.ts:254`) is
 emitted by `QueueRepository.recordClosureOverdue` when swept by `queue-stuck-sweep`
 and passed through the queue watch filter (**2** files contain its literal:
 `git grep -l -F 'type: "qitem.closure_overdue"' -- packages/daemon/src | wc -l`).
-The `stream|queue|inbox|qitem` families declare **10** event types (`stream` 1
-+ `queue` 5 + `inbox` 2 + `qitem` 2;
-`sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"(stream|queue|inbox|qitem)\.[a-z_]+"' | sort -u | wc -l`).
+The `stream|queue|qitem` families declare **8** event types (`stream` 1
++ `queue` 5 + `qitem` 2;
+`sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"(stream|queue|qitem)\.[a-z_]+"' | sort -u | wc -l`).
 
 Two SSE surfaces stream coordination events (**2**:
 `cat packages/daemon/src/routes/stream.ts packages/daemon/src/routes/queue.ts | grep -c 'return streamSSE('`):
@@ -338,10 +330,9 @@ a daemon route or reconnect policy.
   `POST /:qitemId/fallback` (`:808`), list (`:902`) and watch (`:1054`)
   surfaces; reads `GET /whoami`, `/attention-aggregate`, `/human-updates`,
   `/overdue`, `/undelivered`, `/recent-transitions`, `/:qitemId/transitions`
-  and `/:qitemId` (`:822`–`1067`); inbox routes `POST /inbox/drop`,
-  `/inbox/:id/absorb`, `/inbox/:id/deny` and `GET /inbox/pending`,
-  `/inbox/list` (`:1076`–`1152`); outbox routes `POST /outbox/record` and
-  `GET /outbox/list` (`:1161`, `:1190`).
+  and `/:qitemId` (`:822`–`1067`). The inbox routes and their handler were
+  removed with the unreachable launch-era surface; `POST /outbox/record` and
+  `GET /outbox/list` remain.
 
 Every write route derives its actor through `requireSenderIdentity`
 (`routes/require-sender-identity.ts:76`): the `X-OpenRig-Session` header wins
@@ -351,10 +342,9 @@ over a body actor. On a direct request from a known origin it is recorded as
 carried `origin-unknown:v1` (`:207`), `relay:v1` for a relayed request that
 carried `transport:v1`, and `claimed:v1` for other relayed requests. Without the
 header, the
-body actor is recorded as `claimed:v1`; with neither (or, for inbox drop,
-without the header) the route answers 400 `actor_required`. The stamp lands in
-`identity_provenance` on transitions, inbox, outbox and stream rows
-(migrations `067`, `082`).
+body actor is recorded as `claimed:v1`; with neither the route answers 400
+`actor_required`. The stamp lands in `identity_provenance` on transitions,
+outbox and stream rows (migrations `067`, `082`).
 
 ## See also
 
@@ -362,5 +352,5 @@ without the header) the route answers 400 `actor_required`. The stamp lands in
 - `workflow-runtime.md` — the workflow runtime that projects on closure.
 - `mission-control.md` — queue observability over `queue_items`.
 - Source roots: `packages/daemon/src/domain/{stream-store,queue-repository,
-  queue-transition-log,hot-potato-enforcer,inbox-handler,outbox-handler}.ts`,
+  queue-transition-log,hot-potato-enforcer,outbox-handler}.ts`,
   `packages/daemon/src/routes/{stream,queue}.ts`.

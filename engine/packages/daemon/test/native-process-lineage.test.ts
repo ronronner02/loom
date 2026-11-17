@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { findExactNativeResumeProcess, observeClaudePaneStartedAt, observeClaudeDelivery, verifyClaudePaneProcess, verifyCodexPaneProcess, type NativeProcessRow } from "../src/domain/native-process-lineage.js";
 
-import { operationalLaunchArgs } from "../src/adapters/kernel-authority.js";
 
 const token = "00000000-0000-7000-8000-000000000001";
 const parent = "00000000-0000-7000-8000-0000000000fa";
@@ -157,8 +156,6 @@ describe("observeClaudePaneStartedAt", () => {
 
 describe("Claude identity with inline settings in ps output", () => {
   const settings = [
-    ["kernel", operationalLaunchArgs("claude-code", { kernelAuthority: true })[1]!],
-    ["team", operationalLaunchArgs("claude-code", { teamPermissionDefault: true })[1]!],
     ["escaped quotes and hooks", JSON.stringify({
       permissions: { allow: ["Bash(npm run test:*)"] },
       hooks: { PreToolUse: [{ hooks: [{ type: "command", command: 'node "/fixture with spaces/check.cjs" --label "it\'s fine"', timeout: 5 }] }] },
@@ -223,7 +220,6 @@ describe("Claude identity with inline settings in ps output", () => {
     `--settings ${JSON.stringify({ label: `two words --session-id ${token}` })}`,
     `--settings {"env":{"note":"text --session-id ${token} --model trailing`,
     `--settings ${settings[0]![1]} --session-id ${token} --session-id different`,
-    `--settings ${settings[1]![1]} --session-id ${token} --unknown`,
   ])("does not promote ambiguous argv: %s", async args => {
     expect(await verifyClaudePaneProcess(input(args))).toBeNull();
     expect((await observeClaudeDelivery(input(args))).state).not.toBe("verified");
