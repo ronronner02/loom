@@ -157,9 +157,6 @@ export interface QueueUpdateInput {
   state?: QueueState;
   /** Explicit acknowledgment for a deliberate terminal → active repair. */
   reopen?: boolean;
-  /** Set ONLY by the workflow domain's own write paths: they hold the frontier
-   *  invariant, so the close-path guard exempts them. */
-  viaWorkflowVerb?: boolean;
   transitionNote?: string;
   closureReason?: string;
   closureTarget?: string;
@@ -311,10 +308,6 @@ export class QueueRepository {
   private readonly hasQueueTransitionsTable: boolean;
   private readonly hasTransitionProvenanceColumn: boolean;
   private readonly hasOwnerNotificationColumns: boolean;
-  /** The workflow domain's is-live-frontier-packet predicate, injected by startup. */
-  private readonly workflowFrontierPredicate:
-    | ((qitemId: string) => { instanceId: string; workflowName: string } | null)
-    | undefined;
 
   constructor(
     db: Database.Database,
@@ -322,12 +315,6 @@ export class QueueRepository {
     opts?: {
       validateRig?: (sessionRef: string) => boolean;
       destinationAdvisory?: (sessionRef: string) => QueueDestinationAdvisory | null;
-      /**
-       * The frontier close-path guard's INJECTED predicate. The queue is the lower
-       * primitive and never imports the workflow domain; startup wires the workflow
-       * domain's exported predicate in. Absent (tests, bootstrap) = zero new behavior.
-       */
-      workflowFrontierPredicate?: (qitemId: string) => { instanceId: string; workflowName: string } | null;
       /**
        * Resolve the SOURCE seat's occupant generation so a created row carries the
        * composing generation. The queue never imports the session domain; startup
@@ -342,7 +329,6 @@ export class QueueRepository {
     this.transitionLog = new QueueTransitionLog(db);
     this.validateRig = opts?.validateRig ?? (() => true);
     this.destinationAdvisory = opts?.destinationAdvisory ?? (() => null);
-    this.workflowFrontierPredicate = opts?.workflowFrontierPredicate;
     this.resolveOccupantGeneration = opts?.resolveOccupantGeneration;
     this.loadHumanRegistryFn = opts?.loadHumanRegistry ?? (() => loadHumanRegistry());
     this.hasTargetRepoColumn = detectQueueColumn(db, "target_repo");
@@ -705,22 +691,6 @@ export class QueueRepository {
       throw new QueueRepositoryError(validation.code, validation.message, {
         validReasons: "validReasons" in validation ? validation.validReasons : undefined,
       });
-    }
-
-    // The frontier close-path guard (PREVENTION over detection): a TERMINAL closure of a
-    // LIVE workflow-frontier packet from a NON-workflow verb would strand the instance.
-    // The workflow domain's own writers pass viaWorkflowVerb (they hold the invariant);
-    // non-workflow qitems return null from the predicate — closure behavior byte-identical.
-    const isTerminalClosure = isTerminalState(input.state);
-    if (isTerminalClosure && !input.viaWorkflowVerb && this.workflowFrontierPredicate) {
-      const binding = this.workflowFrontierPredicate(input.qitemId);
-      if (binding) {
-        throw new QueueRepositoryError(
-          "workflow_frontier_packet",
-          `qitem ${input.qitemId} is the LIVE frontier packet of workflow instance ${binding.instanceId} (${binding.workflowName}). Closing it out-of-band would strand the workflow.`,
-          { instanceId: binding.instanceId, workflowName: binding.workflowName, qitemId: input.qitemId },
-        );
-      }
     }
 
     // Leg-1 park (state=blocked on a HUMAN-seat blocker): enforce summary + evidence_ref at
