@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type { MessageKey } from "@multi-agent/i18n";
 import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion.js";
@@ -14,6 +14,10 @@ export interface FlowViewProps {
   title?: string;
   className?: string;
   maxParticles?: number;
+  /** The events query has not seeded yet: the stage shows a loading state instead of an empty one. */
+  loading?: boolean;
+  /** The run read failed; `events` is then not "no events" but "unknown". */
+  error?: boolean;
 }
 
 /** The intent kinds whose provider label is data (a tool name, a verdict), shown after the kind. */
@@ -29,14 +33,7 @@ function fallbackNodeStyle(pos: { x: number; y: number } | undefined, width: num
   };
 }
 
-function setSelectedFromKeyboard(event: ReactKeyboardEvent<HTMLButtonElement>, select: () => void): void {
-  if (event.key === "Enter" || event.key === " ") {
-    event.preventDefault();
-    select();
-  }
-}
-
-export function FlowView({ events, seats, nodeStates, title, className, maxParticles }: FlowViewProps) {
+export function FlowView({ events, seats, nodeStates, title, className, maxParticles, loading = false, error = false }: FlowViewProps) {
   const { t } = useTranslation();
   const reducedMotion = usePrefersReducedMotion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -75,6 +72,7 @@ export function FlowView({ events, seats, nodeStates, title, className, maxParti
     if (!canvas) return;
     let context: CanvasRenderingContext2D | null = null;
     try {
+      // jsdom throws "not implemented" instead of returning null; either way the static list takes over.
       context = canvas.getContext("2d");
     } catch {
       context = null;
@@ -202,6 +200,8 @@ export function FlowView({ events, seats, nodeStates, title, className, maxParti
     };
   }, [canvasAvailable, paused, mapping]);
 
+  const showLoading = loading && !events.length;
+  const showError = error;
   const selected = selectedNode ? mapping.nodes.find(node => node.id === selectedNode) : null;
   const stateText = (state: FlowNode["state"]) => t(`flow.state.${state}` as MessageKey);
   const roleText = (role: FlowNode["role"]) => t(`flow.role.${role}` as MessageKey);
@@ -217,6 +217,15 @@ export function FlowView({ events, seats, nodeStates, title, className, maxParti
     const route = intent.targetId ? `${nodeName(intent.sourceId)} → ${nodeName(intent.targetId)}` : nodeName(intent.sourceId);
     return [base, detail, route].filter(Boolean).join(" · ");
   };
+
+  if (showLoading || showError) {
+    return <section className={["flow-view", className].filter(Boolean).join(" ")}>
+      <div className="flow-heading"><h2>{title ?? t("flow.title")}</h2></div>
+      <p className="flow-status" role={showError ? "alert" : "status"}>
+        {showError ? t("web.error") : t("flow.loading")}
+      </p>
+    </section>;
+  }
 
   return (
     <section
@@ -237,7 +246,7 @@ export function FlowView({ events, seats, nodeStates, title, className, maxParti
       </div>
       <div className="flow-stage" ref={stageRef} data-testid="flow-stage">
         <canvas ref={canvasRef} className="flow-canvas" aria-hidden="true" />
-        <div className="flow-node-layer" role="list" aria-label={t("flow.seats")}>
+        <div className="flow-node-layer" role="group" aria-label={t("flow.seats")}>
           {visibleNodes.map(node => {
             const isSelected = selectedNode === node.id;
             const meta = visualMeta.get(node.id);
@@ -271,7 +280,6 @@ export function FlowView({ events, seats, nodeStates, title, className, maxParti
                 data-receiving={isReceiving ? "true" : "false"}
                 data-phase={meta?.phase ?? "active"}
                 onClick={() => setSelectedNode(node.id)}
-                onKeyDown={event => setSelectedFromKeyboard(event, () => setSelectedNode(node.id))}
               >
                 <span
                   className="flow-node-avatar-wrap"
@@ -329,5 +337,3 @@ export function FlowView({ events, seats, nodeStates, title, className, maxParti
     </section>
   );
 }
-
-export default FlowView;

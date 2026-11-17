@@ -15,6 +15,7 @@ let extraRun = false;
 let mobile = false;
 let signedIn = true;
 let accountFailure = false;
+let readFailure = false;
 let replayEvents: object[] = [];
 let flowSettings: TeamModelSettings | undefined;
 let observedFlowModel: string | null = null;
@@ -23,7 +24,7 @@ const unexpected: string[] = [];
 const originalScroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
-  extraRun = false; mobile = false; signedIn = true; accountFailure = false; replayEvents = []; flowSettings = undefined; unexpected.length = 0;
+  extraRun = false; mobile = false; signedIn = true; accountFailure = false; readFailure = false; replayEvents = []; flowSettings = undefined; unexpected.length = 0;
   observedFlowModel = null;
   vi.stubGlobal("IntersectionObserver", class { observe() {} disconnect() {} });
   localStorage.clear(); sessionStorage.clear(); queryClient.clear();
@@ -76,6 +77,7 @@ beforeEach(() => {
       ...(extraRun ? [{ id: SECOND_RUN_ID, rigId: data.run.rigId, rigName: "Status board", displayName: "Second run", state: data.run.state }] : []),
     ] });
     if (path.endsWith("/health")) return response({ health: health() });
+    if (path.endsWith("/read") && readFailure) return new Response(JSON.stringify({ code: "team_read_failed" }), { status: 500 });
     if (path.endsWith("/read")) return response({ read: path.includes(SECOND_RUN_ID)
       ? { ...data, runId: SECOND_RUN_ID, run: { ...data.run, id: SECOND_RUN_ID, displayName: "Second run" } } : data });
     if (path.endsWith("/events/stream")) return new Response(new ReadableStream(), { headers: { "Content-Type": "text/event-stream" } });
@@ -172,8 +174,18 @@ describe("command-center router integration", () => {
     fireEvent.click(screen.getByRole("button", { name: "Flow" }));
     expect(await screen.findByRole("heading", { name: "Flow" })).toBeTruthy();
     expect(await screen.findByText(/Task assigned/)).toBeTruthy();
-    expect(within(screen.getByRole("list", { name: "Team seats" })).getAllByRole("button")).toHaveLength(1);
+    expect(within(screen.getByRole("group", { name: "Team seats" })).getAllByRole("button")).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /^Implementer/ })).toBeNull();
+  });
+
+  it("states a read failure in the Flow sub-tab instead of showing an empty stage", async () => {
+    readFailure = true;
+    await openShell();
+    fireEvent.click(screen.getByRole("button", { name: "Flow" }));
+    await screen.findByRole("heading", { name: "Flow" });
+    const flow = screen.getByRole("heading", { name: "Flow" }).closest(".flow-view")!;
+    expect(within(flow as HTMLElement).getByRole("alert").textContent).toBe("Read failed");
+    expect(within(flow as HTMLElement).queryByRole("group", { name: "Team seats" })).toBeNull();
   });
 
   it("publishes the restored Overview summary through the real route", async () => {
@@ -197,7 +209,7 @@ describe("command-center router integration", () => {
     expect(worker.getAttribute("data-vendor")).toBe("unknown");
     act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: [attempt({ state: "stopped" })] }); });
     await waitFor(() => expect(screen.queryByRole("button", { name: /^Implementer/ })).toBeNull());
-    expect(within(screen.getByRole("list", { name: "Team seats" })).getAllByRole("button")).toHaveLength(1);
+    expect(within(screen.getByRole("group", { name: "Team seats" })).getAllByRole("button")).toHaveLength(1);
     expect(within(screen.getByLabelText("Flow event list")).getByText(/Tool activity/)).toBeTruthy();
   });
 
@@ -214,7 +226,7 @@ describe("command-center router integration", () => {
       runId: RUN_ID, taskId: "task-1", attemptId: attempt().attemptId, body: '{}', truncated: false }];
     await openShell();
     fireEvent.click(screen.getByRole("button", { name: "Flow" }));
-    const members = within(screen.getByRole("list", { name: "Team seats" }));
+    const members = within(screen.getByRole("group", { name: "Team seats" }));
     const lead = members.getByRole("button", { name: /^Lead/ });
     await waitFor(() => expect(lead.getAttribute("data-vendor")).toBe("deepseek"));
     expect(lead.getAttribute("title")).toBe("ds/claude / claude-code");
