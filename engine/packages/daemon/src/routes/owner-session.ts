@@ -4,6 +4,7 @@ import type { OwnerSessions } from "../domain/owner-session.js";
 import { OWNER_COOKIE, OWNER_ABSOLUTE_MS } from "../domain/owner-session.js";
 import { resolveTeamControlCredential, teamControlAuthentication,
   type TeamControlCredentials, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
+import { fixedControlErrorHandler } from "../middleware/control-error.js";
 
 export function ownerSessionRoutes(sessions: OwnerSessions, readCredentials: () => TeamControlCredentials,
   legacyTokens: readonly (string | null | undefined)[]): Hono<TeamControlEnv> {
@@ -48,6 +49,6 @@ export function ownerSessionRoutes(sessions: OwnerSessions, readCredentials: () 
     c.header("Set-Cookie", `${OWNER_COOKIE}=; HttpOnly; SameSite=Strict; Path=/api; Max-Age=0`);
     return c.json({ revoked: true });
   });
-  app.onError((_error, c) => c.json({ code: "invalid_owner_session_request" }, 400));
+  app.onError(fixedControlErrorHandler("invalid_owner_session_request", 400));
   return app;
 }

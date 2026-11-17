@@ -3,6 +3,7 @@ import { TEAM_CONTROL_VERSION, parseProtocolVersion } from "../contracts/team-co
 import type { PlanGovernance } from "../domain/plan-governance.js";
 import type { AttemptTelemetry } from "../domain/attempt-telemetry.js";
 import { teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
+import { controlErrorHandler } from "../middleware/control-error.js";
 
 function integerQuery(values: string[] | undefined, fallback: number, minimum: number, maximum: number): number | null {
   if (values === undefined) return fallback;
@@ -48,5 +49,7 @@ export function teamTelemetryRoutes(governance: PlanGovernance, telemetry: Attem
     return c.json({ protocolVersion: TEAM_CONTROL_VERSION, analytics: telemetry.analytics({ days,
       ...(teams ? { teamId: teams[0]! } : {}), ...(runId === null ? {} : { runId }) }) });
   });
+  // A malformed body is the caller's error, not a control failure.
+  app.onError(controlErrorHandler());
   return app;
 }

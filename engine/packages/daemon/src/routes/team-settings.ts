@@ -3,6 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { TEAM_CONTROL_VERSION, TeamContractError, object, parseProtocolVersion, text } from "../contracts/team-control.js";
 import type { SettingsStore } from "../domain/user-settings/settings-store.js";
 import { teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
+import { controlErrorHandler } from "../middleware/control-error.js";
 
 const KEYS = ["team.leadClient", "team.maxSeats", "team.maxConcurrentAgents", "github.proxy"] as const;
 const snapshot = (store: SettingsStore) => ({ protocolVersion: TEAM_CONTROL_VERSION,
@@ -38,8 +39,9 @@ export function teamSettingsRoutes(store: SettingsStore | undefined, credentials
     }
     return c.json(snapshot(store!));
   });
-  app.onError((error, c) => error instanceof TeamContractError || error instanceof SyntaxError
-    ? c.json({ code: "invalid_team_contract", error: "The settings request is malformed or incompatible." }, 400)
-    : c.json({ code: "team_settings_unavailable", error: "Team settings could not be read or saved." }, 500));
+  app.onError(controlErrorHandler({ bodies: {
+    invalidRequest: { code: "invalid_team_contract", error: "The settings request is malformed or incompatible." },
+    persistenceFailed: { code: "team_settings_unavailable", error: "Team settings could not be read or saved." },
+  } }));
   return app;
 }

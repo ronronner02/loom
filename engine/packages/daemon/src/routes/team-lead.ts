@@ -3,7 +3,7 @@ import { approvalDocumentPins, documentSourceRefusal, latestDocument, type Docum
 import { canonicalJson, type DocumentPins } from "../contracts/team-control.js";
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { TEAM_CONTROL_VERSION, TeamContractError, parseControlRequest, parseProtocolVersion, type ControlReceipt } from "../contracts/team-control.js";
+import { TEAM_CONTROL_VERSION, parseControlRequest, parseProtocolVersion, type ControlReceipt } from "../contracts/team-control.js";
 import { hashBinding, type PlanGovernance, type ProviderPolicyCapability } from "../domain/plan-governance.js";
 import type { LeadTask } from "../domain/lead-proposal.js";
 import { planningRosterRequired, type LeadRosterEvidence } from "../domain/lead-roster.js";
@@ -12,6 +12,7 @@ import { chatBody, parseResponseLanguage, runLeadTask } from "../domain/lead-cha
 import { commitPlan } from "../domain/plan-branch.js";
 import { bindingForGoal, refreshPlanBinding } from "./team-start.js";
 import { teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
+import { controlErrorHandler } from "../middleware/control-error.js";
 
 /**
  * C3 — the owner's read of a lead's decomposition, and the decision it becomes.
@@ -424,18 +425,12 @@ export function teamLeadRoutes(governance: PlanGovernance, options: LeadProposal
     return c.json(receipt);
   });
 
-  app.onError((error, c) => {
+  app.onError(controlErrorHandler({ bodies: {
     // A message, a plan read or an approval that is malformed is the client's fault, not a
     // persistence failure: say so instead of asking the owner to retry an unchanged request.
-    if (error instanceof TeamContractError || error instanceof SyntaxError) {
-      return c.json({ code: "invalid_team_contract", error: "The request is malformed or incompatible." }, 400);
-    }
-    if (/not found/i.test(error.message)) return c.json({ code: "control_not_found", error: "The requested entity was not found." }, 404);
-    if (/conflict|idempotency key/i.test(error.message)) {
-      return c.json({ code: "control_conflict", error: "Refresh the entity version and exact request before retrying." }, 409);
-    }
-    console.warn("team lead: proposal was not acknowledged: " + error.message);
-    return c.json({ code: "control_persistence_failed", error: "The lead proposal was not acknowledged." }, 500);
-  });
+    invalidRequest: { code: "invalid_team_contract", error: "The request is malformed or incompatible." },
+    notFound: { code: "control_not_found", error: "The requested entity was not found." },
+    persistenceFailed: { code: "control_persistence_failed", error: "The lead proposal was not acknowledged." },
+  } }));
   return app;
 }
