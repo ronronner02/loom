@@ -2,7 +2,7 @@ import { TextPreview } from "../text-preview.js";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TeamOwnerRead } from "@multi-agent/daemon/team-control";
-import { namedSeat } from "../display.js";
+import { namedSeat, workspaceTabLabel } from "../display.js";
 import { attemptForSeat, SeatHeading, taskForSeat, WorkspaceView } from "./workspace-view.js";
 import { WorkspaceFocus } from "./workspace-focus.js";
 
@@ -20,7 +20,7 @@ export function WorkspaceScreen({ read, selectedTaskId }: { read?: TeamOwnerRead
       <div><h1>{t("nav.workspace")}</h1><div className="ui-subtitle"><TextPreview text={read?.run.displayName ?? t("value.unavailable")} /></div></div>
       <div className="ui-layout-switch" role="group" aria-label={t("workspace.layout")}>
         {(["grid", "split", "focus"] as const).map(name => <button key={name} aria-pressed={layout === name} onClick={() => setLayout(name)}>
-          {t(("workspace." + name) as "workspace.grid")}</button>)}
+          {workspaceTabLabel(name, t)}</button>)}
       </div>
     </header>
     {layout === "grid" ? <WorkspaceView read={read} selected={seat?.seat ?? ""} onSelect={setSelected} />

@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 import { holdTask, postTaskComment, readTaskComments } from "./clients.js";
 import type { TeamOwnerRead, TeamReviewView } from "@multi-agent/daemon/team-control";
-import { assignedSeat, clockTime, TASK_STAGE_LABELS, taskName } from "./display.js";
+import { assignedSeat, clockTime, eventSourceLabel, reportStatusLabel, resolutionLabel, statusLabel, TASK_STAGE_LABELS, taskName, verdictLabel } from "./display.js";
 import { TaskProgress } from "./task-progress.js";
 
 export function TaskTimeline({ logs, tasks }: { logs: TeamOwnerRead["logs"]; tasks: readonly TeamReviewView[] }) {
@@ -18,7 +18,7 @@ export function TaskTimeline({ logs, tasks }: { logs: TeamOwnerRead["logs"]; tas
       return <li key={log.streamItemId ?? log.ts + ":" + index}>
         <time dateTime={log.ts}>{clockTime(log.ts)}</time>
         <div><TextPreview text={task ? taskName(task, t) : t("overview.runEvent")} />
-          <details><summary>{t(("tasks.event." + log.source) as "tasks.event.stream")}</summary>
+          <details><summary>{eventSourceLabel(log.source, t)}</summary>
             <pre>{log.body}</pre>{log.truncated && <small>{t("web.truncated")}</small>}
           </details>
         </div>
@@ -35,13 +35,13 @@ export function TaskThread({ read, task }: { read: TeamOwnerRead; task: TeamRevi
   const comments = useQuery({ queryKey: key, enabled: paired, retry: false,
     queryFn: ({ signal }) => readTaskComments(request, read.runId, task.taskId, signal) });
   const [draft, setDraft] = useState("");
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const run = async (action: () => Promise<void>, clear = false) => {
     if (busy) return;
-    setBusy(true); setFailed(false);
+    setBusy(true); setFailed(null);
     try { await action(); if (clear) setDraft(""); await client.invalidateQueries({ queryKey: key }); await client.invalidateQueries({ queryKey: ["team", read.runId] }); }
-    catch { setFailed(true); }
+    catch (cause) { setFailed(cause instanceof Error ? cause.message : null); }
     finally { setBusy(false); }
   };
   const send = () => { if (draft.trim()) void run(() => postTaskComment(request, read.runId, task.taskId, draft.trim(), read.run.entityVersion), true); };
@@ -50,7 +50,7 @@ export function TaskThread({ read, task }: { read: TeamOwnerRead; task: TeamRevi
       <TextPreview text={comment.body} />
       <small className="ui-muted">{clockTime(comment.createdAt)} · {t(comment.deliveredAttempt ? "tasks.commentDelivered" : "tasks.commentWaiting")}</small>
     </li>)}</ol>}
-    {failed && <p role="alert" style={{ color: "var(--danger)", fontSize: 13 }}>{t("web.error")}</p>}
+    {failed !== null && <p role="alert" className="ui-alert-inline">{failed || t("action.failed")}</p>}
     <textarea className="ui-question-answer" aria-label={t("tasks.comment")} value={draft} disabled={busy}
       onChange={event => setDraft(event.target.value)}
       onKeyDown={event => { if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); send(); } }} />
@@ -102,9 +102,9 @@ export function TaskDetails({ read, task, thread = false }: { read?: TeamOwnerRe
   </section>
   <section><h3>{t("tasks.workerReport")}</h3>
     {!report ? <p className="ui-muted">{t("tasks.noReport")}</p> : <>
-      <p>{t(("tasks.report." + report.status) as "tasks.report.blocked")}</p>
+      <p>{reportStatusLabel(report.status, t)}</p>
       {report.question && <p>{report.question}</p>}
-      {report.resolution && <p>{t(("tasks.resolution." + report.resolution) as "tasks.resolution.rework")}</p>}
+      {report.resolution && <p>{resolutionLabel(report.resolution, t)}</p>}
       <details><summary>{t("tasks.reportEvidence")}</summary><pre>{report.evidence}</pre>
         {report.truncated && <small>{t("web.truncated")}</small>}
       </details>
@@ -114,7 +114,7 @@ export function TaskDetails({ read, task, thread = false }: { read?: TeamOwnerRe
     {attempts.length === 0 ? <p className="ui-muted">{t("web.noAttempts")}</p>
       : <ol className="ui-attempt-list">{attempts.map((attempt, index) => <li key={attempt.attemptId}>
         <span>{t("team.task.attemptN", { round: index + 1 })}</span>
-        <span>{t(("status.attempt." + attempt.state) as "status.attempt.running")}</span>
+        <span>{statusLabel("attempt", attempt.state, t)}</span>
         <small>{t(attempt.provider === "codex" ? "team.client.codex" : "team.client.claude-code")}</small>
         {attempt.failure && <details><summary>{t("tasks.failureDetails")}</summary>
           <p>{attempt.failure.ownerAction}</p><code>{attempt.failure.reasonCode}</code>
@@ -124,14 +124,14 @@ export function TaskDetails({ read, task, thread = false }: { read?: TeamOwnerRe
   <section><h3>{t("team.task.review")}</h3>
     {task.verdicts.length === 0 ? <p className="ui-muted">{t("team.task.noReview")}</p>
       : <ol className="ui-verdict-list">{task.verdicts.map(verdict => <li key={verdict.round}>
-        <strong>{t(("team.task.verdict." + verdict.verdict) as "team.task.verdict.approved")}</strong>
+        <strong>{verdictLabel(verdict.verdict, t)}</strong>
         <span>{t("team.task.roundN", { round: verdict.round })} · {t("team.task.findingCount", { count: verdict.findings })}</span>
         {verdict.blocking > 0 && <span>{t("team.task.blockingCount", { count: verdict.blocking })}</span>}
       </li>)}</ol>}
   </section>
   <section><h3>{t("tasks.timeline")}</h3><TaskTimeline logs={logs} tasks={read?.tasks ?? []} /></section>
   <details className="ui-technical-details"><summary>{t("tasks.technicalDetails")}</summary>
-    <dl><dt>{t("overview.colState")}</dt><dd>{t(("status.queue." + task.queueState) as "status.queue.done")}</dd>
+    <dl><dt>{t("overview.colState")}</dt><dd>{statusLabel("queue", task.queueState, t)}</dd>
       <dt>{t("tasks.rawTask")}</dt><dd>{task.taskId}</dd><dt>{t("tasks.rawQueue")}</dt><dd>{task.qitemId}</dd>
       <dt>{t("tasks.rawSeat")}</dt><dd>{task.seat ?? "—"}</dd><dt>{t("tasks.dependencies")}</dt><dd>{task.dependencies?.join(", ") ?? "—"}</dd>
       <dt>{t("tasks.rawCandidate")}</dt><dd>{task.currentCandidateDigest ?? "—"}</dd>

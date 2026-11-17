@@ -9,7 +9,7 @@ import { useOwnerSession } from "../hooks/useOwnerSession.js";
 import { usePendingAction } from "../hooks/usePendingAction.js";
 import { cancelRun, mergeBranch, type ChatState, type IntegrationState } from "./clients.js";
 import { pendingOwnerDecisions, pendingWorkerQuestions, QuestionPlate, ResumePlate } from "./chat-panel.js";
-import { clockTime, namedSeat, taskName } from "./display.js";
+import { clockTime, mergeRefusalLabel, namedSeat, stageStateLabel, statusLabel, taskName } from "./display.js";
 import { useRunTokens } from "./hooks.js";
 import { TaskWorkbench } from "./task-workbench.js";
 import { TaskTimeline } from "./task-drawer.js";
@@ -39,7 +39,7 @@ function Progress({ read, integration }: { read?: TeamOwnerRead; integration?: I
       <span className="ui-muted">{checks ? t("overview.verified", checks) : t("overview.verifiedUnknown")}</span></div>
     <ol className="ui-phase-strip">{phases.map(phase => <li key={phase.label} data-state={read ? phase.state : "unavailable"}>
       <span className="ui-dot" aria-hidden="true" /><strong>{t(phase.label)}</strong>
-      <small>{t(("web.stageState." + (read ? phase.state : "unavailable")) as "web.stageState.pending")}</small>
+      <small>{stageStateLabel(read ? phase.state : "unavailable", t)}</small>
     </li>)}</ol>
   </section>;
 }
@@ -68,14 +68,10 @@ function RunActions({ read, integration }: { read?: TeamOwnerRead; integration?:
     try {
       if (action === "merge") {
         const result = await mergeBranch(request, read.runId, read.run.entityVersion);
-        const code = result.code;
         accepted = result.status === "merged";
-        const knownCode = ["merge_tasks_open", "merge_checkout_dirty", "merge_detached_head",
-          "merge_already_on_branch", "merge_no_branch", "merge_unavailable",
-          "github_pr_failed", "github_network_failure", "github_not_signed_in"].includes(code ?? "");
         setMessage({ error: result.status !== "merged", text: result.status === "merged" ? t("team.merge.done")
           : result.status === "conflict" ? t("team.merge.conflict")
-            : knownCode ? t(("team.merge.refused." + code) as "team.merge.refused.merge_unavailable") : t("team.merge.blocked") });
+            : mergeRefusalLabel(result.code, t) ?? t("team.merge.blocked") });
       } else {
         const result = await cancelRun(request, read.runId, read.run.entityVersion);
         if (result.status === "denied") throw new Error("Cancellation denied");
@@ -84,7 +80,7 @@ function RunActions({ read, integration }: { read?: TeamOwnerRead; integration?:
       }
       await cache.invalidateQueries({ queryKey: ["team", read.runId] });
       if (accepted) pending.complete(); else pending.fail();
-    } catch { setMessage({ error: true, text: t("web.error") }); pending.fail(); }
+    } catch (cause) { setMessage({ error: true, text: cause instanceof Error ? cause.message : t("action.failed") }); pending.fail(); }
   };
   return <div className="ui-run-actions">
     <div className="ui-page-actions">
@@ -187,7 +183,7 @@ export function Overview({ read, chat, integration, health, onOpenTasks, onOpenT
             <span className="ui-dot" data-state={attempt?.state ?? "idle"} aria-hidden="true" />
             {seat.role === "lead" ? <button className="ui-text-button" onClick={event => onOpenChat(event.currentTarget)}>{namedSeat(seat, t)}</button>
               : <strong>{namedSeat(seat, t)}</strong>}
-            <span className="ui-muted">{attempt ? t(("status.attempt." + attempt.state) as "status.attempt.running") : t("shell.idle")}</span>
+            <span className="ui-muted">{attempt ? statusLabel("attempt", attempt.state, t) : t("shell.idle")}</span>
           </li>)}</ul>}
       </section>
       <SystemStatus health={health} />
