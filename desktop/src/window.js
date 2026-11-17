@@ -128,7 +128,7 @@ function createWindowModule({ publish, getOrigin }) {
     }
   }
 
-  return { createWindow, getWindow, reload, load, showsEnginePage, captureIfRequested, openExternal, FIRST_RUN_URL };
+  return { createWindow, getWindow, reload, load, showsEnginePage, captureIfRequested, FIRST_RUN_URL };
 }
 
 module.exports = { createWindowModule, FIRST_RUN_URL };
