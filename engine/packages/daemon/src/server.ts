@@ -21,7 +21,6 @@ import { projectFilesRoutes } from "./routes/project-files.js";
 import { createSlowOpRequestMiddleware, type SlowOperationInstrumentation } from "./domain/slow-op-recorder.js";
 import { QueueRepository } from "./domain/queue-repository.js";
 import type { OutboxHandler } from "./domain/outbox-handler.js";
-import type { ViewProjector } from "./domain/view-projector.js";
 import type { WatchdogJobsRepository } from "./domain/watchdog-jobs-repository.js";
 import type { WatchdogHistoryLog } from "./domain/watchdog-history-log.js";
 import type { WorkflowRuntime } from "./domain/workflow-runtime.js";
@@ -107,7 +106,6 @@ export interface AppDeps {
   outboxHandler?: OutboxHandler;
   shadowCapture?: import("./domain/shadow-capture.js").ShadowCapture;
   shadowCaptureError?: string;
-  viewProjector?: ViewProjector;
   watchdogJobsRepo?: WatchdogJobsRepository;
   watchdogHistoryLog?: WatchdogHistoryLog;
   workflowRuntime?: WorkflowRuntime;
@@ -310,7 +308,6 @@ export function createApp(deps: AppDeps): Hono {
     c.set("outboxHandler" as never, deps.outboxHandler);
     c.set("shadowCapture" as never, deps.shadowCapture);
     c.set("shadowCaptureError" as never, deps.shadowCaptureError);
-    c.set("viewProjector" as never, deps.viewProjector);
     c.set("watchdogJobsRepo" as never, deps.watchdogJobsRepo);
     c.set("watchdogHistoryLog" as never, deps.watchdogHistoryLog);
     c.set("workflowRuntime" as never, deps.workflowRuntime);

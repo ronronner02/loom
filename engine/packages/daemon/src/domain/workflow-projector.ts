@@ -1,4 +1,3 @@
-import { readWorkflowGuidance, type GuidanceInput } from "./workflow-guidance.js";
 // PL-004 Phase D: workflow projector — transactional-scribe contract.
 //
 // LOAD-BEARING. The single most important Phase D contract.
@@ -74,18 +73,12 @@ export function renderWorkflowProjectCommand(input: {
   return `${base} --acceptance-candidate ${shellQuote(acceptance.candidate)} --acceptance-verdict ${shellQuote(verdict)} --acceptance-evidence-ref ${shellQuote(acceptance.evidence_ref)}`;
 }
 
-function workflowMethodLines(input: GuidanceInput): string[] {
-  const guidance = readWorkflowGuidance(input);
-  return guidance.state === "unselected" ? [] : guidance.lines;
-}
-
-/** Refreshes guidance when a packet is recreated (route/resume) instead of
+/** Refreshes the packet body when a packet is recreated (route/resume) instead of
  * carrying a stale packet id or owner forward in copied body text. */
 export function withWorkflowContinuation(input: {
   body: string;
   contextRefs?: string[];
-  binding?: GuidanceInput["binding"];
-  library?: GuidanceInput["library"];
+  binding?: Record<string, unknown> | null;
   instanceId: string;
   packetId: string;
   ownerSession: string;
@@ -99,7 +92,6 @@ export function withWorkflowContinuation(input: {
     ...lines,
     "",
     ...workflowPlanningContext(input.contextRefs, input.instanceId),
-    ...workflowMethodLines({...input, stepId: input.step?.id}),
     ...(input.contextRefs ?? []).map((ref) => `Context reference: ${ref}`),
     `Continuation: ${renderWorkflowProjectCommand(input)}`,
     WORKFLOW_CONTEXT_SHORTCUT,
@@ -221,7 +213,6 @@ export class WorkflowProjector {
       hostDefault: () => "orchestrator" | "human_only" | null;
       humanFallbackSeat: WorkflowHumanDestination;
     },
-    private readonly guidanceLibrary?: GuidanceInput["library"],
   ) {}
 
   private nodeRuntimeOf(session: string): string | null {
@@ -605,7 +596,6 @@ export class WorkflowProjector {
           sourceSession: input.actorSession,
           destinationSession: resolvedNextOwner,
           body: workflowHandoffBody({
-            library: this.guidanceLibrary,
             spec,
             instance,
             currentStep,
@@ -1144,7 +1134,6 @@ export class WorkflowProjector {
           sourceSession: input.actorSession,
           destinationSession: plan.owner,
           body: workflowHandoffBody({
-            library: this.guidanceLibrary,
             spec,
             instance,
             currentStep,
@@ -1779,7 +1768,6 @@ export function compileGate(
 }
 
 function workflowHandoffBody(input: {
-  library?: GuidanceInput["library"];
   spec: WorkflowSpec;
   instance: WorkflowInstance;
   currentStep: WorkflowStepSpec;
@@ -1816,7 +1804,6 @@ function workflowHandoffBody(input: {
     body: lines.join("\n"),
     contextRefs: input.spec.context_refs,
     binding: input.instance.lifecycleBinding,
-    library: input.library,
     instanceId: input.instance.instanceId,
     packetId: input.packetId,
     ownerSession: input.ownerSession,

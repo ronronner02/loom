@@ -19,7 +19,6 @@ import { QueueRepository, type QueueItem } from "../src/domain/queue-repository.
 import { EventBus } from "../src/domain/event-bus.js";
 import { OutboxHandler } from "../src/domain/outbox-handler.js";
 import { WatchdogJobsRepository } from "../src/domain/watchdog-jobs-repository.js";
-import { ViewProjector } from "../src/domain/view-projector.js";
 import { SettingsStore } from "../src/domain/user-settings/settings-store.js";
 import {
   LADDER_ATTEMPT_PREFIX,
@@ -206,20 +205,6 @@ describe("S01 wake-or-escalate — retry ladder, named rungs, derived suspension
     expect(escRows[0]!.body).toContain(baton.qitemId);
     const after = (db.prepare("SELECT COUNT(*) AS n FROM queue_items").get() as { n: number }).n;
     expect(after).toBe(before + 1); // exactly the one aggregate row — the baton is never duplicated
-  });
-
-  it("VIEW SURFACES IT: `view show escalations` returns the open wake-escalation aggregate", async () => {
-    const baton = await mkBaton();
-    setNudgeResult(baton.qitemId, "failed:tmux session not found", 60);
-    for (let i = 0; i < 4; i++) {
-      await tick();
-      ageMarkers(baton.qitemId, 10);
-    }
-    const projector = new ViewProjector(db);
-    const view = projector.show("escalations");
-    const escRows = await escalationRowsFor("worker@r");
-    expect(escRows).toHaveLength(1);
-    expect(view.rows.map((r) => r.qitem_id)).toContain(escRows[0]!.qitemId);
   });
 
   // ── G3: F1 — UNCONFIRMED NEVER RETRIES, YET NEVER PARKS ──────────────────────

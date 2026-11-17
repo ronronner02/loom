@@ -17,7 +17,6 @@ import { resolve } from "node:path";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { QueueRepository, type QueueItem } from "../src/domain/queue-repository.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { ViewProjector } from "../src/domain/view-projector.js";
 import { SettingsStore } from "../src/domain/user-settings/settings-store.js";
 
 const THRESHOLD_ENV = "MULTI_AGENT_QUEUE_PICKUP_STALL_THRESHOLD_MINUTES";
@@ -221,17 +220,5 @@ describe("S04 pickup receipts — derived, visible, threshold-honest", () => {
     const fresh = await mkRow();
     repo.claim({ qitemId: fresh.qitemId, destinationSession: "worker@r" });
     expect(mod.stalledPickupFinding(repo.getById(fresh.qitemId)!)).toBeNull();
-  });
-
-  it("VIEW LENS 'pickup': claimed rows with derived state + named stalled evidence, queryable", async () => {
-    const row = await mkRow();
-    repo.claim({ qitemId: row.qitemId, destinationSession: "worker@r" });
-    ageClaim(row.qitemId, 60);
-    const projector = new ViewProjector(db, new EventBus(db));
-    const result = projector.show("pickup");
-    const mine = result.rows.find((r) => r.qitem_id === row.qitemId) as Record<string, unknown> | undefined;
-    expect(mine, "the pickup lens must list the claimed row").toBeDefined();
-    expect(String(mine!.pickup_state)).toBe("stalled-after-claim");
-    expect(String(mine!.pickup_evidence)).toMatch(/no meaningful queue change/i);
   });
 });
