@@ -15,7 +15,8 @@ import { githubStatusKey, useGithubStatus, type GithubStatus } from "./github-ga
 import { clientLabel } from "./display.js";
 import type { TeamSeatSummary } from "./hooks.js";
 
-export const SETTINGS_SECTIONS = ["general", "github", "appearance", "sessions", "agents"] as const;
+/** The section navigation. `setup` leaves this screen for the setup screen rather than a pane. */
+export const SETTINGS_SECTIONS = ["general", "setup", "github", "appearance", "sessions", "agents"] as const;
 const AGENTS_TABS = ["models", "prompts", "seats"] as const;
 const THEME_ICONS = { dark: Moon, light: Sun, system: Monitor };
 const settingsKey = ["team", "settings"] as const;
@@ -58,22 +59,6 @@ function GithubAccount() {
   const { request } = useOwnerSession();
   const status = useGithubStatus(), cache = useQueryClient();
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
-  const [proxyInput, setProxyInput] = useState("");
-  const proxy = useQuery({
-    queryKey: settingsKey, enabled: !!status.data?.signedIn, retry: false,
-    select: (data: SettingsReply) => (data.settings as Record<string, { value: string }>)["github.proxy"]?.value ?? "",
-    queryFn: ({ signal }) => request<SettingsReply>("/settings", { signal }),
-  });
-  const saveProxy = async () => {
-    setBusy(true); setFailed(false);
-    try {
-      await request("/settings", {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "github.proxy", value: proxyInput }),
-      });
-      await cache.invalidateQueries({ queryKey: settingsKey });
-    } catch { setFailed(true); } finally { setBusy(false); }
-  };
   return <section className="plate ui-settings-panel" aria-label={t("settings.section.github")}>
     <h2>{t("settings.section.github")}</h2>
     {status.isError ? <p role="alert">{t("github.statusFailed")}</p>
@@ -87,11 +72,6 @@ function GithubAccount() {
       }
       catch { setFailed(true); } finally { setBusy(false); }
     }}>{t("settings.signOut")}</button>
-    {proxy.data !== undefined && <label className="field">{t("settings.githubProxy")}
-      <input className="input mono" type="text" defaultValue={proxy.data} placeholder="http://proxy:port"
-        onChange={event => setProxyInput(event.target.value)} />
-      {proxyInput !== proxy.data && <button className="btn btn-outline" disabled={busy}
-        onClick={() => void saveProxy()}>{t("settings.save")}</button>}</label>}
     {failed && <p role="alert">{t("settings.saveFailed")}</p>}
   </section>;
 }
@@ -117,10 +97,12 @@ function Sessions({ address }: { address: string }) {
 }
 
 /** Restored section navigation, limited to current owner preferences and read-only seats. */
-export function SettingsScreen({ language, onLanguage, appearance, address, seats, teamId }: {
+export function SettingsScreen({ language, onLanguage, appearance, address, seats, teamId, onSetup }: {
   language: InterfaceI18n; onLanguage: (next: "en" | "zh-CN") => void;
   appearance: ReturnType<typeof useThemePreference>;
   address: string; teamId?: string;
+  /** Opens first-run setup; the screen closes so the owner can leave it by continuing. */
+  onSetup: () => void;
   seats: readonly (TeamSeatSummary & { index?: number | null; retired?: boolean })[];
 }) {
   const { t } = useTranslation();
@@ -130,7 +112,8 @@ export function SettingsScreen({ language, onLanguage, appearance, address, seat
     <div className="page-head"><h1 className="display">{t("settings.title")}</h1></div>
     <div className="ui-settings-body">
       <nav className="ui-sections" aria-label={t("settings.sections")}>{SETTINGS_SECTIONS.map(id =>
-        <button key={id} type="button" aria-pressed={section === id} onClick={() => setSection(id)}>{t(`settings.section.${id}`)}</button>)}</nav>
+        <button key={id} type="button" aria-pressed={section === id}
+          onClick={() => { if (id === "setup") { onSetup(); return; } setSection(id); }}>{t(`settings.section.${id}`)}</button>)}</nav>
       <div className="ui-settings-pane">
         {section === "general" && <General language={language} onLanguage={onLanguage} />}
         {section === "github" && <><GithubAccount /><AgentAccount /></>}

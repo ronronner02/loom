@@ -41,8 +41,12 @@ export function EntryFrame({ language, onLanguage, appearance, children }: {
  * The application subtree is not mounted until a fresh account check succeeds. Once verified, a
  * later account-check failure keeps the mounted subtree hidden instead of tearing it down, so a
  * reconnect does not discard the owner's drafts and route.
+ *
+ * `onSetup` is the way back for an owner the network blocks here: the proxy that unblocks GitHub
+ * lives on the setup screen, so the gate offers it rather than leaving them stuck.
  */
-export function GithubGate({ children, frame }: { children: ReactNode; frame: (content: ReactNode) => ReactNode }) {
+export function GithubGate({ children, frame, onSetup }: { children: ReactNode;
+  frame: (content: ReactNode) => ReactNode; onSetup?: () => void }) {
   const { t } = useTranslation();
   const { request } = useOwnerSession();
   const cache = useQueryClient();
@@ -93,6 +97,7 @@ export function GithubGate({ children, frame }: { children: ReactNode; frame: (c
         {!pending && <button className="btn btn-primary" disabled={starting} onClick={() => void start()}>
           {t(starting ? "web.loading" : failed ? "github.retry" : "github.title")}</button>}
       </>}
+    {onSetup && !signedIn && <button className="btn btn-quiet" type="button" onClick={onSetup}>{t("github.setup")}</button>}
   </section>)}
   </>;
 }

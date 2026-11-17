@@ -153,6 +153,8 @@ describe("SettingsStore (User Settings v0)", () => {
       "files.allowlist", "progress.scan_roots",
       "ui.preview.refresh_interval_seconds", "ui.preview.max_pins", "ui.preview.default_lines", "ui.timezone",
       "ui.enabled",
+      // First-run setup's completion marker.
+      "ui.setup_complete",
       "recovery.auto_drive_provider_prompts",
       "recovery.provider_auth_env_allowlist",
       // V1 attempt-3 Phase 4 — Advisor/Operator placeholders.
@@ -211,8 +213,31 @@ describe("SettingsStore (User Settings v0)", () => {
       "team.leadClient",
       "team.maxSeats",
       "team.maxConcurrentAgents",
-      "github.proxy",
+      "network.proxy",
     ]);
+  });
+
+  it("carries a stored github.proxy forward as network.proxy on upgrade", () => {
+    writeFileSync(configPath, JSON.stringify({ github: { proxy: "http://old-proxy.test:8080" }, team: { maxSeats: 4 } }, null, 2) + "\n");
+    const store = new SettingsStore(configPath);
+    expect(store.resolveOne("network.proxy")).toMatchObject({ value: "http://old-proxy.test:8080", source: "file" });
+    // Reading does not rewrite the file; the first write of anything replaces both keys.
+    store.set("ui.setup_complete", "true");
+    const saved = JSON.parse(readFileSync(configPath, "utf8")) as Record<string, Record<string, unknown>>;
+    expect(saved.network?.proxy).toBe("http://old-proxy.test:8080");
+    expect(saved.github?.proxy).toBeUndefined();
+    expect(saved.team?.maxSeats).toBe(4);
+  });
+
+  it("refuses a network.proxy that is not an http(s) URL with a port", () => {
+    const store = new SettingsStore(configPath);
+    for (const bad of ["socks5://proxy.test:1080", "http://proxy.test", "proxy.test:8080", "http://proxy.test:0", "http://proxy.test:70000"]) {
+      expect(() => store.set("network.proxy", bad), bad).toThrow(/network\.proxy/);
+    }
+    store.set("network.proxy", "http://proxy.test:8080");
+    expect(store.resolveOne("network.proxy").value).toBe("http://proxy.test:8080");
+    store.set("network.proxy", "");
+    expect(store.resolveOne("network.proxy")).toMatchObject({ value: "", source: "default" });
   });
 
   it("reads and ignores a stored workers.isolation from an older install", () => {

@@ -31,6 +31,8 @@ beforeEach(() => {
   vi.stubGlobal("IntersectionObserver", class { observe() {} disconnect() {} });
   localStorage.clear(); sessionStorage.clear(); queryClient.clear();
   localStorage.setItem("multi-agent.interfaceLanguage", "en");
+  // This install already finished first-run setup; a fresh one shows that screen before GitHub.
+  localStorage.setItem("multi-agent.setupComplete", "done");
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
@@ -79,6 +81,10 @@ beforeEach(() => {
       ...(extraRun ? [{ id: SECOND_RUN_ID, rigId: data.run.rigId, rigName: "Status board", displayName: "Second run", state: data.run.state }] : []),
     ] });
     if (path.endsWith("/health")) return response({ health: health() });
+    if (path === "/api/team-control/setup") return response({ tools: [
+      { client: "git", ok: true, path: "/fixture/git" }, { client: "gh", ok: true, path: "/fixture/gh" },
+      { client: "claude", ok: true, path: "/fixture/claude" }, { client: "codex", ok: false, reason: "not-found" },
+    ], signIn: [{ client: "claude", state: "signed-in", signIn: null }], proxy: "", complete: true });
     if (path.endsWith("/read") && readFailure) return new Response(JSON.stringify({ code: "team_read_failed" }), { status: 500 });
     if (path.endsWith("/read")) return response({ read: path.includes(SECOND_RUN_ID)
       ? { ...data, runId: SECOND_RUN_ID, run: { ...data.run, id: SECOND_RUN_ID, displayName: "Second run" }, attempts: readAttempts }

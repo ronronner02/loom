@@ -5,6 +5,7 @@ import { WORKER_TURN_START_WINDOW_MS, type WorkerEvent } from "../contracts/work
 import { agentTurnPromptPath, agentTurnOutputPaths, isNativeSessionToken, readAgentTurnThreadId } from "../domain/agent-turn.js";
 import { hashBytes } from "../domain/plan-governance.js";
 import { resolveExecutable } from "../domain/executable-resolver.js";
+import { networkProxyEnv } from "../domain/network-proxy.js";
 import type { HarnessLaunchResult, ManagedAttempt, ManagedSessionReceipt, ReadinessResult } from "../domain/runtime-adapter.js";
 import { ChildProcessSupervisor, type SupervisedTurn, type SupervisorLaunch, type SupervisorResult } from "./child-process-supervisor.js";
 import { workerArgv } from "./worker-launch-argv.js";
@@ -41,6 +42,11 @@ export interface DirectWorkerLaunchDeps {
   executablePath?: (client: WorkerClient) => string | undefined;
   /** Installer-bundled resources, for the resolver's bundled branch. */
   bundledRoots?: string[];
+  /**
+   * The owner's settings, read at each launch: `network.proxy` is what makes a client behind a
+   * proxy reach its provider, so it is read fresh rather than captured at composition.
+   */
+  settingsStore?: { resolveOne(key: "network.proxy"): { value: unknown } };
   modelRefusal?: (input: WorkerLaunchInput) => string | null;
   documentRefusal?: (input: WorkerLaunchInput) => string | null;
   /** Start one supervised turn. Injectable so a test can drive the launcher without spawning. */
@@ -136,10 +142,16 @@ export class DirectWorkerLauncher implements WorkerLauncher {
       const changedModelError = this.deps.modelRefusal?.(input) ?? this.deps.documentRefusal?.(input);
       if (changedModelError) return this.refuse(changedModelError);
 
+      const proxy = networkProxyEnv(this.deps.settingsStore);
+      const proxyEnv = Object.keys(proxy).length ? { env: proxy } : {};
+
       const launch: SupervisorLaunch = { executable: resolved, args, cwd: tree, prompt,
         mutableStateRoot: attempt.context.mutableStateRoot, attemptId: attempt.attemptId,
         provider: client === "codex" ? "codex" : "claude",
-        ...(client === "codex" ? { threadIdPath: output.threadId } : {}) };
+        ...(client === "codex" ? { threadIdPath: output.threadId } : {}),
+        // The client reaches its provider through the owner's proxy; loopback stays direct so
+        // the turn can still use the local engine.
+        ...proxyEnv };
       // U4 — the durable intent is recorded before the child exists. A daemon that stops between
       // this fact and the spawn leaves a `submitted` attempt with no process, which boot recovery
       // records as interrupted rather than as an unobserved success.

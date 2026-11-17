@@ -5,16 +5,27 @@ import { createInterfaceI18n, type InterfaceI18n } from "@multi-agent/i18n";
 import { I18nextProvider } from "react-i18next";
 import { OwnerSessionProvider, useOwnerSession } from "../hooks/useOwnerSession.js";
 import { EntryFrame, GithubGate } from "./github-gate.js";
+import { SetupScreen, type SetupState } from "./setup.js";
 import { useThemePreference } from "./theme.js";
 import { TeamWorkspaceScreen } from "./team-workspace.js";
 
 export const INTERFACE_LANGUAGE_KEY = "multi-agent.interfaceLanguage";
 export type LanguagePreference = "zh-CN" | "en";
 
+/** Setup's completion is stored in settings; this browser remembers it so its next load skips it. */
+const SETUP_CHOICE_KEY = "multi-agent.setupComplete";
+
+function setupRead(): boolean {
+  try { return localStorage.getItem(SETUP_CHOICE_KEY) === "done"; } catch { return false; }
+}
+
 /**
- * The composition above the shell: the owner gate first, the GitHub account check second, the
- * workspace only inside both. A screen that must come before the GitHub check (first-run
- * setup) mounts inside `Entry` here, which takes a node rather than assuming the pairing plate.
+ * The composition above the shell: the owner gate first, then first-run setup, the GitHub account
+ * check third, the workspace only inside all of them.
+ *
+ * The setup screen precedes the GitHub check because a network that blocks GitHub blocks sign-in
+ * itself, and the proxy that fixes it lives on that screen. Completion is recorded in settings and
+ * remembered here, so a later launch skips it; Settings and the gate's own link reopen it.
  */
 export function Entry({ language, onLanguage, appearance, paired }: {
   language: InterfaceI18n; onLanguage: (next: LanguagePreference) => void;
@@ -22,8 +33,35 @@ export function Entry({ language, onLanguage, appearance, paired }: {
 }) {
   const frame = (content: ReactNode) => <EntryFrame language={language} onLanguage={onLanguage} appearance={appearance}>{content}</EntryFrame>;
   if (!paired) return frame(<Pairing />);
-  return <GithubGate frame={frame}>
-    <TeamWorkspaceScreen language={language} onLanguage={onLanguage} appearance={appearance} />
+  return <FirstRun frame={frame} language={language} onLanguage={onLanguage} appearance={appearance} />;
+}
+
+/** The setup screen until it is done, then the gate; either screen opens the other on request. */
+function FirstRun({ frame, language, onLanguage, appearance }: {
+  frame: (content: ReactNode) => ReactNode; language: InterfaceI18n;
+  onLanguage: (next: LanguagePreference) => void; appearance: ReturnType<typeof useThemePreference>;
+}) {
+  const { paired, request } = useOwnerSession();
+  const [showingSetup, setShowingSetup] = useState(() => !setupRead());
+  useEffect(() => {
+    if (!paired || setupRead()) return;
+    let active = true;
+    // The stored answer survives a cleared browser, so an install that already finished setup is
+    // not asked again; a read that fails leaves the screen up rather than skipping it on a guess.
+    void request<SetupState>("/setup").then(state => {
+      if (!active || !state.complete) return;
+      try { localStorage.setItem(SETUP_CHOICE_KEY, "done"); } catch { /* This load still skips it. */ }
+      setShowingSetup(false);
+    }).catch(() => { /* The screen stays up and reads again on its own. */ });
+    return () => { active = false; };
+  }, [paired, request]);
+  if (showingSetup) return frame(<SetupScreen language={language.language} onLanguage={onLanguage}
+    onContinue={() => {
+      try { localStorage.setItem(SETUP_CHOICE_KEY, "done"); } catch { /* This load still continues. */ }
+      setShowingSetup(false);
+    }} />);
+  return <GithubGate frame={frame} onSetup={() => setShowingSetup(true)}>
+    <TeamWorkspaceScreen language={language} onLanguage={onLanguage} appearance={appearance} onSetup={() => setShowingSetup(true)} />
   </GithubGate>;
 }
 

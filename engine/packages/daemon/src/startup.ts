@@ -167,6 +167,8 @@ function composeDirectLaunch(dependencies: {
   /** A stand-in for the supervised child, so a test can drive the launch without spawning. */
   supervise?: (launch: import("./adapters/child-process-supervisor.js").SupervisorLaunch,
     deps: { onEvent: (event: WorkerEvent) => void }) => import("./adapters/child-process-supervisor.js").SupervisedTurn;
+  /** The owner's settings, read at each launch for the network proxy the client runs behind. */
+  settingsStore?: import("./domain/user-settings/settings-store.js").SettingsStore;
 }) {
   const { rigRepo } = dependencies;
   const endpoints: NonNullable<AppDeps["managedLaunch"]>["endpoints"] = new Map();
@@ -190,6 +192,7 @@ function composeDirectLaunch(dependencies: {
     ...(dependencies.onEvent ? { onEvent: dependencies.onEvent } : {}),
     ...(dependencies.lifecycle ? { lifecycle: dependencies.lifecycle } : {}),
     ...(dependencies.supervise ? { supervise: dependencies.supervise } : {}),
+    ...(dependencies.settingsStore ? { settingsStore: dependencies.settingsStore } : {}),
   });
   return { launcher, endpoints };
 }
@@ -586,7 +589,9 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
         },
         ...(opts?.directLaunchCommand ? { command: opts.directLaunchCommand } : {}),
         ...(opts?.directLaunchExecutable ? { executablePath: opts.directLaunchExecutable } : {}),
-        ...(opts?.directLaunchSupervise ? { supervise: opts.directLaunchSupervise } : {}) });
+        ...(opts?.directLaunchSupervise ? { supervise: opts.directLaunchSupervise } : {}),
+        // The client's own provider traffic follows the owner's proxy, read at each launch.
+        settingsStore: new ContextPackSettingsStore() });
   const workerLauncher = { workerLauncher: managedLaunch.launcher };
   // T047 — the attachment every managed launch path resolves through. Assigned once the runtime
   // exists below; a wrapper that reads it at launch time is the only correct shape, because the

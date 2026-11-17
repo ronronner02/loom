@@ -80,8 +80,9 @@ describe("U3 the launcher hands one turn to the supervisor", () => {
   }) as ContextManifest;
 
   const launch = async (options: Partial<WorkerLaunchInput> & { readOnly?: boolean; role?: string;
-    modelRefusal?: (input: WorkerLaunchInput) => string | null; documentRefusal?: (input: WorkerLaunchInput) => string | null } = {}) => {
-    const { readOnly, role, modelRefusal, documentRefusal, ...launchOptions } = options;
+    modelRefusal?: (input: WorkerLaunchInput) => string | null; documentRefusal?: (input: WorkerLaunchInput) => string | null;
+    proxy?: string } = {}) => {
+    const { readOnly, role, modelRefusal, documentRefusal, proxy, ...launchOptions } = options;
     const manifest = context({ readOnly, role, client: launchOptions.client });
     writeAgentTurnPrompt(manifest, "Read the assigned plan.\n");
     const launches: SupervisorLaunch[] = [];
@@ -95,6 +96,7 @@ describe("U3 the launcher hands one turn to the supervisor", () => {
       supervise: (launch, deps) => { launches.push(launch); return fakeTurn(launch, deps.onEvent); },
       // U4 — the launcher records its durable lifecycle facts through this recorder.
       lifecycle: fact => { lifecycle.push(fact); },
+      ...(proxy ? { settingsStore: { resolveOne: () => ({ value: proxy }) } } : {}),
     });
     const input: WorkerLaunchInput = { client: "codex", attempt: { attemptId: "attempt-1", deadline: Date.now() + 60_000, context: manifest },
       ...launchOptions };
@@ -224,6 +226,17 @@ describe("U3 the launcher hands one turn to the supervisor", () => {
     const { result, input, launcher } = await launch();
     expect(result).toMatchObject({ ok: true });
     expect(await launcher.checkReady(input.attempt)).toEqual({ ready: true });
+  });
+
+  it("starts the client behind the owner's proxy and keeps loopback direct", async () => {
+    const { observed } = await launch({ proxy: "http://proxy.test:8080" });
+    expect(observed.env).toMatchObject({ HTTP_PROXY: "http://proxy.test:8080", HTTPS_PROXY: "http://proxy.test:8080" });
+    expect(observed.env!.NO_PROXY.split(",")).toEqual(expect.arrayContaining(["localhost", "127.0.0.1", "::1"]));
+  });
+
+  it("adds no proxy environment when the owner set none", async () => {
+    const { observed } = await launch();
+    expect(observed.env).toBeUndefined();
   });
 
   it("refuses a second launch of the same attempt", async () => {

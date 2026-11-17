@@ -20,6 +20,7 @@ import { randomUUID } from "node:crypto";
 import * as path from "node:path";
 import * as os from "node:os";
 import { getMultiAgentHome, getConfigPath } from "../../data-paths.js";
+import { isNetworkProxy } from "../network-proxy.js";
 
 const DEFAULT_CONFIG_PATH = getConfigPath("config.json");
 
@@ -108,6 +109,8 @@ export const SETTINGS_VALID_KEYS = [
   "ui.timezone",
   // The web UI and its terminal WebSocket are off unless this is true (read at daemon start).
   "ui.enabled",
+  // Whether the owner finished first-run setup; the setup screen is skipped once it is true.
+  "ui.setup_complete",
   "recovery.auto_drive_provider_prompts",
   "recovery.provider_auth_env_allowlist",
   // V1 attempt-3 Phase 4 - Advisor / Operator rail icon V1 placeholders
@@ -201,10 +204,10 @@ export const SETTINGS_VALID_KEYS = [
   "team.leadClient",
   "team.maxSeats",
   "team.maxConcurrentAgents",
-  // U9 (R18) — proxy URL for gh and git push operations. An http(s) proxy URL.
-  // The daemon environment HTTPS_PROXY/HTTP_PROXY is the fallback. Lockstep with
-  // cli/src/config-store.ts VALID_KEYS.
-  "github.proxy",
+  // The owner's one network proxy: GitHub operations and every agent CLI the daemon launches.
+  // An http(s) proxy URL or empty. The daemon environment HTTPS_PROXY/HTTP_PROXY is the
+  // fallback. Lockstep with cli/src/config-store.ts VALID_KEYS.
+  "network.proxy",
 ] as const;
 
 export type SettingsValidKey = typeof SETTINGS_VALID_KEYS[number];
@@ -231,6 +234,7 @@ const ENV_MAP: Partial<Record<SettingsValidKey, { primary: string }>> = {
   "ui.preview.max_pins": { primary: "MULTI_AGENT_UI_PREVIEW_MAX_PINS" },
   "ui.timezone": { primary: "MULTI_AGENT_UI_TIMEZONE" },
   "ui.enabled": { primary: "MULTI_AGENT_UI_ENABLED" },
+  "ui.setup_complete": { primary: "MULTI_AGENT_UI_SETUP_COMPLETE" },
   "ui.preview.default_lines": { primary: "MULTI_AGENT_UI_PREVIEW_DEFAULT_LINES" },
   "recovery.auto_drive_provider_prompts": { primary: "MULTI_AGENT_RECOVERY_AUTO_DRIVE_PROVIDER_PROMPTS" },
   "recovery.provider_auth_env_allowlist": { primary: "MULTI_AGENT_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST" },
@@ -288,7 +292,7 @@ const ENV_MAP: Partial<Record<SettingsValidKey, { primary: string }>> = {
   "team.leadClient": { primary: "MULTI_AGENT_TEAM_LEAD_CLIENT" },
   "team.maxSeats": { primary: "MULTI_AGENT_TEAM_MAX_SEATS" },
   "team.maxConcurrentAgents": { primary: "MULTI_AGENT_TEAM_MAX_CONCURRENT_AGENTS" },
-  "github.proxy": { primary: "MULTI_AGENT_GITHUB_PROXY" },
+  "network.proxy": { primary: "MULTI_AGENT_NETWORK_PROXY" },
 };
 
 const KEY_TO_PATH: Record<SettingsValidKey, string[]> = {
@@ -319,6 +323,7 @@ const KEY_TO_PATH: Record<SettingsValidKey, string[]> = {
   "ui.preview.max_pins": ["ui", "preview", "maxPins"],
   "ui.timezone": ["ui", "timezone"],
   "ui.enabled": ["ui", "enabled"],
+  "ui.setup_complete": ["ui", "setupComplete"],
   "ui.preview.default_lines": ["ui", "preview", "defaultLines"],
   "recovery.auto_drive_provider_prompts": ["recovery", "autoDriveProviderPrompts"],
   "recovery.provider_auth_env_allowlist": ["recovery", "providerAuthEnvAllowlist"],
@@ -368,7 +373,7 @@ const KEY_TO_PATH: Record<SettingsValidKey, string[]> = {
   "team.leadClient": ["team", "leadClient"],
   "team.maxSeats": ["team", "maxSeats"],
   "team.maxConcurrentAgents": ["team", "maxConcurrentAgents"],
-  "github.proxy": ["github", "proxy"],
+  "network.proxy": ["network", "proxy"],
 };
 
 export type SettingSource = "env" | "file" | "default";
@@ -384,6 +389,30 @@ export function isSettingsValidKey(key: string): key is SettingsValidKey {
 }
 
 const REMOVED_CONTEXT_KEY = "context.packs_root";
+
+/**
+ * Carry a stored `github.proxy` forward as `network.proxy`.
+ *
+ * The proxy was GitHub's alone until it also had to reach the agent CLIs; an upgraded install
+ * keeps the value the owner set, and `network.proxy` is the one key everything reads. When both
+ * are stored, `network.proxy` is the newer answer and the old file field is dropped.
+ *
+ * Only a value that still validates is carried. A hand-edited file holding something else falls
+ * back to "no proxy", exactly as a rejected file value does for every other key, rather than
+ * handing an unusable string to every child the daemon starts.
+ */
+function migrateGithubProxy(fileConfig: Record<string, unknown>): void {
+  const github = fileConfig.github as Record<string, unknown> | undefined;
+  if (!github || typeof github !== "object" || !("proxy" in github)) return;
+  const carried = github.proxy;
+  delete github.proxy;
+  if (Object.keys(github).length === 0) delete fileConfig.github;
+  const current = getNestedValue(fileConfig, KEY_TO_PATH["network.proxy"]);
+  if (typeof carried === "string" && carried !== "" && isNetworkProxy(carried)
+    && (current === undefined || current === "")) {
+    setNestedValue(fileConfig, KEY_TO_PATH["network.proxy"], carried);
+  }
+}
 
 export function removedContextSettingMessage(key: string): string | null {
   return key === REMOVED_CONTEXT_KEY
@@ -575,6 +604,7 @@ function getDefaultValue(key: SettingsValidKey, workspaceRoot: string): string |
     case "ui.preview.default_lines": return 50;
     case "ui.timezone": return "America/Los_Angeles";
     case "ui.enabled": return false;
+    case "ui.setup_complete": return false;
     case "recovery.auto_drive_provider_prompts": return false;
     case "recovery.provider_auth_env_allowlist": return "";
     // V1 Phase 4 — Advisor default per universal-shell.md L83;
@@ -638,7 +668,7 @@ function getDefaultValue(key: SettingsValidKey, workspaceRoot: string): string |
     case "team.leadClient": return "claude-code";
     case "team.maxSeats": return 6;
     case "team.maxConcurrentAgents": return 3;
-    case "github.proxy": return "";
+    case "network.proxy": return "";
     default: return "";
   }
 }
@@ -833,6 +863,11 @@ const KEY_CONSTRAINTS: Partial<Record<SettingsValidKey, (raw: string, coerced: s
   },
   "team.leadClient": raw => {
     if (raw !== "claude-code" && raw !== "codex") throw new Error("Invalid value for team.leadClient: use claude-code or codex.");
+  },
+  // Lockstep with cli/src/config-store.ts KEY_CONSTRAINTS: the value is handed to gh, git and
+  // every agent CLI, so anything that is not a proxy URL is refused rather than passed on.
+  "network.proxy": raw => {
+    if (!isNetworkProxy(raw)) throw new Error(`Invalid value for network.proxy: use http://host:port, or leave it empty, got "${raw}"`);
   },
 };
 
@@ -1262,6 +1297,7 @@ export class SettingsStore {
       }
     }
     assertNoRemovedContextSetting(parsed);
+    migrateGithubProxy(parsed);
     return parsed;
   }
 }
