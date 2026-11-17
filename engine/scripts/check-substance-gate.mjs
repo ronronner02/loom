@@ -18,6 +18,7 @@ import {
   buildInternalLeakMessage,
   scanInternalLeaks,
 } from "./internal-leak-scanner.mjs";
+import { npmCommand } from "./platform-commands.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIX = "Genericize the content, cite its public home, or re-home it to the internal pack root.";
@@ -147,7 +148,8 @@ function parseArguments(argv) {
 
 function derivePackageArtifacts(packageRoot) {
   if (!existsSync(packageRoot)) throw new Error(`package root not found: ${packageRoot}`);
-  const packed = spawnSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], {
+  const npm = npmCommand();
+  const packed = spawnSync(npm.command, [...npm.prefix, "pack", "--dry-run", "--json", "--ignore-scripts"], {
     cwd: packageRoot,
     encoding: "utf8",
   });

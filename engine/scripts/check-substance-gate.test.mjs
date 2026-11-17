@@ -397,6 +397,11 @@ function writeGateHarness(root, source, invocationPath) {
     join(root, "internal-leak-scanner.mjs"),
     readFileSync(resolve("scripts/internal-leak-scanner.mjs")),
   );
+  // The gate imports the platform helpers, so the harness carries them alongside its copies.
+  writeFileSync(
+    join(root, "platform-commands.mjs"),
+    readFileSync(resolve("scripts/platform-commands.mjs")),
+  );
   writeFileSync(join(root, "check-internal-leak-guard.mjs"), [
     "import { readFileSync, writeFileSync } from \"node:fs\";",
     `const invocationPath = ${JSON.stringify(invocationPath)};`,
