@@ -219,6 +219,10 @@ export async function startServer(port?: number) {
   const hostedByDesktop = (process as { parentPort?: unknown }).parentPort !== undefined;
   const resolvedOwnerToken = ownerToken
     ?? (hostedByDesktop ? randomBytes(32).toString("base64url") : null);
+  if (!resolvedOwnerToken) {
+    throw new Error("No owner credential: set MULTI_AGENT_OWNER_TOKEN, or start the daemon from the desktop, "
+      + "which mints one over its parent channel.");
+  }
   const p = port ?? parseInt(process.env.MULTI_AGENT_PORT ?? "7433", 10);
   // D15 — anchor the default db under MULTI_AGENT_HOME, never a bare CWD-relative
   // filename (which could open the shared fleet db). Explicit MULTI_AGENT_DB wins.
