@@ -6,6 +6,7 @@ import { I18nextProvider } from "react-i18next";
 import { OwnerSessionProvider, useOwnerSession } from "../hooks/useOwnerSession.js";
 import { EntryFrame, GithubGate } from "./github-gate.js";
 import { SetupScreen, type SetupState } from "./setup.js";
+import { SettingsSheet } from "./settings-sheet.js";
 import { useThemePreference } from "./theme.js";
 import { TeamWorkspaceScreen } from "./team-workspace.js";
 
@@ -31,18 +32,34 @@ export function Entry({ language, onLanguage, appearance, paired }: {
   language: InterfaceI18n; onLanguage: (next: LanguagePreference) => void;
   appearance: ReturnType<typeof useThemePreference>; paired: boolean;
 }) {
-  const frame = (content: ReactNode) => <EntryFrame language={language} onLanguage={onLanguage} appearance={appearance}>{content}</EntryFrame>;
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(() => !setupRead());
+  const finishSetup = () => {
+    try { localStorage.setItem(SETUP_CHOICE_KEY, "done"); } catch { /* This load still continues. */ }
+    setSetupOpen(false);
+  };
+  // Settings needs no GitHub account: its account section states signed-out, and the proxy and
+  // tools it shows come from the setup read. It rides inside the frame because the shell's dialog
+  // styles live there. Only a paired browser has a setup read to show, so the way in waits for it.
+  const frame = (content: ReactNode) => <EntryFrame language={language} onLanguage={onLanguage} appearance={appearance}
+    {...(paired ? { onSettings: () => setSettingsOpen(true) } : {})}>
+    {content}
+    {paired && <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} language={language}
+      onLanguage={onLanguage} appearance={appearance}
+      props={{ address: window.location.origin, seats: [], onSetup: () => { setSettingsOpen(false); setSetupOpen(true); } }} />}
+  </EntryFrame>;
   if (!paired) return frame(<Pairing />);
-  return <FirstRun frame={frame} language={language} onLanguage={onLanguage} appearance={appearance} />;
+  return <FirstRun frame={frame} language={language} onLanguage={onLanguage} appearance={appearance}
+    setupOpen={setupOpen} onSetupDone={finishSetup} onSetup={() => setSetupOpen(true)} />;
 }
 
 /** The setup screen until it is done, then the gate; either screen opens the other on request. */
-function FirstRun({ frame, language, onLanguage, appearance }: {
+function FirstRun({ frame, language, onLanguage, appearance, setupOpen, onSetupDone, onSetup }: {
   frame: (content: ReactNode) => ReactNode; language: InterfaceI18n;
   onLanguage: (next: LanguagePreference) => void; appearance: ReturnType<typeof useThemePreference>;
+  setupOpen: boolean; onSetupDone: () => void; onSetup: () => void;
 }) {
   const { paired, request } = useOwnerSession();
-  const [showingSetup, setShowingSetup] = useState(() => !setupRead());
   useEffect(() => {
     if (!paired || setupRead()) return;
     let active = true;
@@ -51,17 +68,13 @@ function FirstRun({ frame, language, onLanguage, appearance }: {
     void request<SetupState>("/setup").then(state => {
       if (!active || !state.complete) return;
       try { localStorage.setItem(SETUP_CHOICE_KEY, "done"); } catch { /* This load still skips it. */ }
-      setShowingSetup(false);
+      onSetupDone();
     }).catch(() => { /* The screen stays up and reads again on its own. */ });
     return () => { active = false; };
-  }, [paired, request]);
-  if (showingSetup) return frame(<SetupScreen language={language.language} onLanguage={onLanguage}
-    onContinue={() => {
-      try { localStorage.setItem(SETUP_CHOICE_KEY, "done"); } catch { /* This load still continues. */ }
-      setShowingSetup(false);
-    }} />);
-  return <GithubGate frame={frame} onSetup={() => setShowingSetup(true)}>
-    <TeamWorkspaceScreen language={language} onLanguage={onLanguage} appearance={appearance} onSetup={() => setShowingSetup(true)} />
+  }, [paired, request, onSetupDone]);
+  if (setupOpen) return frame(<SetupScreen onContinue={onSetupDone} />);
+  return <GithubGate frame={frame} onSetup={onSetup}>
+    <TeamWorkspaceScreen language={language} onLanguage={onLanguage} appearance={appearance} onSetup={onSetup} />
   </GithubGate>;
 }
 
