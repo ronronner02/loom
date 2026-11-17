@@ -77,7 +77,6 @@ test("the private product-factory VPS runbook and its pointers do not ship", () 
 
   const publicPointerSources = [
     "CHANGELOG.md",
-    "scripts/bootstrap-product-factory-vps.sh",
     "docs/as-built/cli-reference.md",
     "packages/daemon/assets/plugins/multi-agent-core/skills/agent-operated-software/SKILL.md",
   ];

@@ -17,8 +17,6 @@ The cutover record lives outside the repository at `~/.local/state/multi-agent/c
 
 Not transferred: the untracked host runtime mirrors (`.agents/`, `.claude/`, `.codex/`, `.opencode/`, `.pi/`). To run the spec-first workflows from inside WSL, re-initialize them there.
 
-`engine/test/project-baseline.test.mjs` checks that this checkout is the recorded authority and descends from the verified bootstrap. It also checks that the preserved Windows files are still byte-identical.
-
 ## Review Requirements
 
 Use `gpt-6.1-sol` and `claude-opus-5-5` for separate, report-only reviews of each logical change. Call the gateway URLs and API credentials configured locally on the owner's machine; never embed credentials in prompts, repository files, command arguments or review logs. Do not substitute models when quota or access is unavailable.
@@ -59,9 +57,7 @@ Run these from the repository root. They are this project's own checks:
 
 | Command | Purpose |
 | --- | --- |
-| `node --test engine/test/project-baseline.test.mjs` | Import provenance, Windows export rules, cutover authority. |
 | `node --test engine/test/worker-isolation-preflight.test.mjs` | Offline launcher checks. Set `MA_PREFLIGHT=1` for the host preflight (`docs/operations.md`). |
-| `node tools/upstream-import.mjs verify` | `engine/` against the pinned upstream manifest. |
 
 ### Baseline Result (2026-10-13)
 
@@ -75,7 +71,6 @@ The following ran on Ubuntu 26.04.1 / WSL2 6.18.33.2 with Node v24.21.0 / npm 11
 | `npm run lint` | Exit 0 (20 s) |
 | `npm test` | **Exit 1 (260 s).** Repository checks: 290 passed, 0 failed. daemon: 15,055 passed, **4 failed**, 5 skipped, 5 todo. cli: 4,238 passed, **2 failed**, 5 skipped. (Recorded before the terminal UI was retired; its 931 tests are no longer part of this run.) |
 | `npm run test:ui` | Exit 0; 1,739 passed, 1 skipped (26 s) |
-| `node --test engine/test/project-baseline.test.mjs` | 22/22 |
 
 **Known pre-existing failures.** Six upstream tests fail on this host. Each fails identically with the adaptations removed (pristine `cb79b8c`), so this milestone did not introduce them. They are a recorded limitation, not passes.
 
@@ -89,29 +84,3 @@ The following ran on Ubuntu 26.04.1 / WSL2 6.18.33.2 with Node v24.21.0 / npm 11
 | cli `up.test.ts › … S20: env-sourced MULTI_AGENT_HOST creates NO bind intent through up auto-start` | Expected port `7472`, got `undefined` | Same S20 auto-start path | U9 |
 
 The owning unit must diagnose its tests before changing that area, and must not count them as passing.
-
-## One-Way Windows Export
-
-```bash
-node tools/windows-export.mjs --dest /mnt/d/Multi-Agent           # dry run: what would be written, kept or refused
-node tools/windows-export.mjs --dest /mnt/d/Multi-Agent --apply   # write
-node tools/windows-export.mjs --dest /mnt/d/Multi-Agent --apply --delete   # also remove files dropped since the last export
-```
-
-The export takes the committed tracked regular files; symlinks and gitlinks are skipped. It refuses to run with uncommitted tracked changes. Every destination path is in one of three states:
-
-| State | Meaning | Export may |
-| --- | --- | --- |
-| **owned** | Written by an earlier export | Replace it, or remove it with `--delete`, while it still matches what was exported |
-| **baseline** | Present at cutover (`windows-manifest.json`) | Replace it while it still matches the cutover bytes. It is **never** deleted, so host mirrors such as `.claude/` are safe. |
-| **unknown** | Anything else | Nothing. A source path landing on it is a conflict, even when the bytes match. |
-
-Any of the following stops the whole export before anything is written:
-
-- a Windows-side edit or deletion;
-- an unknown file;
-- a symlinked or dangling path component;
-- a file where a directory is needed;
-- two source paths that differ only in case (NTFS is case-insensitive).
-
-Apply stages every file under a private temporary name, revalidates the whole plan against the destination, and only then commits. If a rename fails part-way, the error lists exactly what changed, and the export record (`~/.local/state/multi-agent/exports/`) is written to match the destination, so the next run is still consistent.

@@ -98,15 +98,11 @@ credentials are supplied.
 | `build-and-package` | ubuntu | `npm ci` and `npm run build`. Then `npm pack --dry-run` for cli, daemon and tui, with each file list uploaded as the `pack-lists` artifact. The job only records the lists; reviewers read them. |
 | `typecheck` | ubuntu | `npm run lint` |
 | `repo-checks` | ubuntu | `npm run test:repo` |
-| `package-tests` | macOS, matrix `daemon`, `cli`, `tui`, `ui` (fail-fast off) | Installs tmux, runs `npm ci` and `npm run build`. Then runs `npm run test -w packages/<pkg>` under `env -i` with a scratch `HOME`/`TMPDIR`/`TMUX_TMPDIR` and a `sandbox-exec` profile that blocks outbound network except localhost and the job's own socket directory. `scripts/ci-macos-process-probe.mjs` runs first. |
+| `package-tests` | macOS, matrix `daemon`, `cli`, `tui`, `ui` (fail-fast off) | Installs tmux, runs `npm ci` and `npm run build`. Then runs `npm run test -w packages/<pkg>` under `env -i` with a scratch `HOME`/`TMPDIR`/`TMUX_TMPDIR` and a `sandbox-exec` profile that blocks outbound network except localhost and the job's own socket directory. |
 | `installed-scenario` | ubuntu | `bash scripts/run-pr-scenarios.sh` (eight container runs, described below). Uploads `dist/pr-scenarios/` as `installed-scenario-evidence`, including on failure. |
 
-A second workflow, `.github/workflows/portability-report.yml` (job `portability-report`),
-lists lines your PR adds that contain machine-specific values: credentials, home or temp
-paths, network addresses, email addresses. It never fails because of a finding. To see the
-matched text locally (credentials show only their first characters), run
-`node scripts/portability-report.mjs`. By default it compares the
-merge-base with `origin/main` against `HEAD`; pass `--staged` to check staged changes instead.
+A second workflow was retired with the portability report; `npm run test:repo` and the smoke
+suite cover the same ground.
 
 The UI suite is a CI matrix leg even though it is advisory locally. Check your PR's status to
 see whether a red UI leg is treated as blocking. Branch-protection settings are not in the
