@@ -5,6 +5,7 @@ import type { Integration } from "../domain/integration-branch.js";
 import type { PullRequestDelivery } from "../domain/pull-request-delivery.js";
 import { GithubCliError } from "../domain/github-cli.js";
 import { teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
+import { controlErrorHandler } from "../middleware/control-error.js";
 
 /**
  * U7 / KTD7 — the run's delivery branch, and the owner's one merge.
@@ -87,5 +88,7 @@ export function teamMergeRoutes(options: {
     return c.json({ protocolVersion: TEAM_CONTROL_VERSION, ...outcome }, outcome.status === "merged" ? 200 : 409);
   });
 
+  // A malformed body is the caller's error, not a control failure.
+  app.onError(controlErrorHandler());
   return app;
 }

@@ -7,6 +7,7 @@ import { listTeams } from "../domain/team-setup.js";
 import { credentialExcluded } from "../domain/binding-scope.js";
 import { readWorkspacePath } from "../domain/team-workspace.js";
 import { teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
+import { controlErrorHandler } from "../middleware/control-error.js";
 
 export function projectFilesRoutes(db: Database.Database, credentials: TeamControlCredentials,
   legacyTokens: readonly (string | null | undefined)[]): Hono<TeamControlEnv> {
@@ -56,8 +57,9 @@ export function projectFilesRoutes(db: Database.Database, credentials: TeamContr
     c.header("Cache-Control", "no-store");
     return c.json({ protocolVersion: TEAM_CONTROL_VERSION, attachment }, 201);
   });
-  app.onError((error, c) => error instanceof TeamContractError || error instanceof SyntaxError
-    ? c.json({ code: "invalid_attachment", error: "Choose one file with a valid filename." }, 400)
-    : c.json({ code: "attachment_upload_failed", error: "The file could not be saved." }, 500));
+  app.onError(controlErrorHandler({ bodies: {
+    invalidRequest: { code: "invalid_attachment", error: "Choose one file with a valid filename." },
+    persistenceFailed: { code: "attachment_upload_failed", error: "The file could not be saved." },
+  } }));
   return app;
 }

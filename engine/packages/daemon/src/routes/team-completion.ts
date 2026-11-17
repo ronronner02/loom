@@ -5,6 +5,7 @@ import type { PlanGovernance } from "../domain/plan-governance.js";
 import { completionBlockedReason, evidenceSubject, leadCompletionEvidence, taskCompletionEvidence,
   type CandidateFacts, type TaskCompletionEvidence } from "../domain/task-completion.js";
 import { teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
+import { controlErrorHandler } from "../middleware/control-error.js";
 
 /**
  * MVP — the owner's completion read.
@@ -115,5 +116,7 @@ export function teamCompletionRoutes(governance: PlanGovernance, options: {
       evidence,
     } });
   });
+  // A malformed body is the caller's error, not a control failure.
+  app.onError(controlErrorHandler());
   return app;
 }

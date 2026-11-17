@@ -24,6 +24,7 @@ import type { SettingsStore } from "../domain/user-settings/settings-store.js";
 import type { RigRepository } from "../domain/rig-repository.js";
 import type { Rig } from "../domain/types.js";
 import { teamControlAuthentication, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
+import { controlErrorHandler } from "../middleware/control-error.js";
 import type { TeamControlOptions } from "./team-control.js";
 
 /**
@@ -163,13 +164,11 @@ export function teamStartRoutes(
     return c.json(outcome.body, outcome.status);
   });
 
-  app.onError((error, c) => {
-    if (error instanceof TeamContractError || error instanceof SyntaxError) {
-      return c.json({ code: "invalid_team_contract", error: "The start request is malformed or incompatible." }, 400);
-    }
-    if (/not found/i.test(error.message)) return c.json({ code: "control_not_found", error: "The requested entity was not found." }, 404);
-    return c.json({ code: "control_persistence_failed", error: "The start request was not acknowledged." }, 500);
-  });
+  app.onError(controlErrorHandler({ bodies: {
+    invalidRequest: { code: "invalid_team_contract", error: "The start request is malformed or incompatible." },
+    notFound: { code: "control_not_found", error: "The requested entity was not found." },
+    persistenceFailed: { code: "control_persistence_failed", error: "The start request was not acknowledged." },
+  } }));
   return app;
 }
 

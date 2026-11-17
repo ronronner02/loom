@@ -3,6 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { TEAM_CONTROL_VERSION, TEAM_RESULT_SCHEMA, parseProtocolVersion } from "../contracts/team-control.js";
 import type { PlanGovernance } from "../domain/plan-governance.js";
 import { teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
+import { controlErrorHandler } from "../middleware/control-error.js";
 
 /**
  * MVP slice 3 — the owner's read of a finished task's result.
@@ -67,5 +68,7 @@ export function teamResultRoutes(governance: PlanGovernance, options: {
       base: manifest.base, baseIdentifier: manifest.baseIdentifier, manifestDigest: manifest.manifestDigest,
       files: manifest.files, patch: manifest.patch } });
   });
+  // A malformed body is the caller's error, not a control failure.
+  app.onError(controlErrorHandler());
   return app;
 }

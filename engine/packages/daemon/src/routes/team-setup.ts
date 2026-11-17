@@ -3,16 +3,16 @@ import { bodyLimit } from "hono/body-limit";
 import {
   TEAM_CONTROL_VERSION, TeamContractError, absolutePath, object, parseProtocolVersion, text, type ControlActor,
 } from "../contracts/team-control.js";
-import { readTeamModelSettings, saveTeamModelSettings, TeamModelError } from "../domain/team-model-policy.js";
+import { readTeamModelSettings, saveTeamModelSettings } from "../domain/team-model-policy.js";
 import { nativeModelChoices } from "../domain/native-model-choices.js";
 import { FRAMEWORK_CATALOG, FRAMEWORK_PIN } from "../integrations/framework/catalog.js";
-import { assignSeatSoul, saveTeamSoul, soulId, teamSoulSettings, TeamSoulError } from "../domain/team-souls.js";
-import { saveTeamSections, teamSectionSettings, TeamSectionsError } from "../domain/team-prompt-sections.js";
-import { dismissIntakeItem, listIntakeItems, readIntakePolicy, saveIntakePolicy, TeamPolicyError } from "../domain/team-policy.js";
+import { assignSeatSoul, saveTeamSoul, soulId, teamSoulSettings } from "../domain/team-souls.js";
+import { saveTeamSections, teamSectionSettings } from "../domain/team-prompt-sections.js";
+import { dismissIntakeItem, listIntakeItems, readIntakePolicy, saveIntakePolicy } from "../domain/team-policy.js";
 import type { GithubIntake } from "../domain/github-intake.js";
 import type { RigRepository } from "../domain/rig-repository.js";
-import { bootstrapProject, listProjectDirectories, previewProject, ProjectBootstrapError } from "../domain/project-bootstrap.js";
-import { GithubCliError, type GithubCli } from "../domain/github-cli.js";
+import { bootstrapProject, listProjectDirectories, previewProject } from "../domain/project-bootstrap.js";
+import type { GithubCli } from "../domain/github-cli.js";
 import type { SettingsStore } from "../domain/user-settings/settings-store.js";
 import {
   TEAM_ROLES, TeamSetupError, availableTeamName, canonicalTeamRepository, createTeam, listTeams, parseTeamClient, type TeamSeatInput,
@@ -20,6 +20,7 @@ import {
 import {
   teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv,
 } from "../middleware/auth-bearer-token.js";
+import { controlErrorHandler, teamSetupErrorMap } from "../middleware/control-error.js";
 
 /**
  * U3 — the owner's teams.
@@ -183,30 +184,10 @@ export function teamSetupRoutes(
     return c.json({ protocolVersion: TEAM_CONTROL_VERSION, team }, 201);
   });
 
-  app.onError((error, c) => {
-    if (error instanceof TeamContractError || error instanceof SyntaxError) {
-      return c.json({ code: "invalid_team_contract", error: "The team request is malformed or incompatible." }, 400);
-    }
-    if (error instanceof TeamModelError) return c.json({ code: error.code, error: error.message }, error.status);
-    if (error instanceof TeamSoulError) return c.json({ code: error.code, error: error.message }, error.status);
-    if (error instanceof TeamSectionsError) return c.json({ code: error.code, error: error.message }, error.status);
-    if (error instanceof TeamPolicyError) return c.json({ code: error.code, error: error.message }, error.status);
-    if (error instanceof TeamSetupError) {
-      const status = error.code === "team_exists" || error.code === "team_name_taken" ? 409 : 400;
-      return c.json({ code: error.code, error: error.message }, status);
-    }
-    if (error instanceof ProjectBootstrapError) {
-      const status = error.code === "team_origin_changed" || error.code === "team_bootstrap_changed" ? 409 : 400;
-      return c.json({ code: error.code, error: error.message, excludedPaths: error.excludedPaths,
-        ...(error.oversizedPaths.length ? { oversizedPaths: error.oversizedPaths } : {}) }, status);
-    }
-    if (error instanceof GithubCliError) {
-      const status = error.code === "github_repo_exists" || error.code === "github_not_signed_in" ? 409
-        : error.code === "github_cli_missing" ? 503 : 502;
-      return c.json({ code: error.code, error: error.message }, status);
-    }
-    return c.json({ code: "team_creation_failed", error: "The team was not created." }, 500);
-  });
+  app.onError(controlErrorHandler({ bodies: {
+    invalidRequest: { code: "invalid_team_contract", error: "The team request is malformed or incompatible." },
+    persistenceFailed: { code: "team_creation_failed", error: "The team was not created." },
+  }, map: teamSetupErrorMap }));
   return app;
 }
 

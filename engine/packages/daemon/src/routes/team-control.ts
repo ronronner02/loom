@@ -9,7 +9,7 @@ import {
   teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv,
 } from "../middleware/auth-bearer-token.js";
 import { readSystemHealthBounded } from "../domain/system-health.js";
-import { ScopeExtensionError } from "../domain/scope-extension.js";
+import { controlErrorHandler, teamControlErrorMap } from "../middleware/control-error.js";
 import type { TeamReadModel } from "../team-control-surface.js";
 import type { Cancellation } from "../domain/team-cancellation.js";
 
@@ -233,19 +233,11 @@ export function teamControlRoutes(
       return c.json(receipt, receipt.status === "denied" ? 403 : receipt.status === "pending-execution" ? 202 : 200);
     });
   }
-  app.onError((error, c) => {
-    if (error instanceof ScopeExtensionError) {
-      return c.json({ code: error.code, rule: error.rule, extension: error.extension ?? null }, error.code === "extension-pending" ? 202 : 409);
-    }
-    if (error instanceof TeamContractError || error instanceof SyntaxError) {
-      return c.json({ code: "invalid_team_contract", error: "The control request is malformed or incompatible." }, 400);
-    }
-    if (/conflict|idempotency key/i.test(error.message)) {
-      return c.json({ code: "control_conflict", error: "Refresh the entity version and exact request before retrying." }, 409);
-    }
-    if (/not found/i.test(error.message)) return c.json({ code: "control_not_found", error: "The requested control entity was not found." }, 404);
-    return c.json({ code: "control_persistence_failed", error: "The control action was not acknowledged." }, 500);
-  });
+  app.onError(controlErrorHandler({ bodies: {
+    invalidRequest: { code: "invalid_team_contract", error: "The control request is malformed or incompatible." },
+    notFound: { code: "control_not_found", error: "The requested control entity was not found." },
+    persistenceFailed: { code: "control_persistence_failed", error: "The control action was not acknowledged." },
+  }, map: teamControlErrorMap }));
   return app;
 }
 

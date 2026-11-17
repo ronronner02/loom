@@ -3,6 +3,7 @@ import { streamSSE } from "hono/streaming";
 import type { EventBus } from "../domain/event-bus.js";
 import type { PersistedEvent } from "../domain/types.js";
 import { teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
+import { controlErrorHandler } from "../middleware/control-error.js";
 import { parseProtocolVersion, TEAM_CONTROL_VERSION, canonicalJson } from "../contracts/team-control.js";
 import { boundedLogBody, type TeamReadModel } from "../team-control-surface.js";
 
@@ -40,6 +41,8 @@ const TEAM_READ_UNAVAILABLE = {
 export function teamEventsRoutes(options: TeamEventsOptions): Hono<TeamControlEnv> {
   const app = new Hono<TeamControlEnv>();
   app.use("*", teamControlAuthentication(() => options.credentials, options.legacyTokens));
+  // A malformed body or replay cursor is the caller's error, not a control failure.
+  app.onError(controlErrorHandler());
 
   const ownerScope = (c: { get: (key: never) => unknown; req: { param: (key: string) => string } }) => {
     if ((c.get("controlActor" as never) as { kind: string }).kind !== "owner") return "worker" as const;
