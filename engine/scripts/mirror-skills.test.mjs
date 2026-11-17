@@ -14,6 +14,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
+import { hasRsync, supportsSymlinks } from "./platform-commands.mjs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -98,7 +99,7 @@ test("source SKILL.md inventory is non-empty (sanity check)", () => {
   );
 });
 
-test("mirror is in sync with source (drift-detect via --check)", () => {
+test("mirror is in sync with source (drift-detect via --check)", { skip: hasRsync() ? false : "rsync is not installed" }, () => {
   // The load-bearing assertion: skills/_canonical/ must not drift from
   // packages/daemon/specs/agents/shared/skills/. Failing this means
   // someone edited the source without running `npm run mirror-skills`.
@@ -225,7 +226,11 @@ test("stagePublicSkills applies membership, path, frontmatter, and fence transfo
   }
 });
 
-test("stagePublicSkills preserves prose and executable source modes", async () => {
+// File modes are not representable on Windows (chmod only toggles the read-only bit), so
+// these assertions are POSIX-only.
+const windowsModes = process.platform === "win32" ? "file modes are POSIX-only" : false;
+
+test("stagePublicSkills preserves prose and executable source modes", { skip: windowsModes }, async () => {
   const mirror = await import("./mirror-skills.mjs");
   const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-modes-"));
   try {
@@ -478,7 +483,9 @@ test("stagePublicSkills rejects an unmatched fence in non-SKILL Markdown with fi
   }
 });
 
-test("stagePublicSkills rejects canon file symlinks before reading or staging outside bytes", async () => {
+const noSymlinks = supportsSymlinks() ? false : "this machine cannot create symlinks";
+
+test("stagePublicSkills rejects canon file symlinks before reading or staging outside bytes", { skip: noSymlinks }, async () => {
   const mirror = await import("./mirror-skills.mjs");
   const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-symlink-red-"));
   try {
@@ -513,7 +520,7 @@ test("stagePublicSkills rejects canon file symlinks before reading or staging ou
   }
 });
 
-test("stagePublicSkills rejects canon directory symlinks before recursion or staging outside bytes", async () => {
+test("stagePublicSkills rejects canon directory symlinks before recursion or staging outside bytes", { skip: noSymlinks }, async () => {
   const mirror = await import("./mirror-skills.mjs");
   const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-symlink-red-"));
   try {
@@ -958,7 +965,7 @@ test("authoring regeneration stages canon and projects exact manifest layouts to
   }
 });
 
-test("authoring regeneration reports and repairs permission-only drift on all three edges", async () => {
+test("authoring regeneration reports and repairs permission-only drift on all three edges", { skip: windowsModes }, async () => {
   const mirror = await import("./mirror-skills.mjs");
   const root = mkdtempSync(join(tmpdir(), "multi-agent-authoring-modes-"));
   try {
@@ -1211,7 +1218,7 @@ function sha256(value) {
 function walkSkillFiles(root) {
   const out = [];
   walk(root, (path) => {
-    if (path.endsWith("/SKILL.md")) out.push(path);
+    if (path.endsWith("/SKILL.md") || path.endsWith("\\SKILL.md")) out.push(path);
   });
   return out;
 }

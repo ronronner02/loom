@@ -172,7 +172,7 @@ export async function loadAuthorities(root) {
   const skills = new Map();
   for (const dir of SKILL_ROOTS) {
     if (!fs.existsSync(path.join(root, dir))) continue;
-    for (const file of walk(path.join(root, dir)).filter((p) => p.endsWith("/SKILL.md"))) {
+    for (const file of walk(path.join(root, dir)).filter((p) => path.basename(p) === "SKILL.md")) {
       skills.set(path.basename(path.dirname(file)), path.relative(root, file));
     }
   }
@@ -223,7 +223,7 @@ export async function checkReferences(root, scope, authority) {
       checked.push({ ...ref, against: found });
     } else {
       let target = repositoryPath(ref.value);
-      if (ref.kind === "link") target = path.join(path.dirname(ref.file), ref.value);
+      if (ref.kind === "link") target = path.join(path.dirname(ref.file), ref.value).replaceAll("\\", "/");
       if (target.startsWith("skills/")) {
         const tail = target.slice("skills/".length);
         const candidates = [target, ...SKILL_ROOTS.map((dir) => `${dir}/${tail}`)];

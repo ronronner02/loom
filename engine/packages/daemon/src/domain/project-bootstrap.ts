@@ -488,7 +488,7 @@ export function listProjectDirectories(path?: string, roots = directoryRoots()):
   let folder: string;
   try { folder = canonical(path); } catch { throw refusedFolder(); }
   // A root the owner may browse is the home or a drive/share; the comparison folds case only
-  // where the filesystem does, so `c:\users\leo` and `C:\Users\leo` are one place on Windows.
+  // where the filesystem does, so `c:\users\alice` and `C:\Users\alice` are one place on Windows.
   const root = roots.find(root => pathWithin(root, folder));
   if (!root || !pathWithin(root, folder) || !statSync(folder).isDirectory()) throw refusedFolder();
   const directories = readdirSync(folder, { withFileTypes: true }).flatMap(entry => {
