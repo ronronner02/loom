@@ -147,15 +147,11 @@ describe("transactional plan governance", () => {
     outputs: [], permissions: [],
     sourceSession: "lead@rig-1", destinationSession: "builder@rig-1", body: "Implement the approved scope",
   }), binding);
-  it("T016 pauses admission without stopping attempts or resetting the clock, and replays exact input", () => {
+  it("T016 resumes a paused run without stopping attempts or resetting the clock", () => {
     approvePlan(); recordAttempt();
-    const pause = command("run-1", {});
-    expect(governance.ownerCommand("pause", pause, owner, binding)).toMatchObject({ status: "observed", effectMayStart: false });
+    db.prepare("UPDATE team_runs SET state = 'blocked', state_reason = 'owner-paused' WHERE id = 'run-1'").run();
     expect(governance.getRun("run-1")).toMatchObject({ state: "blocked", stateReason: "owner-paused" });
     expect(governance.getAttempt("attempt-1")?.state).toBe("running");
-    const version = governance.getRun("run-1").entityVersion;
-    expect(governance.ownerCommand("pause", pause, owner, binding).replayed).toBe(true);
-    expect(governance.getRun("run-1").entityVersion).toBe(version);
     expect(createTask().status).toBe("denied");
     now = new Date(now.getTime() + 1000);
     expect(governance.ownerCommand("resume", command("run-1", {}), owner, binding).status).toBe("observed");
@@ -165,7 +161,7 @@ describe("transactional plan governance", () => {
 
   it.each(["cancel", "expiry", "binding", "unknown", "budget"])("T016 resume preserves the %s blocker", (kind) => {
     approvePlan(); recordAttempt();
-    governance.ownerCommand("pause", command("run-1", {}), owner, binding);
+    db.prepare("UPDATE team_runs SET state = 'blocked', state_reason = 'owner-paused' WHERE id = 'run-1'").run();
     if (kind === "cancel") governance.cancelRun(command("cancel", { reason: "stop" }), owner);
     if (kind === "expiry") db.prepare("UPDATE team_approvals SET expires_at = ?").run(now.toISOString());
     if (kind === "unknown") db.prepare("UPDATE team_attempts SET state = 'unknown', unknown_reason = 'reconciliation required'").run();
@@ -177,9 +173,10 @@ describe("transactional plan governance", () => {
 
   it("T016 denies worker commands and conflicts on stale versions", () => {
     approvePlan();
+    db.prepare("UPDATE team_runs SET state = 'blocked', state_reason = 'owner-paused' WHERE id = 'run-1'").run();
     const request = command("run-1", {});
-    expect(() => governance.ownerCommand("pause", request, worker, binding)).toThrow(/owner/i);
-    governance.ownerCommand("pause", request, owner, binding);
+    expect(() => governance.ownerCommand("resume", request, worker, binding)).toThrow(/owner/i);
+    governance.ownerCommand("resume", request, owner, binding);
     expect(() => governance.ownerCommand("resume", { ...request, idempotencyKey: "new-key" }, owner, binding)).toThrow(/version/i);
   });
 
@@ -233,11 +230,12 @@ describe("transactional plan governance", () => {
 
   it("T016 routes owner commands through authenticated, versioned governance", async () => {
     approvePlan();
+    db.prepare("UPDATE team_runs SET state = 'blocked', state_reason = 'owner-paused' WHERE id = 'run-1'").run();
     const app = teamControlRoutes(governance, { credentials: { ownerToken: "owner-token-t016" }, resolveBinding: () => binding }, []);
     const init = { method: "POST", headers: { Authorization: "Bearer owner-token-t016", "Content-Type": "application/json" }, body: JSON.stringify(command("run-1", {})) };
-    const response = await app.request("/runs/run-1/pause", init, { incoming: { socket: { remoteAddress: "127.0.0.1" } } });
+    const response = await app.request("/runs/run-1/resume", init, { incoming: { socket: { remoteAddress: "127.0.0.1" } } });
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ status: "observed", effectMayStart: false });
+    expect(await response.json()).toMatchObject({ status: "observed" });
     expect((await app.request("/runs/other/resume", { ...init, body: JSON.stringify(command("run-1", {})) }, { incoming: { socket: { remoteAddress: "127.0.0.1" } } })).status).toBe(403);
   });
 
@@ -269,8 +267,7 @@ describe("transactional plan governance", () => {
     const qitemId = (created.value as { qitemId: string }).qitemId;
     expect(() => queue.update({ qitemId, actorSession: "owner-control", state: "in-progress" })).toThrow(/managed/i);
     expect(() => db.transaction(() => queue.updateWithinTransaction({ qitemId, actorSession: "owner-control", state: "done" }))()).toThrow(/managed/i);
-    expect(() => queue.claim({ qitemId, destinationSession: "builder@rig-1" })).toThrow(/managed/i);
-    expect(() => queue.unclaim(qitemId, "builder@rig-1", "forged owner")).toThrow(/managed/i);
+    expect(() => db.transaction(() => queue.createWithinTransaction({ sourceSession: "owner-control", destinationSession: "builder@rig-1", body: "forged" }))()).toThrow(/managed/i);
     expect(queue.getById(qitemId)?.state).toBe("pending");
   });
 

@@ -68,9 +68,15 @@ describe("MVP slice C2 — the review loop", () => {
       provider: "claude", identity: nativeIdentity(governance.getRun("run").binding.policyFingerprint), unknownReason: null,
       state: "stopped", usage }), governance.getRun("run").binding);
     expect(recorded.status).toBe("observed");
-    return post("tasks/outcome", command(row.qitemId, { expectedTaskVersion: governance.getTask(row.qitemId)!.entityVersion,
+    const receipt = governance.recordTaskOutcome(command(row.qitemId, { expectedTaskVersion: governance.getTask(row.qitemId)!.entityVersion,
       state, ...(state === "done" ? { closureReason: "no-follow-on" } : {}), actorSession: seat,
-      attemptId, expectedAttemptVersion: governance.getAttempt(attemptId)!.entityVersion, evidence }));
+      attemptId, expectedAttemptVersion: governance.getAttempt(attemptId)!.entityVersion, evidence }), owner);
+    // The control route dispatches whatever the receipt says may start; replicate that here
+    // so an observation still reaches the reviewer the run admitted.
+    const addedTasks = (receipt.value as { addedTasks?: string[] } | null)?.addedTasks ?? [];
+    const next = [receipt.reviewTaskId, receipt.reworkTaskId, receipt.revisionTaskId].filter((id): id is string => id !== undefined);
+    for (const taskId of [...addedTasks, ...next, ...(receipt.resumeTaskIds ?? [])]) void dispatch("run", taskId);
+    return { status: receipt.status === "observed" ? 200 : receipt.status === "denied" ? 403 : 202, json: async () => receipt };
   };
   const reviewerTask = (taskId = reviewerTaskId("A", 1)) => governance.findTask("run", taskId)!;
 
@@ -233,51 +239,6 @@ describe("MVP slice C2 — the review loop", () => {
     expect(governance.getRun("run")).toMatchObject({ state: "approved", reviewRoundsUsed: 3 });
   });
 
-  it("keeps a task whose attempt predates a growth decision completing and reviewed", async () => {
-    // C1's `/continue` route refuses a *continuation* whose attempt carries an earlier plan
-    // binding. That is a different question from completion: a task whose attempt was
-    // recorded before a growth decision still has to finish and be reviewed. This drives
-    // exactly that order — attempt first, growth decision second, outcome third.
-    const original = governance.getRun("run").binding;
-    const attemptId = "A-attempt-before-growth";
-    const task = governance.findTask("run", "A")!;
-    expect(governance.recordAttempt(command(attemptId, { qitemId: task.qitemId, role: "implementer", provider: "claude",
-      identity: nativeIdentity(original.policyFingerprint), unknownReason: null, state: "stopped", usage }), original).status).toBe("observed");
-    expect(governance.getAttempt(attemptId)?.entityVersion).toBe(1);
-
-    const edit = governance.editTask(command("A", { expectedTaskVersion: task.entityVersion,
-      changes: { addTask: { assignment: { taskId: "B", role: "implementer", paths: ["src/b.ts"], dependencies: [] },
-        outputs: ["src/b.ts"], permissions: [...roleConfiguration.implementer.permissions], body: "Implement B" } } }),
-    owner, original);
-    expect(edit.status).toBe("accepted");
-    expect(governance.getRun("run").state).toBe("invalidated");
-    writeFileSync(join(root, "plan.md"), "Approved goal with a second task.\n");
-    expect((await post("growth", command("growth", { writePaths: ["src/a.ts", "src/b.ts"],
-      expiresAt: "2026-11-04T01:00:00.000Z",
-      tasks: [{ assignment: { taskId: "B", role: "implementer", paths: ["src/b.ts"], dependencies: [] },
-        outputs: ["src/b.ts"], permissions: [...roleConfiguration.implementer.permissions], body: "Implement B",
-        sourceSession: "owner-control", destinationSession: "implementer@rig" }] }))).status).toBe(200);
-    const grown = { ...original, planDigest: hashBytes(readFileSync(join(root, "plan.md"))) };
-    app = teamControlRoutes(governance, { credentials: { ownerToken: "fixture-owner",
-      workers: [{ token: "fixture-worker", runId: "run", sessionId: "implementer@rig" }] },
-      resolveBinding: run => ({ ...run.binding, planDigest: grown.planDigest }),
-      readPolicyCapability: () => policy, dispatch }, []);
-    expect((await post("approvals/decide", command("growth", { approvalVersion: governance.getApproval("growth")!.entityVersion,
-      decision: "approved" }))).status).toBe(200);
-    expect(governance.getRun("run").bindingDigest).not.toBe(hashBinding(original));
-
-    // The attempt still belongs to A, and A completes: the run records the outcome and, because
-    // the run named a reviewer seat, admits the reviewer task for it.
-    const response = await post("tasks/outcome", command(task.qitemId, {
-      expectedTaskVersion: governance.getTask(task.qitemId)!.entityVersion, state: "done", closureReason: "no-follow-on",
-      actorSession: "implementer@rig", attemptId, expectedAttemptVersion: governance.getAttempt(attemptId)!.entityVersion,
-      evidence: { validated: true } }));
-    expect(response.status).toBe(200);
-    const receipt = await response.json() as { reviewTaskId?: string };
-    expect(receipt.reviewTaskId).toBe(reviewerTaskId("A", 1));
-    expect(governance.queueState(task.qitemId)).toBe("done");
-    expect(governance.findTask("run", reviewerTaskId("A", 1))?.assignment.reviewOf).toBe("A");
-  });
 });
 
 describe("the review loop's pure rules", () => {

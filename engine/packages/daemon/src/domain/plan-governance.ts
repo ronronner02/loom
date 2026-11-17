@@ -9,7 +9,6 @@ import { rosterModelRefusal, teamModelAllowlist } from "./team-model-policy.js";
 import { SessionRegistry } from "./session-registry.js";
 import type Database from "better-sqlite3";
 import { validateDependencyGraph } from "./workflow-runtime.js";
-import { applyTaskEdit, readTaskEdit } from "./task-edit.js";
 import { LeadWakePolicy } from "./lead-wake-policy.js";
 import { RigRepository } from "./rig-repository.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -547,32 +546,6 @@ export class PlanGovernance {
     const task = this.findTask(runId, taskId);
     if (!task) throw new Error("Task not found in this run");
     return new ScopeExtensions(this.db).projection(this.getRun(runId), task);
-  }
-
-  proposeRunGrowth(raw: ControlRequest<unknown>, actor: ControlActor, currentBinding: unknown): ControlReceipt {
-    const owner = actorIdentity(actor, true);
-    return this.command("run.growth-requested", raw, owner, ctx => {
-      if (ctx.run.state !== "invalidated") return deny("Run growth requires a suspended plan-change request");
-      const binding = parsePlanBinding(currentBinding), v = object(ctx.request.payload, "growth");
-      if (binding.repository.root !== ctx.run.binding.repository.root || binding.planRef !== ctx.run.binding.planRef
-        || canonicalJson(binding.limits) !== canonicalJson(ctx.run.binding.limits)
-        || canonicalJson(binding.roles) !== canonicalJson(ctx.run.binding.roles)) return deny("Run growth preserves the repository, roles and limits");
-      if (hashBinding(binding) === ctx.run.bindingDigest) return deny("The replacement plan binding has not changed");
-      const tasks = this.growthTasks(ctx, binding, v.tasks, owner.sessionId);
-      if (typeof tasks === "string") return deny(tasks);
-      const payload = jsonValue({ change: "run-growth", binding, tasks }) as JsonObject;
-      const targetDigest = hashBytes(canonicalJson(payload)), expiresAt = timestamp(v.expiresAt, "expiresAt");
-      if (expiresAt <= ctx.now) return deny("Approval expiry must be in the future");
-      if (this.db.prepare(`SELECT id FROM team_approvals WHERE run_id=? AND action='scope-change'
-        AND target_digest=? AND binding_digest=? AND state<>'expired'`).get(ctx.run.id, targetDigest, ctx.run.bindingDigest)) {
-        return deny("An approval for this exact operation is already recorded");
-      }
-      this.db.prepare(`INSERT INTO team_approvals
-        (id,run_id,kind,action,payload_json,payload_digest,target_digest,binding_digest,state,expires_at,created_at,updated_at)
-        VALUES (?,?,'orchestrator','scope-change',?,?,?,?,'pending',?,?,?)`).run(ctx.request.actionId, ctx.run.id,
-        canonicalJson(payload), targetDigest, targetDigest, ctx.run.bindingDigest, expiresAt, ctx.now, ctx.now);
-      return { status: "accepted", value: this.getApproval(ctx.request.actionId), observedBy: owner.sessionId };
-    });
   }
 
   private growthTasks(ctx: CommandContext, binding: import("../contracts/team-control.js").PlanBinding,
@@ -1739,7 +1712,7 @@ export class PlanGovernance {
       }
       if (ctx.request.actionId !== ctx.run.id) throw new TeamContractError("ownerCommand.actionId");
       const payload = object(ctx.request.payload, "ownerCommand");
-      if (operation === "resume") {
+      {
         if (ctx.run.state !== "blocked") return deny("Only a blocked run can resume");
         const documentError = documentDispatchRefusal(this.db, ctx.run, "lead");
         if (documentError) return deny(documentError);
@@ -1813,36 +1786,7 @@ export class PlanGovernance {
           ...(required === "addMinutes" ? { addMinutes } : {}), ...(required === "addRetries" ? { addRetries } : {}),
           ...(required === "addReviewRounds" ? { addReviewRounds } : {}) },
           observedBy: owner.sessionId, effectMayStart: true, resumeTaskIds: this.pendingResumeTaskIds(ctx.run.id) };
-      } else {
-        const reason = this.eligibility(ctx);
-        if (reason) return deny(reason);
-        ctx.run.state = "blocked";
-        ctx.run.stateReason = "owner-paused";
       }
-      return { status: "observed", value: { state: ctx.run.state, stateReason: ctx.run.stateReason }, observedBy: owner.sessionId };
-    });
-  }
-
-  taskForEdit(runId: string, taskId: string) {
-    const run = this.getRun(runId);
-    return { protocolVersion: TEAM_CONTROL_VERSION, runVersion: run.entityVersion, runState: run.state,
-      task: readTaskEdit(this.db, runId, taskId), scope: this.scopeForTask(runId, taskId) };
-  }
-
-  editTask(raw: ControlRequest<unknown>, actor: ControlActor, currentBinding: unknown): ControlReceipt {
-    const owner = actorIdentity(actor, true);
-    return this.command("task.edited", raw, owner, ctx => {
-      if (!this.reconcile(ctx, currentBinding)) return deny("Plan, repository or policy binding changed");
-      if (ctx.run.state !== "approved") return deny("Run is closed to task edits");
-      const task = this.findTask(ctx.run.id, ctx.request.actionId);
-      if (!task) throw new Error("Task not found in this run");
-      const result = applyTaskEdit(this.db, this.queue, ctx.run, ctx.request.actionId, ctx.request.payload, ctx.now, () => this.eligibility(ctx));
-      if (result.status === "accepted" && result.value.classification === "plan-change-required") {
-        ctx.run.state = "invalidated";
-        ctx.run.stateReason = "plan-change-required";
-        this.invalidateUnused(ctx);
-      }
-      return { ...result, taskId: ctx.request.actionId, observedBy: owner.sessionId };
     });
   }
 

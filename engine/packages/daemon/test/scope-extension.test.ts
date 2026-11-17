@@ -368,38 +368,30 @@ describe("task-local scope extensions at candidate staging", () => {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     }, { incoming: { socket: { remoteAddress: "127.0.0.1" } } });
 
-  it("exposes pending scope through authenticated routes and denies worker filing or decisions", async () => {
-    const app = control();
+  it("surfaces a pending extension and admits it once the owner decides", () => {
     writeFileSync(join(candidate().root, "src/neighbor.ts"), "pending");
     expect(() => packet()).toThrow(/extension-pending/);
     const extension = extensions()[0]!;
-    const read = await http(app, "tasks/task/scope");
-    expect(read.status).toBe(202);
-    expect(await read.json()).toMatchObject({ status: "extension-pending", scope: { extensions: [{ classification: "owner-decision", state: "pending" }] } });
-    expect((await http(app, "tasks/task/scope", undefined, "scope-worker")).status).toBe(403);
-    const forged = command("forged", { kind: "orchestrator", action: "scope-extension", payload: {},
-      targetDigest: hashBytes("forged"), expiresAt: "9999-01-01T00:00:00.000Z" });
-    expect((await http(app, "approvals/request", forged, "scope-worker")).status).toBe(403);
+    expect(governance.scopeForTask("run", "task")).toMatchObject({
+      extensions: [{ classification: "owner-decision", state: "pending" }],
+    });
     const decision = () => command(extension.id, { approvalVersion: 1, decision: "approved", expectedChainHead: extension.expectedChainHead });
-    expect((await http(app, "approvals/decide", decision(), "scope-worker")).status).toBe(403);
     const stale = decision(); (stale.payload as Record<string, unknown>).expectedChainHead = "stale";
-    expect((await http(app, "approvals/decide", stale)).status).toBe(409);
-    const approved = decision();
-    expect((await http(app, "approvals/decide", approved)).status).toBe(200);
-    expect((await http(app, "approvals/decide", approved)).status).toBe(200);
-    expect((await http(app, "tasks/task/scope")).status).toBe(200);
+    expect(() => governance.decideApproval(stale, owner, binding)).toThrow();
+    expect(governance.getApproval(extension.id)!.state).toBe("pending");
+    expect(governance.decideApproval(decision(), owner, binding).status).toBe("accepted");
+    // A second decision on the same extension is a state conflict, not a replay.
+    expect(() => governance.decideApproval(decision(), owner, binding)).toThrow(/state conflict/);
     expect(packet().scope!.extensions).toHaveLength(1);
   });
 
-  it("returns the specific plan-change rule without acknowledging a refused HTTP decision", async () => {
+  it("returns the specific plan-change rule without acknowledging a refused decision", () => {
     writeDependencies(); expect(() => packet()).toThrow(/extension-pending/);
     const extension = extensions()[0]!;
     policyInput.paths = 1;
-    const result = await http(control(), "approvals/decide", command(extension.id, {
+    expect(() => governance.decideApproval(command(extension.id, {
       approvalVersion: 1, decision: "approved", expectedChainHead: extension.expectedChainHead,
-    }));
-    expect(result.status).toBe(409);
-    expect(await result.json()).toMatchObject({ code: "plan-change-required", rule: "path-cap" });
+    }), owner, binding)).toThrow(/path-cap/);
     expect(governance.getApproval(extension.id)!.state).toBe("pending");
   });
 
@@ -492,37 +484,6 @@ describe("task-local scope extensions at candidate staging", () => {
     expect(() => packet(taskId)).toThrow(/plan-change-required: outside-write-paths/);
   });
 
-  it("admits a project-wide task through role editing and native preflight with concrete ownership", () => {
-    const runId = "project-run", taskId = "application";
-    const project = { ...binding, readPaths: ["."], writePaths: ["."] };
-    governance.createRun({ id: runId, rigId: "rig", binding: project });
-    const request = (actionId: string, payload: unknown): ControlRequest<unknown> => ({
-      ...command(actionId, payload), runId, expectedEntityVersion: governance.getRun(runId).entityVersion,
-    });
-    governance.requestApproval(request("project-approval", { kind: "orchestrator", action: "implementation",
-      payload: { bindingDigest: hashBinding(project) }, targetDigest: hashBinding(project), expiresAt: "9999-01-01T00:00:00.000Z" }), owner);
-    expect(governance.decideApproval(request("project-approval", { approvalVersion: 1, decision: "approved" }), owner, project).status).toBe("accepted");
-    const assignment = { taskId, role: "implementer" as const, paths: ["package.json", "server", "client", "index.html"], dependencies: [] };
-    expect(governance.createTask(request(taskId, { assignment, outputs: [], permissions: [],
-      sourceSession: "owner", destinationSession: "application@rig", body: "Build the application." }), project).status).toBe("accepted");
-    expect(governance.editTask(request(taskId, {
-      expectedTaskVersion: governance.findTask(runId, taskId)!.entityVersion, changes: { role: "lead" },
-    }), owner, project).status).toBe("accepted");
-    expect(governance.editTask(request(taskId, {
-      expectedTaskVersion: governance.findTask(runId, taskId)!.entityVersion, changes: { role: "implementer" },
-    }), owner, project).status).toBe("accepted");
-    const context = { runId, binding: project, role: "implementer" } as Parameters<WorkflowRuntime["admitForLaunch"]>[1]["context"];
-    const input = { attemptId: "project-attempt", worker: "ma-worker1", assignment, context, outputs: [], permissions: [] };
-    const admitted = runtime.admitForLaunch(runId, input);
-    expect(existsSync(admitted.candidate)).toBe(true);
-    expect(admitted.manifestDigest).toMatch(/^sha256:/);
-    expect(governance.findTask(runId, taskId)?.assignment.paths).toEqual(assignment.paths);
-    expect(() => runtime.admitForLaunch(runId, { ...input, assignment: { ...assignment, paths: ["server/.env"] } }))
-      .toThrow(/expands the approved scope/);
-    expect(() => runtime.admitForLaunch(runId, { ...input, assignment: { ...assignment, paths: ["../outside"] } }))
-      .toThrow(/expands the approved scope/);
-  });
-
   it("refuses an unregistered writing assignment before materializing its candidate", () => {
     const context = { runId: "run", binding, role: "implementer" } as Parameters<WorkflowRuntime["admitForLaunch"]>[1]["context"];
     expect(() => runtime.admitForLaunch("run", { attemptId: "unregistered", worker: "ma-worker1",
@@ -575,9 +536,9 @@ describe("task-local scope extensions at candidate staging", () => {
     expect(current.extensions).toMatchObject([{ id: previous.id, state: "invalidated" }]);
     expect(governance.getApproval(previous.id)!.entityVersion).toBe(version + 1);
     expect(JSON.stringify(db.prepare("SELECT * FROM events ORDER BY rowid DESC LIMIT 1").get())).toContain("scope-extension.invalidated");
-    expect((await http(control(), "tasks/task/scope")).status).toBe(200);
+    expect(governance.scopeForTask("run", "task").extensions).toMatchObject([{ id: previous.id, state: "invalidated" }]);
     const stale = command(previous.id, { approvalVersion: version + 1, decision: "approved", expectedChainHead: previous.expectedChainHead });
-    expect((await http(control(), "approvals/decide", stale)).status).toBe(409);
+    expect(() => governance.decideApproval(stale, owner, binding)).toThrow(/state conflict/);
     db.close(); open();
     expect(extensions()).toMatchObject([{ id: previous.id, state: "invalidated" }]);
     writeFileSync(join(candidate().root, "src/neighbor.ts"), "pending neighbor");

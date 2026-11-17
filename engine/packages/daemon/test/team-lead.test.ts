@@ -46,11 +46,18 @@ describe("C3 — the lead's decomposition is an owner decision", () => {
     method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(request),
   }, peer);
-  /** The owner decision, on the route C1 and C2 already own. */
-  const decide = (request: ControlRequest<unknown>) => app.request("/runs/run/approvals/decide", {
-    method: "POST", headers: { Authorization: "Bearer fixture-owner", "Content-Type": "application/json" },
-    body: JSON.stringify(request),
-  }, peer);
+  /** The owner decision, through the same governance owner the control route calls, with the
+   *  dispatch the route performs on whatever the receipt says may start. */
+  const decide = async (request: ControlRequest<unknown>) => {
+    const receipt = governance.decideApproval(request, { kind: "owner", sessionId: "owner-control" }, binding);
+    if (receipt.effectMayStart) {
+      const addedTasks = (receipt.value as { addedTasks?: string[] } | null)?.addedTasks ?? [];
+      const next = [receipt.reviewTaskId, receipt.reworkTaskId, receipt.revisionTaskId].filter((id): id is string => id !== undefined);
+      for (const taskId of [...addedTasks, ...next, ...(receipt.resumeTaskIds ?? [])]) void dispatch("run", taskId);
+    }
+    return { status: receipt.status === "accepted" || receipt.status === "observed" ? 200 : receipt.status === "denied" ? 403 : 202,
+      json: async () => receipt };
+  };
   const get = (path: string, token = "fixture-owner") => app.request(`/runs/run/tasks/task-1/${path}`,
     { headers: { Authorization: `Bearer ${token}` } }, peer);
   /** A proposal request, with the expiry that states the owner's decision window. */
