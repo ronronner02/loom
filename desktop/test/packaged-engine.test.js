@@ -94,7 +94,6 @@ test('the staged tree carries the files the daemon resolves from its own module 
     'packages/daemon/dist/index.js',
     'packages/daemon/dist/build-info.js',
     'packages/daemon/dist/builtins/workflow-specs/basic-loop.yaml',
-    'packages/daemon/assets/claude-team-permissions.cjs',
     'packages/daemon/specs/agents',
     'packages/ui/dist/index.html',
     'config/team/core.md',

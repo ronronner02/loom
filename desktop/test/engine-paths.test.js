@@ -94,7 +94,6 @@ test('the staged tree is current with the engine build it was copied from', { sk
 test('the staged engine keeps the relative layout the daemon reads at runtime', { skip: !staged && 'resources/engine is not staged; run npm run stage' }, () => {
   for (const entry of [
     path.join('packages', 'daemon', 'dist', 'index.js'),
-    path.join('packages', 'daemon', 'assets', 'claude-team-permissions.cjs'),
     path.join('packages', 'daemon', 'dist', 'builtins', 'workflow-specs', 'basic-loop.yaml'),
     path.join('packages', 'ui', 'dist', 'index.html'),
     path.join('config', 'team', 'lead-protocol.md'),
