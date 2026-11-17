@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { FLOW_DEFAULTS, mapTeamEvents, type FlowEvent } from "../flow/flow-events.js";
-import { HIGH_DENSITY_EVENTS, HIGH_DENSITY_SEATS, LOW_DENSITY_EVENTS } from "../flow/fixtures.js";
+import { mapTeamEvents, type FlowEvent } from "../flow/flow-events.js";
+import { HIGH_DENSITY_EVENTS, HIGH_DENSITY_SEATS, LOW_DENSITY_EVENTS } from "./flow-fixtures.js";
 
 function event(action: string, offset: number, overrides: Partial<FlowEvent> = {}, payload: Record<string, unknown> = {}): FlowEvent {
   return {
@@ -106,7 +106,7 @@ describe("mapTeamEvents", () => {
 
   it("uses the documented defaults for fixture-sized runs", () => {
     const mapping = mapTeamEvents(LOW_DENSITY_EVENTS);
-    expect(mapping.particles.length).toBeLessThanOrEqual(FLOW_DEFAULTS.maxParticles);
+    expect(mapping.particles.length).toBeLessThanOrEqual(96);
     expect(mapping.nodes.some(node => node.role === "lead")).toBe(true);
   });
 
