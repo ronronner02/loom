@@ -19,13 +19,15 @@ let readFailure = false;
 let replayEvents: object[] = [];
 let flowSettings: TeamModelSettings | undefined;
 let observedFlowModel: string | null = null;
+/** Attempts the read endpoint returns; a projection test sets them so a refetch keeps them. */
+let readAttempts: ReturnType<typeof attempt>[] = [];
 const data = read({ tasks: [task({ queueState: "pending", stage: "queued" }), task({ taskId: "task-2", displayName: "Filter chips", queueState: "pending", stage: "queued" })] });
 const unexpected: string[] = [];
 const originalScroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
   extraRun = false; mobile = false; signedIn = true; accountFailure = false; readFailure = false; replayEvents = []; flowSettings = undefined; unexpected.length = 0;
-  observedFlowModel = null;
+  observedFlowModel = null; readAttempts = [];
   vi.stubGlobal("IntersectionObserver", class { observe() {} disconnect() {} });
   localStorage.clear(); sessionStorage.clear(); queryClient.clear();
   localStorage.setItem("multi-agent.interfaceLanguage", "en");
@@ -79,7 +81,8 @@ beforeEach(() => {
     if (path.endsWith("/health")) return response({ health: health() });
     if (path.endsWith("/read") && readFailure) return new Response(JSON.stringify({ code: "team_read_failed" }), { status: 500 });
     if (path.endsWith("/read")) return response({ read: path.includes(SECOND_RUN_ID)
-      ? { ...data, runId: SECOND_RUN_ID, run: { ...data.run, id: SECOND_RUN_ID, displayName: "Second run" } } : data });
+      ? { ...data, runId: SECOND_RUN_ID, run: { ...data.run, id: SECOND_RUN_ID, displayName: "Second run" }, attempts: readAttempts }
+      : { ...data, attempts: readAttempts } });
     if (path.endsWith("/events/stream")) return new Response(new ReadableStream(), { headers: { "Content-Type": "text/event-stream" } });
     if (path.endsWith("/replay")) return response({ runId: path.includes(SECOND_RUN_ID) ? SECOND_RUN_ID : RUN_ID, events: replayEvents, window: data.replay, gap: false });
     if (path.endsWith("/chat")) return response({ phase: "delivery", pendingDecision: null, messages: [{
@@ -203,11 +206,13 @@ describe("command-center router integration", () => {
     await openShell();
     fireEvent.click(screen.getByRole("button", { name: "Flow" }));
     expect(screen.queryByRole("button", { name: /^Implementer/ })).toBeNull();
-    act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: [attempt({ state: "running" })] }); });
+    readAttempts = [attempt({ state: "running" })];
+    act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: readAttempts }); });
     const worker = await screen.findByRole("button", { name: /^Implementer/ });
     expect(worker.getAttribute("data-state")).toBe("working");
     expect(worker.getAttribute("data-vendor")).toBe("unknown");
-    act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: [attempt({ state: "stopped" })] }); });
+    readAttempts = [attempt({ state: "stopped" })];
+    act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: readAttempts }); });
     await waitFor(() => expect(screen.queryByRole("button", { name: /^Implementer/ })).toBeNull());
     expect(within(screen.getByRole("group", { name: "Team seats" })).getAllByRole("button")).toHaveLength(1);
     expect(within(screen.getByLabelText("Flow event list")).getByText(/Tool activity/)).toBeTruthy();
@@ -231,7 +236,8 @@ describe("command-center router integration", () => {
     await waitFor(() => expect(lead.getAttribute("data-vendor")).toBe("deepseek"));
     expect(lead.getAttribute("title")).toBe("ds/claude / claude-code");
     expect(members.getAllByRole("button")).toHaveLength(1);
-    act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: [attempt({ state: "running", provider: "codex" })] }); });
+    readAttempts = [attempt({ state: "running", provider: "codex" })];
+    act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: readAttempts }); });
     const worker = await members.findByRole("button", { name: /^Implementer/ });
     await waitFor(() => expect(worker.getAttribute("data-vendor")).toBe("qwen"));
     expect(worker.querySelector("img")?.getAttribute("src")).toBe("/avatars/vendors/qwen_working.png");
