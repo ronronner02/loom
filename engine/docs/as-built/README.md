@@ -53,7 +53,7 @@ from `docs/reference/`; this as-built tree is developer documentation. The assem
 | [transport-and-transcripts.md](architecture/transport-and-transcripts.md) | Session messaging, capture, transcripts, chat and ask. |
 | [workspace-primitive.md](architecture/workspace-primitive.md) | Workspace and repository declarations, project resolution and scope. |
 | [content-surfaces.md](architecture/content-surfaces.md) | File reads/writes, path checks, progress indexing and steering composition. |
-| [living-notes-review.md](architecture/living-notes-review.md) | Review gathering/composition, proof records, approvals, export and media. |
+| [living-notes-review.md](architecture/living-notes-review.md) | The review record, its rounds, and which findings block one. |
 | [plugin-agent-image-context-pack.md](architecture/plugin-agent-image-context-pack.md) | Plugin discovery, agent images, context packs and compaction policy. |
 | [packaging-bootstrap-bundles.md](architecture/packaging-bootstrap-bundles.md) | Package assembly, reusable topology bundles and bootstrap/install paths. |
 | [architecture-rules-and-event-system.md](architecture/architecture-rules-and-event-system.md) | Cross-cutting invariants, events and compatibility notes. |

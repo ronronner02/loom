@@ -24,7 +24,6 @@ import { SlowOpRecorder, type SlowOperationInstrumentation } from "./domain/slow
 import { configureSyncSiteRecorder } from "./domain/sync-site-wrap.js";
 import { RequestPhaseObserver } from "./domain/request-phase-observer.js";
 import { QueueRepository } from "./domain/queue-repository.js";
-import { createWorkflowFrontierPredicate } from "./domain/workflow-frontier-guard.js";
 import { WorkflowRuntime } from "./domain/workflow-runtime.js";
 // Phase 3a slice 3.3 — plugin discovery service.
 // Slice 28 Checkpoint C-3 — skill-library discovery (SC-29 #11 cumulative).
@@ -524,7 +523,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     // OPR.0.4.6.WF3 FR-6 — the frontier close-path guard's predicate,
     // INJECTED here (arch layering pin: the queue never imports the
     // workflow domain; startup wires them — the validateRig precedent).
-    workflowFrontierPredicate: createWorkflowFrontierPredicate(db),
     // GHOST-STAGE (h): resolve the source seat's atom-B generation for the handoff-nudge Sent: line
     // (same injected-predicate layering — the queue never imports the session domain).
     resolveOccupantGeneration: (sessionName) => sessionRegistry.currentOccupantGenerationForSession(sessionName),

@@ -161,10 +161,9 @@ forwarded request, `claimed:v1` for a headerless body actor, or
 `origin-unknown:v1` (`routes/mission-control.ts:347–351`;
 `routes/require-sender-identity.ts:120`).
 
-Scope approvals (`POST /api/scope/approve`) also append `approve` rows through
-the same `MissionControlActionLog`, with `qitem_id` null and the scope target
-in `audit_notes_json` (`domain/scope/scope-approve.ts:292`). The audit browse
-(§4) reads only this table.
+Nothing writes this table today: the scope-approval route and the
+`MissionControlActionLog` that recorded its rows were deleted with the
+living-notes surface, so the audit browse reads an empty history.
 
 ## 4. Bearer middleware, notifications, audit browse
 
