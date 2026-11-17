@@ -53,11 +53,6 @@ Run these from `engine/`. They are the retained upstream baseline (see `docs/val
 | `npm run test:ui` | Web UI Vitest. |
 | `node packages/cli/scripts/check-abi.mjs` | Native SQLite addon/ABI check. |
 
-Run these from the repository root. They are this project's own checks:
-
-| Command | Purpose |
-| --- | --- |
-
 ### Baseline Result (2026-10-13)
 
 The following ran on Ubuntu 26.04.1 / WSL2 6.18.33.2 with Node v24.21.0 / npm 11.19.0, at upstream `cb79b8c` plus the declared adaptations:
