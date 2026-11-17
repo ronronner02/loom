@@ -10,7 +10,7 @@ import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { PlanGovernance, fixDaemonMode } from "../src/domain/plan-governance.js";
+import { PlanGovernance } from "../src/domain/plan-governance.js";
 import { addTeamSeats, createTeam } from "../src/domain/team-setup.js";
 import { unisolatedPolicyCapability } from "../src/routes/team-start.js";
 import { createTestApp } from "./helpers/test-app.js";
@@ -83,7 +83,6 @@ describe("U3 — the owner creates a team", () => {
     directory = realpathSync.native(mkdtempSync(join(tmpdir(), "u3-team-")));
     db = createDb();
     initializeDatabase(db);
-    fixDaemonMode(db, true);
     const bus = new EventBus(db), queue = new QueueRepository(db, bus);
     governance = new PlanGovernance(db, bus, queue, undefined, () => policy);
     dispatch = vi.fn(async () => {});

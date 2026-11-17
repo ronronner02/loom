@@ -14,8 +14,6 @@ import { resolveExternal } from "./domain/queue-routing/external-admission.js";
 import { loadHumanRegistry } from "./domain/queue-routing/human-registry.js";
 import { EventBus } from "./domain/event-bus.js";
 import { codexDaemonSupportProbe } from "./domain/codex-daemon-support.js";
-import { codexNetworkDefaultReader } from "./domain/codex-network-default.js";
-import { codexUsageReader } from "./domain/provider/codex-usage-reader.js";
 import { prepareCodexTeamWorkspace } from "./domain/codex-team-workspace.js";
 // TODO: AS-T12 — migrate to pod-aware bundle source resolver
 import { setSelfHostId, setSelfHostIdSource } from "./domain/host-identity/fanout-contract.js";
@@ -43,7 +41,7 @@ import { makeParkedOwnerConsumerPolicy, makeRigAnchor, PARKED_OWNER_POLICY_NAME 
 import { SettingsStore as ContextPackSettingsStore } from "./domain/user-settings/settings-store.js";
 import { SettingsStore } from "./domain/user-settings/settings-store.js";
 import { createApp, type AppDeps } from "./server.js";
-import { PlanGovernance, fixDaemonMode, hashBytes } from "./domain/plan-governance.js";
+import { markDaemonDatabase, PlanGovernance, hashBytes } from "./domain/plan-governance.js";
 import { refreshPlanBinding, unisolatedPolicyCapability } from "./routes/team-start.js";
 import { leadActivation } from "./domain/lead-proposal.js";
 import { planningRosterRequired } from "./domain/lead-roster.js";
@@ -77,8 +75,6 @@ import { MULTI_AGENT_HOME } from "./data-paths.js";
 
 interface DaemonOptions {
   dbPath?: string;
-  /** KTD22: start in managed mode. Existing managed authority forces it regardless. */
-  managedMode?: boolean;
   teamControl?: AppDeps["teamControl"];
   /** S20 — the effective bind plan (mode/hosts/tailscaleDetected/ignoredRoutingHost),
    *  computed once in index.ts and exposed on /healthz so adoption gates verify
@@ -108,7 +104,6 @@ interface DaemonResult {
   app: Hono;
   db: Database.Database;
   deps: AppDeps;
-  contextMonitor: import("./domain/context-monitor.js").ContextMonitor;
   // OPR.0.4.3.21 — returned so index.ts can stop() it on graceful shutdown.
   eventLoopMonitor: import("./domain/event-loop-monitor.js").EventLoopMonitor;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -409,14 +404,13 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // reader. The resolved default remains the writer/network-reader/session root.
   const dbPath = opts?.dbPath ?? ":memory:";
   const db = openDatabase(dbPath);
-  // KTD22: fixed before any service is built. Managed mode runs no legacy boot effect below.
-  const managed = fixDaemonMode(db, opts?.managedMode === true) === "managed";
+  markDaemonDatabase(db);
   // T053: the worker control credential owner, built before the managed launch chain is
   // composed because that chain captures the credentials object it authenticates with.
   // `reconcile` revokes every row a previous process left: the plaintext is never durable,
   // so an inherited digest can only name a token this daemon cannot honour.
-  const workerControl = managed ? new WorkerControlAccess(db, teamControl.credentials) : undefined;
-  workerControl?.reconcile();
+  const workerControl = new WorkerControlAccess(db, teamControl.credentials);
+  workerControl.reconcile();
 
   setSelfHostId(null);
   setSelfHostIdSource("generated");
@@ -560,7 +554,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
 
   const launchPath = process.env.PATH ?? "";
   const startupSettings = new ContextPackSettingsStore().resolveConfig();
-  // KTD22: one governance owner serves the app and the managed launch chain, which only managed attempts reach.
+  // One governance owner serves the app and the managed launch chain.
   // What a new run's binding is approved against. Nothing is installed beyond the daemon's own
   // roots, so the daemon states their revision and a fingerprint naming that posture.
   const runPolicyCapability = teamControl.readPolicyCapability
@@ -572,7 +566,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const roots = unisolatedWorkerRoots(MULTI_AGENT_HOME);
   const rootsNow = () => roots;
   const lastWorkerHeartbeat = new Map<string, number>();
-  const managedLaunch = managed ? composeDirectLaunch({ governance: teamGovernance, rigRepo,
+  const managedLaunch = composeDirectLaunch({ governance: teamGovernance, rigRepo,
         workflowRuntime: () => workflowRuntime,
         // U4 — every supervised turn records its durable lifecycle facts through governance.
         lifecycle: fact => teamGovernance.recordAttemptLifecycle(fact),
@@ -591,8 +585,8 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
         },
         ...(opts?.directLaunchCommand ? { command: opts.directLaunchCommand } : {}),
         ...(opts?.directLaunchExecutable ? { executablePath: opts.directLaunchExecutable } : {}),
-        ...(opts?.directLaunchSupervise ? { supervise: opts.directLaunchSupervise } : {}) }) : undefined;
-  const workerLauncher = managedLaunch ? { workerLauncher: managedLaunch.launcher } : {};
+        ...(opts?.directLaunchSupervise ? { supervise: opts.directLaunchSupervise } : {}) });
+  const workerLauncher = { workerLauncher: managedLaunch.launcher };
   // T047 — the attachment every managed launch path resolves through. Assigned once the runtime
   // exists below; a wrapper that reads it at launch time is the only correct shape, because the
   // runtime is constructed later in this function and no managed launch precedes it.
@@ -671,7 +665,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     teamControl: teamControlOptions,
     teamGovernance,
     readSeatMailboxCapability,
-    ...(managedLaunch ? { managedLaunch } : {}),
+    managedLaunch,
     rigRepo, sessionRegistry, daemonLifecycleStore, daemonBootEpoch, eventBus,
     startupOrchestrator,
     runtimeAdapters: { "claude-code": claudeAdapter, codex: codexAdapter },
@@ -705,55 +699,50 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   if (queueRepoForWorkflow) {
     // The runtime owns where a candidate is created. The roots are the daemon's own state
     // tree, so nothing in the launch path ever reads an installed policy.
-    const policyNow = managed ? rootsNow() : undefined;
     // T053: the producer's remaining inputs, from owners this composition already holds —
     // the roots for identity and layout, the control database for the seat's capability,
     // and the credential owner above for the token its endpoint authenticates with.
-    const managedInputs = policyNow && workerControl ? {
+    const managedInputs = {
       identities: new WorkerIdentities(() => {
         const policy = rootsNow();
         return { workerRoot: policy.workerRoot, assignmentRoot: policy.assignmentRoot, identities: policy.workerIdentities };
       }),
       capabilities: seatCapabilities,
       credentials: workerControl,
-    } : undefined;
+    };
     workflowRuntime = new WorkflowRuntime({
       db,
       eventBus,
       queueRepo: queueRepoForWorkflow,
-      ...(policyNow ? {
-        assignmentRoot: () => rootsNow().assignmentRoot,
-        defaultWorker: () => rootsNow().worker,
-        candidateRoot: (runId: string, taskId: string, worker: string) =>
-          managedCandidateRoot(rootsNow().assignmentRoot, worker, runId, taskId),
-        candidateRecordsRoot: () => nodePath.join(rootsNow().controlStateDir, "candidates"),
-        // T053: where the producer writes the attempt's projection and mailbox, and the
-        // ownership facts it cannot derive itself.
-        managedAttemptRoots: () => {
-          const roots = rootsNow();
-          return { contextRoot: roots.contextRoot, mailboxRoot: roots.mailboxRoot,
-            controlStateDir: roots.controlStateDir, policyRevision: roots.policyRevision,
-            workerIdentities: roots.workerIdentities, frameworkRoot: roots.frameworkRoot,
-            frameworkRevision: FRAMEWORK_PIN.revision, toolchainDir: roots.toolchainDir };
-        },
-        // The worker is the daemon's own user, so the projection's private-ownership checks
-        // prove nothing (there is one identity) and are skipped by name rather than satisfied
-        // by construction.
-        sameIdentity: true,
-        ...(managedInputs ? {
-          managedAttemptInputs: {
-            issueCredential: (runId: string, sessionId: string) => managedInputs.credentials.issue(runId, sessionId),
-            hasCredential: (runId: string, sessionId: string) => managedInputs.credentials.has(runId, sessionId),
-            // A read, never a mint: the endpoint authenticates every request through this, and a
-            // request against a revoked seat must not bring its credential back.
-            readCredentials: () => managedInputs.credentials.readCredentials(),
-            mailboxCapability: (runId: string, sessionId: string) => managedInputs.capabilities.forSeat(runId, sessionId),
-            workerIdentity: (worker: string) => managedInputs.identities.resolve(worker),
-          },
-          onManagedAttemptRetired: (attempt: { runId: string; sessionId: string }) =>
-            managedInputs.credentials.retire(attempt.runId, attempt.sessionId),
-        } : {}),
-      } : {}),
+      assignmentRoot: () => rootsNow().assignmentRoot,
+      defaultWorker: () => rootsNow().worker,
+      candidateRoot: (runId: string, taskId: string, worker: string) =>
+        managedCandidateRoot(rootsNow().assignmentRoot, worker, runId, taskId),
+      candidateRecordsRoot: () => nodePath.join(rootsNow().controlStateDir, "candidates"),
+      // T053: where the producer writes the attempt's projection and mailbox, and the
+      // ownership facts it cannot derive itself.
+      managedAttemptRoots: () => {
+        const roots = rootsNow();
+        return { contextRoot: roots.contextRoot, mailboxRoot: roots.mailboxRoot,
+          controlStateDir: roots.controlStateDir, policyRevision: roots.policyRevision,
+          workerIdentities: roots.workerIdentities, frameworkRoot: roots.frameworkRoot,
+          frameworkRevision: FRAMEWORK_PIN.revision, toolchainDir: roots.toolchainDir };
+      },
+      // The worker is the daemon's own user, so the projection's private-ownership checks
+      // prove nothing (there is one identity) and are skipped by name rather than satisfied
+      // by construction.
+      sameIdentity: true,
+      managedAttemptInputs: {
+        issueCredential: (runId: string, sessionId: string) => managedInputs.credentials.issue(runId, sessionId),
+        hasCredential: (runId: string, sessionId: string) => managedInputs.credentials.has(runId, sessionId),
+        // A read, never a mint: the endpoint authenticates every request through this, and a
+        // request against a revoked seat must not bring its credential back.
+        readCredentials: () => managedInputs.credentials.readCredentials(),
+        mailboxCapability: (runId: string, sessionId: string) => managedInputs.capabilities.forSeat(runId, sessionId),
+        workerIdentity: (worker: string) => managedInputs.identities.resolve(worker),
+      },
+      onManagedAttemptRetired: (attempt: { runId: string; sessionId: string }) =>
+        managedInputs.credentials.retire(attempt.runId, attempt.sessionId),
       // OPR.0.4.6.WF1 FR-3: instantiate/handoff auto-arm the
       // per-instance workflow-keepalive job in-txn; terminal disarms.
       watchdogJobsRepo: watchdogJobsRepoInstance,
@@ -818,45 +807,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
         log: (line) => console.log(line),
       });
     }
-
-    // Seed built-in starter workflow_specs into the cache. Idempotent
-    // + workspace-surface-respecting — operator
-    // overrides at workspace paths are preserved (skip-if-cached).
-    // Errors are collected into the result for diagnostic logging but
-    // do NOT block startup; a malformed bundled spec should not bring
-    // the daemon down.
-    const { loadStarterWorkflowSpecs, defaultBuiltinSpecsDir } = await import(
-      "./domain/workflow/starter-spec-loader.js"
-    );
-    const builtinSpecsDir = defaultBuiltinSpecsDir();
-    const starterResult = !managed ? loadStarterWorkflowSpecs({
-      cache: workflowRuntime.specCache,
-      builtinDir: builtinSpecsDir,
-    }) : undefined;
-    // OPR.0.3.2.22 Bug 4 — one-time prune of cache rows whose source_path
-    // lives in noise directories (.worktrees, node_modules, etc.). The
-    // post-Bug-4 walkYamlFiles SKIP_DIRS guard prevents NEW rows from
-    // those locations, but legacy rows from prior daemon versions (or
-    // operators who hand-imported a spec via path-form before SKIP_DIRS
-    // shipped) would persist without this prune. Cheap (single DELETE
-    // with bounded LIKE patterns) and safe (matches only the same
-    // directories the walker now refuses to enter).
-    //
-    // installRoot guard: shipped built-in workflow specs live at
-    // `<pkg>/dist/builtins/workflow-specs/` in production. Without the
-    // install-root preservation clause, the `%/dist/%` pattern would
-    // delete them on every boot (then loadStarterWorkflowSpecs re-seeds
-    // — wasteful at best, broken if the loader ever skips re-seeding).
-    // Pass the resolved install root so rows under it are preserved.
-    const { getMultiAgentInstallRoot } = await import("./domain/cwd-resolution.js");
-    if (!managed) workflowRuntime.specCache.pruneNoiseDirRows(getMultiAgentInstallRoot());
-
-    if (starterResult && starterResult.errors.length > 0) {
-      console.warn(
-        `[starter-spec-loader] ${starterResult.errors.length} spec(s) failed to load:`,
-        starterResult.errors,
-      );
-    }
   }
 
   deps.legacyBearerToken = opts?.bearerToken ?? null;
@@ -865,14 +815,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   deps.settingsStore = settingsStore;
 
 
-
-  // Context monitor is retained for runtime readiness telemetry used by the
-  // managed launch path. It no longer owns compaction or snapshot behavior.
-  const { ContextMonitor } = await import("./domain/context-monitor.js");
-  const contextMonitor = new ContextMonitor(db, contextUsageStore, undefined, undefined, {
-    "claude-code": claudeAdapter,
-    codex: codexAdapter,
-  });
 
   // GHOST-STAGE (e/Class-B) — construct the canonical OccupantInvalidator now that both Class-A deps
   // exist (the enforcer's in-mem maps 1a-1f + the context sidecar 2a). Injected into SeatHandoverService
@@ -891,131 +833,129 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
 
   // What a new task starts. A start request dispatches the agent it puts work on, because
   // nothing else ever launches a seat.
-  if (managed) {
-    const { composeTaskDispatch } = await import("./domain/task-dispatch.js");
-    // MVP — the run's live-session count and its limit, asked before a client starts. Both are
-    // read from the run's own rows and binding, so the dispatcher cannot disagree with the
-    // governance gate that enforces the same limit when the launch's receipt is registered.
-    const liveSessions = (runId: string) => (db.prepare(
-      "SELECT count(*) AS count FROM team_attempts WHERE run_id = ? AND state IN ('running', 'unknown')")
-      .get(runId) as { count: number }).count;
-    const maxSessions = (runId: string) => teamGovernance.getRun(runId).binding.limits.maxSessions;
-    deps.teamControl!.dispatch = composeTaskDispatch({ rigRepo, sessions: sessionRegistry, startupOrchestrator, runtimeAdapters: deps.runtimeAdapters ?? {},
-      prepareDeliveryLeadTurn: (runId, taskId) => {
-        if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
-        return workflowRuntime.prepareDeliveryLeadTurn(runId, taskId);
-      },
-      liveSessions, maxSessions, renewApproval: runId => teamGovernance.renewImplementationApproval(runId) });
-    // MVP — a task admitted while the run was at its limit used to wait forever: nothing tried
-    // it again. A freed slot now starts the run's next pending task through the same dispatch,
-    // as internal scheduling over the durable queue rather than an owner verb.
-    const { composePendingDispatch } = await import("./domain/pending-dispatch.js");
-    const dispatchPending = composePendingDispatch({ db, dispatch: () => deps.teamControl?.dispatch,
-      liveSessions, maxSessions });
-    // MVP — the other end of that dispatch. A direct launch's receipt names the client process
-    // the seat runs, and nothing wrote or closed the attempt from it, so a task could never be
-    // observed to finish. This path admits the attempt when its receipt lands, records it stopped
-    // when the process it named is gone, and records the daemon-verifiable outcome.
-    const { composeAttemptCompletion } = await import("./domain/attempt-completion.js");
-    const { AttemptTelemetry } = await import("./domain/attempt-telemetry.js");
-    // U6 — the lead as manager: what its turn delivered, and what its team did since it spoke.
-    // It runs on this sweep's cadence (one owner of "the queue as it is now") and asks the same
-    // dispatch every other launch uses, so nothing here starts a client of its own.
-    const { composeLeadManager } = await import("./domain/lead-manager.js");
-    // The run's current binding, read the way every control command reads it.
-    const currentBinding = (runId: string) => {
-      const run = teamGovernance.getRun(runId), policy = runPolicyCapability?.();
-      return policy ? refreshPlanBinding(run.binding, policy) : run.binding;
-    };
-    const leadManager = composeLeadManager({ db, governance: teamGovernance,
-      readLeadProposal: (runId, taskId) => {
-        if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
-        return workflowRuntime.leadProposalWithSeatsFor(runId, taskId);
-      },
-      readMaxSeats: () => Number(deps.settingsStore?.resolveOne("team.maxSeats").value ?? 6),
-      currentBinding, dispatch: () => deps.teamControl?.dispatch });
-    // The direct worker's mutable state root: each attempt's prompt, its captured Codex thread
-    // id and its final message live under it. One value, so the readers of a turn's end cannot
-    // disagree about where.
-    const turnStateRoot = nodePath.join(rootsNow().workerRoot, rootsNow().worker, "scratch");
-    const telemetry = new AttemptTelemetry(db, { turnStateRoot });
-    deps.attemptTelemetry = telemetry;
-    const { composeTaskThreads, declinePath } = await import("./domain/task-thread.js");
-    const { agentTurnOutputPaths } = await import("./domain/agent-turn.js");
-    const taskThreads = composeTaskThreads({ db, governance: teamGovernance, turnStateRoot, dispatch: () => deps.teamControl?.dispatch });
-    // U4 — a restart reconciles the attempts its predecessor left running before the first sweep.
-    const { bootReconcileAttempts } = await import("./domain/boot-recovery.js");
-    deps.attemptCompletion = composeAttemptCompletion({ db, governance: teamGovernance, sessions: sessionRegistry,
-      turnStateRoot, telemetry,
-      reconcileOnBoot: () => bootReconcileAttempts({ db, governance: teamGovernance }),
-      // U3 — a native turn's own end: the supervisor writes what it observed to the attempt's
-      // output, and that is the classifier's evidence now that no pane holds an exit status.
-      turnExit: attemptId => readSupervisorExit(turnStateRoot, attemptId),
-      captureTurnDocuments: attempt => {
-        if (attempt.role !== "lead" || !teamGovernance.documents(attempt.runId)) return;
-        const run = teamGovernance.getRun(attempt.runId), lead = teamGovernance.leadTask(attempt.runId);
-        try {
-          if (!lead || !workflowRuntime) throw new Error("The document reader is not available.");
-          teamGovernance.captureLeadDocuments(attempt.runId, attempt.id,
-            workflowRuntime.documentsFor(attempt.runId, lead.taskId, run.binding.planRef));
-        } catch {
-          teamGovernance.captureLeadDocuments(attempt.runId, attempt.id, {}, "The lead's document files could not be saved. Ask the lead to repair them.");
-        }
-      },
-      readTaskReport: (runId, attemptId) => {
-        if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
-        return workflowRuntime.taskReportFor(runId, attemptId, turnStateRoot);
-      },
-      candidateManifestFor: (runId, taskId) => {
-        if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
-        return workflowRuntime.candidateManifestFor(runId, taskId);
-      },
-      readLeadProposal: (runId, taskId) => {
-        if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
-        return workflowRuntime.leadProposalFor(runId, taskId);
-      },
-      // U6 — a delivery lead's second deliverable is the question only the owner can answer.
-      readLeadEscalation: (runId, taskId) => {
-        if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
-        const escalation = workflowRuntime.leadEscalationFor(runId, taskId);
-        return escalation === null ? null : { optionCount: escalation.options.length };
-      },
-      // T033 — the exit evidence a direct launch leaves behind. The seat's pane is where the
-      // client ran, so tmux's own record of that pane ending (its dead flag and exit status)
-      // and the last lines it held are the only structured evidence available without a
-      // wrapper around the native client. Both reads are read-only; a pane this daemon cannot
-      // see yields no evidence, which the classifier treats as "not classified", never a retry.
-      // The launch stamps the task it starts into the pane, so a seat with two live tasks — two
-      // completed implementers are two pending reviews on the same reviewer seat — still admits
-      // the attempt the receipt names.
-      // U5 — the end of a lead's turn is the lead's reply in the run's chat, and a message that
-      // waited for that turn is the next turn's prompt. The conversation owner reads the turn's
-      // recorded final message and asks the same dispatch for the next turn. U6 adds the one
-      // other thing the turn can say: the decision it asked the owner for.
-      stoppedOwners: [
-        { name: "lead-chat", complete: composeLeadTurnEnd({ db, governance: teamGovernance, turnStateRoot,
-          readEscalation: (runId, taskId) => workflowRuntime ? workflowRuntime.leadEscalationFor(runId, taskId) : null,
-          dispatch: () => deps.teamControl?.dispatch }) },
-        { name: "lead-proposal", complete: attempt => leadManager.turnEnd(attempt) },
-        { name: "task-comments", complete: attempt => taskThreads.attemptStopped(attempt) },
-        { name: "github-comments", complete: attempt => deps.githubSource?.attemptStopped(attempt,
-          declinePath(agentTurnOutputPaths(turnStateRoot, attempt.id).taskReport)) },
-      ],
-      // U7 — an approving review is the run's signal to deliver: the implementer's task lands as
-      // one commit on the run's branch, through the same owner the merge route reads.
-      ...(deps.integration ? { integrateTask: (runId: string, taskId: string) => deps.integration!.integrate(runId, taskId) } : {}),
-      // U6 — the facts no single attempt produces — a failed retry, an exhausted review, an
-      // integration conflict, every task done — are read once per tick, after the attempts.
-      onSweep: async () => { await leadManager.sweep(); await taskThreads.sweep(); await deps.pullRequestDelivery?.sweep(); await deps.githubSource?.sweep(); await deps.githubIntake?.sweep(); },
-      dispatchPending,
-      currentBinding });
-    // T017 (cancellation half) — the owner's cancel stops the work. Dispatch closure is the
-    // governance eligibility check that already refuses every command outside `approved`;
-    // this owner adds the two things nothing did: end the processes the run launched, and
-    // record the observation once the sweep above has seen them end.
-    const { composeCancellation } = await import("./domain/team-cancellation.js");
-    deps.teamControl!.cancellation = composeCancellation({ db, governance: teamGovernance });
-  }
+  const { composeTaskDispatch } = await import("./domain/task-dispatch.js");
+  // MVP — the run's live-session count and its limit, asked before a client starts. Both are
+  // read from the run's own rows and binding, so the dispatcher cannot disagree with the
+  // governance gate that enforces the same limit when the launch's receipt is registered.
+  const liveSessions = (runId: string) => (db.prepare(
+    "SELECT count(*) AS count FROM team_attempts WHERE run_id = ? AND state IN ('running', 'unknown')")
+    .get(runId) as { count: number }).count;
+  const maxSessions = (runId: string) => teamGovernance.getRun(runId).binding.limits.maxSessions;
+  deps.teamControl!.dispatch = composeTaskDispatch({ rigRepo, sessions: sessionRegistry, startupOrchestrator, runtimeAdapters: deps.runtimeAdapters ?? {},
+    prepareDeliveryLeadTurn: (runId, taskId) => {
+      if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
+      return workflowRuntime.prepareDeliveryLeadTurn(runId, taskId);
+    },
+    liveSessions, maxSessions, renewApproval: runId => teamGovernance.renewImplementationApproval(runId) });
+  // MVP — a task admitted while the run was at its limit used to wait forever: nothing tried
+  // it again. A freed slot now starts the run's next pending task through the same dispatch,
+  // as internal scheduling over the durable queue rather than an owner verb.
+  const { composePendingDispatch } = await import("./domain/pending-dispatch.js");
+  const dispatchPending = composePendingDispatch({ db, dispatch: () => deps.teamControl?.dispatch,
+    liveSessions, maxSessions });
+  // MVP — the other end of that dispatch. A direct launch's receipt names the client process
+  // the seat runs, and nothing wrote or closed the attempt from it, so a task could never be
+  // observed to finish. This path admits the attempt when its receipt lands, records it stopped
+  // when the process it named is gone, and records the daemon-verifiable outcome.
+  const { composeAttemptCompletion } = await import("./domain/attempt-completion.js");
+  const { AttemptTelemetry } = await import("./domain/attempt-telemetry.js");
+  // U6 — the lead as manager: what its turn delivered, and what its team did since it spoke.
+  // It runs on this sweep's cadence (one owner of "the queue as it is now") and asks the same
+  // dispatch every other launch uses, so nothing here starts a client of its own.
+  const { composeLeadManager } = await import("./domain/lead-manager.js");
+  // The run's current binding, read the way every control command reads it.
+  const currentBinding = (runId: string) => {
+    const run = teamGovernance.getRun(runId), policy = runPolicyCapability?.();
+    return policy ? refreshPlanBinding(run.binding, policy) : run.binding;
+  };
+  const leadManager = composeLeadManager({ db, governance: teamGovernance,
+    readLeadProposal: (runId, taskId) => {
+      if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
+      return workflowRuntime.leadProposalWithSeatsFor(runId, taskId);
+    },
+    readMaxSeats: () => Number(deps.settingsStore?.resolveOne("team.maxSeats").value ?? 6),
+    currentBinding, dispatch: () => deps.teamControl?.dispatch });
+  // The direct worker's mutable state root: each attempt's prompt, its captured Codex thread
+  // id and its final message live under it. One value, so the readers of a turn's end cannot
+  // disagree about where.
+  const turnStateRoot = nodePath.join(rootsNow().workerRoot, rootsNow().worker, "scratch");
+  const telemetry = new AttemptTelemetry(db, { turnStateRoot });
+  deps.attemptTelemetry = telemetry;
+  const { composeTaskThreads, declinePath } = await import("./domain/task-thread.js");
+  const { agentTurnOutputPaths } = await import("./domain/agent-turn.js");
+  const taskThreads = composeTaskThreads({ db, governance: teamGovernance, turnStateRoot, dispatch: () => deps.teamControl?.dispatch });
+  // U4 — a restart reconciles the attempts its predecessor left running before the first sweep.
+  const { bootReconcileAttempts } = await import("./domain/boot-recovery.js");
+  deps.attemptCompletion = composeAttemptCompletion({ db, governance: teamGovernance, sessions: sessionRegistry,
+    turnStateRoot, telemetry,
+    reconcileOnBoot: () => bootReconcileAttempts({ db, governance: teamGovernance }),
+    // U3 — a native turn's own end: the supervisor writes what it observed to the attempt's
+    // output, and that is the classifier's evidence now that no pane holds an exit status.
+    turnExit: attemptId => readSupervisorExit(turnStateRoot, attemptId),
+    captureTurnDocuments: attempt => {
+      if (attempt.role !== "lead" || !teamGovernance.documents(attempt.runId)) return;
+      const run = teamGovernance.getRun(attempt.runId), lead = teamGovernance.leadTask(attempt.runId);
+      try {
+        if (!lead || !workflowRuntime) throw new Error("The document reader is not available.");
+        teamGovernance.captureLeadDocuments(attempt.runId, attempt.id,
+          workflowRuntime.documentsFor(attempt.runId, lead.taskId, run.binding.planRef));
+      } catch {
+        teamGovernance.captureLeadDocuments(attempt.runId, attempt.id, {}, "The lead's document files could not be saved. Ask the lead to repair them.");
+      }
+    },
+    readTaskReport: (runId, attemptId) => {
+      if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
+      return workflowRuntime.taskReportFor(runId, attemptId, turnStateRoot);
+    },
+    candidateManifestFor: (runId, taskId) => {
+      if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
+      return workflowRuntime.candidateManifestFor(runId, taskId);
+    },
+    readLeadProposal: (runId, taskId) => {
+      if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
+      return workflowRuntime.leadProposalFor(runId, taskId);
+    },
+    // U6 — a delivery lead's second deliverable is the question only the owner can answer.
+    readLeadEscalation: (runId, taskId) => {
+      if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
+      const escalation = workflowRuntime.leadEscalationFor(runId, taskId);
+      return escalation === null ? null : { optionCount: escalation.options.length };
+    },
+    // T033 — the exit evidence a direct launch leaves behind. The seat's pane is where the
+    // client ran, so tmux's own record of that pane ending (its dead flag and exit status)
+    // and the last lines it held are the only structured evidence available without a
+    // wrapper around the native client. Both reads are read-only; a pane this daemon cannot
+    // see yields no evidence, which the classifier treats as "not classified", never a retry.
+    // The launch stamps the task it starts into the pane, so a seat with two live tasks — two
+    // completed implementers are two pending reviews on the same reviewer seat — still admits
+    // the attempt the receipt names.
+    // U5 — the end of a lead's turn is the lead's reply in the run's chat, and a message that
+    // waited for that turn is the next turn's prompt. The conversation owner reads the turn's
+    // recorded final message and asks the same dispatch for the next turn. U6 adds the one
+    // other thing the turn can say: the decision it asked the owner for.
+    stoppedOwners: [
+      { name: "lead-chat", complete: composeLeadTurnEnd({ db, governance: teamGovernance, turnStateRoot,
+        readEscalation: (runId, taskId) => workflowRuntime ? workflowRuntime.leadEscalationFor(runId, taskId) : null,
+        dispatch: () => deps.teamControl?.dispatch }) },
+      { name: "lead-proposal", complete: attempt => leadManager.turnEnd(attempt) },
+      { name: "task-comments", complete: attempt => taskThreads.attemptStopped(attempt) },
+      { name: "github-comments", complete: attempt => deps.githubSource?.attemptStopped(attempt,
+        declinePath(agentTurnOutputPaths(turnStateRoot, attempt.id).taskReport)) },
+    ],
+    // U7 — an approving review is the run's signal to deliver: the implementer's task lands as
+    // one commit on the run's branch, through the same owner the merge route reads.
+    ...(deps.integration ? { integrateTask: (runId: string, taskId: string) => deps.integration!.integrate(runId, taskId) } : {}),
+    // U6 — the facts no single attempt produces — a failed retry, an exhausted review, an
+    // integration conflict, every task done — are read once per tick, after the attempts.
+    onSweep: async () => { await leadManager.sweep(); await taskThreads.sweep(); await deps.pullRequestDelivery?.sweep(); await deps.githubSource?.sweep(); await deps.githubIntake?.sweep(); },
+    dispatchPending,
+    currentBinding });
+  // T017 (cancellation half) — the owner's cancel stops the work. Dispatch closure is the
+  // governance eligibility check that already refuses every command outside `approved`;
+  // this owner adds the two things nothing did: end the processes the run launched, and
+  // record the observation once the sweep above has seen them end.
+  const { composeCancellation } = await import("./domain/team-cancellation.js");
+  deps.teamControl!.cancellation = composeCancellation({ db, governance: teamGovernance });
 
   // OPR.0.4.3.21 — daemon event-loop health instrumentation. Constructed once
   // per daemon and wired into deps so `/healthz` can surface wedge evidence
@@ -1068,5 +1008,5 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     }
   }
 
-  return { app, db, deps, contextMonitor, eventLoopMonitor };
+  return { app, db, deps, eventLoopMonitor };
 }

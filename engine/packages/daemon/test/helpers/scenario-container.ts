@@ -114,7 +114,6 @@ export async function spawnContainerDaemon(
       "start",
       "--port",
       String(containerPort),
-      "--no-kernel",
     ]);
     if (start.code !== 0) {
       throw new ContainerDaemonError(

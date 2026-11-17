@@ -3,7 +3,7 @@ import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { PlanGovernance, fixDaemonMode, hashBinding } from "../src/domain/plan-governance.js";
+import { PlanGovernance, hashBinding } from "../src/domain/plan-governance.js";
 import { OwnerSessions, OWNER_CSRF_HEADER } from "../src/domain/owner-session.js";
 import { TeamReadModel } from "../src/team-control-surface.js";
 import type { PlanBinding } from "../src/contracts/team-control.js";
@@ -38,7 +38,7 @@ describe("paired owner SSE and the shipped parser", () => {
     expectedEntityVersion: governance.getRun("run").entityVersion, idempotencyKey: `key-${++serial}`, payload });
   beforeEach(async () => {
     serial = 0; browser = {};
-    db = createDb(); initializeDatabase(db); fixDaemonMode(db, true);
+    db = createDb(); initializeDatabase(db);
     db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'SSE fixture')").run();
     bus = new EventBus(db); queue = new QueueRepository(db, bus);
     governance = new PlanGovernance(db, bus, queue, undefined, () => capability);
@@ -137,7 +137,7 @@ describe("paired owner SSE and the shipped parser", () => {
 
   it("publishes provider activity from the daemon's composed native launch into the durable stream", async () => {
     const { createDaemon } = await import("../src/startup.js");
-    const daemon = await createDaemon({ managedMode: true, dbPath: ":memory:",
+    const daemon = await createDaemon({ dbPath: ":memory:",
       teamControl: { credentials: { ownerToken } } });
     try {
       daemon.db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'Native event fixture')").run();
@@ -170,7 +170,7 @@ describe("paired owner SSE and the shipped parser", () => {
 
   it("persists at most one provider heartbeat per attempt in each 15-second interval", async () => {
     const { createDaemon } = await import("../src/startup.js");
-    const daemon = await createDaemon({ managedMode: true, dbPath: ":memory:",
+    const daemon = await createDaemon({ dbPath: ":memory:",
       teamControl: { credentials: { ownerToken } } });
     try {
       daemon.db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'Heartbeat fixture')").run();

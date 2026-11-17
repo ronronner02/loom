@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fixDaemonMode } from "../src/domain/plan-governance.js";
 import { addTeamSeats } from "../src/domain/team-setup.js";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
 
@@ -20,7 +19,6 @@ describe("existing project files", () => {
     writeFileSync(join(repository, ".env"), "PRIVATE_TOKEN=fixture-only\n");
     writeFileSync(join(directory, "outside.txt"), "outside fixture\n");
     const db = createFullTestDb();
-    fixDaemonMode(db, true);
     fixture = createTestApp(db, { appDeps: { teamControl: { credentials: { ownerToken: "owner-files-fixture",
       workers: [{ token: "worker-files-fixture", sessionId: "worker@fixture", runId: "other" }] } } } });
     teamId = fixture.rigRepo.createRig("existing-project", repository).id;

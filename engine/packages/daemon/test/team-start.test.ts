@@ -8,7 +8,7 @@ import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { PlanGovernance, fixDaemonMode, hashBytes } from "../src/domain/plan-governance.js";
+import { PlanGovernance, hashBytes } from "../src/domain/plan-governance.js";
 import { unisolatedPolicyCapability } from "../src/routes/team-start.js";
 import { listChatMessages, responseLanguageNote } from "../src/domain/lead-chat.js";
 import { createTestApp } from "./helpers/test-app.js";
@@ -52,7 +52,6 @@ describe("MVP slice 2 — the owner starts team work", () => {
     directory = repository();
     db = createDb();
     initializeDatabase(db);
-    fixDaemonMode(db, true);
     db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'demo')").run();
     db.prepare(`INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd) VALUES ('node', 'rig', 'dev', 'claude-code', ?)`)
       .run(directory);

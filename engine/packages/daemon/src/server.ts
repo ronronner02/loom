@@ -28,7 +28,7 @@ import { createRouteTimingMiddleware } from "./domain/route-timing-recorder.js";
 import { browserBoundary, type BrowserBoundaryOptions } from "./middleware/browser-boundary.js";
 import { teamControlAuthentication, resolvePairedOwnerCookie } from "./middleware/auth-bearer-token.js";
 import { transportSenderSession } from "./routes/require-sender-identity.js";
-import { PlanGovernance, daemonModeOf } from "./domain/plan-governance.js";
+import { isGovernedDatabase, PlanGovernance } from "./domain/plan-governance.js";
 import { TeamReadModel } from "./team-control-surface.js";
 import { teamControlRoutes, type TeamControlOptions } from "./routes/team-control.js";
 import { teamStartRoutes } from "./routes/team-start.js";
@@ -47,7 +47,7 @@ import { OwnerSessions } from "./domain/owner-session.js";
 import { ownerSessionRoutes } from "./routes/owner-session.js";
 import { isIP } from "node:net";
 
-/** KTD22: the only `/api` paths a managed-mode daemon serves. */
+/** The only `/api` paths this daemon serves. */
 const MANAGED_ROUTE_PREFIXES = ["/api/team-control"] as const;
 
 export interface AppDeps {
@@ -75,7 +75,7 @@ export interface AppDeps {
    * callers, where a send keeps minting as before.
    */
   readSeatMailboxCapability?: (runId: string, sessionId: string) => string | null;
-  /** The managed launch chain injected into both fresh and both resume adapters (managed mode only). */
+  /** The managed launch chain injected into the fresh and resume adapters. */
   managedLaunch?: {
     launcher: import("./adapters/worker-launcher.js").WorkerLauncher;
     /** Per-attempt mailbox endpoints; an unregistered attempt cannot launch. */
@@ -145,7 +145,6 @@ export interface AppDeps {
   /** Test hook: one call per /api browser-boundary decision. */
   browserBoundaryObserver?: BrowserBoundaryOptions["onDecision"];
   contextUsageStore?: import("./domain/context-usage-store.js").ContextUsageStore;
-  contextMonitor?: { pollOnce(): Promise<void> };
   /**
    * GHOST-STAGE (e/Class-B) — the canonical OccupantInvalidator, constructed once in startup and
    * injected so SeatHandoverService.commit()'s re-key call actually FIRES (dev-driver's fold added
@@ -239,11 +238,11 @@ function isUiAssetRequestPath(requestPath: string): boolean {
 }
 
 /**
- * KTD22 keeps legacy pages out of managed mode, but the managed team view ships in the same
- * bundle. Only what that view needs is reachable: its own route and the bundle's assets.
- * Every other page, `/` and `/index.html` included, keeps the managed-mode refusal.
+ * The team view ships in a bundle that also carries the retired administration pages. Only
+ * what that view needs is reachable: its own route and the bundle's assets. Every other page,
+ * `/` and `/index.html` included, is refused.
  */
-function isManagedUiRequestPath(requestPath: string): boolean {
+function isTeamUiRequestPath(requestPath: string): boolean {
   return requestPath === "/team" || requestPath.startsWith("/team/") || isUiAssetRequestPath(requestPath);
 }
 
@@ -256,13 +255,12 @@ export function createApp(deps: AppDeps): Hono {
     throw new Error("createApp: rigRepo and sessionRegistry must share the same db handle");
   }
 
-  const pairedOwners = daemonModeOf(deps.rigRepo.db) === "managed";
   const teamOptions: TeamControlOptions = deps.teamControl ?? { credentials: { ownerToken: null } };
-  if (pairedOwners && deps.bindPlan?.hosts.some(host => !(host === "localhost" || host === "::1"
+  if (deps.bindPlan?.hosts.some(host => !(host === "localhost" || host === "::1"
     || (isIP(host) === 4 && host.startsWith("127."))))) {
-    throw new Error("Managed owner surfaces require a loopback-only listener.");
+    throw new Error("The owner surfaces require a loopback-only listener.");
   }
-  const ownerSessions = pairedOwners ? deps.ownerSessions ?? new OwnerSessions(deps.rigRepo.db) : undefined;
+  const ownerSessions = deps.ownerSessions ?? new OwnerSessions(deps.rigRepo.db);
   if (ownerSessions && ownerSessions.db !== deps.rigRepo.db) throw new Error("Owner sessions must use the control database.");
   deps.ownerSessions = ownerSessions;
   const github = deps.github ?? new GithubCli();
@@ -313,7 +311,6 @@ export function createApp(deps: AppDeps): Hono {
     c.set("workflowRuntime" as never, deps.workflowRuntime);
     c.set("settingsStore" as never, deps.settingsStore);
     c.set("contextUsageStore" as never, deps.contextUsageStore);
-    c.set("contextMonitor" as never, deps.contextMonitor);
     c.set("occupantInvalidator" as never, deps.occupantInvalidator);
     c.set("agentActivityStore" as never, deps.agentActivityStore);
     c.set("db" as never, deps.rigRepo.db);
@@ -339,7 +336,7 @@ export function createApp(deps: AppDeps): Hono {
   // (WebSocket upgrades included), before the remote read-through and every route.
   app.use("/api/*", browserBoundary({
     webUiEnabled: deps.webUiEnabled === true,
-    pairedOwnerBoundary: pairedOwners,
+    pairedOwnerBoundary: true,
     authenticateOwnerCookie: c => {
       const resolved = resolvePairedOwnerCookie(c, teamOptions.credentials, [deps.legacyBearerToken]);
       return resolved.ok ? null : c.json({ code: resolved.code, error: resolved.error }, resolved.status);
@@ -356,12 +353,11 @@ export function createApp(deps: AppDeps): Hono {
     [deps.legacyBearerToken],
   );
 
-  // KTD22: in managed mode this is the only route gate. Each managed route a later unit adds
-  // joins this allowlist with its own authenticated managed-control check.
+  // The only /api gate. Each route a later unit adds joins this allowlist with its own
+  // authenticated control check.
   app.use("/api/*", async (c, next) => {
-    if (daemonModeOf(deps.rigRepo.db) === "managed"
-      && !MANAGED_ROUTE_PREFIXES.some(prefix => c.req.path === prefix || c.req.path.startsWith(prefix + "/"))
-    ) {
+    if (isGovernedDatabase(deps.rigRepo.db)
+      && !MANAGED_ROUTE_PREFIXES.some(prefix => c.req.path === prefix || c.req.path.startsWith(prefix + "/"))) {
       const poll = c.req.method === "GET" && /^\/api\/rigs\/[^/]+\/chat\/mailbox(?:\/poll)?$/.test(c.req.path);
       const consume = c.req.method === "POST" && /^\/api\/rigs\/[^/]+\/chat\/mailbox\/[^/]+\/consume$/.test(c.req.path);
       const body: unknown = consume ? await c.req.json().catch(() => null) : null;
@@ -374,7 +370,7 @@ export function createApp(deps: AppDeps): Hono {
       // The route owner still verifies the recipient/task/run capability and daemon-observed prompt state.
       // Sending and all legacy chat paths remain outside this managed allowlist.
       if ((!poll && !consume) || !transportSenderSession(c) || typeof capability !== "string" || !/^mailbox:[A-Za-z0-9_-]{43}$/.test(capability)) {
-        return c.json({ code: "managed_control_required", error: "Legacy interfaces are inactive in a managed-mode daemon." }, 403);
+        return c.json({ code: "managed_control_required", error: "Direct queue interfaces are inactive on this daemon; use the owner surface." }, 403);
       }
       let denied: Response | undefined;
       const authenticated = await managedMailboxAuthentication(c as never, async () => {
@@ -393,7 +389,7 @@ export function createApp(deps: AppDeps): Hono {
   });
   const teamGovernance = deps.teamGovernance ?? new PlanGovernance(deps.rigRepo.db, deps.eventBus,
     deps.queueRepo ?? new QueueRepository(deps.rigRepo.db, deps.eventBus), undefined, teamOptions.readPolicyCapability);
-  // T052 — the managed owner read projections. Composed here from the owners the
+  // The owner read projections. Composed here from the owners the
   // daemon already holds: governance for run/task/attempt authority, the queue
   // for each task's destination seat, and the event bus for the committed
   // review and exit evidence.
@@ -589,9 +585,9 @@ export function createApp(deps: AppDeps): Hono {
       return c.notFound();
     }
 
-    if (daemonModeOf(deps.rigRepo.db) === "managed" && !isManagedUiRequestPath(requestPath)) {
+    if (isGovernedDatabase(deps.rigRepo.db) && !isTeamUiRequestPath(requestPath)) {
       c.header("X-Multi-Agent-Web-UI", "off");
-      return c.text("Legacy pages are inactive in a managed-mode daemon.", 404);
+      return c.text("Only the team pages are served here; open the desktop app for them.", 404);
     }
 
     if (deps.webUiEnabled !== true) {

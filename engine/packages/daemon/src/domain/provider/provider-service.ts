@@ -4,7 +4,6 @@
 // register and honestly 503 until the production service is wired.
 
 import type { FourBlockReadModel, PrecheckResult } from "./provider-types.js";
-import type { UsageRefreshResult } from "./codex-usage-windows.js";
 
 export interface ProviderPrecheckInput {
   seat: string;
@@ -35,6 +34,4 @@ export interface ProviderService {
   precheck(input: ProviderPrecheckInput): Promise<PrecheckResult>;
   /** Precheck-gated switch; returns an explicit business outcome (never a transport error). */
   switchAccount(input: ProviderSwitchInput): Promise<ProviderSwitchResult>;
-  /** Slice 01: one bounded native read of the usage windows (coalesced); `disabled` while the switch is off. */
-  refreshUsage?(provider: "codex"): Promise<UsageRefreshResult | { disabled: true }>;
 }

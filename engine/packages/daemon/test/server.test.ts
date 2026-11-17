@@ -3,7 +3,6 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
-import { fixDaemonMode } from "../src/domain/plan-governance.js";
 
 const UI_INDEX_HTML = "<!doctype html><html><body><div id=\"root\">Multi-Agent UI</div></body></html>";
 
@@ -86,12 +85,11 @@ describe("Hono server (production app)", () => {
     }
   });
 
-  it.each([true, false])("serves character PNGs as assets with managed mode %s", async managed => {
+  it("serves character PNGs as assets", async () => {
     const db = createFullTestDb();
     const uiDistDir = createTempUiDist();
     const png = Buffer.from("89504e470d0a1a0a", "hex");
     try {
-      fixDaemonMode(db, managed);
       for (const file of ["avatars/vendors/chatgpt_master.png", "avatars/pomo/master.png"]) {
         mkdirSync(join(uiDistDir, file, ".."), { recursive: true });
         writeFileSync(join(uiDistDir, file), png);
@@ -104,7 +102,11 @@ describe("Hono server (production app)", () => {
         expect(Buffer.from(await response.arrayBuffer()), file).toEqual(png);
       }
       expect((await app.request("/avatars/vendors/missing.png")).status).toBe(404);
-      if (managed) expect((await app.request("/index.html")).status).toBe(404);
+      // A run-carrying database serves only the team pages, never the bundle's index.
+      db.prepare("INSERT INTO rigs (id, name) VALUES ('managed', 'managed')").run();
+      db.prepare(`INSERT INTO team_runs (id, rig_id, binding_json, binding_digest, state, created_at, updated_at)
+        VALUES ('managed', 'managed', '{}', 'digest', 'approved', '2026-11-09', '2026-11-09')`).run();
+      expect((await app.request("/index.html")).status).toBe(404);
     } finally {
       rmSync(uiDistDir, { recursive: true, force: true });
       db.close();

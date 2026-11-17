@@ -163,7 +163,7 @@ describe("fresh team baseline", () => {
     const legacy = new Database(file);
     legacy.exec("CREATE TABLE schema_migrations (name TEXT); CREATE TABLE rigs (id TEXT)"); legacy.close();
     const before = fileHash(file);
-    await expect(createDaemon({ dbPath: file, managedMode: true }))
+    await expect(createDaemon({ dbPath: file }))
       .rejects.toMatchObject({ code: "legacy_database", databasePath: file });
     expect(fileHash(file)).toBe(before);
   });

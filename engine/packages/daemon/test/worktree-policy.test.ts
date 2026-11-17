@@ -16,7 +16,7 @@ import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { PlanGovernance, fixDaemonMode } from "../src/domain/plan-governance.js";
+import { PlanGovernance } from "../src/domain/plan-governance.js";
 import { unisolatedPolicyCapability } from "../src/routes/team-start.js";
 import { createTestApp } from "./helpers/test-app.js";
 import { shortPath } from "./helpers/short-path.js";
@@ -253,7 +253,6 @@ describe("the start route refuses a worktree that cannot fit", () => {
     const db: Database.Database = createDb();
     try {
       initializeDatabase(db);
-      fixDaemonMode(db, true);
       const bus = new EventBus(db), queue = new QueueRepository(db, bus);
       const governance = new PlanGovernance(db, bus, queue, undefined, () => unisolatedPolicyCapability(4));
       const team = createTeam(db, { repository: repo, seats: [{ role: "lead", client: "claude-code" }] });

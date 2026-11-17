@@ -9,7 +9,6 @@ import { createDaemon } from "./startup.js";
 import { resolveClientDependencies } from "./domain/executable-resolver.js";
 import { endRunningWorkerTrees } from "./domain/process-termination.js";
 import { resolveBindPlan } from "./domain/bind-plan.js";
-import { isManagedMode } from "./domain/plan-governance.js";
 import type { TeamControlCredentials } from "./middleware/auth-bearer-token.js";
 import { runQueueRetentionSweep, RETENTION_DEFAULTS } from "./domain/queue-retention.js";
 import {
@@ -205,10 +204,11 @@ export async function startServer(port?: number) {
   // Consume control credentials before bootstrap or discovery can spawn a child.
   const ownerToken = process.env.MULTI_AGENT_OWNER_TOKEN?.trim() || null;
   delete process.env.MULTI_AGENT_OWNER_TOKEN;
-  // KTD22: the owner chooses the mode at start; switching requires a restart.
-  const requestedMode = process.env.MULTI_AGENT_MODE?.trim() || "legacy";
-  if (requestedMode !== "legacy" && requestedMode !== "managed") {
-    throw new Error(`MULTI_AGENT_MODE must be "legacy" or "managed", got "${requestedMode}"`);
+  // The daemon runs one mode. A desktop or service launch sets `managed`; anything else is
+  // rejected rather than silently starting a daemon with no run supervision.
+  const requestedMode = process.env.MULTI_AGENT_MODE?.trim() || "managed";
+  if (requestedMode !== "managed") {
+    throw new Error(`MULTI_AGENT_MODE must be "managed", got "${requestedMode}"`);
   }
   // U6 — a managed daemon hosted by the desktop (Electron's utility process, which has a
   // parent port) starts with no configured owner token. Pairing still needs a stable owner
@@ -218,7 +218,7 @@ export async function startServer(port?: number) {
   // channel to mint a code on, so it gets no invented token.
   const hostedByDesktop = (process as { parentPort?: unknown }).parentPort !== undefined;
   const resolvedOwnerToken = ownerToken
-    ?? (requestedMode === "managed" && hostedByDesktop ? randomBytes(32).toString("base64url") : null);
+    ?? (hostedByDesktop ? randomBytes(32).toString("base64url") : null);
   const p = port ?? parseInt(process.env.MULTI_AGENT_PORT ?? "7433", 10);
   // D15 — anchor the default db under MULTI_AGENT_HOME, never a bare CWD-relative
   // filename (which could open the shared fleet db). Explicit MULTI_AGENT_DB wins.
@@ -281,9 +281,8 @@ export async function startServer(port?: number) {
   // routes, the managed launch chain and the mailbox endpoint — reads the same tokens, and
   // the owner credential it started with is never replaced by a second copy.
   const teamControlCredentials: TeamControlCredentials = { ownerToken: resolvedOwnerToken };
-  const { app, contextMonitor, deps, eventLoopMonitor } = await createDaemon({
+  const { app, deps, eventLoopMonitor } = await createDaemon({
     dbPath,
-    managedMode: requestedMode === "managed",
     teamControl: { credentials: teamControlCredentials },
     bearerToken,
     // S20 — the effective bind plan rides the health surface so adoption gates verify
@@ -293,14 +292,12 @@ export async function startServer(port?: number) {
 
   // Multi-bind via N serve() instances sharing the same Hono app.
   // Hono's serve() targets a single host:port; for multi-bind we spawn
-  // one per host. The contextMonitor and seat schedulers only start
-  // once after the first successful bind callback fires.
+  // one per host. The schedulers only start once after the first successful
+  // bind callback fires.
   let monitorsStarted = false;
   // P7 — lifecycle heartbeat: advance last-seen every tick while running.
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   const servers: ServerType[] = [];
-  // KTD22: a managed-mode daemon starts none of the legacy schedulers and monitors below.
-  const managed = isManagedMode(deps.rigRepo.db);
   for (const host of bindHosts) {
     const srv = serve({ fetch: app.fetch, port: p, hostname: host }, (info) => {
       console.log(`Multi-Agent daemon listening on http://${host}:${info.port}`);
@@ -312,9 +309,6 @@ export async function startServer(port?: number) {
             type: "ready", port: info.port, pid: process.pid,
           });
         } catch { /* parentPort may be closed during fast shutdown */ }
-      }
-      if (!monitorsStarted && !managed) {
-        contextMonitor.start();
       }
       if (!monitorsStarted) {
         monitorsStarted = true;

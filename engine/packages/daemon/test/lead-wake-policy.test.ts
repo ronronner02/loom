@@ -172,12 +172,4 @@ describe("KTD21 Lead wake admission", () => {
     expect(governance.getRun("run").stateReason).toBe("lead-wake:hourly");
     await expect(queue.drainPendingWakeIntents()).rejects.toMatchObject({ code: "managed_control_required" });
   });
-  it("does not change an unbound nudge", async () => {
-    const legacyDb = createDb(); initializeDatabase(legacyDb);
-    expect(legacyDb.prepare("SELECT 1 FROM sqlite_master WHERE name = 'team_queue_authority'").get() !== undefined).toBe(true);
-    const legacyQueue = new QueueRepository(legacyDb, new EventBus(legacyDb), { transport: { send } });
-    try { const item = await legacyQueue.create({ sourceSession: "sender@rig", destinationSession: "lead@rig", body: "legacy", nudge: false });
-      await legacyQueue.maybeNudge(item.qitemId, "lead@rig", true); expect(send).toHaveBeenCalledTimes(1);
-    } finally { legacyDb.close(); }
-  });
 });

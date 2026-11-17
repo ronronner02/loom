@@ -106,7 +106,6 @@ describe("spawnContainerDaemon — docker-run the testbed image by identity", ()
       "start",
       "--port",
       "7433",
-      "--no-kernel",
     ]);
     // run BEFORE the in-container start.
     const runIdx = calls.findIndex((c) => c[0] === "run");

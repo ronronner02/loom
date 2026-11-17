@@ -3,7 +3,6 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { listProjectDirectories } from "../src/domain/project-bootstrap.js";
-import { fixDaemonMode } from "../src/domain/plan-governance.js";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
 
 describe("owner project folder browser", () => {
@@ -41,7 +40,6 @@ describe("folder browser route", () => {
   it("requires the paired owner and keeps listing on the managed team-control surface", async () => {
     const db = createFullTestDb();
     try {
-      fixDaemonMode(db, true);
       const app = createTestApp(db, { appDeps: { teamControl: { credentials: { ownerToken: "owner-fs-fixture",
         workers: [{ token: "worker-fs-fixture", sessionId: "worker@fixture", runId: "other" }] } } } }).app;
       const call = (path: string, token?: string) => app.request("/api/team-control/fs/dirs" + path,

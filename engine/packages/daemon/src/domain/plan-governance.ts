@@ -69,9 +69,14 @@ export interface NativeLaunchIntent {
   evidenceRef?: string;
 }
 
+/**
+ * A direct queue write belongs to the retired legacy surface: the daemon's own state changes
+ * go through governance and the owner routes. This refusal is what stops a stray caller from
+ * writing the queue underneath the run authority.
+ */
 export class ManagedControlError extends Error {
   readonly code = "managed_control_required";
-  constructor() { super("Legacy operations are inactive while managed authority exists; managed dispatch remains disabled."); }
+  constructor() { super("Legacy operations are inactive on this daemon; managed dispatch remains disabled."); }
   getResponse(): Response {
     return Response.json({ code: this.code, error: this.message }, { status: 403 });
   }
@@ -82,32 +87,24 @@ export function hasManagedAuthority(db: Database.Database): boolean {
     && !!db.prepare("SELECT 1 FROM team_runs LIMIT 1").get();
 }
 
-export type DaemonMode = "legacy" | "managed";
+const daemonDatabases = new WeakSet<Database.Database>();
 
-const daemonModes = new WeakMap<Database.Database, DaemonMode>();
-
-/** KTD22: the mode is fixed once per process, before any service starts. Existing authority
- * forces managed mode, so a legacy-mode process never runs beside managed authority. */
-export function fixDaemonMode(db: Database.Database, managedRequested: boolean): DaemonMode {
-  const mode: DaemonMode = managedRequested || hasManagedAuthority(db) ? "managed" : "legacy";
-  const fixed = daemonModes.get(db);
-  if (fixed && fixed !== mode) throw new Error(`Daemon mode is already fixed as ${fixed}; restart to switch modes`);
-  daemonModes.set(db, mode);
-  return mode;
+/** Marks the one database this daemon serves. Called once, before any service is built. */
+export function markDaemonDatabase(db: Database.Database): void {
+  daemonDatabases.add(db);
 }
 
-export function daemonModeOf(db: Database.Database): DaemonMode | undefined {
-  return daemonModes.get(db);
+/** Queue writes belong to the daemon's governance. A database that is neither a daemon's own
+ *  nor carrying run authority is a bare repository a harness assembled, and keeps its writes.
+ *
+ * A call (not an inline throw at each site) keeps the gated callers' control flow analyzable
+ * where the dead branch below is still read by its owner. */
+export function isGovernedDatabase(db: Database.Database): boolean {
+  return daemonDatabases.has(db) || hasManagedAuthority(db);
 }
 
-export function isManagedMode(db: Database.Database): boolean {
-  const fixed = daemonModes.get(db);
-  if (fixed !== undefined) return fixed === "managed";
-  return hasManagedAuthority(db);
-}
-
-export function assertLegacyOperationAllowed(db: Database.Database): void {
-  if (isManagedMode(db)) throw new ManagedControlError();
+export function assertDirectQueueWriteAllowed(db: Database.Database): void {
+  if (isGovernedDatabase(db)) throw new ManagedControlError();
 }
 
 const queueWrites = new WeakMap<Database.Database, { operation: "create" | "update"; qitemId?: string }>();
@@ -127,7 +124,7 @@ function withQueueWrite<T>(db: Database.Database, grant: { operation: "create" |
 export function assertGovernedQueueWrite(db: Database.Database, operation: "create" | "update", qitemId?: string): void {
   const grant = queueWrites.get(db);
   if (grant?.operation === operation && grant.qitemId === qitemId && db.inTransaction) return;
-  assertLegacyOperationAllowed(db);
+  assertDirectQueueWriteAllowed(db);
 }
 
 interface CommandContext {
@@ -267,7 +264,6 @@ export class PlanGovernance {
   createRun(input: { id: string; rigId: string; binding: unknown; reviewerSeat?: string | null; displayName?: string | null;
     phase?: TeamRunPhase; documentWorkflow?: boolean; responseLanguage?: ResponseLanguage }): TeamRun {
     this.assertStandalone();
-    if (daemonModeOf(this.db) === "legacy") throw new Error("A legacy-mode daemon cannot register managed authority; restart in managed mode");
     const id = text(input.id, "runId", 256);
     const rigId = text(input.rigId, "rigId", 256);
     const binding = parsePlanBinding(input.binding);

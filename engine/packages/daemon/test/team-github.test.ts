@@ -10,7 +10,6 @@ import { GithubCli } from "../src/domain/github-cli.js";
 import { OwnerSessions, OWNER_COOKIE, OWNER_CSRF_HEADER } from "../src/domain/owner-session.js";
 import { isLargeFileRejection, isAuthFailure, isNetworkFailure, redactCredentials } from "../src/domain/github-cli.js";
 import { parseProtocolVersion } from "../src/contracts/team-control.js";
-import { fixDaemonMode } from "../src/domain/plan-governance.js";
 import { createTestApp } from "./helpers/test-app.js";
 import { ghFixturePath } from "./helpers/gh-fixture.js";
 import { execFileSync } from "node:child_process";
@@ -57,7 +56,6 @@ describe("owner GitHub sign-in", () => {
       env: { ...process.env, GH_STUB_DIR: directory, GH_TOKEN: "ghp_fixture_INHERITED" } });
     db = createDb();
     initializeDatabase(db);
-    fixDaemonMode(db, true);
     app = createTestApp(db, { appDeps: { github, legacyBearerToken: legacyToken,
       teamControl: { credentials: { ownerToken, workers: [
         { token: workerToken, sessionId: "dev@fixture", runId: "other" },
@@ -384,7 +382,7 @@ describe("the dedicated agent GitHub account", () => {
     github = new GithubCli({ executable: owner.executable, execArgv: owner.extraArgs, env: { ...process.env, GH_STUB_DIR: ownerDir } });
     agent = new GithubCli({ executable: second.executable, execArgv: second.extraArgs,
       env: { ...process.env, GH_STUB_DIR: agentDir, GH_CONFIG_DIR: join(agentDir, "gh-config") } });
-    db = createDb(); initializeDatabase(db); fixDaemonMode(db, true);
+    db = createDb(); initializeDatabase(db);
     app = createTestApp(db, { appDeps: { github, githubAgent: agent, teamControl: { credentials: { ownerToken, workers: [
       { token: workerToken, sessionId: "dev@fixture", runId: "other" }] } } } }).app;
   });

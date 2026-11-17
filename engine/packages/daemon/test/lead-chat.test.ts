@@ -8,7 +8,7 @@ import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { PlanGovernance, fixDaemonMode, hashBinding, hashBytes } from "../src/domain/plan-governance.js";
+import { PlanGovernance, hashBinding, hashBytes } from "../src/domain/plan-governance.js";
 import { bindingForGoal, unisolatedPolicyCapability, refreshPlanBinding } from "../src/routes/team-start.js";
 import { appendChatMessage, composeLeadTurnEnd, responseLanguageNote, leadChatTurnNote, listChatMessages, listRunActivity, pendingOwnerMessages, recordLeadReply, takeOwnerMessages } from "../src/domain/lead-chat.js";
 import { AttemptTelemetry } from "../src/domain/attempt-telemetry.js";
@@ -77,7 +77,6 @@ describe("U5 — lead chat and plan approval", () => {
     candidates = mkdtempSync(join(tmpdir(), "u5-candidates-"));
     db = createDb();
     initializeDatabase(db);
-    fixDaemonMode(db, true);
     db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'demo')").run();
     for (const [id, role, seat] of [["lead-node", "lead", "lead@demo"], ["impl-node", "implementer", "impl@demo"],
       ["review-node", "reviewer", "review@demo"]] as const) {
