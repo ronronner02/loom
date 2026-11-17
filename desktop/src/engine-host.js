@@ -16,7 +16,7 @@
 const { pathToFileURL } = require('node:url');
 const { daemonEntry } = require('./engine-paths.js');
 
-// Resolve the daemon entry point (U18 — packaged and development layouts).
+// Resolve the daemon entry point: the packaged tree wins, the checkout is the fallback.
 // Packaged:    resources/engine/packages/daemon/dist/index.js
 // Development: engine/packages/daemon/dist/index.js
 const DAEMON_INDEX = daemonEntry();
