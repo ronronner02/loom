@@ -2,11 +2,11 @@ import type { ProjectAttachment, AttemptActivity, TeamAttemptView, TurnProgress,
 import { OwnerReadError, type useOwnerSession } from "../hooks/useOwnerSession.js";
 
 /**
- * U10 — the clients for the endpoints this surface reads.
+ * The clients for the endpoints this surface reads.
  *
- * Chat is U5/U6's own routes; the integration branch is U7's. Each answers `{ available: false }`
- * when the route is absent, so a screen renders the state it can honestly show instead of an
- * error. Shapes here are the contract the components are built against.
+ * Each answers `{ available: false }` when its route is absent, so a screen renders the state it
+ * can honestly show instead of an error. Shapes here are the contract the components are built
+ * against.
  */
 
 export type ResponseLanguage = "en" | "zh-CN";
@@ -46,7 +46,7 @@ export interface ChatState {
   available: boolean;
   phase: RunPhase;
   messages: ChatMessage[];
-  /** Plan KTD3 — lead turns that needed no owner attention, oldest first. */
+  /** Lead turns that needed no owner attention, oldest first. */
   activity?: ActivityMessage[];
   /** The newest unanswered decision: the "waiting on you" signal. */
   pendingDecision: { id: string; body: string; options: string[]; createdAt: string } | null;
@@ -61,7 +61,7 @@ function controlBody(runId: string, actionId: string, entityVersion: number, pay
   });
 }
 
-/** U5 — `GET /runs/:runId/chat`. */
+/** `GET /runs/:runId/chat`. */
 export async function readChat(request: Request, runId: string, signal?: AbortSignal): Promise<ChatState> {
   try {
     const body = await request<{ liveTurn?: LiveLeadTurn | null; messages?: ChatMessage[]; activity?: ActivityMessage[]; phase?: RunPhase; pendingDecision?: ChatState["pendingDecision"]; planApproval?: PlanApproval | null; documentWorkflow?: ProjectDocumentWorkflow | null }>(
@@ -78,7 +78,7 @@ export async function readChat(request: Request, runId: string, signal?: AbortSi
 }
 
 /**
- * U6 — `POST /runs/:runId/chat`. Answering a decision sends the chosen option's text with
+ * `POST /runs/:runId/chat`. Answering a decision sends the chosen option's text with
  * `answerTo`, which is how the lead knows which question it answers.
  */
 export async function sendChatMessage(request: Request, runId: string, body: string, entityVersion: number, answerTo?: string, responseLanguage?: ResponseLanguage, attachments?: string[]): Promise<void> {
@@ -89,7 +89,7 @@ export async function sendChatMessage(request: Request, runId: string, body: str
   });
 }
 
-/** Plan R7 — `POST /runs/:runId/tasks/:taskId/comments`: the owner's comment goes to that task's agent. */
+/** `POST /runs/:runId/tasks/:taskId/comments`: the owner's comment goes to that task's agent. */
 export async function postTaskComment(request: Request, runId: string, taskId: string, body: string, entityVersion: number): Promise<void> {
   await request(`/runs/${encodeURIComponent(runId)}/tasks/${encodeURIComponent(taskId)}/comments`, {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -99,13 +99,13 @@ export async function postTaskComment(request: Request, runId: string, taskId: s
 
 export interface TaskComment { id: string; runId: string; taskId: string; body: string; createdAt: string; deliveredAttempt: string | null }
 
-/** Plan R7 — `GET /runs/:runId/tasks/:taskId/comments`: the task's thread. */
+/** `GET /runs/:runId/tasks/:taskId/comments`: the task's thread. */
 export async function readTaskComments(request: Request, runId: string, taskId: string, signal?: AbortSignal): Promise<TaskComment[]> {
   const body = await request<{ comments?: TaskComment[] }>(`/runs/${encodeURIComponent(runId)}/tasks/${encodeURIComponent(taskId)}/comments`, { signal });
   return body.comments ?? [];
 }
 
-/** Plan R10 — `POST /runs/:runId/tasks/:taskId/hold`. */
+/** `POST /runs/:runId/tasks/:taskId/hold`. */
 export async function holdTask(request: Request, runId: string, taskId: string, held: boolean, entityVersion: number): Promise<void> {
   await request(`/runs/${encodeURIComponent(runId)}/tasks/${encodeURIComponent(taskId)}/hold`, {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -113,7 +113,7 @@ export async function holdTask(request: Request, runId: string, taskId: string, 
   });
 }
 
-/** U5 — `POST /runs/:runId/plan/approve`. */
+/** `POST /runs/:runId/plan/approve`. */
 export async function approvePlan(request: Request, runId: string, entityVersion: number, rosterDigest?: string, documentVersions?: DocumentPins, conversation?: { ownerMessage: string; planHash?: string }, responseLanguage?: ResponseLanguage): Promise<void> {
   await request(`/runs/${encodeURIComponent(runId)}/plan/approve`, {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -142,7 +142,7 @@ export interface IntegrationState {
   /** Every task the run admitted has finished. */
   tasksDone: boolean;
   merge: { possible: boolean; reason: string | null; merged?: boolean | null };
-  /** Plan R17 — the pull request a GitHub project's run is delivered through; the owner merges it on GitHub. */
+  /** The pull request a GitHub project's run is delivered through; the owner merges it on GitHub. */
   pullRequest?: IntegrationPullRequest | null;
 }
 export interface IntegrationPullRequest { number: number; url: string; state: "open" | "merged" | "closed" }
@@ -158,7 +158,7 @@ function pullRequestOf(value: unknown): IntegrationPullRequest | null {
     && (state === "open" || state === "merged" || state === "closed") ? { number, url, state } : null;
 }
 
-/** U7 — `GET /runs/:runId/integration`. */
+/** `GET /runs/:runId/integration`. */
 export async function readIntegration(request: Request, runId: string, signal?: AbortSignal): Promise<IntegrationState> {
   try {
     const body = await request<{ integration?: Partial<IntegrationState>; pullRequest?: unknown }>(
@@ -191,7 +191,7 @@ export interface MergeOutcome {
 }
 
 /**
- * U7 — `POST /runs/:runId/merge`. A refusal answers 409 with its own code, so the code is read
+ * `POST /runs/:runId/merge`. A refusal answers 409 with its own code, so the code is read
  * from the error rather than thrown at the owner. Neither `code` nor `reason` is rendered
  * verbatim: the screen maps the code to a label and names open tasks itself.
  */

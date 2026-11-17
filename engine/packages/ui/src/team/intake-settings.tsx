@@ -8,7 +8,7 @@ import {
 
 const emptyRule: IntakeRule = { name: "", instruction: "", enabled: true };
 
-/** U13 — accept mode and rules; one Save sends the whole policy. */
+/** Accept mode and rules; one Save sends the whole policy. */
 export function IntakeSettings({ teamId }: { teamId: string }) {
   const { t } = useTranslation(), { paired, request } = useOwnerSession(), cache = useQueryClient();
   const intake = useIntake(teamId);

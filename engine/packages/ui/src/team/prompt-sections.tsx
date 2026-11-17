@@ -7,7 +7,7 @@ type SectionName = "communication" | "scope" | "delivery";
 interface SectionView { name: SectionName; text: string; overridden: boolean; defaultText: string; previousDefault: string | null; defaultChanged: boolean }
 interface SectionsReply { revision: number; sections: SectionView[] }
 
-/** Plan R13/R14 — the team's three editable prompt sections, one save bar, and the default-updated choice. */
+/** The team's three editable prompt sections, one save bar, and the default-updated choice. */
 export function PromptSectionSettings({ teamId }: { teamId: string }) {
   const { t } = useTranslation(), { paired, request } = useOwnerSession(), cache = useQueryClient();
   const key = ["team", "prompt-sections", teamId];

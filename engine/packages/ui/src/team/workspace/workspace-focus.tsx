@@ -7,7 +7,9 @@ import { isFinished, useTeamResult } from "../../hooks/useTeamResult.js";
 import { DiffView } from "../diff-view.js";
 import { TaskProgress } from "../task-progress.js";
 import { workspaceTabLabel } from "../display.js";
-import { ActivityFacts, attemptForSeat, SeatHeading, taskForSeat, ToolCalls } from "./workspace-view.js";
+import { TabGroup } from "../tab-group.js";
+import { ActivityFacts, SeatHeading, ToolCalls } from "./workspace-view.js";
+import { attemptForSeat, taskForSeat } from "./workspace-model.js";
 
 export function TaskChanges({ runId, task }: { runId: string; task?: TeamReviewView }) {
   const { t } = useTranslation();
@@ -33,10 +35,8 @@ export function WorkspaceFocus({ read, seat }: { read: TeamOwnerRead; seat: Team
     <header className="ui-agent-detail-head"><SeatHeading seat={seat} task={task} /></header>
     {attempt?.state === "running" && status && <span role="status">{t(`status.attempt.${status}`)}</span>}
     <ActivityFacts activity={activity.data} />
-    <div className="ui-detail-tabs" role="group" aria-label={t("workspace.tabs")}>
-      {(["execution", "changes", "output"] as const).map(name => <button key={name} aria-pressed={tab === name} onClick={() => setTab(name)}>
-        {workspaceTabLabel(name, t)}</button>)}
-    </div>
+    <TabGroup label={t("workspace.tabs")} className="ui-detail-tabs" value={tab} onChange={setTab}
+      items={(["execution", "changes", "output"] as const).map(name => ({ id: name, label: workspaceTabLabel(name, t) }))} />
     <div className="ui-detail-content">
       {tab === "execution" && <ToolCalls activity={activity.data} error={activity.isError} />}
       {tab === "changes" && <TaskChanges runId={read.runId} task={task} />}

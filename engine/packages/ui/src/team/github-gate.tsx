@@ -37,7 +37,11 @@ export function EntryFrame({ language, onLanguage, appearance, children }: {
   </div>;
 }
 
-/** The application subtree is not mounted until a fresh account check succeeds. */
+/**
+ * The application subtree is not mounted until a fresh account check succeeds. Once verified, a
+ * later account-check failure keeps the mounted subtree hidden instead of tearing it down, so a
+ * reconnect does not discard the owner's drafts and route.
+ */
 export function GithubGate({ children, frame }: { children: ReactNode; frame: (content: ReactNode) => ReactNode }) {
   const { t } = useTranslation();
   const { request } = useOwnerSession();

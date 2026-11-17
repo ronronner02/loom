@@ -21,7 +21,7 @@ export function intakeRunHref(runId: string): string {
   return `/team/overview?${new URLSearchParams({ run: runId })}`;
 }
 
-/** U13 — the project inbox: what the intake policy saw, and what it did with it. */
+/** The project inbox: what the intake policy saw, and what it did with it. */
 export function InboxScreen({ teamId, onOpenRun }: { teamId?: string; onOpenRun: (runId: string) => void }) {
   const { t } = useTranslation(), { request } = useOwnerSession(), cache = useQueryClient();
   const intake = useIntake(teamId);

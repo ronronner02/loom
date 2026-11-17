@@ -1,20 +1,11 @@
 import { useTranslation } from "react-i18next";
 import { Circle, CircleCheck, CircleX, MinusCircle } from "lucide-react";
-import type { AttemptActivity, TeamAttemptView, TeamOwnerRead, TeamReviewView, TeamSeatView, ToolActivityRecord } from "@multi-agent/daemon/team-control";
+import type { AttemptActivity, TeamOwnerRead, TeamReviewView, TeamSeatView, ToolActivityRecord } from "@multi-agent/daemon/team-control";
 import { useAttemptActivity } from "../../hooks/useAttemptActivity.js";
 import { useAttemptStatus } from "../../hooks/useAttemptStatus.js";
+import { attemptForSeat, taskForSeat } from "./workspace-model.js";
 import { callStatusLabel, clockTime, namedSeat, TASK_STAGE_LABELS, taskName } from "../display.js";
 import { observedTokens } from "../hooks.js";
-
-export function attemptForSeat(read: TeamOwnerRead | undefined, seat: TeamSeatView): TeamAttemptView | undefined {
-  return read?.attempts.filter(attempt => attempt.session === seat.seat).at(-1);
-}
-
-export function taskForSeat(read: TeamOwnerRead | undefined, seat: TeamSeatView): TeamReviewView | undefined {
-  const tasks = read?.tasks.filter(task => task.seat === seat.seat) ?? [];
-  const attempt = attemptForSeat(read, seat);
-  return tasks.find(task => task.taskId === attempt?.taskId) ?? tasks.find(task => task.stage !== "done") ?? tasks.at(-1);
-}
 
 export function ActivityFacts({ activity }: { activity?: AttemptActivity }) {
   const { t, i18n } = useTranslation();

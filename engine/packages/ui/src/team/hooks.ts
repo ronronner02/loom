@@ -4,11 +4,10 @@ import { useOwnerSession } from "../hooks/useOwnerSession.js";
 import { readIntegration, readChat, type ChatState, type IntegrationState } from "./clients.js";
 
 /**
- * U10 — the team surface's reads.
+ * The team surface's reads.
  *
- * Teams and runs come from U3's routes; the chat and the branch come from the client module
- * that answers "not available" until U5 and U7 land. Every query is owner-scoped and disabled
- * until the browser is paired, so an unpaired page never fires a request.
+ * Every query is owner-scoped and disabled until the browser is paired, so an unpaired page
+ * never fires a request.
  */
 
 export interface TeamSeatSummary { role: "lead" | "implementer" | "reviewer"; client: string; model?: string }

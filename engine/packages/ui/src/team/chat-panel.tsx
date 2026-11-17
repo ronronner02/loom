@@ -32,7 +32,7 @@ export function pendingOwnerDecisions(read: TeamOwnerRead | undefined, chat: Cha
   return decisions;
 }
 
-/** Plan R11 — the questions workers asked the owner, worded as they wrote them. */
+/** The questions workers asked the owner, worded as they wrote them. */
 export function pendingWorkerQuestions(read: TeamOwnerRead | undefined): TeamOwnerRead["tasks"] {
   if (read?.run.state === "canceled" || read?.run.state === "cancel_requested") return [];
   return (read?.tasks ?? []).filter(task => task.stage === "owner/question" && task.workerReport?.question);
@@ -64,6 +64,8 @@ export function ChatPanel({ open, onOpenChange, opener, read, runId, chat, conne
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
+  // Desktop docks the panel beside the content (non-modal, so Radix renders no scrim); a phone
+  // shows it modally.
   return <Dialog.Root open={open} onOpenChange={onOpenChange} modal={mobile}>
     <Dialog.Overlay className="ui-dialog-overlay" />
     <Dialog.Content className="ui-chat-panel" onInteractOutside={event => {
@@ -145,6 +147,8 @@ function LiveOutput({ runId, turn, createdAt, connectionError }: { runId: string
   const { t } = useTranslation();
   const mountedAt = useRef(new Date().toISOString());
   const progress = turn.progress;
+  // A live record set can carry one call's start and completion as two rows with the same id;
+  // merging collapses them to the latest state so the panel counts the call once.
   const activity = turn.activity ? { ...turn.activity, records: mergeToolCalls([], turn.activity.records) } : undefined;
   const lifecycle = useAttemptStatus(runId, { attemptId: turn.attemptId, state: turn.state, createdAt: createdAt ?? mountedAt.current }, !!progress?.sequence);
   const state = turn.state === "running" ? progress?.status ?? lifecycle ?? "started" : progress?.status === "failed" ? "failed" : "stopped";

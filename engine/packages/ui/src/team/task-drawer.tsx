@@ -1,7 +1,6 @@
 import { TextPreview } from "./text-preview.js";
-import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
+import { Sheet } from "./sheet.js";
 import { useState, type RefObject } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
@@ -26,7 +25,7 @@ export function TaskTimeline({ logs, tasks }: { logs: TeamOwnerRead["logs"]; tas
     })}</ol>;
 }
 
-/** Plan R7/R10 — the owner's comments on this task, a composer that sends to its agent, and its hold. */
+/** The owner's comments on this task, a composer that sends to its agent, and its hold. */
 export function TaskThread({ read, task }: { read: TeamOwnerRead; task: TeamReviewView }) {
   const { t } = useTranslation();
   const { paired, request } = useOwnerSession();
@@ -145,17 +144,10 @@ export function TaskDrawer({ read, task, onClose, opener }: {
   read?: TeamOwnerRead; task?: TeamReviewView; onClose: () => void; opener: RefObject<HTMLElement | null>;
 }) {
   const { t } = useTranslation();
-  return <Dialog.Root open={!!task} onOpenChange={open => { if (!open) onClose(); }}>
-    <Dialog.Overlay className="ui-dialog-overlay" />
-    <Dialog.Content className="ui-task-drawer" onCloseAutoFocus={event => {
-      event.preventDefault(); opener.current?.focus();
-    }}>
-      <header className="ui-panel-heading">
-        <div><Dialog.Title><TextPreview text={task ? taskName(task, t) : t("tasks.detail")} /></Dialog.Title>
-          <Dialog.Description>{task ? t(TASK_STAGE_LABELS[task.stage]) : t("value.unavailable")}</Dialog.Description></div>
-        <Dialog.Close className="ui-icon-button" aria-label={t("web.close")}><X aria-hidden="true" /></Dialog.Close>
-      </header>
-      {task && <TaskDetails read={read} task={task} thread />}
-    </Dialog.Content>
-  </Dialog.Root>;
+  return <Sheet open={!!task} onOpenChange={open => { if (!open) onClose(); }} opener={opener}
+    title={<TextPreview text={task ? taskName(task, t) : t("tasks.detail")} />}
+    description={task ? t(TASK_STAGE_LABELS[task.stage]) : t("value.unavailable")}
+    closeLabel={t("web.close")} contentClassName="ui-task-drawer">
+    {task && <TaskDetails read={read} task={task} thread />}
+  </Sheet>;
 }

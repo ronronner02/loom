@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
+import { Sheet } from "./sheet.js";
 import type { MessageKey } from "@multi-agent/i18n";
 import { OwnerReadError, useOwnerSession } from "../hooks/useOwnerSession.js";
 import { FolderBrowser } from "./folder-browser.js";
@@ -68,14 +67,12 @@ export function CreateProject({ open, mode = "create", onOpenChange, onCreated, 
       if (code === "team_origin_changed" || code === "team_bootstrap_changed") setPreview(null);
     } finally { setBusy(false); }
   };
-  return <Dialog.Root open={open} onOpenChange={next => { if (!busy) { setBrowsing(false); if (!next) setPreview(null); onOpenChange(next); } }}>
-    <Dialog.Overlay className="ui-dialog-overlay" />
-    <Dialog.Content className="ui-create-project" aria-describedby={undefined} onCloseAutoFocus={event => {
-      event.preventDefault(); opener.current?.focus();
-    }} onEscapeKeyDown={event => { if (busy) event.preventDefault(); }} onInteractOutside={event => { if (busy) event.preventDefault(); }}>
-      <header className="ui-panel-heading"><Dialog.Title>{t(mode === "open" ? "projects.open" : "projects.create")}</Dialog.Title>
-        <Dialog.Close className="ui-icon-button" disabled={busy} aria-label={t("web.close")}><X aria-hidden="true" /></Dialog.Close></header>
-      <div className="ui-create-body">{browsing ? <FolderBrowser onSelect={path => { changeFolder(path); setBrowsing(false); }} onCancel={() => setBrowsing(false)} />
+  return <Sheet open={open} onOpenChange={next => {
+    if (busy) return;
+    setBrowsing(false); if (!next) setPreview(null); onOpenChange(next);
+  }} opener={opener} locked={busy} contentClassName="ui-create-project" bodyClassName="ui-create-body"
+    title={t(mode === "open" ? "projects.open" : "projects.create")} closeLabel={t("web.close")}>
+    {browsing ? <FolderBrowser onSelect={path => { changeFolder(path); setBrowsing(false); }} onCancel={() => setBrowsing(false)} />
         : <form onSubmit={event => { event.preventDefault(); void submit(); }}>
           <div className="field"><label htmlFor="project-folder">{t("projects.folder")}</label>
             <div className="ui-folder-input"><input id="project-folder" className="input mono" value={repository} disabled={busy}
@@ -99,9 +96,8 @@ export function CreateProject({ open, mode = "create", onOpenChange, onCreated, 
           <div className="plate-foot"><button className="btn btn-primary" type="submit" disabled={busy || !repository.trim() || (mode === "create" && !name.trim())}>
             {t(busy ? "web.loading" : !preview ? "projects.reviewFiles" : failure === "github_push_failed" ? "projects.retry" : mode === "open" ? "projects.open" : "projects.submit")}
           </button></div>
-        </form>}</div>
-    </Dialog.Content>
-  </Dialog.Root>;
+        </form>}
+  </Sheet>;
 }
 
 /** Project and run selection keep their home on Overview after the old project screen is removed. */

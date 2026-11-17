@@ -1,8 +1,8 @@
 /**
  * The Flow view's local event vocabulary.
  *
- * The daemon deliberately is not imported here. U16 supplies durable `team.control` records;
- * this file is the pure, bounded translation from those records to visual intents.
+ * The daemon deliberately is not imported here: the durable `team.control` records are the
+ * input, and this file is the pure, bounded translation from them to visual intents.
  */
 
 export type FlowRole = "lead" | "implementer" | "reviewer" | "owner" | "integration" | "worker";

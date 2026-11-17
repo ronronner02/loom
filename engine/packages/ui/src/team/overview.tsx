@@ -52,7 +52,7 @@ function RunActions({ read, integration }: { read?: TeamOwnerRead; integration?:
   const { busy } = pending;
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
   const closed = read?.run.state === "canceled" || read?.run.state === "cancel_requested";
-  // Plan R17 — a GitHub project's run is merged as its open pull request, on GitHub, with the owner's account.
+  // A GitHub project's run is merged as its open pull request, on GitHub, with the owner's account.
   const pull = integration?.available ? integration.pullRequest ?? null : null;
   const viaPull = pull?.state === "open" ? pull : null;
   const merged = integration?.available === true && (integration.merge.merged === true || pull?.state === "merged");

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TeamModelSettings, TeamReplayEvent, TeamSeatView } from "@multi-agent/daemon/team-control";
-import { adaptTeamEvents, adaptTeamReplayEvent, mapTeamAttemptStates, mapTeamSeats } from "../flow/team-flow-adapter.js";
+import { adaptTeamEvents, mapTeamAttemptStates, mapTeamSeats } from "../flow/team-flow-adapter.js";
 import { mapTeamEvents } from "../flow/flow-events.js";
 import { resolveVendorForNode } from "../flow/vendor-avatars.js";
 import { attempt, RUN_ID, seats } from "./fixtures.js";
@@ -29,6 +29,9 @@ function event(overrides: Partial<TeamReplayEvent> = {}): TeamReplayEvent {
     ...overrides,
   };
 }
+
+/** One record through the exported adapter, which is the only entry the app has. */
+const adaptTeamReplayEvent = (value: ReturnType<typeof event>, fallback = "") => adaptTeamEvents([value], fallback)[0]!;
 
 describe("team flow adapter", () => {
   it("preserves replay identity and parses a structured body", () => {

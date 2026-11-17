@@ -3,11 +3,11 @@ import { statusLabelKey, type MessageKey, type StatusDomain } from "@multi-agent
 import type { TeamReviewView, TeamSeatView, TeamTaskNameParts, TeamTaskStage } from "@multi-agent/daemon/team-control";
 
 /**
- * U10 — how the team surface names things.
+ * How the team surface names things.
  *
- * Every name the owner reads comes from here. The run, task and seat names are the U9 display
- * names; a reviewer task is rebuilt from its parts so the word "Review" is the reader's
- * language, not the stored English one. Ids stay in URLs and React keys and never reach the DOM.
+ * Every name the owner reads comes from here. A reviewer task is rebuilt from its parts so the
+ * word "Review" is the reader's language, not the stored English one; ids stay in URLs and
+ * React keys and never reach the DOM.
  */
 
 export function taskName(task: Pick<TeamReviewView, "displayName" | "displayNameParts">, t: TFunction): string {

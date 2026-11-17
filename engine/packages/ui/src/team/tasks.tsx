@@ -7,6 +7,7 @@ import { assignedSeat, TASK_STAGE_LABELS, taskName } from "./display.js";
 import { TaskProgress } from "./task-progress.js";
 import { TaskDrawer } from "./task-drawer.js";
 import { TaskWorkbench } from "./task-workbench.js";
+import { TabGroup } from "./tab-group.js";
 
 export const BOARD_COLUMNS = ["queued", "running", "review", "lead/report", "owner/decision", "done"] as const;
 type BoardColumn = typeof BOARD_COLUMNS[number];
@@ -34,10 +35,9 @@ export function TasksScreen({ read, selectedTaskId, onSelect, onNewTask, onOpenW
         <div className="ui-subtitle"><TextPreview text={read ? read.run.displayName + " · " + t("tasks.count", { count: tasks.length }) : t("value.unavailable")} /></div></div>
       <button className="btn btn-primary" disabled={!read} onClick={onNewTask}><Plus aria-hidden="true" />{t("web.newTask")}</button>
     </header>
-    <div className="ui-layout-switch ui-task-view-switch" role="group" aria-label={t("tasks.view")}>
-      {(["list", "board"] as const).map(layout => <button key={layout} aria-pressed={view === layout}
-        onClick={() => { setView(layout); onSelect(""); }}>{t(layout === "list" ? "tasks.list" : "tasks.board")}</button>)}
-    </div>
+    <TabGroup label={t("tasks.view")} className="ui-layout-switch ui-task-view-switch" value={view}
+      onChange={layout => { setView(layout); onSelect(""); }}
+      items={(["list", "board"] as const).map(layout => ({ id: layout, label: t(layout === "list" ? "tasks.list" : "tasks.board") }))} />
     {!read ? <p className="ui-muted">{t("value.unavailable")}</p> : view === "list"
       ? <TaskWorkbench key={read.runId} read={read} selectedTaskId={selectedTaskId} onSelect={onSelect} onOpenWorkspace={onOpenWorkspace} onOpenReviews={onOpenReviews} /> : <div className="ui-board">
       {BOARD_COLUMNS.map(column => <section key={column} className="ui-column" aria-label={t(TASK_STAGE_LABELS[column])}>

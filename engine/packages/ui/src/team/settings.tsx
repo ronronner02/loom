@@ -6,6 +6,7 @@ import { AgentAccount } from "./agent-account.js";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { TabGroup } from "./tab-group.js";
 import { Monitor, Moon, Sun } from "lucide-react";
 import type { InterfaceI18n } from "@multi-agent/i18n";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
@@ -15,6 +16,7 @@ import { clientLabel } from "./display.js";
 import type { TeamSeatSummary } from "./hooks.js";
 
 export const SETTINGS_SECTIONS = ["general", "github", "appearance", "sessions", "agents"] as const;
+const AGENTS_TABS = ["models", "prompts", "seats"] as const;
 const THEME_ICONS = { dark: Moon, light: Sun, system: Monitor };
 const settingsKey = ["team", "settings"] as const;
 interface SettingsReply { settings: { "team.leadClient": { value: "claude-code" | "codex"; source: string } } }
@@ -144,11 +146,8 @@ export function SettingsScreen({ language, onLanguage, appearance, address, seat
         </section>}
         {section === "sessions" && <Sessions address={address} />}
         {section === "agents" && <>
-          {teamId && <div className="ui-subtabs" role="group" aria-label={t("settings.section.agents")}>
-            <button type="button" aria-pressed={agentsTab === "models"} onClick={() => setAgentsTab("models")}>{t("settings.agentsTab.models")}</button>
-            <button type="button" aria-pressed={agentsTab === "prompts"} onClick={() => setAgentsTab("prompts")}>{t("settings.agentsTab.prompts")}</button>
-            <button type="button" aria-pressed={agentsTab === "seats"} onClick={() => setAgentsTab("seats")}>{t("settings.agentsTab.seats")}</button>
-          </div>}
+          {teamId && <TabGroup label={t("settings.section.agents")} value={agentsTab} onChange={setAgentsTab}
+            items={AGENTS_TABS.map(id => ({ id, label: t(`settings.agentsTab.${id}`) }))} />}
           {teamId && agentsTab === "models" && <ModelSettings key={teamId} teamId={teamId} />}
           {teamId && agentsTab === "prompts" && <>
             <SoulSettings key={teamId + "-souls"} teamId={teamId} />

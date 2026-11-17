@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { parsePatch } from "./diff-model.js";
 
 /**
- * U10 — the task's diff.
+ * The task's diff.
  *
  * The file rail is a strip along the top so the code keeps the card's width; on a phone the
  * lines wrap with a hanging indent instead of being clipped, and the strip stays visible.
@@ -30,7 +30,7 @@ export function DiffView({ patch, empty }: { patch: string; empty?: string }) {
     </div>
     {active && <div className="code">
       <div className="code-head">{active.path}</div>
-      {active.binary ? <p className="muted" style={{ padding: "12px 14px" }} data-testid="diff-binary">{t("diff.binaryHint")}</p>
+      {active.binary ? <p className="muted ui-diff-note" data-testid="diff-binary">{t("diff.binaryHint")}</p>
         : <div className="code-body" data-testid="diff-body">
           {active.hunks.map((hunk, index) => <div key={`${hunk.header}-${index}`}>
             <div className="hunk-head">{hunk.header}</div>
@@ -41,7 +41,7 @@ export function DiffView({ patch, empty }: { patch: string; empty?: string }) {
               <span className="src">{line.text || " "}</span>
             </div>)}
           </div>)}
-          {active.hunks.length === 0 && <p className="muted" style={{ padding: "12px 14px" }}>{t("diff.noHunks")}</p>}
+          {active.hunks.length === 0 && <p className="muted ui-diff-note">{t("diff.noHunks")}</p>}
         </div>}
     </div>}
   </div>;

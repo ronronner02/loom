@@ -124,7 +124,7 @@
   --t-fast: 150ms; --t-base: 200ms; --t-panel: 260ms; --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.team-shell * { box-sizing: border-box; }
+* { box-sizing: border-box; }
 /* The shell owns the page it is rendered into, in the browser and in the desktop wrapper. */
 html:has(.team-shell), body:has(.team-shell) { height: 100%; }
 body:has(.team-shell) { margin: 0; }
@@ -282,6 +282,7 @@ body:has(.team-shell) > #root { height: 100%; }
   animation: sheet-in var(--t-base) var(--ease) both;
 }
 .team-shell .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-5); border-bottom: 1px solid var(--line-soft); }
+.team-shell .sheet-title { font-size: 20px; margin: 0; }
 .team-shell .sheet-body { flex: 1 1 auto; overflow-y: auto; padding: var(--sp-5); display: grid; gap: var(--sp-5); align-content: start; }
 .team-shell .field { display: grid; gap: 6px; }
 .team-shell .field > label { font-size: 12px; color: var(--muted); }
@@ -315,6 +316,9 @@ body:has(.team-shell) > #root { height: 100%; }
 .team-shell .cl[data-kind="remove"] .mark, .team-shell .cl[data-kind="remove"] .src { color: var(--remove-ink); }
 /* --- typography helpers the shell uses instead of inline style props ------------ */
 .team-shell .ui-alert-inline { color: var(--ui-error); font-size: 13px; }
+.team-shell .stack-form { display: grid; gap: 12px; }
+.team-shell .ui-goal-input { height: 96px; padding: 10px 12px; resize: vertical; }
+.team-shell .ui-diff-note { padding: 12px 14px; }
 .team-shell .ui-count-line { margin: 0; font-size: 13px; }
 .team-shell .ui-context-status { margin-top: 2px; font-size: 12px; color: var(--ui-muted); }
 .team-shell .ui-turn-body { white-space: pre-line; overflow-wrap: anywhere; }
@@ -341,8 +345,6 @@ body:has(.team-shell) > #root { height: 100%; }
   .team-shell .chat-log { gap: 16px; padding-top: 12px; }
   .team-shell .plate { padding: 12px 14px; gap: 8px; }
   .team-shell .plate-title { font-size: 17px; }
-  .team-shell .plate-list { gap: 2px; }
-  .team-shell .plate-list li { font-size: 13px; }
   .team-shell .composer { padding-bottom: max(var(--sp-4), env(safe-area-inset-bottom)); }
 
   .team-shell .page { padding: var(--sp-5) var(--sp-4) var(--sp-8); }
@@ -565,6 +567,10 @@ body:has(.team-shell) > #root { height: 100%; }
 .team-shell .ui-footer > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .team-shell .ui-footer > span > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .team-shell .ui-footer svg { width: 12px; height: 12px; flex-shrink: 0; }
+/* Overlay ladder inside the shell's one stacking context (`.team-shell { isolation: isolate }`),
+ * low to high: sheet scrim 30 / sheet 31, dialog overlay 40, docked panels and drawers 41, the
+ * context panel 42, the settings modal 45, the command palette 50-51. Raise a layer only by
+ * adding it here. */
 .team-shell .ui-dialog-overlay { position: fixed; inset: 0; z-index: 40; background: var(--ui-overlay); }
 .team-shell .ui-chat-panel { position: fixed; inset: 0 0 0 auto; z-index: 41; width: min(520px, 100vw); display: flex; flex-direction: column; background: var(--ui-surface); border-left: 1px solid var(--ui-divider); box-shadow: -16px 0 48px var(--ui-shadow); }
 .team-shell .ui-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--ui-divider); }
@@ -1034,9 +1040,10 @@ html[data-desktop="true"] .team-shell .ui-entry-header :is(button, a, input, sel
 .team-shell .ui-document-binding { margin: 16px 0 0; font-size: 13px; }
 .team-shell .ui-document-layout { display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); gap: 20px; margin-top: 20px; align-items: start; }
 .team-shell .ui-document-list { padding: 8px; }
-.team-shell .ui-document-kind { display: grid; gap: 8px; width: 100%; padding: 16px 12px; text-align: left; border: 0; border-radius: 8px; background: transparent; color: inherit; }
-.team-shell .ui-document-kind[aria-pressed="true"] { background: var(--sel); box-shadow: inset 3px 0 var(--accent); }
-.team-shell .ui-document-kind span { font-size: 12px; }
+.team-shell .ui-document-kinds { display: grid; gap: 4px; padding: 0; }
+.team-shell .ui-document-kinds button { display: grid; gap: 8px; width: 100%; padding: 16px 12px; text-align: left; border: 0; border-radius: 8px; background: transparent; color: inherit; }
+.team-shell .ui-document-kinds button[aria-pressed="true"] { background: var(--sel); box-shadow: inset 3px 0 var(--accent); }
+.team-shell .ui-document-kinds button span { font-size: 12px; }
 .team-shell .ui-document-reader { min-width: 0; }
 .team-shell .ui-document-toolbar { align-items: end; }
 .team-shell .ui-document-toolbar label { display: grid; gap: 6px; min-width: 140px; font-size: 12px; flex: 1; }
@@ -1053,7 +1060,8 @@ html[data-desktop="true"] .team-shell .ui-entry-header :is(button, a, input, sel
 @media (max-width: 760px) {
   .team-shell .ui-document-layout { grid-template-columns: minmax(0, 1fr); }
   .team-shell .ui-document-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .team-shell .ui-document-kind { padding: 12px 8px; font-size: 12px; }
+  .team-shell .ui-document-kinds { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .team-shell .ui-document-kinds button { padding: 12px 8px; font-size: 12px; }
   .team-shell .ui-document-comparison { grid-template-columns: minmax(0, 1fr); }
   .team-shell .ui-document-content { max-height: 50vh; }
 }
@@ -1067,7 +1075,7 @@ html[data-desktop="true"] .team-shell .ui-entry-header :is(button, a, input, sel
 .ui-default-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .ui-default-compare pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; margin: 0; }
 .ui-save-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-/* U13 — accept mode, rules and the project inbox reuse the settings and card surfaces. */
+/* Accept mode, rules and the project inbox reuse the settings and card surfaces. */
 .ui-intake-modes { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 16px; }
 .ui-intake-modes legend { margin-bottom: 8px; }
 .team-shell .ui-intake-rule { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--ui-divider-soft); }
