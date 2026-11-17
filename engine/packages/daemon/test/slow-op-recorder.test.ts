@@ -105,6 +105,7 @@ describe("SlowOpRecorder locked instrumentation contract", () => {
     });
     const daemon = await createTestDaemon({
       dbPath: ":memory:",
+      teamControl: { credentials: { ownerToken: "slow-op-crtakgd" } },
       tmuxExec: async () => "",
       cmuxExec: async () => "",
       slowOpRecorder: degraded,

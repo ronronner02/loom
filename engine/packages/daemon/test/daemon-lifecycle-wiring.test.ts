@@ -10,7 +10,7 @@ import { DaemonLifecycleStore } from "../src/domain/daemon-lifecycle-store.js";
 // wiring drop would pass CI silently. This cheap boot-level pin closes that gap.
 describe("P7 wiring pin — startup recordBoot ran at boot", () => {
   it("the lifecycle boot row exists after createDaemon boot (removing the recordBoot call fails HERE)", async () => {
-    const { db } = await createDaemon({ dbPath: ":memory:" });
+    const { db } = await createDaemon({ dbPath: ":memory:", teamControl: { credentials: { ownerToken: "boot-fixture" } } });
     const rec = new DaemonLifecycleStore(db).get();
     expect(rec).not.toBeNull();
     expect(rec!.bootEpoch).toBeTruthy();

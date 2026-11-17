@@ -390,10 +390,15 @@ function storedFailure(json: string | null): { reasonCode: string; resumeSafe: b
 }
 
 export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> {
-  // Direct callers share the same pre-spawn credential boundary as startServer.
-  const ownerToken = process.env.MULTI_AGENT_OWNER_TOKEN?.trim() || null;
-  delete process.env.MULTI_AGENT_OWNER_TOKEN;
-  const teamControl = opts?.teamControl ?? { credentials: { ownerToken } };
+  // The caller names the owner credential, or names none at all. Absence is never filled in from
+  // the environment: `startServer` consumes `MULTI_AGENT_OWNER_TOKEN` before any child starts and
+  // passes the result here, so a second read would only ever see the value it deleted. A daemon
+  // with no owner credential cannot authenticate the owner surface, so it refuses to start.
+  const teamControl = opts?.teamControl ?? { credentials: { ownerToken: null } };
+  if (!teamControl.credentials.ownerToken) {
+    throw new Error("A managed daemon requires an owner credential: pass teamControl.credentials.ownerToken, "
+      + "or start it with MULTI_AGENT_OWNER_TOKEN set.");
+  }
   const daemonHome = os.homedir();
   const configuredCodexHome = process.env.CODEX_HOME || undefined;
   if (configuredCodexHome && !nodePath.isAbsolute(configuredCodexHome)) {
