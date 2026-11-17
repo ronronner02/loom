@@ -3,7 +3,6 @@ import { documentDispatchRefusal } from "./domain/project-documents.js";
 import { managedModelRefusal } from "./domain/team-model-policy.js";
 import { discoverTailscaleSelfNames } from "./middleware/browser-boundary.js";
 import { configureShadowCapture } from "./domain/shadow-capture.js";
-import { queueRecoveryOwnsWake } from "./domain/queue-wake-ladder.js";
 import type { Hono } from "hono";
 import type Database from "better-sqlite3";
 import { openDatabase } from "./db/connection.js";
@@ -24,16 +23,9 @@ import { StreamStore } from "./domain/stream-store.js";
 import { SlowOpRecorder, type SlowOperationInstrumentation } from "./domain/slow-op-recorder.js";
 import { configureSyncSiteRecorder } from "./domain/sync-site-wrap.js";
 import { RequestPhaseObserver } from "./domain/request-phase-observer.js";
-import { QueueRepository, isBlockerLive } from "./domain/queue-repository.js";
+import { QueueRepository } from "./domain/queue-repository.js";
 import { createWorkflowFrontierPredicate } from "./domain/workflow-frontier-guard.js";
-import { OutboxHandler } from "./domain/outbox-handler.js";
-import { WatchdogJobsRepository } from "./domain/watchdog-jobs-repository.js";
-import { WatchdogHistoryLog } from "./domain/watchdog-history-log.js";
-import { WorkflowRuntime, dependencySatisfied } from "./domain/workflow-runtime.js";
-import { resolveWorkflowHumanDestination } from "./domain/workflow-human-destination.js";
-import { makeWorkflowKeepalivePolicy } from "./domain/policies/workflow-keepalive.js";
-import { makeIdleGateQitemPolicy } from "./domain/policies/idle-gate-qitem.js";
-import { makeParkedOwnerConsumerPolicy, makeRigAnchor, PARKED_OWNER_POLICY_NAME } from "./domain/policies/parked-owner-consumer.js";
+import { WorkflowRuntime } from "./domain/workflow-runtime.js";
 // Phase 3a slice 3.3 — plugin discovery service.
 // Slice 28 Checkpoint C-3 — skill-library discovery (SC-29 #11 cumulative).
 import { SettingsStore as ContextPackSettingsStore } from "./domain/user-settings/settings-store.js";
@@ -377,7 +369,7 @@ export function composeSystemHealthReader(dependencies: { db: Database.Database;
   return createSystemHealthReader({
     isolation: "none",
     database: () => ({ state: "ok", evidenceRef: "database:schema_version:" + String(dependencies.db.prepare("PRAGMA schema_version").pluck().get()) }),
-    queueMailbox: () => ({ state: "ok", evidenceRef: "queue:active:" + dependencies.queue.list({ activeOnly: true, compact: true }).length }),
+    queueMailbox: () => ({ state: "ok", evidenceRef: "queue:active:" + dependencies.queue.list({ activeOnly: true }).length }),
     controlTmux: async () => ({ state: "unknown", evidenceRef: "native:direct-child", reason: "terminal_control_removed" }),
     workerBoundary: absent, sandboxNetwork: absent, clients: absent,
     latestAttempts: () => attemptsFromRecords(() => new Date(), (dependencies.db.prepare(`SELECT id, run_id AS runId, provider, state, failure_json AS failureJson FROM team_attempts ORDER BY updated_at DESC, id DESC LIMIT 100`).all() as Array<{ id: string; runId: string; provider: "claude" | "codex"; state: string; failureJson: string | null }>).map(row => ({ id: row.id, runId: row.runId, provider: row.provider, state: row.state, failure: storedFailure(row.failureJson) }))),
@@ -537,24 +529,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     // (same injected-predicate layering — the queue never imports the session domain).
     resolveOccupantGeneration: (sessionName) => sessionRegistry.currentOccupantGenerationForSession(sessionName),
   });
-  // W1 (transactional closure): ONE OutboxHandler shared between the deps slot
-  // (sender-side audit surface) and the queue repo's durable wake-intent
-  // staging. Same `db`, so a stageWakeIntent() call inside a terminal
-  // db.transaction commits atomically with the close + successor create.
-  const outboxHandlerInstance = new OutboxHandler(db);
-  queueRepoInstance.attachOutbox(outboxHandlerInstance);
-  // PL-004 Phase C — watchdog supervision tree. Repository + history-log
-  // are constructed early; the policy engine + scheduler are constructed
-  // after SessionTransport is available so the engine can wire delivery.
-  const watchdogJobsRepoInstance = new WatchdogJobsRepository(
-    db,
-    undefined, // now (default clock)
-    // GHOST-STAGE (e/Class-B): stamp the arming occupant's generation so a swap can drop its armed jobs.
-    (sessionName) => sessionRegistry.currentOccupantGenerationForSession(sessionName),
-  );
-  queueRepoInstance.attachWatchdogJobsRepository(watchdogJobsRepoInstance);
-  const watchdogHistoryLogInstance = new WatchdogHistoryLog(db);
-
   const launchPath = process.env.PATH ?? "";
   const startupSettings = new ContextPackSettingsStore().resolveConfig();
   // One governance owner serves the app and the managed launch chain.
@@ -674,29 +648,15 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     chatRepo: new ChatRepository(db),
     slowOpRecorder,
     queueRepo: queueRepoInstance,
-    outboxHandler: outboxHandlerInstance,
     shadowCapture: shadow.capture,
     shadowCaptureError: shadow.error,
-    watchdogJobsRepo: watchdogJobsRepoInstance,
-    watchdogHistoryLog: watchdogHistoryLogInstance,
     agentActivityStore,
   };
 
-  // PL-004 Phase C — watchdog policy engine + scheduler. Wired here
-  // (after deps construction) so the engine can dispatch deliveries
-  // through the live SessionTransport. Scheduler is started by
-  // index.ts after listen() so the daemon's HTTP surface is ready
-  // before the scheduler's first tick.
-  // PL-004 Phase D — workflow runtime + workflow-keepalive policy.
-  // Workflow runtime is constructed first; then the watchdog policy
-  // engine is constructed with workflow-keepalive injected via
-  // additionalPolicies (orch-ratified Phase D extension point per
-  // slice IMPL § Write Set / § Driver Handoff Contract).
+  // The candidate runtime. It owns where a task's work tree is created and reads
+  // the files a lead and a worker write; nothing here instantiates a workflow.
   const queueRepoForWorkflow = deps.queueRepo;
   let workflowRuntime: WorkflowRuntime | undefined;
-  let workflowExceptionEnsurer:
-    | import("./domain/workflow-exception-escalation.js").EnsureStuckExceptionItem
-    | undefined;
   if (queueRepoForWorkflow) {
     // The runtime owns where a candidate is created. The roots are the daemon's own state
     // tree, so nothing in the launch path ever reads an installed policy.
@@ -744,20 +704,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       },
       onManagedAttemptRetired: (attempt: { runId: string; sessionId: string }) =>
         managedInputs.credentials.retire(attempt.runId, attempt.sessionId),
-      // OPR.0.4.6.WF1 FR-3: instantiate/handoff auto-arm the
-      // per-instance workflow-keepalive job in-txn; terminal disarms.
-      watchdogJobsRepo: watchdogJobsRepoInstance,
-      // OPR.0.4.6.WF5 FR-2: the maturity dial — host default read LIVE
-      // per exception from the settings twin (dial flips affect future
-      // items only, never retroactive re-routing).
-      exceptionDial: {
-        hostDefault: () => {
-          const v = new ContextPackSettingsStore().resolveOne("workflow.exception_routing")
-            .value as string | undefined;
-          return v === "orchestrator" || v === "human_only" ? v : null;
-        },
-        humanFallbackSeat: resolveWorkflowHumanDestination,
-      },
     });
     deps.workflowRuntime = workflowRuntime;
     // U7 — the run's integration branch. The worktree root is the one U5's plan worktree lives
@@ -792,22 +738,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       owners: () => ({ chat: deps.chatRepo, delivery: deps.mailboxDelivery }),
       roots: rootsNow,
     }) : undefined;
-
-    // OPR.0.4.6.WF5 FR-2 class (b): the shared detection-time exception
-    // ensurer — sweep + keepalive both call it; dedup by occurrence tags.
-    {
-      const { makeEnsureStuckExceptionItem } = await import(
-        "./domain/workflow-exception-escalation.js"
-      );
-      workflowExceptionEnsurer = makeEnsureStuckExceptionItem({
-        db,
-        queueRepo: queueRepoForWorkflow,
-        resolveRoute: (name, version, cls, boundRig) =>
-          workflowRuntime!.resolveExceptionRouteFor(name, version, cls, boundRig),
-        humanFallbackSeat: resolveWorkflowHumanDestination,
-        log: (line) => console.log(line),
-      });
-    }
   }
 
   deps.legacyBearerToken = opts?.bearerToken ?? null;
@@ -824,9 +754,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const { DefaultOccupantInvalidator } = await import("./domain/occupant-invalidator.js");
   deps.occupantInvalidator = new DefaultOccupantInvalidator({
     enforcer: { invalidateOccupant: () => {} },
-    // (e/Class-B) watchdog store — armed jobs registered by the retiring generation stop at swap.
-    watchdog: watchdogJobsRepoInstance,
-    // (e/Class-B) queue store — in-progress items claimed by the retiring generation release to pending.
+    // In-progress items claimed by the retiring generation release to pending.
     queue: queueRepoInstance,
     log: (msg) => console.warn(msg),
   });

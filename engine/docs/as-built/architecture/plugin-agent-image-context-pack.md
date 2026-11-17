@@ -143,8 +143,7 @@ are distinct steps; see [agent-spec-and-startup.md](agent-spec-and-startup.md) f
 ## Claude guided compaction
 
 `packages/daemon/src/domain/claude-compaction-enforcer.ts` implements
-`ClaudeCompactionEnforcer`. Startup shares one instance between `ContextMonitor`
-and the manual-compaction route consumers.
+`ClaudeCompactionEnforcer`, which the compaction routes consume.
 `packages/daemon/src/domain/user-settings/settings-store.ts` resolves the
 `policies.claude_compaction.*` settings; automatic compaction defaults to disabled.
 
@@ -170,8 +169,8 @@ already-triggered latch; an active manual attempt also blocks it.
 4. The continuation then runs below the threshold: turn boundary, restore prompt, then a
    read-depth audit prompt (each item marked `FULL`, `PARTIAL` or `NOT_READ`), one stage per
    poll tick. A seat refreshes its usage sample only when it takes a turn, so when the sample is
-   stale, unknown or has no percentage and a stage is pending, the monitor drains that stage
-   without one (`context-monitor.ts:175`, `claude-compaction-enforcer.ts:436`). Only a fresh,
+   stale, unknown or has no percentage and a stage is pending, the drain runs without one
+   (`claude-compaction-enforcer.ts:436`). Only a fresh,
    known sample can start a compaction. The sample-less drain reads readiness from the pane alone
    and counts a timer-less live status row, such as `✻ Compacting conversation…`, as work
    (`session-transport.ts:153-161`); a recent hook showing work or a waiting person still

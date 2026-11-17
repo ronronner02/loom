@@ -171,27 +171,6 @@ export interface MultiAgentConfig {
   provider: {
     usageWindows: boolean;
   };
-  // OPR.0.4.6.FS-1 W2 — queue-retention maintenance knobs (twin of the daemon
-  // settings-store): enabled + the four bounded numeric tunables.
-  retention: {
-    enabled: boolean;
-    transitionsDays: number;
-    watchdogDays: number;
-    watchdogKeepPerJob: number;
-    batchSize: number;
-  };
-  // S04 (OPR.0.5.5.4) — pickup-receipt stall threshold (twin of the daemon settings-store).
-  // S02 (OPR.0.5.5.2) — standing-stuck-sweep cadence + unclaimed-obligation age (same twin).
-  queue: {
-    pickupStallThresholdMinutes: number;
-    stuckSweepIntervalSeconds: number;
-    stuckSweepUnclaimedAgeMinutes: number;
-    wakeRetryIntervalSeconds: number;
-    wakeRetryCap: number;
-    wakeUnconfirmedWindowMinutes: number;
-    wakeSwapGraceSeconds: number;
-    wakeHumanRung: string;
-  };
 }
 
 const DEFAULT_WORKSPACE_ROOT = getStatePath("workspace");
@@ -319,25 +298,6 @@ const DEFAULTS = {
   provider: {
     usageWindows: false,
   },
-  // OPR.0.4.6.FS-1 W2 — retention defaults (twin of daemon getDefaultValue).
-  retention: {
-    enabled: true,
-    transitionsDays: 30,
-    watchdogDays: 14,
-    watchdogKeepPerJob: 50,
-    batchSize: 500,
-  },
-  // S04 — pickup-receipt stall threshold default (twin of daemon getDefaultValue).
-  queue: {
-    pickupStallThresholdMinutes: 3,
-    stuckSweepIntervalSeconds: 300,
-    stuckSweepUnclaimedAgeMinutes: 60,
-    wakeRetryIntervalSeconds: 300,
-    wakeRetryCap: 3,
-    wakeUnconfirmedWindowMinutes: 30,
-    wakeSwapGraceSeconds: 180,
-    wakeHumanRung: "always",
-  },
   team: { leadClient: "claude-code", maxSeats: 6, maxConcurrentAgents: 3 },
 } as const;
 
@@ -433,27 +393,6 @@ export const VALID_KEYS = [
   "output.compact",
   // Slice 01 — Codex usage windows in the provider view; lockstep with the daemon twin.
   "provider.usage_windows",
-  // OPR.0.4.6.FS-1 W2 — queue-retention maintenance knobs; CLI-settable twin,
-  // lockstep with the daemon settings-store SETTINGS_VALID_KEYS.
-  "retention.enabled",
-  "retention.transitions_days",
-  "retention.watchdog_days",
-  "retention.watchdog_keep_per_job",
-  "retention.batch_size",
-  // S04 — pickup-receipt stall threshold; lockstep with the daemon settings-store twin.
-  "queue.pickup_stall_threshold_minutes",
-  // S02 — standing-stuck-sweep cadence + unclaimed-obligation age; same lockstep.
-  "queue.stuck_sweep_interval_seconds",
-  "queue.stuck_sweep_unclaimed_age_minutes",
-  // S01 — wake-or-escalate ladder: retry cadence + cap, F1 window, F2 swap grace.
-  "queue.wake_retry_interval_seconds",
-  "queue.wake_retry_cap",
-  "queue.wake_unconfirmed_window_minutes",
-  "queue.wake_swap_grace_seconds",
-  // #811 — whether the operator rung posts agent-to-agent escalations to a person.
-  // Under explicit-only, an ask that needs a person must be addressed to the person;
-  // without a human registry, explicit-only posts everything, as always does.
-  "queue.wake_human_rung",
   "team.leadClient",
   "team.maxSeats",
   "team.maxConcurrentAgents",
@@ -528,20 +467,6 @@ export const ENV_MAP: Partial<Record<ValidKey, { primary: string }>> = {
   "snapshots.periodic.retention_keep": { primary: "MULTI_AGENT_SNAPSHOTS_PERIODIC_RETENTION_KEEP" },
   "output.compact": { primary: "MULTI_AGENT_OUTPUT_COMPACT" },
   "provider.usage_windows": { primary: "MULTI_AGENT_PROVIDER_USAGE_WINDOWS" },
-  // OPR.0.4.6.FS-1 W2 — retention knobs; net-new keys, MULTI_AGENT_* primary only.
-  "retention.enabled": { primary: "MULTI_AGENT_RETENTION_ENABLED" },
-  "retention.transitions_days": { primary: "MULTI_AGENT_RETENTION_TRANSITIONS_DAYS" },
-  "retention.watchdog_days": { primary: "MULTI_AGENT_RETENTION_WATCHDOG_DAYS" },
-  "retention.watchdog_keep_per_job": { primary: "MULTI_AGENT_RETENTION_WATCHDOG_KEEP_PER_JOB" },
-  "retention.batch_size": { primary: "MULTI_AGENT_RETENTION_BATCH_SIZE" },
-  "queue.pickup_stall_threshold_minutes": { primary: "MULTI_AGENT_QUEUE_PICKUP_STALL_THRESHOLD_MINUTES" },
-  "queue.stuck_sweep_interval_seconds": { primary: "MULTI_AGENT_QUEUE_STUCK_SWEEP_INTERVAL_SECONDS" },
-  "queue.stuck_sweep_unclaimed_age_minutes": { primary: "MULTI_AGENT_QUEUE_STUCK_SWEEP_UNCLAIMED_AGE_MINUTES" },
-  "queue.wake_retry_interval_seconds": { primary: "MULTI_AGENT_QUEUE_WAKE_RETRY_INTERVAL_SECONDS" },
-  "queue.wake_retry_cap": { primary: "MULTI_AGENT_QUEUE_WAKE_RETRY_CAP" },
-  "queue.wake_unconfirmed_window_minutes": { primary: "MULTI_AGENT_QUEUE_WAKE_UNCONFIRMED_WINDOW_MINUTES" },
-  "queue.wake_swap_grace_seconds": { primary: "MULTI_AGENT_QUEUE_WAKE_SWAP_GRACE_SECONDS" },
-  "queue.wake_human_rung": { primary: "MULTI_AGENT_QUEUE_WAKE_HUMAN_RUNG" },
   "team.leadClient": { primary: "MULTI_AGENT_TEAM_LEAD_CLIENT" },
   "team.maxSeats": { primary: "MULTI_AGENT_TEAM_MAX_SEATS" },
   "team.maxConcurrentAgents": { primary: "MULTI_AGENT_TEAM_MAX_CONCURRENT_AGENTS" },
@@ -614,19 +539,6 @@ const KEY_TO_PATH: Record<ValidKey, string[]> = {
   "snapshots.periodic.retention_keep": ["snapshots", "periodic", "retentionKeep"],
   "output.compact": ["output", "compact"],
   "provider.usage_windows": ["provider", "usageWindows"],
-  "retention.enabled": ["retention", "enabled"],
-  "retention.transitions_days": ["retention", "transitionsDays"],
-  "retention.watchdog_days": ["retention", "watchdogDays"],
-  "retention.watchdog_keep_per_job": ["retention", "watchdogKeepPerJob"],
-  "retention.batch_size": ["retention", "batchSize"],
-  "queue.pickup_stall_threshold_minutes": ["queue", "pickupStallThresholdMinutes"],
-  "queue.stuck_sweep_interval_seconds": ["queue", "stuckSweepIntervalSeconds"],
-  "queue.stuck_sweep_unclaimed_age_minutes": ["queue", "stuckSweepUnclaimedAgeMinutes"],
-  "queue.wake_retry_interval_seconds": ["queue", "wakeRetryIntervalSeconds"],
-  "queue.wake_retry_cap": ["queue", "wakeRetryCap"],
-  "queue.wake_unconfirmed_window_minutes": ["queue", "wakeUnconfirmedWindowMinutes"],
-  "queue.wake_swap_grace_seconds": ["queue", "wakeSwapGraceSeconds"],
-  "queue.wake_human_rung": ["queue", "wakeHumanRung"],
   "team.leadClient": ["team", "leadClient"],
   "team.maxSeats": ["team", "maxSeats"],
   "team.maxConcurrentAgents": ["team", "maxConcurrentAgents"],
@@ -816,12 +728,6 @@ function positiveIntegerConstraint(key: string) {
   };
 }
 
-function wakeHumanRungConstraint(raw: string): void {
-  if (raw !== "always" && raw !== "explicit-only") {
-    throw new Error(`Invalid value for queue.wake_human_rung: must be "always" or "explicit-only", got "${raw}"`);
-  }
-}
-
 function percentageConstraint(key: string) {
   return (raw: string, coerced: string | number | boolean): void => {
     if (!/^\d+$/.test((raw ?? "").trim())
@@ -937,38 +843,6 @@ const KEY_CONSTRAINTS: Partial<Record<ValidKey, (raw: string, coerced: string | 
       );
     }
   },
-  // OPR.0.4.6.FS-1 W2 — retention numeric bounds. Lockstep with the daemon
-  // settings-store KEY_CONSTRAINTS twin (same messages/bounds). retention.enabled
-  // is a boolean (coerceValue enforces true/false) — no constraint entry.
-  "retention.transitions_days": (raw, coerced) => {
-    if (!/^-?\d+$/.test((raw ?? "").trim()) || typeof coerced !== "number" || !Number.isInteger(coerced) || coerced < 1) {
-      throw new Error(`Invalid value for retention.transitions_days: must be an integer >= 1, got "${raw}"`);
-    }
-  },
-  "retention.watchdog_days": (raw, coerced) => {
-    if (!/^-?\d+$/.test((raw ?? "").trim()) || typeof coerced !== "number" || !Number.isInteger(coerced) || coerced < 1) {
-      throw new Error(`Invalid value for retention.watchdog_days: must be an integer >= 1, got "${raw}"`);
-    }
-  },
-  "retention.watchdog_keep_per_job": (raw, coerced) => {
-    if (!/^-?\d+$/.test((raw ?? "").trim()) || typeof coerced !== "number" || !Number.isInteger(coerced) || coerced < 0) {
-      throw new Error(`Invalid value for retention.watchdog_keep_per_job: must be an integer >= 0, got "${raw}"`);
-    }
-  },
-  "retention.batch_size": (raw, coerced) => {
-    if (!/^-?\d+$/.test((raw ?? "").trim()) || typeof coerced !== "number" || !Number.isInteger(coerced) || coerced < 1) {
-      throw new Error(`Invalid value for retention.batch_size: must be an integer >= 1, got "${raw}"`);
-    }
-  },
-  "queue.pickup_stall_threshold_minutes": positiveIntegerConstraint("queue.pickup_stall_threshold_minutes"),
-  "queue.stuck_sweep_interval_seconds": positiveIntegerConstraint("queue.stuck_sweep_interval_seconds"),
-  "queue.stuck_sweep_unclaimed_age_minutes": positiveIntegerConstraint("queue.stuck_sweep_unclaimed_age_minutes"),
-  // S01 — wake-or-escalate ladder knobs (same positive-integer contract).
-  "queue.wake_retry_interval_seconds": positiveIntegerConstraint("queue.wake_retry_interval_seconds"),
-  "queue.wake_retry_cap": positiveIntegerConstraint("queue.wake_retry_cap"),
-  "queue.wake_unconfirmed_window_minutes": positiveIntegerConstraint("queue.wake_unconfirmed_window_minutes"),
-  "queue.wake_swap_grace_seconds": positiveIntegerConstraint("queue.wake_swap_grace_seconds"),
-  "queue.wake_human_rung": wakeHumanRungConstraint,
   "team.maxSeats": positiveIntegerConstraint("team.maxSeats"),
   "team.maxConcurrentAgents": (raw, coerced) => {
     positiveIntegerConstraint("team.maxConcurrentAgents")(raw, coerced);
@@ -1186,23 +1060,6 @@ export class ConfigStore {
       },
       provider: {
         usageWindows: v("provider.usage_windows") as boolean,
-      },
-      retention: {
-        enabled: v("retention.enabled") as boolean,
-        transitionsDays: v("retention.transitions_days") as number,
-        watchdogDays: v("retention.watchdog_days") as number,
-        watchdogKeepPerJob: v("retention.watchdog_keep_per_job") as number,
-        batchSize: v("retention.batch_size") as number,
-      },
-      queue: {
-        pickupStallThresholdMinutes: v("queue.pickup_stall_threshold_minutes") as number,
-        stuckSweepIntervalSeconds: v("queue.stuck_sweep_interval_seconds") as number,
-        stuckSweepUnclaimedAgeMinutes: v("queue.stuck_sweep_unclaimed_age_minutes") as number,
-        wakeRetryIntervalSeconds: v("queue.wake_retry_interval_seconds") as number,
-        wakeRetryCap: v("queue.wake_retry_cap") as number,
-        wakeUnconfirmedWindowMinutes: v("queue.wake_unconfirmed_window_minutes") as number,
-        wakeSwapGraceSeconds: v("queue.wake_swap_grace_seconds") as number,
-        wakeHumanRung: v("queue.wake_human_rung") as string,
       },
     };
   }

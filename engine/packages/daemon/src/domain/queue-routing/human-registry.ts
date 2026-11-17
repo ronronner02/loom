@@ -19,7 +19,6 @@ import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, readdir
 import { join, dirname } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { getMultiAgentHome } from "../../data-paths.js";
-import { DispatchBuffer } from "./dispatch-buffer.js";
 import { parseSessionName } from "../session-name.js";
 
 // ── Schema (closed enums; extend only additively behind the contract) ──
@@ -392,7 +391,7 @@ export function addHumanFragment(
 
 /** One in-flight item standing between a human and a clean remove. The registry does not
  *  own the sources (queue rows live behind the daemon; conversations in the dispatch
- *  buffer) — callers assemble the list; `pendingConversationsFor` covers the buffer half. */
+ *  — callers assemble the list. */
 export interface InflightItem {
   kind: "open-conversation" | "queue-row";
   id: string;
@@ -688,21 +687,6 @@ export function removeHumanFragment(
   if (!proj.ok) return { ok: false, error: `fragment archived to ${archivedPath} but re-projection failed: ${proj.error}` };
   const base = { ok: true as const, removed: entityId, archivedPath };
   return orphanRecordPath !== undefined ? { ...base, orphanRecordPath } : base;
-}
-
-/** The dispatch-buffer half of the remove guard: un-Acked outbound decisions bound to this
- *  entity are open conversations. Match rule (documented, not guessed): entityBindingRef equal
- *  to the entityId, equal to its registered address, or prefixed "<entityId>:". */
-export function pendingConversationsFor(entityId: string, home: string = getMultiAgentHome()): InflightItem[] {
-  const address = `${entityId}@${ADDRESS_DOMAIN}`;
-  return new DispatchBuffer(home)
-    .pending()
-    .filter((d) => d.entityBindingRef === entityId || d.entityBindingRef === address || d.entityBindingRef.startsWith(`${entityId}:`))
-    .map((d) => ({
-      kind: "open-conversation" as const,
-      id: d.decisionId,
-      detail: `undelivered outbound decision ${d.decisionId} (op ${d.op}, binding ${d.entityBindingRef})`,
-    }));
 }
 
 export type LoadResult =

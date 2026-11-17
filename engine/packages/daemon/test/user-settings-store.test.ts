@@ -193,23 +193,6 @@ describe("SettingsStore (User Settings v0)", () => {
       "output.compact",
       // Slice 01 (OPR.0.7.0.1) — Codex usage windows switch.
       "provider.usage_windows",
-      // OPR.0.4.6.FS-1 W2 — queue-retention maintenance knobs.
-      "retention.enabled",
-      "retention.transitions_days",
-      "retention.watchdog_days",
-      "retention.usage_samples_days", // 51-08 A2 (plan-lock rev-1): the PM-ruled 14d telemetry window
-      "retention.watchdog_keep_per_job",
-      "retention.batch_size",
-      "queue.pickup_stall_threshold_minutes",
-      // S02 — standing-stuck-sweep cadence + unclaimed-obligation age.
-      "queue.stuck_sweep_interval_seconds",
-      "queue.stuck_sweep_unclaimed_age_minutes",
-      // S01 — wake-or-escalate ladder knobs.
-      "queue.wake_retry_interval_seconds",
-      "queue.wake_retry_cap",
-      "queue.wake_unconfirmed_window_minutes",
-      "queue.wake_swap_grace_seconds",
-      "queue.wake_human_rung",
       "team.leadClient",
       "team.maxSeats",
       "team.maxConcurrentAgents",
@@ -348,20 +331,6 @@ describe("SettingsStore (User Settings v0)", () => {
       expect(stderr).toHaveBeenCalledWith(expect.stringContaining("env override for runtime.readiness_timeout_seconds rejected"));
     } finally {
       stderr.mockRestore();
-    }
-  });
-
-  it("queue integer settings reject partial and fractional strings", () => {
-    const store = new SettingsStore(configPath);
-    for (const key of [
-      "queue.pickup_stall_threshold_minutes",
-      "queue.stuck_sweep_interval_seconds",
-      "queue.stuck_sweep_unclaimed_age_minutes",
-    ]) {
-      for (const raw of ["3junk", "60.5"]) {
-        expect(() => store.set(key, raw), `${key} must reject ${raw}`)
-          .toThrow(/positive integer/i);
-      }
     }
   });
 

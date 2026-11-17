@@ -72,16 +72,6 @@ describe("51-09 incr 4b — destination-host teaching refusal (injected topology
     expect(err.meta).toBeUndefined(); // additive teaching ONLY for '@'-containing rig tokens
   });
 
-  it("RED4 (C2 one helper): a cross-host HANDOFF verb emits the SAME teaching (all four refusal sites via one helper)", async () => {
-    const s = setup(); db = s.db;
-    const src = await s.repo.create({ sourceSession: "orch@known-rig", destinationSession: "seat@known-rig", body: "hi", priority: "routine" });
-    const errHandoff = await refusalFrom(() => s.repo.handoff({ qitemId: src.qitemId, fromSession: "orch@known-rig", toSession: "seat@unknown@vps-b" }));
-    expect(errHandoff.code).toBe("unknown_destination_rig");
-    expect(String(errHandoff.meta?.["hint"])).toContain("--host vps-b");
-    const errHac = await refusalFrom(() => s.repo.handoffAndComplete({ qitemId: src.qitemId, fromSession: "orch@known-rig", toSession: "seat@unknown@vps-b" }));
-    expect(errHac.code).toBe("unknown_destination_rig");
-    expect(String(errHac.meta?.["hint"])).toContain("--host vps-b");
-  });
 
   it("RED5 (C5 honest scope): a 2-part SAME-NAME destination still validates + mints — NOT killed at this gate (closes only via --host / incr-3)", async () => {
     const s = setup(); db = s.db;

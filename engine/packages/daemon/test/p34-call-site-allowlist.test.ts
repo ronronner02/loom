@@ -47,9 +47,9 @@ import { join } from "node:path";
 //
 // Rev 1's counts were also simply wrong, which is its own evidence: it matched
 // `.updateWithinTransaction(` including comment lines, reporting 4/3/2 where the
-// real code holds 4/2/2 and queue-repository holds ZERO (line 1711 is the
-// declaration). A guard whose measurement is off by a comment is not measuring
-// the constraint.
+// real code holds 13 and queue-repository holds ZERO (it defines the primitive
+// and reaches its own write path through the private method). A guard whose
+// measurement is off by a comment is not measuring the constraint.
 
 /** Which case each sanctioned caller is, and how many call sites it may hold. The
  *  label is the point: adding a writer means stating what it does, not just
@@ -58,14 +58,6 @@ const SANCTIONED: Record<string, { sites: number; why: string }> = {
   "domain/plan-governance.ts": {
     sites: 13,
     why: "governance-owned task transitions, each joining queue state, authority evidence and events in one post-commit notification envelope: writeTaskTransition (the owner-observed transition); ownerCommand's counted retry reopen; startRework's reopen on a blocking review (C2); cancelOpenTasks' terminal cancel (T017); startLeadRevision's reopen on a rejected lead proposal (C3); approvePlan's reopen after the owner approves the plan (U5); postChatMessage's reopen when the owner's message finds the lead task closed (U5); reopenLeadTask's reopen for a refused proposal or a team-event wake (U6); writeTaskTransition's reopen before an integration_conflict close (U7); writeTaskTransition's daemon counted retry after a retry-eligible observation (KTD3); reopenFailedLeadTask's reopen when Resume restarts a failed lead (U6); admitLeadProposal's resolution of a paused worker report without widening source permissions (U11); postTaskComment's resume of a blocked or failed task when the owner comments on it (attention plan R7)",
-  },
-  "domain/workflow-projector.ts": {
-    sites: 4,
-    why: "legacy terminal close + gate park; dependency-graph packet close + dependency-graph gate park (parallel successors remain in the same transaction)",
-  },
-  "domain/workflow-runtime.ts": {
-    sites: 6,
-    why: "entry-gate park; explicit abort closes every live packet; no-successor exception close; packet-addressed route close; route re-park; reconcileStuckExceptions closes only recovered overdue occurrences with no-follow-on (59d252f6; workflow-exception-stuck.test.ts)",
   },
 };
 
@@ -165,6 +157,7 @@ function realCorpus(): Corpus[] {
 }
 
 const TOTAL_SITES = Object.values(SANCTIONED).reduce((n, e) => n + e.sites, 0);
+const SANCTIONED_FILE = "domain/plan-governance.ts";
 
 /** Rev 1's semantics, kept ONLY as a negative control: sanction filenames, count
  *  FILES. review-r2's HIGH-1 is that this cannot fail for a call added inside an
@@ -184,7 +177,7 @@ function checkFileGranular(corpus: Corpus[]): { violations: string[]; examined: 
  *  exact shape rev 1 could not see. */
 function corpusWithExtraCallInSanctionedFile(): Corpus[] {
   const corpus = realCorpus();
-  const target = corpus.find((c) => c.path === "domain/workflow-projector.ts");
+  const target = corpus.find((c) => c.path === SANCTIONED_FILE);
   if (!target) throw new Error("fixture precondition failed: sanctioned file not in corpus");
   return corpus.map((c) =>
     c === target
@@ -202,16 +195,16 @@ describe("P34 RED 3 — the enumeration guard (rev 2: call-site granularity)", (
   it("the LIVE corpus matches the sanctioned set exactly, by CALL SITE", () => {
     const result = checkCallSites(realCorpus(), SANCTIONED);
     expect(result.violations).toEqual([]);
-    // Counts SITES, not files. 23 sites across 3 files.
+    // Counts SITES, not files.
     expect(result.examined).toBe(TOTAL_SITES);
-    expect(result.examined).toBe(23);
+    expect(result.examined).toBe(13);
     expect(result.vacuous).toBe(false);
   });
 
   it("HIGH-1: FIRES BY NAME on a call added inside an ALREADY-SANCTIONED file", () => {
     const result = checkCallSites(corpusWithExtraCallInSanctionedFile(), SANCTIONED);
     expect(result.violations).toEqual([
-      "count-mismatch:domain/workflow-projector.ts (sanctioned 4, found 5)",
+      "count-mismatch:domain/plan-governance.ts (sanctioned 13, found 14)",
     ]);
   });
 
@@ -260,7 +253,7 @@ describe("P34 RED 3 — the enumeration guard (rev 2: call-site granularity)", (
 
   it("does NOT count comment mentions — a doc reference is not a call site", () => {
     const corpus = realCorpus().map((c) =>
-      c.path === "domain/workflow-projector.ts"
+      c.path === SANCTIONED_FILE
         ? { ...c, content: c.content + "\n// see QueueRepository.updateWithinTransaction for the contract\n" }
         : c,
     );
@@ -270,24 +263,24 @@ describe("P34 RED 3 — the enumeration guard (rev 2: call-site granularity)", (
 
   it("FIRES on list ROT — a sanctioned file that no longer calls the primitive", () => {
     const corpus = realCorpus().map((c) =>
-      c.path === "domain/workflow-projector.ts"
+      c.path === SANCTIONED_FILE
         ? { ...c, content: c.content.split(".updateWithinTransaction(").join(".somethingElse(") }
         : c,
     );
     expect(checkCallSites(corpus, SANCTIONED).violations).toEqual([
-      "stale-entry:domain/workflow-projector.ts (sanctioned for 4, holds 0)",
+      "stale-entry:domain/plan-governance.ts (sanctioned for 13, holds 0)",
     ]);
   });
 
   it("a near-miss filename does not inherit a sanction — the allowlist is per-path", () => {
     const corpus = [
       {
-        path: "domain/workflow-projector-v2.ts",
+        path: "domain/plan-governance-v2.ts",
         content: `this.queueRepo.updateWithinTransaction({ state: "done" });`,
       },
     ];
     expect(checkCallSites(corpus, SANCTIONED).violations).toEqual([
-      "unsanctioned-file:domain/workflow-projector-v2.ts (1 call site)",
+      "unsanctioned-file:domain/plan-governance-v2.ts (1 call site)",
     ]);
   });
 });
@@ -308,6 +301,6 @@ describe("P34 RED 5 — KNOWN-NEGATIVE: a guard that examines nothing must FAIL"
   it("the LIVE run is NOT vacuous and examined the expected number of SITES", () => {
     const live = checkCallSites(realCorpus(), SANCTIONED);
     expect(live.vacuous).toBe(false);
-    expect(live.examined).toBe(23);
+    expect(live.examined).toBe(TOTAL_SITES);
   });
 });

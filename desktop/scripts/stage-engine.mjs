@@ -8,7 +8,6 @@
 //
 //   resources/engine/packages/daemon/dist/index.js   the importable daemon
 //   resources/engine/packages/daemon/assets/**       daemon asset files
-//   resources/engine/packages/daemon/dist/builtins/** built-in workflow specs
 //   resources/engine/packages/daemon/specs/**        shipped kernel rigs and agents
 //   resources/engine/packages/ui/dist/**             the Web UI the daemon serves
 //   resources/engine/config/**                       team instructions and governance policies
@@ -30,7 +29,7 @@ const RESOURCES_ROOT = path.join(DESKTOP_ROOT, 'resources', 'engine');
 
 /** The engine trees that must exist in a build, relative to `engine/`. */
 const ENGINE_TREES = [
-  ['packages/daemon/dist', 'the daemon build (npm run build -w packages/daemon), which carries builtins/workflow-specs'],
+  ['packages/daemon/dist', 'the daemon build (npm run build -w packages/daemon)'],
   ['packages/daemon/assets', 'daemon asset files read at runtime'],
   ['packages/daemon/specs', 'shipped kernel rigs, agents and startup files'],
   ['packages/ui/dist', 'the Web UI build (npm run build -w packages/ui)'],
@@ -163,7 +162,6 @@ function assertLayout() {
   const required = [
     'packages/daemon/dist/index.js',
     'packages/daemon/package.json',
-    'packages/daemon/dist/builtins/workflow-specs/basic-loop.yaml',
     'packages/ui/dist/index.html',
     'config/team/core.md',
     'config/team/lead-protocol.md',
