@@ -18,6 +18,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { pathToFileURL } = require('node:url');
 
 const DESKTOP_ROOT = path.resolve(__dirname, '..');
 const RESOURCES_ROOT = path.join(DESKTOP_ROOT, 'resources');
@@ -35,6 +36,13 @@ function staged() {
 const skipReason = !staged() ? 'resources/engine is not staged; run npm run stage first'
   : !fs.existsSync(ELECTRON_BINARY) ? 'the Electron binary is not installed; run npm ci in desktop'
     : false;
+
+/**
+ * The bundled gh.exe is fetched from the network by its own staging script, so a job that stages
+ * only the engine leaves it absent. Its tests skip on that fact by name rather than failing.
+ */
+const ghSkipReason = skipReason || (!fs.existsSync(path.join(ENGINE_ROOT, 'plugins', 'github-cli', 'gh.exe'))
+  ? 'the bundled gh.exe is not staged; run node scripts/stage-gh.mjs' : false);
 
 /** A scratch directory under the run's own temp root, removed when the probe returns. */
 function scratch() {
@@ -81,10 +89,10 @@ test('the packaged engine loads better-sqlite3 and the daemon from resources/eng
   fs.rmSync(databaseRoot, { recursive: true, force: true });
 });
 
-test('the staged tree carries the files the daemon resolves from its own module URL', () => {
-  if (skipReason) return;
+test('the staged tree carries the files the daemon resolves from its own module URL', { skip: skipReason }, () => {
   const required = [
     'packages/daemon/dist/index.js',
+    'packages/daemon/dist/build-info.js',
     'packages/daemon/dist/builtins/workflow-specs/basic-loop.yaml',
     'packages/daemon/assets/claude-team-permissions.cjs',
     'packages/daemon/specs/agents',
@@ -95,9 +103,20 @@ test('the staged tree carries the files the daemon resolves from its own module 
     'config/team/sections/scope.md',
     'config/governance/credential-exclusions.json',
     'config/governance/low-risk-dev-dependencies.json',
-    'plugins/github-cli/gh.exe',
   ];
   for (const entry of required) assert.ok(fs.existsSync(path.join(ENGINE_ROOT, entry)), `resources/engine/${entry} ships`);
+  if (!ghSkipReason) assert.ok(fs.existsSync(path.join(ENGINE_ROOT, 'plugins/github-cli/gh.exe')), 'resources/engine/plugins/github-cli/gh.exe ships');
+});
+
+test('the staged build carries a real identity for /healthz', async () => {
+  if (skipReason) return;
+  const moduleUrl = pathToFileURL(path.join(ENGINE_ROOT, 'packages', 'daemon', 'dist', 'build-info.js')).href;
+  const { BUILD_INFO, stampFields } = await import(moduleUrl);
+  assert.equal(BUILD_INFO.semver, JSON.parse(fs.readFileSync(path.join(DESKTOP_ROOT, 'package.json'), 'utf8')).version,
+    'the staged stamp names the shipped desktop version');
+  assert.match(String(BUILD_INFO.commit), /^[a-f0-9]{40}$/, 'the staged stamp names the engine commit');
+  assert.deepEqual(Object.keys(stampFields()).sort(), ['builtAt', 'commit', 'dirty', 'semver'],
+    'the installed daemon reports an identity instead of the dev stub');
 });
 
 test('the staged tree carries no checkout-only weight', () => {
@@ -112,7 +131,7 @@ test('the staged tree carries no checkout-only weight', () => {
   assert.deepEqual(prebuilds, ['win32-x64.node'], 'only the shipped target prebuild is staged');
 });
 
-test('the packaged daemon resolves the bundled gh.exe from its own module location', { skip: skipReason, timeout: 120_000 }, () => {
+test('the packaged daemon resolves the bundled gh.exe from its own module location', { skip: ghSkipReason, timeout: 120_000 }, () => {
   const stdout = execFileSync(ELECTRON_BINARY, [GH_PROBE, ENGINE_ROOT], {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
     encoding: 'utf8', timeout: 100_000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
