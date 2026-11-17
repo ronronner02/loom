@@ -23,7 +23,7 @@ describe("OPR.0.4.3.21 — /healthz enrichment", () => {
     const { app } = createTestApp(db);
     const res = await app.request("/healthz");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: "ok", pid: process.pid });
+    expect(await res.json()).toEqual({ status: "ok", pid: process.pid, runningAttempts: 0 });
     db.close();
   });
 
@@ -47,6 +47,32 @@ describe("OPR.0.4.3.21 — /healthz enrichment", () => {
     expect(typeof body.eventLoop.lastTickAgeMs).toBe("number");
     expect(typeof body.eventLoop.healthy).toBe("boolean");
     expect(body.routeTimings).toBeTypeOf("object");
+
+    monitor.stop();
+    db.close();
+  });
+
+  // The desktop's close confirmation reads this field: when it is absent the dialog claims
+  // agents may be running. Production always wires the monitor, so the count must survive it.
+  it("reports the running attempt count with the monitor wired", async () => {
+    const db = createFullTestDb();
+    const monitor = new EventLoopMonitor();
+    const { app } = createTestApp(db, { eventLoopMonitor: monitor, routeTimingRecorder: new RouteTimingRecorder() });
+
+    const idle = (await (await app.request("/healthz")).json()) as { runningAttempts?: number };
+    expect(idle.runningAttempts).toBe(0);
+
+    db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'fixture')").run();
+    db.prepare(`INSERT INTO team_runs (id, rig_id, binding_json, binding_digest, state, created_at, updated_at)
+      VALUES ('run', 'rig', '{}', 'digest', 'approved', '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z')`).run();
+    for (const [id, state] of [["attempt-1", "running"], ["attempt-2", "stopped"]] as const) {
+      db.prepare(`INSERT INTO team_attempts (id, run_id, role, provider, state, identity_json, usage_json, active_ms, created_at, updated_at)
+        VALUES (?, 'run', 'implementer', 'claude', ?, '{}', '{}', 0, '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z')`)
+        .run(id, state);
+    }
+
+    const busy = (await (await app.request("/healthz")).json()) as { runningAttempts?: number };
+    expect(busy.runningAttempts).toBe(1);
 
     monitor.stop();
     db.close();
