@@ -6,6 +6,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { rewriteDaemonImports } from "./rewrite-daemon-imports.mjs";
+import { supportsSymlinks } from "./platform-commands.mjs";
+
+const noSymlinks = supportsSymlinks() ? false : "this machine cannot create symlinks";
 
 // A miniature staged CLI package: daemon exports map, staged daemon/dist and compiled CLI/TUI JS.
 function fixture(files) {
@@ -205,7 +208,7 @@ function miniatureRepo(parent, name, compiled) {
 const runDirect = (root) => spawnSync(process.execPath, [join(root, "scripts", "rewrite-daemon-imports.mjs")],
   { encoding: "utf8", env: { PATH: process.env.PATH } });
 
-test("runs when executed directly from paths with spaces, # or a symlinked parent", () => {
+test("runs when executed directly from paths with spaces, # or a symlinked parent", { skip: noSymlinks }, () => {
   const parent = realpathSync(mkdtempSync(join(tmpdir(), "rewrite-direct-")));
   const linked = join(realpathSync(tmpdir()), `rewrite-direct-link-${process.pid}`);
   try {
@@ -224,7 +227,7 @@ test("runs when executed directly from paths with spaces, # or a symlinked paren
   }
 });
 
-test("still fails the build when executed directly with an unmapped import", () => {
+test("still fails the build when executed directly with an unmapped import", { skip: noSymlinks }, () => {
   const parent = realpathSync(mkdtempSync(join(tmpdir(), "rewrite-direct-")));
   try {
     const compiled = 'import { x } from "@multi-agent/daemon/not-exported";\n';

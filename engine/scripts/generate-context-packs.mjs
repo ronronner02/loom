@@ -23,6 +23,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
 // The projection membership MIRRORS the canonical mirror EXACTLY — imported so the
@@ -235,11 +236,46 @@ function findStaticPackDirs(dir, rel = "") {
 // A static pack may hold a symlink to a file under docs/reference/, so a
 // reference document has one source and still ships as a pack file (the copy
 // below dereferences it). Any other symlink fails the build.
+//
+// A Windows checkout with `core.symlinks` off (the default without Developer Mode) writes the
+// committed link as a plain file whose content is the target. A file's content cannot say whether
+// it is a link or a short document, so the git index decides for the repository's own pack source.
 const REFERENCE_DOCS = path.join(REPO, "docs/reference");
+const STATIC_SOURCE_REL = path.relative(REPO, STATIC_SOURCE).split(path.sep).join("/");
+const COMMITTED_LINKS = committedLinkTargets();
+function committedLinkTargets() {
+  let output;
+  try {
+    output = execFileSync("git", ["-C", REPO, "ls-files", "-s", "-z", "--", STATIC_SOURCE_REL], {
+      encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return new Map();
+  }
+  const links = new Map();
+  for (const record of output.split("\0").filter(Boolean)) {
+    const [meta, rel] = record.split("\t");
+    if (meta?.startsWith("120000 ")) links.set(rel, true);
+  }
+  return links;
+}
+/** The absolute target of a committed link this checkout materialized as a plain file. */
+function materializedLinkTarget(absolutePath) {
+  const rel = path.relative(REPO, absolutePath).split(path.sep).join("/");
+  if (!COMMITTED_LINKS.has(rel)) return null;
+  return path.resolve(path.dirname(absolutePath), fs.readFileSync(absolutePath, "utf8").trim());
+}
 function isStaticContentFile(dir, entry) {
-  if (entry.isFile()) return true;
-  if (!entry.isSymbolicLink()) return false;
-  const target = fs.realpathSync(path.join(dir, entry.name));
+  if (entry.isSymbolicLink()) {
+    const target = fs.realpathSync(path.join(dir, entry.name));
+    if (!target.startsWith(fs.realpathSync(REFERENCE_DOCS) + path.sep) || !fs.statSync(target).isFile()) {
+      throw new Error(`static pack symlink ${path.join(dir, entry.name)} must point to a file under docs/reference/`);
+    }
+    return true;
+  }
+  if (!entry.isFile()) return false;
+  const target = materializedLinkTarget(path.join(dir, entry.name));
+  if (target === null) return true;
   if (!target.startsWith(fs.realpathSync(REFERENCE_DOCS) + path.sep) || !fs.statSync(target).isFile()) {
     throw new Error(`static pack symlink ${path.join(dir, entry.name)} must point to a file under docs/reference/`);
   }
@@ -414,9 +450,13 @@ async function main() {
       const srcAbs = pack.srcDir
         ? path.join(pack.srcDir, rel)
         : path.join(SOURCE, pack.ref.replace(/^skills\//, ""), rel);
+      // A link stored as a plain file carries only its target; copy the document it names.
+      const copied = fs.existsSync(srcAbs) && fs.lstatSync(srcAbs).isFile()
+        ? materializedLinkTarget(srcAbs) ?? srcAbs
+        : srcAbs;
       const dstAbs = path.join(packDir, rel);
       fs.mkdirSync(path.dirname(dstAbs), { recursive: true });
-      fs.copyFileSync(srcAbs, dstAbs);
+      fs.copyFileSync(copied, dstAbs);
     }
     fs.writeFileSync(path.join(packDir, "manifest.yaml"), pack.manifestYaml);
   }

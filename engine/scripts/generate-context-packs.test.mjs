@@ -15,6 +15,7 @@ const { parseManifest } = await import(distUrl("manifest-parser.js"));
 const { ContextPackLibraryService } = await import(distUrl("context-pack-library-service.js"));
 const { assembleBundle } = await import(distUrl("bundle-assembler.js"));
 const { EXCLUDES } = await import(pathToFileURL(join(HERE, "mirror-skills.mjs")).href);
+const { supportsSymlinks } = await import(pathToFileURL(join(HERE, "platform-commands.mjs")).href);
 const REAL_SKILLS = join(REPO, "packages/daemon/specs/agents/shared/skills");
 const REAL_PLUGIN_SKILLS = join(REPO, "packages/daemon/assets/plugins/multi-agent-core/skills");
 const REAL_STATIC_PACKS = join(REPO, "packages/daemon/context-packs-src");
@@ -506,7 +507,7 @@ test("OPR.0.5.6.10 GENERATOR STAMPS — skill-projected packs carry pack-level t
   }
 });
 
-test("STATIC PACK SYMLINKS: a link into docs/reference ships as a real file; any other link fails the build", () => {
+test("STATIC PACK SYMLINKS: a link into docs/reference ships as a real file; any other link fails the build", { skip: supportsSymlinks() ? false : "this machine cannot create symlinks" }, () => {
   const base = mkdtempSync(join(tmpdir(), "r061-static-symlink-"));
   try {
     const source = join(base, "skills");

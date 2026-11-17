@@ -7,6 +7,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { npmCommand } from "./platform-commands.mjs";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -40,7 +41,8 @@ for (const prefix of ["MULTI_AGENT", "REMOVED"]) {
     });
     let output = "";
     try {
-      const child = spawn("npm", ["test", "-w", "packages/daemon", "--",
+      const npm = npmCommand();
+      const child = spawn(npm.command, [...npm.prefix, "test", "-w", "packages/daemon", "--",
         "test/bundle-routes.test.ts", "test/instance-environment.test.ts", "--maxWorkers=1",
         "-t", "v2 bundle enters pod-aware path|test instance environment"],
       { cwd: repo, env, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
