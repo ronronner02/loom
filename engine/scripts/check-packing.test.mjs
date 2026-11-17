@@ -1,12 +1,18 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { npmCommand } from "./platform-commands.mjs";
+
+const npm = npmCommand();
 
 test("npm pack of @multi-agent/cli includes scripts/check-abi.mjs in tarball", () => {
-  const output = execSync("npm pack --dry-run --json 2>/dev/null", {
+  // The argument array keeps the invocation shell-free: the old `2>/dev/null` suffix is a POSIX
+  // redirection that cmd.exe cannot resolve.
+  const output = execFileSync(npm.command, [...npm.prefix, "pack", "--dry-run", "--json"], {
     cwd: "packages/cli",
     encoding: "utf-8",
+    stdio: ["ignore", "pipe", "ignore"],
   });
   const entries = JSON.parse(output);
   const files = entries[0]?.files?.map((f) => f.path) ?? [];
