@@ -125,7 +125,8 @@ in `003_events.ts`, `snapshots` (serialized rig state) in `004_snapshots.ts`, an
   (stream, queue, queue transitions, inbox, outbox; detail in
   `coordination-primitive.md`).
 - `028_project_classifications.ts`, `029_classifier_leases.ts`,
-  `030_views_custom.ts` — classifier and view tables.
+  `030_views_custom.ts` — classifier and view tables. The classifier code that
+  wrote them was never called and has been removed; the tables remain.
 - `031_watchdog_jobs.ts`, `032_watchdog_history.ts` — watchdog tables.
 - `033_workflow_specs.ts`, `034_workflow_instances.ts`,
   `035_workflow_step_trails.ts` — workflow runtime tables (detail in
@@ -205,12 +206,9 @@ injectWebSocket }` (`startup.ts:2506`). In source order, it:
    and `BootstrapOrchestrator` (`:1016`).
 6. Constructs `ContextUsageStore` (`:1095`), `ResumeMetadataRefresher`
    (`:1129`), `SpecReviewService` (`:1154`) and `WhoamiService` (`:1157`).
-7. Builds `AppDeps` (`const deps: AppDeps`, `:1191`). `SessionTransport`
-   (`:1262`), `ChatRepository` (`:1296`), `InboxHandler` (`:1300`), `AskService`
-   (`:1349`) and `SpecLibraryService` (`:1387`) are constructed inside that
-   object literal. `InboxHandler` receives the same queue repository instance
-   (`queueRepoInstance`) that serves `/api/queue`, so absorbed inbox items and the
-   queue route write to one store.
+7. Builds `AppDeps` (`const deps: AppDeps`, `:778`). `ChatRepository` (`:786`)
+   is constructed inside that object literal, beside the queue repository
+   (`queueRepoInstance`) that serves `/api/queue`.
 8. Constructs `ContextMonitor` (`:2407`), then assigns later fields onto `deps`
    (among them the terminal service, the request-phase observer and the gateway
    subsystem).

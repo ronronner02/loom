@@ -38,13 +38,13 @@ records when each file first appeared; most have changed since.
 
 | Subsystem | First release | Check |
 |---|---|---|
-| `domain/workspace/{workspace-resolver,frontmatter-validator,default-workspace-scaffold}.ts` | **≤0.3.0** | present at `v0.3.0` |
+| `domain/workspace/{workspace-resolver,default-workspace-scaffold}.ts` | **≤0.3.0** | present at `v0.3.0` |
 | migrations `038_workspace_primitive.ts`, `039_queue_target_repo.ts` | **≤0.3.0** | present at `v0.3.0` |
 | `domain/slices/{slice-indexer,slice-detail-projector}.ts` | **≤0.3.0** | present at `v0.3.0` |
 | `routes/{workspace,slices,projects}.ts` | **≤0.3.0** | present at `v0.3.0` |
 | `domain/workspace/getting-started-narrative.ts` | **0.3.1** | absent at `v0.3.0`; present at `v0.3.1` |
 | `routes/missions.ts` | **0.3.1** | absent at `v0.3.0`; present at `v0.3.1` |
-| `domain/workspace/workspace-doctor.ts` | **0.3.2** | absent at `v0.3.1`; present at `v0.3.2` |
+| `domain/workspace/workspace-doctor.ts` | **0.3.2** | absent at `v0.3.1`; present at `v0.3.2`; removed with its never-mounted route |
 
 The workspace primitive itself (declaration, resolver, validator, migrations
 038/039) is a **0.3.0** feature — do not back-attribute it to 0.3.1. The
@@ -583,8 +583,8 @@ through the `/project*` destinations; it does not call `/api/projects`
   SliceDetailProjector add NO migration / event type; only the workspace
   declaration (038) + per-item scope (039) touch SQLite
   (`slice-indexer.ts:14–15`).
-- **Advisory, never deletes:** the frontmatter validator never modifies files
-  (`frontmatter-validator.ts:12`), and the workspace scaffold never deletes or
+- **Advisory, never deletes:** nothing in the workspace reads modifies a file,
+  and the workspace scaffold never deletes or
   overwrites operator content (`default-workspace-scaffold.ts:140`;
   `packages/cli/src/commands/config-init-workspace.ts:18`).
 

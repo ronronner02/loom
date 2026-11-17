@@ -265,25 +265,13 @@ export type RigEvent =
   | { type: "queue.unclaimed"; qitemId: string; destinationSession: string; reason: string; summary: string | null }
   | { type: "qitem.fallback_routed"; qitemId: string; originalDestination: string; rerouteDestination: string; reason: string }
   | { type: "qitem.closure_overdue"; qitemId: string; destinationSession: string; closureRequiredAt: string; overdueSince: string }
-  | { type: "inbox.absorbed"; inboxId: string; destinationSession: string; senderSession: string; promotedQitemId: string }
-  | { type: "inbox.denied"; inboxId: string; destinationSession: string; senderSession: string; reason: string }
   // PL-004 Phase B R2: queue.updated emitted from QueueRepository.update()
   // for general state mutations (pending → blocked, in-progress → done,
   // closure transitions, etc.). Lets the view-event-bridge wake SSE
   // consumers on /api/views/:name/sse when ANY queue state mutation
   // changes a view result-set, not just create/handoff/claim/unclaim.
   | { type: "queue.updated"; qitemId: string; fromState: string; toState: string; closureReason: string | null; closureTarget: string | null; actorSession: string; summary: string | null }
-  // Coordination primitive (PL-004 Phase B) — project (classifier) / view.
-  // project.classified: emitted when a stream item is successfully projected.
-  // classifier.lease_*: lifecycle of the daemon-enforced single-writer lease.
-  // classifier.dead: heartbeat absence past TTL detected (deadness inference).
-  // classifier.reclaimed: operator-verb reclaim took the lease.
   // view.changed: a view's projection result-set changed (SSE consumers see deltas).
-  | { type: "project.classified"; projectId: string; streamItemId: string; classifierSession: string; classificationType: string | null; classificationDestination: string | null }
-  | { type: "classifier.lease_acquired"; leaseId: string; classifierSession: string; acquiredAt: string; expiresAt: string }
-  | { type: "classifier.lease_expired"; leaseId: string; classifierSession: string; expiredAt: string }
-  | { type: "classifier.dead"; leaseId: string; classifierSession: string; lastHeartbeat: string; detectedAt: string }
-  | { type: "classifier.reclaimed"; leaseId: string; previousClassifierSession: string; reclaimedBySession: string; reason: string; reclaimedAt: string }
   | { type: "view.changed"; viewName: string; cause: string }
   // PL-004 Phase C: daemon-native Watchdog supervision tree events.
   // Three policies in scope (periodic-reminder, artifact-pool-ready,
@@ -1169,10 +1157,8 @@ export interface RigSpecDoc {
 
 /**
  * PL-007 Workspace Primitive — typed workspace kinds enum. Reserved set
- * at v0; adding a sixth kind is a v1+ amendment per the PL-007 product
- * spec. Each kind has folder shape + frontmatter contract + ownership
- * rules (see `frontmatter-validator.ts` for the per-kind required-field
- * map).
+ * at v0. The workspace doctor and the frontmatter validator were deleted with
+ * `workspaceRoutes()`, so a later kind has no per-kind required-field map.
  */
 export const WORKSPACE_KINDS = ["user", "project", "knowledge", "lab", "delivery"] as const;
 export type WorkspaceKind = (typeof WORKSPACE_KINDS)[number];

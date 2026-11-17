@@ -30,11 +30,7 @@ import { configureSyncSiteRecorder } from "./domain/sync-site-wrap.js";
 import { RequestPhaseObserver } from "./domain/request-phase-observer.js";
 import { QueueRepository, isBlockerLive } from "./domain/queue-repository.js";
 import { createWorkflowFrontierPredicate } from "./domain/workflow-frontier-guard.js";
-import { InboxHandler } from "./domain/inbox-handler.js";
 import { OutboxHandler } from "./domain/outbox-handler.js";
-import { ProjectClassifier } from "./domain/project-classifier.js";
-import { ClassifierLeaseManager } from "./domain/classifier-lease-manager.js";
-import { ClassificationAttemptLedger } from "./domain/classification-attempts.js";
 import { ViewProjector } from "./domain/view-projector.js";
 import { wireViewEventBridge } from "./domain/view-event-bridge.js";
 import { WatchdogJobsRepository } from "./domain/watchdog-jobs-repository.js";
@@ -44,12 +40,10 @@ import { resolveWorkflowHumanDestination } from "./domain/workflow-human-destina
 import { makeWorkflowKeepalivePolicy } from "./domain/policies/workflow-keepalive.js";
 import { makeIdleGateQitemPolicy } from "./domain/policies/idle-gate-qitem.js";
 import { makeParkedOwnerConsumerPolicy, makeRigAnchor, PARKED_OWNER_POLICY_NAME } from "./domain/policies/parked-owner-consumer.js";
-import { diagnoseRigParked } from "./domain/parked-query.js";
 // Phase 3a slice 3.3 — plugin discovery service.
 // Slice 28 Checkpoint C-3 — skill-library discovery (SC-29 #11 cumulative).
 import { SettingsStore as ContextPackSettingsStore } from "./domain/user-settings/settings-store.js";
 import { SettingsStore } from "./domain/user-settings/settings-store.js";
-import { WhoamiService } from "./domain/whoami-service.js";
 import { createApp, type AppDeps } from "./server.js";
 import { PlanGovernance, fixDaemonMode, hashBytes } from "./domain/plan-governance.js";
 import { refreshPlanBinding, unisolatedPolicyCapability } from "./routes/team-start.js";
@@ -82,13 +76,9 @@ import { defaultWorktreeRoot } from "./domain/worktree-policy.js";
 import fs, { readFileSync as readFileSyncNamed } from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
-// Slice 11 (release-0.3.1 workflow-spec-folder-discovery) — adds
-// status + error_message columns to workflow_specs so the scanner
-// can record diagnostic rows. SC-29 #10 declared verbatim in commit body.
 import { RigModeStore } from "./domain/rig-mode/rig-mode-store.js";
 import { OperatingPostureService, configuredCatalogPath } from "./domain/rig-mode/operating-posture.js";
 import { MULTI_AGENT_HOME } from "./data-paths.js";
-import { ensureActivityHookToken, writeActivityEndpointFile, deriveActivityUrl, readActivityEndpointFile } from "./domain/activity-endpoint.js";
 
 interface DaemonOptions {
   dbPath?: string;
@@ -622,9 +612,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     };
   };
   // PL-004 Phase A — shared coordination services. Constructed early so
-  // both the queueRepo dep slot and inboxHandler can share one instance.
-  // Transport is wired after SessionTransport instantiation below via
-  // attachTransport().
+  // the queueRepo dep slot and the outbox share one instance.
   const queueRepoInstance = new QueueRepository(db, eventBus, {
     validateRig: topologyValidateRig,
     destinationAdvisory: topologyDestinationAdvisory,
@@ -642,10 +630,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // db.transaction commits atomically with the close + successor create.
   const outboxHandlerInstance = new OutboxHandler(db);
   queueRepoInstance.attachOutbox(outboxHandlerInstance);
-  // PL-004 Phase B — classifier lease manager. Constructed early so both
-  // the leaseManager dep slot and project-classifier can share one instance.
-  // isAlive is post-attached after whoami-service is constructed.
-  const classifierLeaseManagerInstance = new ClassifierLeaseManager(db, eventBus);
   // PL-004 Phase B — view-projector. Constructed early so both the
   // viewProjector dep slot and the view-event-bridge can share one instance.
   const viewProjectorInstance = new ViewProjector(db, eventBus);
@@ -808,13 +792,9 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     chatRepo: new ChatRepository(db),
     slowOpRecorder,
     queueRepo: queueRepoInstance,
-    inboxHandler: new InboxHandler(db, eventBus, queueRepoInstance),
     outboxHandler: outboxHandlerInstance,
     shadowCapture: shadow.capture,
     shadowCaptureError: shadow.error,
-    classifierLeaseManager: classifierLeaseManagerInstance,
-    projectClassifier: new ProjectClassifier(db, eventBus, classifierLeaseManagerInstance),
-    classificationAttemptLedger: new ClassificationAttemptLedger(db, classifierLeaseManagerInstance),
     viewProjector: viewProjectorInstance,
     watchdogJobsRepo: watchdogJobsRepoInstance,
     watchdogHistoryLog: watchdogHistoryLogInstance,

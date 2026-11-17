@@ -23,17 +23,13 @@ import { BUILT_IN_VIEW_NAMES } from "./view-projector.js";
  * - queue.unclaimed          → recently-active, pod-load, activity
  * - qitem.fallback_routed    → recently-active, pod-load, activity
  * - qitem.closure_overdue    → recently-active, escalations, activity
- * - inbox.absorbed           → recently-active, pod-load, activity
- * - inbox.denied             → activity
- * - project.classified       → activity (downstream views may consume project_classifications)
  *
  * Conservative principle: when in doubt, emit. SSE consumers can filter
  * by view name. Over-emission is correct (no missed events); the slight
  * SSE traffic increase is acceptable for Phase B.
  *
  * The bridge does NOT emit view.changed for `view.changed` itself
- * (avoid feedback loops) or for `classifier.lease_*` events (lease state
- * is exposed via the project SSE, not the view SSE).
+ * (avoid feedback loops).
  *
  * Custom views: this bridge does NOT emit per-custom-view events. Custom
  * view consumers can subscribe to /api/views/sse (the generic stream)
@@ -59,9 +55,6 @@ const EVENT_TO_VIEWS: Record<string, readonly string[]> = {
   "queue.updated":          ["recently-active", "founder", "pod-load", "escalations", "held", "activity"],
   "qitem.fallback_routed":  ["recently-active", "pod-load", "activity"],
   "qitem.closure_overdue":  ["recently-active", "escalations", "activity"],
-  "inbox.absorbed":         ["recently-active", "pod-load", "activity"],
-  "inbox.denied":           ["activity"],
-  "project.classified":     ["activity"],
 };
 
 export interface ViewEventBridgeStop {
