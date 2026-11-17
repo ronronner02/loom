@@ -32,7 +32,7 @@ import type { TeamControlOptions } from "./team-control.js";
  * One collection resource: `POST /runs` creates a run and the task that puts one agent on
  * the owner's goal, and `GET /runs` lists the runs that already exist so no client has to
  * ask the owner to type an id. Both are owner-only and live on the team-control surface,
- * so the managed-mode allowlist and the owner credential apply unchanged.
+ * so the route allowlist and the owner credential apply unchanged.
  *
  * The domain requires an approved plan binding before a task may exist. The owner's
  * authenticated start request supplies that plan and its scope, so it is also the owner's

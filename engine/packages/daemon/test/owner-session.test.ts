@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { OwnerSessions, OWNER_COOKIE, OWNER_CSRF_HEADER, OWNER_IDLE_MS, OWNER_ABSOLUTE_MS, PAIRING_TTL_MS } from "../src/domain/owner-session.js";
-import { fixDaemonMode } from "../src/domain/plan-governance.js";
 import { createTestApp } from "./helpers/test-app.js";
 
 describe("KTD14 paired owner authentication", () => {
@@ -18,7 +17,7 @@ describe("KTD14 paired owner authentication", () => {
   let sessions: OwnerSessions;
   let options: { credentials: { ownerToken: string | null; workers: { token: string; sessionId: string; runId: string }[] } };
   beforeEach(() => {
-    db = createDb(); initializeDatabase(db); fixDaemonMode(db, true);
+    db = createDb(); initializeDatabase(db);
     at = 1_700_000_000_000;
     sessions = new OwnerSessions(db, () => at);
     options = { credentials: { ownerToken: "owner-pairing-fixture",

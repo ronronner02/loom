@@ -55,16 +55,17 @@ related code; they are not an exhaustive dependency list.
 | How are queue observations and actions exposed? | [Mission control](architecture/mission-control.md) | `packages/daemon/src/domain/mission-control/`, `packages/daemon/src/routes/mission-control.ts`. |
 | What is captured and checked during restore? | [Lifecycle, snapshot and restore](architecture/lifecycle-snapshot-restore.md) | `packages/daemon/src/domain/snapshot-capture.ts`, `packages/daemon/src/domain/restore-orchestrator.ts`, `packages/daemon/src/routes/restore-check.ts`. |
 | How do messages and transcript reads reach sessions? | [Transport and transcripts](architecture/transport-and-transcripts.md) | `packages/daemon/src/domain/session-transport.ts`, `packages/daemon/src/domain/transcript-store.ts`, `packages/daemon/src/routes/transport.ts`. |
-| Where do workspaces, projects and repository scope resolve? | [Workspace](architecture/workspace-primitive.md) | `packages/daemon/src/domain/workspace/`, `packages/daemon/src/domain/current-work.ts`, `packages/daemon/src/routes/projects.ts`. |
+| Where do workspaces, projects and repository scope resolve? | [Workspace](architecture/workspace-primitive.md) | `packages/daemon/src/domain/workspace/`, `packages/daemon/src/domain/unisolated-roots.ts`, `packages/daemon/src/routes/team-workspace.ts`. |
 | How are files, progress and steering read or written? | [Content surfaces](architecture/content-surfaces.md) | `packages/daemon/src/domain/files/`, `packages/daemon/src/domain/progress/`, `packages/daemon/src/domain/steering/`. |
 | How are review inputs, proof and approvals composed? | [Living notes and review](architecture/living-notes-review.md) | `packages/daemon/src/domain/review/`, `packages/daemon/src/domain/scope/`, `packages/daemon/src/routes/review.ts`. |
 | Where are plugins, agent images and context packs discovered? | [Plugins, images and context packs](architecture/plugin-agent-image-context-pack.md) | `packages/daemon/src/domain/plugin-discovery-service.ts`, `packages/daemon/src/domain/agent-images/`, `packages/daemon/src/domain/context-packs/`. |
 | How are reusable bundles assembled and installed? | [Packaging, bootstrap and bundles](architecture/packaging-bootstrap-bundles.md) | `packages/daemon/src/domain/pod-bundle-assembler.ts`, `packages/daemon/src/domain/bootstrap-orchestrator.ts`, `packages/daemon/src/routes/bundles.ts`, `packages/daemon/src/routes/up.ts`. |
 | Where are event types, publication and SSE handled? | [Architecture rules and events](architecture/architecture-rules-and-event-system.md) | `packages/daemon/src/domain/types.ts`, `packages/daemon/src/domain/event-bus.ts`, `packages/daemon/src/routes/events.ts`. |
 
-For an execution projection, also read `packages/daemon/src/domain/execution-view.ts` and
-`packages/daemon/src/domain/view-projector.ts`. The terminal-side consumer starts in
-`packages/tui/src/execution/`. These sit alongside the queue and workflow sources above.
+The managed read surface that projects a run, its tasks and its attempts is
+`packages/daemon/src/team-control-surface.ts` (`TeamReadModel`), served by
+`packages/daemon/src/routes/team-control.ts`. The retired execution view and view projector
+are gone; there is no `/api/views` route.
 
 ### Newer entry points
 

@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { AttemptTelemetry } from "../src/domain/attempt-telemetry.js";
-import { fixDaemonMode } from "../src/domain/plan-governance.js";
 import { createTestApp } from "./helpers/test-app.js";
 import { nativeUsage, toolStart, turnTelemetryFixture } from "./helpers/turn-telemetry.js";
 
@@ -16,7 +15,7 @@ describe("owner-scoped activity and analytics routes", () => {
   }, { incoming: { socket: { remoteAddress: "127.0.0.1" } } });
 
   beforeEach(() => {
-    fixture = turnTelemetryFixture(); fixDaemonMode(fixture.db, true);
+    fixture = turnTelemetryFixture();
     fixture.addAttempt("attempt");
     fixture.writeSidecars("attempt", nativeUsage(), [toolStart, { ...toolStart, seq: 2, status: "completed" }]);
     readFile = vi.fn((path: string) => { try { return readFileSync(path, "utf8"); } catch { return null; } });

@@ -26,6 +26,16 @@ describe("S20 — buildDaemonEnv: routing env never crosses into the daemon", ()
     expect(env["MULTI_AGENT_HOST"]).toBe("100.95.124.51"); // the routing half follows the DECLARED intent
   });
 
+  it("states the daemon's one mode, overriding any inherited value", () => {
+    const env = buildDaemonEnv(
+      { HOME: "/Users/op", MULTI_AGENT_MODE: "legacy" },
+      { port: 7433, db: "/tmp/t.db" },
+    );
+    expect(env["MULTI_AGENT_MODE"]).toBe("managed");
+    expect(buildDaemonEnv({ HOME: "/Users/op" }, { port: 7433, db: "/tmp/t.db" })["MULTI_AGENT_MODE"])
+      .toBe("managed");
+  });
+
   it("an inherited MULTI_AGENT_BIND_HOST passes through — the dedicated surface IS unambiguous operator opt-in", () => {
     const env = buildDaemonEnv(
       { HOME: "/Users/op", MULTI_AGENT_BIND_HOST: "100.95.124.51" },

@@ -23,7 +23,7 @@ describe("P7 wiring pin — startup recordBoot ran at boot", () => {
 describe("startup finalization admission wiring", () => {
   it("rechecks the real finalization table before resolving a launch tree", async () => {
     const daemon = await createDaemon({
-      dbPath: ":memory:", managedMode: true, webUiEnabled: false,
+      dbPath: ":memory:", webUiEnabled: false,
       teamControl: { credentials: { ownerToken: "fixture-owner" } },
     });
     try {

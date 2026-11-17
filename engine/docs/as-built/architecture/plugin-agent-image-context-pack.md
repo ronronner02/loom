@@ -23,110 +23,22 @@ launch sessions; the whole layer is not a read-only catalog.
 
 ## Context packs
 
-`packages/daemon/src/domain/context-packs/context-pack-library-service.ts` implements
-`ContextPackLibraryService`. A pack contains `manifest.yaml` and declared members.
-Its path-like ref is the lookup identity, independently of the manifest name/version;
-the entry ID is `context-pack:<ref>`.
+The daemon serves no context-pack surface. `startup.ts` neither configures pack roots nor
+mounts `contextPacksRoutes()`, the library service, the bundle assembler and the situation
+profile composer are gone, and the thin CLI has no `context` command. What remains in
+`packages/daemon/src/domain/context-packs/` is the manifest parser and the read-only pieces
+it needs: `manifest-parser.ts` (manifest shape, atom metadata, named profiles, supported
+file suffixes and their ref-safety rules), `context-pack-types.ts`, `ref-safety.ts`,
+`profile-source-resolver.ts`, `profile-composer.ts` and `seat-recap-store.ts`.
 
-### Discovery and mutation
+Those remaining modules are reached only by the packaging script, not by the running
+daemon. `engine/scripts/generate-context-packs.mjs` imports the compiled
+`manifest-parser.ts` from `dist` to validate the packs it generates under
+`packages/daemon/context-packs-src/`; it does not use the composer, the resolver or the
+recap store, which stay only because the parser's tests and the profile tests use them.
 
-Startup in `packages/daemon/src/startup.ts` configures the shipped context-pack root (when
-it exists), the resolved `context.root` and its `system` root, followed by the
-workspace-local `.openrig/context-packs` root. The workspace root is registered even before
-it exists, so a folder created later is found by the next sync; it is left out only when it
-is the same path as one of the other two. The library scans recursively, stops descending
-when it finds a pack manifest, skips `.tmp-add-*` staging folders, and does not follow
-directory symlinks.
-
-The first configured root to encounter a physical pack owns that directory. For distinct
-physical packs with the same ref, the later root wins. This distinction prevents overlapping
-roots from giving the same physical pack a second address. Scan replaces the in-memory ref
-index and reports malformed packs instead of indexing them.
-
-`composeFromFiles()` creates a durable pack after validating its ref, destination and
-sources. `removeByRef()` removes the selected pack directory and rescans, but refuses
-shipped builtin packs. Library mutation and lookup share ref validation.
-
-`packages/daemon/src/domain/context-packs/manifest-parser.ts` parses manifests.
-Its supported file suffixes include Markdown/YAML/text and `.sh`, `.ts`, `.mjs`,
-`.py` helper assets. Those assets are served as text; pack assembly does not execute them.
-The parser also validates atom metadata and named profiles.
-
-### Assembly, addresses and profiles
-
-These are separate projections:
-
-| Operation | Source and behavior |
-|---|---|
-| Framed pack preview | `packages/daemon/src/domain/context-packs/bundle-assembler.ts`, `assembleBundle()`: pack/file headers, file metadata, token estimates and `missingFiles`. Missing members are reported and skipped; a failed read of a present member raises an error. |
-| Plain file composition | The same file's `assemblePlainFiles()`: present files in declared order, separated by two newlines, without framing or trimming their bytes. |
-| Addressed read | `packages/daemon/src/routes/context-packs.ts`, `/library/resolve-address`: longest matching pack-ref prefix, a declared file, then optional H2/H3 heading selection through `packages/daemon/src/domain/markdown-address.ts`. |
-| Situation profile | `packages/daemon/src/domain/context-packs/profile-composer.ts`, `composeProfile()`: select atoms, close dependencies, order and resolve each piece. |
-| Named profile | The same file's `composeNamedProfile()`: declared phases select atoms or supplied work/seat context, preserving phase IDs in the result. |
-
-Situation composition selects fresh atoms for `fresh`, fresh plus handover atoms for
-`handover`, and post-compaction plus handover atoms for `post-compaction`. Runtime
-selection is Claude or Codex, with `any` atoms applicable to either. Required atoms join
-the selection; missing dependencies or runtime-incompatible dependencies fail composition.
-The output is ordered by atom order, then ID. Profile-only atoms are excluded from ordinary
-situation selection, but the dependency closure doesn't check that flag, so one can still join
-as a dependency of a selected atom. Post-compaction composition skips an absent
-`seat:RECAP.md` and reports it as skipped instead of failing.
-
-The profile route resolves configured tree sources through
-`packages/daemon/src/domain/context-packs/profile-source-resolver.ts`.
-Seat context requires explicit rig and seat selectors. Mission/slice selectors and named
-profile context requirements are validated before reading those trees. The default
-project/mission/slice walk is bounded to the conventional single-project workspace layout
-and fresh situation; it is not an arbitrary project-catalog resolver.
-
-Each resolved piece names its address/source and reports estimated tokens. A token budget
-reports overage and drop candidates without silently truncating the profile. Atom
-`regions` are metadata; the profile endpoint has no region-subset selector.
-
-### HTTP and CLI boundaries
-
-`packages/daemon/src/server.ts` mounts `contextPacksRoutes()` at
-`/api/context-packs`. Its library handlers cover list, sync, compose, read/delete by ref,
-preview, pieces, addressed reads and profile composition.
-
-`packages/cli/src/commands/context.ts` implements `rig context`, including `list`, `show`,
-`preview`, `get`, `profile`, `compose`, `add`, `rm` and `sync`, plus `work-install`, `trace`,
-`source inspect|update` and `recap-write`. The library read/compose routes do not themselves
-send a pack to a running seat. Several verbs write: `add` installs into `context.root` (from
-a folder, a URL, or Git with `--git`), `source update` fetches and merges a Git-installed pack
-and resyncs, `work-install --apply-skills` reconciles skill projections, and `recap-write`
-writes a seat recap. Inspect the selected CLI verb before treating a context command as
-read-only. `rig context work-install` resolves a project position and its declared context
-without the daemon; [workspace-primitive.md](workspace-primitive.md) covers project
-resolution.
-
-On a profile read, the route adds each piece's `sha256` and provenance, with a warning when a
-piece's bytes come from outside the granted folder. Rig and seat selectors grant the seat's
-folder as a source root and supply a default `seat:LEARNED.md` atom to named profiles whose
-phases request seat context. An ordinary situation profile includes that file only when the
-pack authors a seat atom; the selectors alone don't add it.
-
-### System World, seat recaps and skill loadouts
-
-`packages/daemon/src/domain/system-world.ts` reads the System World manifest (schema
-`openrig.system-world/v0alpha1`): an id, a version, the context packs every seat starts from,
-and system skills. The `context.system_world` setting selects the default manifest at
-`system/system-world.yaml` under `context.root`, disables it, or names another manifest file.
-The default (`openrig-default`) names the `onboarding-width` and `world-public` packs and no
-skills; it is seeded when missing.
-
-`rig context recap-write --rig <rig> --seat <seat> --file <file>` writes the seat's
-`RECAP.md` through `packages/daemon/src/domain/context-packs/seat-recap-store.ts`. The previous
-recap is kept byte-for-byte under `recap-superseded/`. A recap that isn't addressable Markdown
-is refused; the other content checks are advisory.
-
-The skill-catalog loadout engine (`skill-catalog.ts`, `skill-discovery.ts` and the
-profile resolver that fed them) was never constructed by the running daemon and
-has been removed. The `catalog.yaml` (`openrig.skill-catalog/v1`) and plugin
-skill trees this section describes remain as shipped data: the plugin skills are
-copied by the packaging scripts and mirrored into `skills/_canonical`, and the
-managed launch reads no loadout state.
+The shipped pack data remains: `context-packs-src/` holds the authored packs and the build
+script mirrors `specs/agents` skills into pack form. No daemon code reads those packs.
 
 ## Agent images and forks
 

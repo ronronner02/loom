@@ -1462,7 +1462,7 @@ describe("buildDaemonEnv", () => {
 
   it("passes only retained startup settings into the daemon", () => {
     const env = buildDaemonEnv({}, { port: 27451, db: "/fixture/multi-agent.sqlite" });
-    expect(env).toEqual({ MULTI_AGENT_PORT: "27451", MULTI_AGENT_DB: "/fixture/multi-agent.sqlite" });
+    expect(env).toEqual({ MULTI_AGENT_MODE: "managed", MULTI_AGENT_PORT: "27451", MULTI_AGENT_DB: "/fixture/multi-agent.sqlite" });
   });
 });
 

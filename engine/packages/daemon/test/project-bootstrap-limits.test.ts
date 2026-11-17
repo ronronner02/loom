@@ -7,7 +7,6 @@ import type Database from "better-sqlite3";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { GithubCli, GithubCliError } from "../src/domain/github-cli.js";
-import { fixDaemonMode } from "../src/domain/plan-governance.js";
 import { setHostPlatformForTests } from "../src/domain/platform.js";
 import { SettingsStore } from "../src/domain/user-settings/settings-store.js";
 import { createTestApp } from "./helpers/test-app.js";
@@ -36,7 +35,6 @@ describe("project bootstrap size, mode, and responsiveness", () => {
   const openApp = () => {
     db = createDb(join(directory, "bootstrap.db"));
     initializeDatabase(db);
-    fixDaemonMode(db, true);
     app = createTestApp(db, { appDeps: { github, settingsStore: settings,
       teamControl: { credentials: { ownerToken: "owner-bootstrap-fixture" } } } }).app;
   };

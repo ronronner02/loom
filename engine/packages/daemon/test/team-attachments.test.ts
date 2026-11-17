@@ -9,7 +9,7 @@ import { join, relative } from "node:path";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { fixDaemonMode, PlanGovernance } from "../src/domain/plan-governance.js";
+import { PlanGovernance } from "../src/domain/plan-governance.js";
 import { addTeamSeats } from "../src/domain/team-setup.js";
 import { leadChatTurnNote, listChatMessages } from "../src/domain/lead-chat.js";
 import { unisolatedPolicyCapability } from "../src/routes/team-start.js";
@@ -34,7 +34,6 @@ describe("project chat attachments", () => {
     git("add", "README.md"); git("commit", "-qm", "Initial project");
     const db = createFullTestDb(), bus = new EventBus(db), queue = new QueueRepository(db, bus);
     const policy = unisolatedPolicyCapability(1);
-    fixDaemonMode(db, true);
     governance = new PlanGovernance(db, bus, queue, undefined, () => policy);
     fixture = createTestApp(db, { appDeps: { eventBus: bus, queueRepo: queue, teamGovernance: governance,
       teamControl: { credentials: { ownerToken: "owner-attachment-fixture",

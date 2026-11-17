@@ -11,7 +11,7 @@ import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { PlanGovernance, fixDaemonMode, hashBinding } from "../src/domain/plan-governance.js";
+import { PlanGovernance, hashBinding } from "../src/domain/plan-governance.js";
 import { createTestApp } from "./helpers/test-app.js";
 import type { PlanBinding } from "../src/contracts/team-control.js";
 
@@ -37,7 +37,6 @@ describe("managed control authority on the shared application", () => {
   let options: TeamControlOptions;
   beforeEach(() => {
     db = createDb(); initializeDatabase(db);
-    fixDaemonMode(db, true);
     db.prepare("INSERT INTO rigs (id, name) VALUES ('managed-rig', 'managed')").run();
     const bus = new EventBus(db);
     queue = new QueueRepository(db, bus);
@@ -164,14 +163,13 @@ describe("managed control authority on the shared application", () => {
   });
 
 
-  it.each(["managed", "legacy"] as const)("serves legacy pages only in a legacy-mode daemon: %s", async (mode) => {
+  it("never carries the terminal bearer token into a served page", async () => {
     const dir = mkdtempSync(join(tmpdir(), "team-control-ui-"));
     const localDb = createDb(); initializeDatabase(localDb);
     try {
       mkdirSync(join(dir, "assets"));
       writeFileSync(join(dir, "index.html"), "<html><head></head><body>Legacy administration</body></html>");
       writeFileSync(join(dir, "assets", "app.js"), "legacyAdministration();");
-      fixDaemonMode(localDb, mode === "managed");
       const bus = new EventBus(localDb);
       const localApp = createTestApp(localDb, { appDeps: {
         queueRepo: new QueueRepository(localDb, bus), eventBus: bus, webUiEnabled: true, uiDistDir: dir,
@@ -180,21 +178,9 @@ describe("managed control authority on the shared application", () => {
       for (const path of ["/", "/index.html", "/assets/app.js"]) {
         const response = await localApp.request(path);
         const body = await response.text();
-        if (mode === "legacy") {
-          expect(response.status, path).toBe(200);
-          continue;
-        }
-        // The managed team view is built from the same bundle and is served at /team, so the
-        // bundle's assets are reachable in managed mode. The pages are not: `/` and every
-        // legacy route still refuse, and no page body carries the legacy surface or a token.
-        if (path.startsWith("/assets/")) {
-          expect(response.status, path).toBe(200);
-          expect(body, path).not.toContain("legacy-page-secret");
-          continue;
-        }
-        expect(response.status, path).toBe(404);
-        expect(body, path).not.toContain("Legacy administration");
-        expect(body, path).not.toContain("legacyAdministration");
+        // This bare database carries no run authority, so the team bundle is served as it
+        // always was — and no page body carries a terminal token into the browser.
+        expect(response.status, path).toBe(200);
         expect(body, path).not.toContain("legacy-page-secret");
       }
     } finally { localDb.close(); rmSync(dir, { recursive: true, force: true }); }
@@ -293,7 +279,7 @@ describe("managed control authority on the shared application", () => {
     expect(governance.getRun("run").entityVersion).toBe(1);
   });
 
-  it("refuses direct queue writes without a managed-control grant", async () => {
+  it("refuses direct queue writes without a control grant", async () => {
     await expect(queue.create({ sourceSession: "lead@managed", destinationSession: "worker@managed", body: "unapproved", nudge: false }))
       .rejects.toThrow(/managed/i);
     expect(db.prepare("SELECT count(*) AS count FROM queue_items").get()).toEqual({ count: 0 });

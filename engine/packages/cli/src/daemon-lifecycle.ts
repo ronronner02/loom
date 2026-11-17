@@ -429,6 +429,9 @@ export function buildDaemonEnv(
     env[key] = value;
   }
 
+  // The daemon runs one mode, and a CLI start is that mode: stated here rather than left to
+  // the daemon's default, so a stale inherited value can never select something else.
+  env["MULTI_AGENT_MODE"] = "managed";
   // Explicit MULTI_AGENT_* overrides — always win over inherited values
   env["MULTI_AGENT_PORT"] = String(opts.port);
   if (opts.host !== undefined) {

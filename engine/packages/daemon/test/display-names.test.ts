@@ -5,7 +5,7 @@ import { createDb } from "../src/db/connection.js";
 import { BASELINE_VERSION, initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { PlanGovernance, fixDaemonMode, hashBinding } from "../src/domain/plan-governance.js";
+import { PlanGovernance, hashBinding } from "../src/domain/plan-governance.js";
 import { TeamReadModel } from "../src/team-control-surface.js";
 import {
   clientLabel, ordinalRunName, ordinalTaskName, reviewName, roleLabel, runName, seatName, shortenTitle, taskName,
@@ -103,7 +103,6 @@ describe("display names", () => {
     beforeEach(() => {
       db = createDb();
       initializeDatabase(db);
-      fixDaemonMode(db, true);
       db.prepare("INSERT INTO rigs (id, name) VALUES ('demo-rig', 'demo')").run();
       // The rig a demo run starts on: a Claude Code lead, two implementers on Codex and one on
       // Claude Code, and a reviewer on Codex.

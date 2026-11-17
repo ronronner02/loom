@@ -8,7 +8,6 @@ import type Database from "better-sqlite3";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { GithubCli } from "../src/domain/github-cli.js";
-import { fixDaemonMode } from "../src/domain/plan-governance.js";
 import { SettingsStore } from "../src/domain/user-settings/settings-store.js";
 import { createTestApp } from "./helpers/test-app.js";
 import { previewProject, projectFolder } from "../src/domain/project-bootstrap.js";
@@ -160,7 +159,6 @@ function createSetup() {
   const openApp = () => {
     state.db = createDb(join(state.directory, "bootstrap.db"));
     initializeDatabase(state.db);
-    fixDaemonMode(state.db, true);
     state.app = createTestApp(state.db, { appDeps: { github: state.github, settingsStore: state.settings,
       teamControl: { credentials: { ownerToken: "owner-bootstrap-fixture" } } } }).app;
   };
@@ -519,7 +517,6 @@ describeOnWindows("project creation through the owner route — Windows paths an
     settings = new SettingsStore(join(directory, "settings.json"));
     db = createDb(join(directory, "bootstrap.db"));
     initializeDatabase(db);
-    fixDaemonMode(db, true);
     app = createTestApp(db, { appDeps: { github, settingsStore: settings,
       teamControl: { credentials: { ownerToken: "owner-bootstrap-fixture" } } } }).app;
     create = (body: Record<string, unknown> = {}) =>

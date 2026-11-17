@@ -26,8 +26,8 @@ import {
  *
  * One collection resource: `POST /teams` creates the rig and the seats a repository's team runs
  * on, and `GET /teams` lists the teams that exist so a client never asks the owner to type a rig
- * name. Both are owner-only and live on the team-control surface, so the managed-mode allowlist
- * and the owner credential apply unchanged.
+ * name. Both are owner-only and live on the team-control surface, so the route allowlist and
+ * the owner credential apply unchanged.
  *
  * Nothing is launched here. The first start opens each seat's terminal, exactly as it does for
  * a rig the demo seeds created.

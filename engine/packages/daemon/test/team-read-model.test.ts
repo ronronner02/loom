@@ -5,7 +5,7 @@ import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { PlanGovernance, fixDaemonMode, hashBinding } from "../src/domain/plan-governance.js";
+import { PlanGovernance, hashBinding } from "../src/domain/plan-governance.js";
 import { recordLeadReply, answerDecision } from "../src/domain/lead-chat.js";
 import { StreamStore } from "../src/domain/stream-store.js";
 import { boundedLogBody, TeamReadModel } from "../src/team-control-surface.js";
@@ -52,7 +52,6 @@ describe("T052 managed owner read projections", () => {
   beforeEach(() => {
     db = createDb();
     initializeDatabase(db);
-    fixDaemonMode(db, true);
     db.prepare("INSERT INTO rigs (id, name) VALUES ('managed-rig', 'managed')").run();
     bus = new EventBus(db);
     queue = new QueueRepository(db, bus);

@@ -1,4 +1,4 @@
-import { assertGovernedQueueWrite, assertLegacyOperationAllowed, isManagedMode } from "./plan-governance.js";
+import { assertDirectQueueWriteAllowed, isGovernedDatabase, assertGovernedQueueWrite } from "./plan-governance.js";
 import { LeadWakePolicy } from "./lead-wake-policy.js";
 import { readWakeLadderBackstop } from "./queue-wake-ladder.js";
 import { TEAM_QUEUE_STATES as QUEUE_STATES } from "../contracts/team-control.js";
@@ -949,7 +949,7 @@ export class QueueRepository {
     identityProvenance: string | null,
     nudge: boolean | undefined,
   ): void {
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     // No wake intended (nudge:false) ⇒ no durable intent to make durable. The
     // W1-c guard is nudge-aware for the same reason: absence of an intent is a
     // defect only when a wake WAS intended.
@@ -1096,7 +1096,7 @@ export class QueueRepository {
     }
     if (alreadyHeld?.deliveryState === "pending" && alreadyHeld.auditPointer
       && new LeadWakePolicy(this.db, this.eventBus).retain(alreadyHeld.auditPointer, alreadyHeld.destinationSession)) return "skipped";
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     // MF3: CLAIM (pending→sending) BEFORE the external send so overlapping drains
     // cannot both send. A losing claim — the row is no longer `pending` (already
     // resolved, in-flight under another drainer, or claimed) — simply skips: no
@@ -1233,7 +1233,7 @@ export class QueueRepository {
     nudge: boolean | undefined,
     sourceSession?: string,
   ): Promise<void> {
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     if (nudge === false) return;
     // No durable intent store ⇒ there is no intent to claim/finalize. Fall back to
     // the pre-W1 best-effort nudge so the wake still happens (the documented
@@ -1276,7 +1276,7 @@ export class QueueRepository {
   }
 
   async drainPendingWakeIntents(): Promise<{ delivered: number; indeterminate: number; failed: number; retained: number }> {
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     const tally = { delivered: 0, indeterminate: 0, failed: 0, retained: 0 };
     if (!this.outbox || !this.transport) return tally;
     const BATCH = 200;
@@ -1357,7 +1357,7 @@ export class QueueRepository {
   ): Promise<{ classified: "verified" | "indeterminate" | "failed" | "retained"; nudgeResult: string }> {
     const retained = new LeadWakePolicy(this.db, this.eventBus).retain(qitemId, destinationSession);
     if (retained) return { classified: "retained", nudgeResult: retained };
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     // DEFECT FIX qitem-20260827065907-b9ae334c (S1-class, 3 live specimens): a virtual
     // @external destination has NO pane — the queue row ITSELF is the gateway
     // subsystem's input (the Slack connector polls human-destined rows and its own
@@ -1588,7 +1588,7 @@ export class QueueRepository {
     qitemId: string;
     persistedEvent: PersistedEvent;
   } {
-    // KTD22 owner check: in managed mode only a managed-control grant may create queue items.
+    // Owner check: only a managed-control grant may create queue items.
     assertGovernedQueueWrite(this.db, "create");
     // OPR.0.4.4.19 FR-4/FR-5 — human-routed items require summary +
     // evidence_ref at the domain write path (the validateClosure pattern).
@@ -1734,7 +1734,7 @@ export class QueueRepository {
   }
 
   private async handoffWithState(input: QueueHandoffInput, state: "handed-off" | "done"): Promise<{ closed: QueueItem; created: QueueItem }> {
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     const source = this.getById(input.qitemId);
     if (!source) {
       throw new QueueRepositoryError(
@@ -1937,7 +1937,7 @@ export class QueueRepository {
     terminalState: "handed-off" | "done";
     transitionNote?: string;
   }): { item: QueueItem; absorbed: boolean } {
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     const source = this.getById(input.qitemId);
     if (!source) {
       throw new QueueRepositoryError(
@@ -2093,7 +2093,7 @@ export class QueueRepository {
    * Mark a qitem `in-progress` (claim). Computes closure_required_at from tier.
    */
   claim(input: QueueClaimInput): QueueItem {
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     const qitem = this.getById(input.qitemId);
     if (!qitem) {
       throw new QueueRepositoryError(
@@ -2179,7 +2179,7 @@ export class QueueRepository {
   }
 
   unclaim(qitemId: string, destinationSession: string, reason: string, identityProvenance?: string | null): QueueItem {
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     const qitem = this.getById(qitemId);
     if (!qitem) {
       throw new QueueRepositoryError("qitem_not_found", `qitem ${qitemId} not found`);
@@ -2298,7 +2298,7 @@ export class QueueRepository {
     persistedEvent: PersistedEvent;
     persistedEvents: PersistedEvent[];
   } {
-    // KTD22 owner check: in managed mode only a managed-control grant may update queue items.
+    // Owner check: only a managed-control grant may update queue items.
     assertGovernedQueueWrite(this.db, "update", input.qitemId);
     const qitem = this.getById(input.qitemId);
     if (!qitem) {
@@ -2836,10 +2836,8 @@ export class QueueRepository {
    *
    * KTD4's dependency promise is "a consumer starts once its prerequisite's
    * result exists", and R18 says a completed process or exit code is not that
-   * result. In managed mode only an owner-observed `done` carrying validated
+   * result. Only an owner-observed `done` carrying validated
    * evidence unlocks a consumer; every other ending keeps the consumer parked.
-   * Legacy mode keeps the historical terminal-unpark byte for byte, because the
-   * legacy queue carries no evidence to consult.
    *
    * `handed-off` is deliberately not success here. Handoff moves responsibility
    * to a named successor; the successor's own validated completion is what
@@ -2847,7 +2845,9 @@ export class QueueRepository {
    * that successor rather than releasing them.
    */
   private blockerSatisfiesDependents(qitemId: string, terminalState: string): boolean {
-    if (!isManagedMode(this.db)) return true;
+    // A bare repository a harness assembled carries no run authority, and its rows carry no
+    // evidence to consult: every terminal ending unparks, as it always has.
+    if (!isGovernedDatabase(this.db)) return true;
     if (terminalState !== "done") return false;
     // Only called from updateInTransactionalContext, which runs before the
     // terminal state is written. A row that already reads as terminal is a
@@ -2855,9 +2855,8 @@ export class QueueRepository {
     // evidence was persisted by the transition that ended it.
     const authority = this.db.prepare("SELECT evidence_json AS evidenceJson FROM team_queue_authority WHERE qitem_id = ?")
       .get(qitemId) as { evidenceJson: string | null } | undefined;
-    // A managed `done` row with no authority record has no evidence to offer,
-    // so it satisfies nothing. Only legacy rows, which carry no evidence by
-    // design, reach the short-circuit above.
+    // A governed `done` row with no authority record has no evidence to offer,
+    // so it satisfies nothing.
     if (!authority) return false;
     if (authority.evidenceJson === null) return false;
     try {
@@ -3097,7 +3096,7 @@ export class QueueRepository {
    * button set is already final; its resolve continuation must not overwrite those answers.
    */
   resolveDirectHumanReply(input: { qitemId: string; actorSession: string; decision: string }): boolean {
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     const result = this.db.transaction(() => {
       const item = this.getById(input.qitemId);
       if (item?.state !== "pending" || item.humanIntent === "update"
@@ -3142,7 +3141,7 @@ export class QueueRepository {
    * id, a stranger, a decision already resolved), never an error the socket must retry.
    */
   recordHumanAnswer(input: { qitemId: string; actorSession: string; questionId: string; optionId: string }): RecordHumanAnswerResult {
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     if (!this.hasHumanQuestionsColumn) return { status: "not-applicable", reason: "schema" };
     return this.db.transaction(() => {
       const item = this.getById(input.qitemId);
@@ -3728,7 +3727,7 @@ export class QueueRepository {
    * is unreachable). Emits qitem.fallback_routed; preserves chain_of_record.
    */
   routeToFallback(qitemId: string, fallbackDestination: string, reason: string): QueueItem {
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     const qitem = this.getById(qitemId);
     if (!qitem) {
       throw new QueueRepositoryError("qitem_not_found", `qitem ${qitemId} not found`);
@@ -3823,7 +3822,7 @@ export class QueueRepository {
    * appends an audit transition per item. Returns the count released. Pre-063 dbs no-op.
    */
   releaseClaimsByGeneration(retiringGeneration: string): number {
-    assertLegacyOperationAllowed(this.db);
+    assertDirectQueueWriteAllowed(this.db);
     if (!this.hasClaimedGenColumn || !retiringGeneration) return 0;
     const rows = this.db
       .prepare(`SELECT qitem_id FROM queue_items WHERE state = 'in-progress' AND claimed_by_generation_uuid = ?`)

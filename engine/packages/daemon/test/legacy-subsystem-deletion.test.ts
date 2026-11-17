@@ -22,7 +22,6 @@ describe("legacy subsystem deletion", () => {
     directories.push(directory);
     const daemon = await createDaemon({
       dbPath: join(directory, "daemon.sqlite"),
-      managedMode: true,
       teamControl: { credentials: { ownerToken: "deletion-owner" } },
     });
     try {
