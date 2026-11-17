@@ -2,7 +2,6 @@ import type Database from "better-sqlite3";
 import type { SessionRegistry } from "./session-registry.js";
 import type { EventBus } from "./event-bus.js";
 import type { RuntimeAdapter, NodeBinding, ManagedAttempt, ResolvedStartupFile } from "./runtime-adapter.js";
-import type { ProjectionPlan } from "./projection-planner.js";
 import type { StartupAction } from "./types.js";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
@@ -14,7 +13,7 @@ import type { ScopedAssignment, TeamRole } from "../contracts/team-control.js";
 
 export interface StartupInput {
   rigId: string; nodeId: string; sessionId: string; binding: NodeBinding; adapter: RuntimeAdapter;
-  plan: ProjectionPlan; resolvedStartupFiles: ResolvedStartupFile[]; startupActions: StartupAction[]; isRestore: boolean;
+  resolvedStartupFiles: ResolvedStartupFile[]; startupActions: StartupAction[]; isRestore: boolean;
   sessionName?: string; taskId?: string; runId?: string; resumeToken?: string; continueSessionId?: string; resumeType?: string;
   forkSource?: { kind: "native_id" | "artifact_path" | "name" | "last"; value?: string };
   rebuildArtifacts?: ResolvedStartupFile[]; skipHarnessLaunch?: boolean; allowFreshFallback?: boolean;
@@ -57,8 +56,6 @@ export class StartupOrchestrator {
       if (!binding.managedAttempt) return { ok: false, startupStatus: "failed", errors: ["Native managed attempt is unavailable"] };
       this.sessions.updateStartupStatus(input.sessionId, "pending");
       this.events.emit({ type: "node.startup_pending", rigId: input.rigId, nodeId: input.nodeId });
-      const projection = await input.adapter.project(input.plan, binding);
-      if (projection.failed.length) throw new Error(projection.failed.map((item) => item.error).join("; "));
       const delivered = await input.adapter.deliverStartup(input.resolvedStartupFiles, binding);
       if (delivered.failed.length) throw new Error(delivered.failed.map((item) => item.error).join("; "));
       const attempt = binding.managedAttempt;

@@ -4,10 +4,9 @@ import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { launchManagedHarness, checkManagedReady, type WorkerLauncher } from "./worker-launch.js";
 import type {
   RuntimeAdapter, NodeBinding, ResolvedStartupFile,
-  InstalledResource, ProjectionResult, StartupDeliveryResult, ReadinessResult,
+  InstalledResource, StartupDeliveryResult, ReadinessResult,
   HarnessLaunchResult,
 } from "../domain/runtime-adapter.js";
-import type { ProjectionPlan } from "../domain/projection-planner.js";
 
 export interface CodexAdapterFsOps {
   readFile(path: string): string;
@@ -15,45 +14,7 @@ export interface CodexAdapterFsOps {
   exists(path: string): boolean;
   mkdirp(path: string): void;
   listFiles?(dirPath: string): string[];
-  statMode?(path: string): number;
-  chmod?(path: string, mode: number): void;
-  readdir?(dirPath: string): string[];
   homedir?: string;
-}
-function targetFor(entry: ProjectionPlan["entries"][number], cwd: string): string {
-  switch (entry.category) {
-    case "skill": return nodePath.join(cwd, ".agents", "skills", entry.effectiveId);
-    case "plugin": return nodePath.join(cwd, ".codex", "plugins", entry.effectiveId);
-    case "subagent": return nodePath.join(cwd, ".agents", `${entry.effectiveId}.md`);
-    case "runtime_resource": return nodePath.join(cwd, ".agents", "extensions", entry.effectiveId);
-    case "guidance": return entry.target ? nodePath.resolve(cwd, entry.target) : nodePath.join(cwd, "AGENTS.md");
-  }
-}
-function projectFiles(fs: CodexAdapterFsOps, source: string, target: string): void {
-  const writeOne = (sourcePath: string, targetPath: string) => {
-    fs.mkdirp(nodePath.dirname(targetPath));
-    const content = fs.readFile(sourcePath);
-    if (!fs.exists(targetPath) || fs.readFile(targetPath) !== content) fs.writeFile(targetPath, content);
-    if (fs.statMode && fs.chmod) fs.chmod(targetPath, fs.statMode(sourcePath) & 0o777);
-  };
-  if (fs.readdir) {
-    const walk = (sourceDir: string, targetDir: string) => {
-      for (const name of fs.readdir!(sourceDir)) {
-        const sourcePath = nodePath.join(sourceDir, name);
-        const targetPath = nodePath.join(targetDir, name);
-        try { walk(sourcePath, targetPath); } catch { writeOne(sourcePath, targetPath); }
-      }
-    };
-    try { walk(source, target); return; } catch { /* file-shaped source */ }
-  }
-  if (fs.listFiles) {
-    for (const relative of fs.listFiles(source)) writeOne(nodePath.join(source, relative), nodePath.join(target, relative));
-    return;
-  }
-  writeOne(source, target);
-}
-function sourceExists(fs: CodexAdapterFsOps, source: string): boolean {
-  return fs.exists(source) || Boolean(fs.listFiles?.(source)?.length);
 }
 /** Native Codex adapter. Provider turns are always handed to DirectWorkerLauncher. */
 export class CodexRuntimeAdapter implements RuntimeAdapter {
@@ -71,22 +32,6 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     const root = nodePath.join(binding.cwd, ".agents", "skills");
     if (!this.fs.exists(root) || !this.fs.listFiles) return [];
     return this.fs.listFiles(root).map(file => ({ effectiveId: file, category: "skill", installedPath: nodePath.join(root, file) }));
-  }
-  async project(plan: ProjectionPlan, binding: NodeBinding): Promise<ProjectionResult> {
-    const projected: string[] = [], skipped: string[] = [], failed: Array<{ effectiveId: string; error: string }> = [];
-    for (const entry of plan.entries) {
-      if (entry.classification === "no_op") { skipped.push(entry.effectiveId); continue; }
-      if (entry.category === "plugin") {
-        const pluginType = entry.pluginType ?? "auto";
-        if (pluginType === "claude" || (pluginType === "auto" && !sourceExists(this.fs, nodePath.join(entry.absolutePath, ".codex-plugin")))) {
-          skipped.push(entry.effectiveId);
-          continue;
-        }
-      }
-      try { if (!sourceExists(this.fs, entry.absolutePath)) throw new Error("projection source is missing"); projectFiles(this.fs, entry.absolutePath, targetFor(entry, binding.cwd)); projected.push(entry.effectiveId); }
-      catch (error) { failed.push({ effectiveId: entry.effectiveId, error: error instanceof Error ? error.message : String(error) }); }
-    }
-    return { projected, skipped, failed };
   }
   async deliverStartup(files: ResolvedStartupFile[], binding: NodeBinding): Promise<StartupDeliveryResult> {
     const failed: Array<{ path: string; error: string }> = []; let delivered = 0;

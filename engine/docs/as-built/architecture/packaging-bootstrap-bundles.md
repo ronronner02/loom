@@ -89,9 +89,10 @@ a 400:
 Create also refuses content it must not ship. `computeIntegrity()` in
 `packages/daemon/src/domain/bundle-integrity.ts` throws on sensitive paths (`.env` files,
 `*.pem`, `*.key`, `*.p12`, `credentials.*`, `tokens.*`, `.git/` and `node_modules/`).
-`assertShippableSubstance()` in `packages/daemon/src/domain/agent-resolver.ts` runs on
-vendored content and on the final staging tree, and refuses text containing
-`substrate/shared-docs/` and files declaring `taxonomy: lore`.
+The shippable-substance assertion runs on vendored content and on the final
+staging tree, and refuses text containing `substrate/shared-docs/` and files
+declaring `taxonomy: lore`. Its `agent-resolver.ts` home was never evaluated
+at run time and has been removed; the assertion lives in the create path.
 
 ### Configurations and package identity
 
@@ -176,9 +177,9 @@ Bootstrap distinguishes pod-aware and legacy specs, and inspects a bundle manife
 For pod-aware specs, plan mode validates and runs preflight probes; apply delegates to
 `PodRigInstantiator`. Plan mode still records a bootstrap run/result: it is not a pure
 file read. Apply reports partial completion when nodes fail or require attention, preserving
-the created rig identity rather than claiming every member launched. Apply's non-interruptive
-choice is the request's, else the spec's top-level `non_interruptive`, else the
-`launch.non_interruptive` setting.
+the created rig identity rather than claiming every member launched. The spec's top-level
+`non_interruptive` is recorded on the rig; the current launch path does not
+apply it.
 
 ### Durable install target
 
@@ -289,17 +290,11 @@ The legacy path remains executable, not just an archive parser.
 bootstrap calls `PackageInstallService` in
 `packages/daemon/src/domain/package-install-service.ts`.
 
-The source chain is package resolution/manifest validation, planning and conflict policy,
-then apply/verification with repository records:
-
-- `resolvePackage()` in `packages/daemon/src/domain/package-resolve-helper.ts`, which reads
-  and validates through `package-manifest.ts`. `package-resolver.ts` supplies the types; its
-  `PackageResolver` class has no production caller.
-- `packages/daemon/src/domain/install-planner.ts`, `conflict-detector.ts` and
-  `install-policy.ts`. The planner refuses any planned destination outside the install
-  target.
-- `packages/daemon/src/domain/install-engine.ts`, `install-verifier.ts`,
-  `install-repository.ts` and `package-repository.ts`.
+The legacy package/install engine this section described (`package-manifest.ts`,
+`package-resolver.ts`, `install-planner.ts`, `conflict-detector.ts` and the
+install/verification services) was never constructed by the daemon and has been
+removed. The surviving workspace-scaffold and managed attempt paths do not read
+these modules.
 
 Legacy bootstrap also probes requirements and records staged outcomes before rig
 instantiation. A failed package installation prevents that path from importing the rig.

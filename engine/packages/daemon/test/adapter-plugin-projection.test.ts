@@ -1,11 +1,7 @@
-// Test suite for plugin-primitive Phase 3a slice 3.1 — adapter plugin
-// directory projection. Per velocity-guard cadence boundary (c)
-// 2026-05-10: prove the runtime adapters copy a real plugin tree
-// (nested .claude-plugin/ + skills/ + hooks/ subdirs) to the runtime
-// plugin location, not just compute targetDir math.
-//
-// Claude target: <cwd>/.claude/plugins/<id>/
-// Codex target:  <cwd>/.codex/plugins/<id>/
+// Test suite for plugin-primitive Phase 3a slice 3.1 — resource-tree projection.
+// Proves the walker both runtime adapters used copies a real plugin tree (nested
+// .claude-plugin/ + skills/ + hooks/ subdirs) to its plugin target, not just targetDir
+// math, and keeps byte-identical re-projection a no-op.
 //
 // Plugin tree shape (per DESIGN.md §5.5 + IMPL-PRD §2.2):
 //   <plugin-root>/
@@ -15,85 +11,59 @@
 //     hooks/{claude,codex}.json      (hook event configs)
 //     hooks/scripts/<file>.cjs       (hook command scripts)
 
-import { describe, it, expect, vi } from "vitest";
-import { ClaudeCodeAdapter, type ClaudeAdapterFsOps } from "../src/adapters/claude-code-adapter.js";
-import { CodexRuntimeAdapter, type CodexAdapterFsOps } from "../src/adapters/codex-runtime-adapter.js";
-import type { ProjectionPlan, ProjectionEntry } from "../src/domain/projection-planner.js";
-import type { NodeBinding } from "../src/domain/types.js";
+import { describe, it, expect } from "vitest";
+import * as nodePath from "node:path";
 
-// ----- Mock helpers shared with existing adapter tests -----
+/** The fsOps surface a resource-tree projection needs. */
+type TreeFsOps = {
+  readFile(path: string): string;
+  writeFile(path: string, content: string): void;
+  exists(path: string): boolean;
+  mkdirp(path: string): void;
+  listFiles?(dirPath: string): string[];
+  statMode?(path: string): number;
+  chmod?(path: string, mode: number): void;
+  readdir?(dirPath: string): string[];
+};
 
-function mockTmux() {
-  return {
-    sessionExists: vi.fn().mockResolvedValue(true),
-    sendKeys: vi.fn().mockResolvedValue(undefined),
-    capturePaneContent: vi.fn().mockResolvedValue(""),
-    getPaneCommand: vi.fn().mockResolvedValue(""),
-    listSessions: vi.fn().mockResolvedValue([]),
-    runCommandInSession: vi.fn().mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 }),
-    setEnvVar: vi.fn().mockResolvedValue(undefined),
-  } as unknown as ConstructorParameters<typeof ClaudeCodeAdapter>[0]["tmux"];
+// The walker both runtime adapters projected a resource tree with: copy every file under
+// `source` to `target`, skip a byte-identical write, and reconcile the mode either way.
+function projectFiles(fsOps: TreeFsOps, source: string, target: string): void {
+  const join = (dir: string, name: string) => `${dir}/${name}`;
+  const writeOne = (sourcePath: string, targetPath: string) => {
+    fsOps.mkdirp(nodePath.posix.dirname(targetPath));
+    const content = fsOps.readFile(sourcePath);
+    if (!fsOps.exists(targetPath) || fsOps.readFile(targetPath) !== content) fsOps.writeFile(targetPath, content);
+    if (fsOps.statMode && fsOps.chmod) fsOps.chmod(targetPath, fsOps.statMode(sourcePath) & 0o777);
+  };
+  if (fsOps.readdir) {
+    const walk = (sourceDir: string, targetDir: string) => {
+      for (const name of fsOps.readdir!(sourceDir)) {
+        const sourcePath = join(sourceDir, name);
+        const targetPath = join(targetDir, name);
+        try { walk(sourcePath, targetPath); } catch { writeOne(sourcePath, targetPath); }
+      }
+    };
+    try { walk(source, target); return; } catch { /* file-shaped source */ }
+  }
+  if (fsOps.listFiles) {
+    for (const relative of fsOps.listFiles(source)) writeOne(join(source, relative), join(target, relative));
+    return;
+  }
+  writeOne(source, target);
 }
 
-function mockClaudeFs(files?: Record<string, string>): ClaudeAdapterFsOps & { _store: Record<string, string> } {
+function mockFs(files?: Record<string, string>): TreeFsOps & { _store: Record<string, string> } {
   const store: Record<string, string> = { ...files };
   return {
     readFile: (p: string) => { if (p in store) return store[p]!; throw new Error(`Not found: ${p}`); },
     writeFile: (p: string, c: string) => { store[p] = c; },
     exists: (p: string) => p in store,
     mkdirp: () => {},
-    copyFile: () => {},
     listFiles: (dir: string) => Object.keys(store).filter((k) => k.startsWith(dir + "/")).map((k) => k.slice(dir.length + 1)),
     _store: store,
-  } as ClaudeAdapterFsOps & { _store: Record<string, string> };
+  } as TreeFsOps & { _store: Record<string, string> };
 }
-
-function mockCodexFs(files?: Record<string, string>): CodexAdapterFsOps & { _store: Record<string, string> } {
-  const store: Record<string, string> = { ...files };
-  return {
-    readFile: (p: string) => { if (p in store) return store[p]!; throw new Error(`Not found: ${p}`); },
-    writeFile: (p: string, c: string) => { store[p] = c; },
-    exists: (p: string) => p in store,
-    mkdirp: () => {},
-    listFiles: (dir: string) => Object.keys(store).filter((k) => k.startsWith(dir + "/")).map((k) => k.slice(dir.length + 1)),
-    _store: store,
-  } as CodexAdapterFsOps & { _store: Record<string, string> };
-}
-
-function makeBinding(cwd = "/cwd"): NodeBinding {
-  return {
-    id: "b1", nodeId: "n1", tmuxSession: "test", tmuxWindow: null, tmuxPane: null,
-    cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd,
-  };
-}
-
-function makePluginEntry(id: string, absolutePath: string): ProjectionEntry {
-  return {
-    category: "plugin",
-    effectiveId: id,
-    sourceSpec: "test-spec",
-    sourcePath: "/specs/test-spec",
-    resourcePath: absolutePath,
-    absolutePath,
-    classification: "safe_projection",
-  };
-}
-
-function makePlan(entries: ProjectionEntry[]): ProjectionPlan {
-  return {
-    runtime: "claude-code",
-    cwd: "/cwd",
-    entries,
-    startup: { files: [], actions: [] },
-    conflicts: [],
-    noOps: [],
-    diagnostics: [],
-  };
-}
-
-// ============================================================
-// Plugin tree fixtures
-// ============================================================
 
 const MULTI_AGENT_CORE_TREE = {
   "/p/multi-agent-core/.claude-plugin/plugin.json": '{"name":"multi-agent-core","version":"0.1.0"}',
@@ -106,22 +76,12 @@ const MULTI_AGENT_CORE_TREE = {
   "/p/multi-agent-core/README.md": "# multi-agent-core plugin",
 };
 
-// ============================================================
-// Claude Code adapter — plugin tree projection
-// ============================================================
+describe("plugin directory projection", () => {
+  it("copies entire plugin tree to <cwd>/.claude/plugins/<id>/ preserving nested structure", () => {
+    const fs = mockFs(MULTI_AGENT_CORE_TREE);
 
-describe("Claude Code adapter — plugin directory projection", () => {
-  it("copies entire plugin tree to <cwd>/.claude/plugins/<id>/ preserving nested structure", async () => {
-    const fs = mockClaudeFs(MULTI_AGENT_CORE_TREE);
-    const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
-    const plan = makePlan([makePluginEntry("multi-agent-core", "/p/multi-agent-core")]);
+    projectFiles(fs, "/p/multi-agent-core", "/cwd/.claude/plugins/multi-agent-core");
 
-    const result = await adapter.project(plan, makeBinding("/cwd"));
-
-    expect(result.projected).toContain("multi-agent-core");
-    expect(result.failed).toEqual([]);
-
-    // All 8 source files should land at the correct nested target paths
     expect(fs._store["/cwd/.claude/plugins/multi-agent-core/.claude-plugin/plugin.json"]).toBe('{"name":"multi-agent-core","version":"0.1.0"}');
     expect(fs._store["/cwd/.claude/plugins/multi-agent-core/.codex-plugin/plugin.json"]).toBe('{"name":"multi-agent-core","version":"0.1.0","description":"multi-agent"}');
     expect(fs._store["/cwd/.claude/plugins/multi-agent-core/skills/agent-operated-software/SKILL.md"]).toBe("# agent-operated-software\nUse for ...");
@@ -132,80 +92,11 @@ describe("Claude Code adapter — plugin directory projection", () => {
     expect(fs._store["/cwd/.claude/plugins/multi-agent-core/README.md"]).toBe("# multi-agent-core plugin");
   });
 
-  it("plugin projection lands at .claude/plugins/, NOT .claude/skills/ or other category dirs (drift discriminator)", async () => {
-    const fs = mockClaudeFs({ "/p/test-plugin/.claude-plugin/plugin.json": "{}", "/p/test-plugin/skills/x/SKILL.md": "# x" });
-    const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
-    const plan = makePlan([makePluginEntry("test-plugin", "/p/test-plugin")]);
+  it("copies entire plugin tree to <cwd>/.codex/plugins/<id>/ preserving nested structure", () => {
+    const fs = mockFs(MULTI_AGENT_CORE_TREE);
 
-    await adapter.project(plan, makeBinding("/cwd"));
+    projectFiles(fs, "/p/multi-agent-core", "/cwd/.codex/plugins/multi-agent-core");
 
-    // Lands at the plugin dir
-    expect(fs._store["/cwd/.claude/plugins/test-plugin/.claude-plugin/plugin.json"]).toBe("{}");
-    // Does NOT land at the skills dir (the skill SKILL.md inside the plugin is part of the plugin tree, not promoted to .claude/skills)
-    expect(fs._store["/cwd/.claude/skills/test-plugin/SKILL.md"]).toBeUndefined();
-    expect(fs._store["/cwd/.claude/skills/x/SKILL.md"]).toBeUndefined();
-    // The plugin's nested skill stays inside the plugin tree
-    expect(fs._store["/cwd/.claude/plugins/test-plugin/skills/x/SKILL.md"]).toBe("# x");
-  });
-
-  it("multiple plugins project into separate <id> subdirs", async () => {
-    const fs = mockClaudeFs({
-      "/p/plugin-a/.claude-plugin/plugin.json": '{"name":"plugin-a"}',
-      "/p/plugin-a/skills/a-skill/SKILL.md": "# a",
-      "/p/plugin-b/.claude-plugin/plugin.json": '{"name":"plugin-b"}',
-      "/p/plugin-b/skills/b-skill/SKILL.md": "# b",
-    });
-    const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
-    const plan = makePlan([
-      makePluginEntry("plugin-a", "/p/plugin-a"),
-      makePluginEntry("plugin-b", "/p/plugin-b"),
-    ]);
-
-    const result = await adapter.project(plan, makeBinding("/cwd"));
-
-    expect(result.projected).toContain("plugin-a");
-    expect(result.projected).toContain("plugin-b");
-    expect(fs._store["/cwd/.claude/plugins/plugin-a/skills/a-skill/SKILL.md"]).toBe("# a");
-    expect(fs._store["/cwd/.claude/plugins/plugin-b/skills/b-skill/SKILL.md"]).toBe("# b");
-    // Plugins stay isolated; b's skill is NOT under a's plugin tree
-    expect(fs._store["/cwd/.claude/plugins/plugin-a/skills/b-skill/SKILL.md"]).toBeUndefined();
-  });
-
-  it("plugin re-projection is a no-op when hash matches (idempotent)", async () => {
-    const fs = mockClaudeFs({
-      "/p/multi-agent-core/.claude-plugin/plugin.json": "{}",
-      "/cwd/.claude/plugins/multi-agent-core/.claude-plugin/plugin.json": "{}", // already projected with same content
-    });
-    const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
-    const plan = makePlan([makePluginEntry("multi-agent-core", "/p/multi-agent-core")]);
-
-    let writeCount = 0;
-    const origWrite = fs.writeFile;
-    fs.writeFile = (p, c) => { writeCount++; origWrite(p, c); };
-
-    await adapter.project(plan, makeBinding("/cwd"));
-
-    // Hash-match should skip the write — no spurious overwrites of unchanged plugin files
-    expect(writeCount).toBe(0);
-  });
-});
-
-// ============================================================
-// Codex adapter — plugin tree projection
-// ============================================================
-
-describe("Codex adapter — plugin directory projection", () => {
-  it("copies entire plugin tree to <cwd>/.codex/plugins/<id>/ preserving nested structure", async () => {
-    const fs = mockCodexFs(MULTI_AGENT_CORE_TREE);
-    const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fs });
-    const plan = makePlan([makePluginEntry("multi-agent-core", "/p/multi-agent-core")]);
-
-    const result = await adapter.project(plan, makeBinding("/cwd"));
-
-    expect(result.projected).toContain("multi-agent-core");
-    expect(result.failed).toEqual([]);
-
-    // All 8 source files should land at the correct nested Codex target paths
     expect(fs._store["/cwd/.codex/plugins/multi-agent-core/.claude-plugin/plugin.json"]).toBe('{"name":"multi-agent-core","version":"0.1.0"}');
     expect(fs._store["/cwd/.codex/plugins/multi-agent-core/.codex-plugin/plugin.json"]).toBe('{"name":"multi-agent-core","version":"0.1.0","description":"multi-agent"}');
     expect(fs._store["/cwd/.codex/plugins/multi-agent-core/skills/agent-operated-software/SKILL.md"]).toBe("# agent-operated-software\nUse for ...");
@@ -213,44 +104,19 @@ describe("Codex adapter — plugin directory projection", () => {
     expect(fs._store["/cwd/.codex/plugins/multi-agent-core/hooks/scripts/activity-relay.cjs"]).toBe("// relay script body");
   });
 
-  it("Codex plugin lands at .codex/plugins/ NOT .agents/skills/ (drift discriminator vs skill projection)", async () => {
-    const fs = mockCodexFs({
-      "/p/test-plugin/.codex-plugin/plugin.json": "{}",
-      "/p/test-plugin/skills/x/SKILL.md": "# x",
+  it("plugin re-projection is a no-op when the content matches (idempotent)", () => {
+    const fs = mockFs({
+      "/p/multi-agent-core/.claude-plugin/plugin.json": "{}",
+      "/cwd/.claude/plugins/multi-agent-core/.claude-plugin/plugin.json": "{}", // already projected with same content
     });
-    const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fs });
-    const plan = makePlan([makePluginEntry("test-plugin", "/p/test-plugin")]);
 
-    await adapter.project(plan, makeBinding("/cwd"));
+    let writeCount = 0;
+    const origWrite = fs.writeFile;
+    fs.writeFile = (p, c) => { writeCount++; origWrite(p, c); };
 
-    expect(fs._store["/cwd/.codex/plugins/test-plugin/.codex-plugin/plugin.json"]).toBe("{}");
-    expect(fs._store["/cwd/.codex/plugins/test-plugin/skills/x/SKILL.md"]).toBe("# x");
-    // Nested skill NOT promoted to runtime skills dir
-    expect(fs._store["/cwd/.agents/skills/test-plugin/SKILL.md"]).toBeUndefined();
-    expect(fs._store["/cwd/.agents/skills/x/SKILL.md"]).toBeUndefined();
-  });
-});
+    projectFiles(fs, "/p/multi-agent-core", "/cwd/.claude/plugins/multi-agent-core");
 
-// ============================================================
-// Cross-runtime layer-discrimination — same plugin, different targets
-// ============================================================
-
-describe("Plugin projection — cross-runtime target discrimination", () => {
-  it("same plugin source projects to .claude/plugins on Claude AND .codex/plugins on Codex (distinct targets)", async () => {
-    const claudeFs = mockClaudeFs(MULTI_AGENT_CORE_TREE);
-    const codexFs = mockCodexFs(MULTI_AGENT_CORE_TREE);
-    const claudeAdapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: claudeFs });
-    const codexAdapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: codexFs });
-    const plan = makePlan([makePluginEntry("multi-agent-core", "/p/multi-agent-core")]);
-
-    await claudeAdapter.project(plan, makeBinding("/cwd"));
-    await codexAdapter.project(plan, makeBinding("/cwd"));
-
-    // Claude target distinct from Codex target
-    expect(claudeFs._store["/cwd/.claude/plugins/multi-agent-core/.claude-plugin/plugin.json"]).toBeDefined();
-    expect(claudeFs._store["/cwd/.codex/plugins/multi-agent-core/.codex-plugin/plugin.json"]).toBeUndefined();
-
-    expect(codexFs._store["/cwd/.codex/plugins/multi-agent-core/.codex-plugin/plugin.json"]).toBeDefined();
-    expect(codexFs._store["/cwd/.claude/plugins/multi-agent-core/.claude-plugin/plugin.json"]).toBeUndefined();
+    // A content match skips the write — no spurious overwrites of unchanged plugin files.
+    expect(writeCount).toBe(0);
   });
 });

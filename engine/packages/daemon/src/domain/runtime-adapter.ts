@@ -1,5 +1,4 @@
 import type { Binding, StartupFile } from "./types.js";
-import type { ProjectionPlan } from "./projection-planner.js";
 
 // -- Bridge type: NodeBinding extends Binding with cwd --
 // Interim repo type. The current repo only has Binding in types.ts.
@@ -27,8 +26,6 @@ export interface NodeBinding extends Binding {
   teamPermissionDefault?: boolean;
   /** Reserved successor generation; current tenure remains the input fence until commit. */
   launchGeneration?: string;
-  /** #25: the rig's `managed_blocks.claude-code` file. Absent = CLAUDE.md. Only the Claude adapter reads it. */
-  claudeManagedBlockFile?: import("./managed-blocks.js").ClaudeManagedBlockFile;
 }
 
 export interface ManagedAttempt {
@@ -82,13 +79,6 @@ export interface InstalledResource {
   effectiveId: string;
   category: string;
   installedPath: string;
-}
-
-export interface ProjectionResult {
-  warnings?: string[];
-  projected: string[];
-  skipped: string[];
-  failed: Array<{ effectiveId: string; error: string }>;
 }
 
 export interface StartupDeliveryResult {
@@ -172,7 +162,7 @@ export interface ForkSource {
 
 /**
  * The five-method runtime adapter contract.
- * Adapters own projection, delivery, harness launch, reconciliation, and readiness.
+ * Adapters own delivery, harness launch and readiness.
  * Startup action execution is NOT part of this contract — that belongs
  * to the startup orchestrator after checkReady().
  */
@@ -187,16 +177,8 @@ export interface RuntimeAdapter {
    * projection it always had.
    */
   readonly managedTransport?: "direct";
-  /** The file an adapter's project() writes for a skill when it lives outside
-   *  the Claude project tree, for "already in place" detection. Absent = the
-   *  instantiator's default target. */
-  skillTargetPath?(tmuxSession: string | null, effectiveId: string): string | null;
-
-  /** List currently installed/projected resources for a node. */
+  /** List currently installed resources for a node. */
   listInstalled(binding: NodeBinding): Promise<InstalledResource[]>;
-
-  /** Project resources from a projection plan to the runtime target locations. */
-  project(plan: ProjectionPlan, binding: NodeBinding): Promise<ProjectionResult>;
 
   /** Deliver startup files. Claude's post-launch path can reuse the orchestrator's checked send.
    * The adapter still owns file reads, ordering, provisioning and required/optional errors. */

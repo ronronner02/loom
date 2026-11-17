@@ -76,8 +76,6 @@ import { defaultWorktreeRoot } from "./domain/worktree-policy.js";
 import fs, { readFileSync as readFileSyncNamed } from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
-import { RigModeStore } from "./domain/rig-mode/rig-mode-store.js";
-import { OperatingPostureService, configuredCatalogPath } from "./domain/rig-mode/operating-posture.js";
 import { MULTI_AGENT_HOME } from "./data-paths.js";
 
 interface DaemonOptions {
@@ -755,9 +753,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const { StartupOrchestrator } = await import("./domain/startup-orchestrator.js");
   const { ClaudeCodeAdapter } = await import("./adapters/claude-code-adapter.js");
   const { CodexRuntimeAdapter } = await import("./adapters/codex-runtime-adapter.js");
-  const { ProjectionManifestStore } = await import("./domain/projection-manifest-store.js");
-  const { hashContent } = await import("./domain/conflict-detector.js");
-  const projectionManifestStore = new ProjectionManifestStore(db);
   const fsOps = {
     readFile: (file: string) => fs.readFileSync(file, "utf8"),
     writeFile: (file: string, content: string) => fs.writeFileSync(file, content, "utf8"),
@@ -772,8 +767,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   };
   const startupOrchestrator = new StartupOrchestrator({ db, sessionRegistry, eventBus,
     managedAttempt: input => managedAttempt?.(input) ?? Promise.resolve(undefined) });
-  const claudeAdapter = new ClaudeCodeAdapter({ fsOps, ...workerLauncher,
-    recordProjection: (targetPath: string, content: string) => projectionManifestStore.record({ targetPath, lastHash: hashContent(content), writtenAt: new Date().toISOString() }) });
+  const claudeAdapter = new ClaudeCodeAdapter({ fsOps, ...workerLauncher });
   const codexAdapter = new CodexRuntimeAdapter({ fsOps, ...workerLauncher });
   const { ContextUsageStore } = await import("./domain/context-usage-store.js");
   const contextUsageStore = new ContextUsageStore(db, { stateDir: MULTI_AGENT_HOME, codexHome: configuredCodexHome,

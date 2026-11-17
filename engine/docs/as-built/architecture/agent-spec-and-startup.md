@@ -30,13 +30,15 @@ resolve → project → deliver pre-launch files → persist replay context → 
 
 ## 1. Canonical spec and topology types
 
-- **AgentSpec** (`types.ts:941`) — parsed from `agent.yaml`
-  (`agent-resolver.ts:150`). Owns imports, defaults, startup, resources, and
-  profiles. Canonical parse/normalize/validate is `domain/agent-manifest.ts`.
+- **AgentSpec** (`types.ts:941`) — parsed from `agent.yaml`. Owns imports,
+  defaults, startup, resources, and profiles. The daemon-side
+  parse/normalize/validate chain (`agent-manifest.ts`, `agent-resolver.ts`)
+  was never constructed on a live path and has been removed; the specs remain
+  as data consumed by the packaging scripts.
 - **RigSpec** (`types.ts:1172`) — canonical pod-aware rig topology. Uses
   `version: "0.2"` and `pods[]`; owns cross-pod `edges[]`, rig-level startup
   overlays, and `cultureFile`, plus the optional `summary`, `permissionPolicy`,
-  `nonInterruptive`, `managedBlocks`, `docs`, `services` and `workspace` fields.
+  `nonInterruptive`, `docs`, `services` and `workspace` fields.
   An authored `non_interruptive` must be a boolean (`rigspec-schema.ts:179`) and
   sets the rig's saved non-interruptive choice at instantiation unless an
   explicit launch option is given (`rigspec-instantiator.ts:1345`).
@@ -63,27 +65,21 @@ resolve → project → deliver pre-launch files → persist replay context → 
   `podId + nodeId` (`PRIMARY KEY (pod_id, node_id)`,
   `packages/daemon/src/db/migrations/014_agentspec_reboot.ts:24`).
 
-## 2. Execution and projection types
+## 2. Execution types
 
 Restore/snapshot types are detailed in `lifecycle-snapshot-restore.md`; the
-spec/projection types live here.
+adapter contract lives here.
 
-- **ResolvedNodeConfig** (`profile-resolver.ts:33`) — output of profile
-  resolution. Carries effective runtime/model/effort/cwd, narrowed restore policy,
-  selected resources, layered startup block, resolved spec identity, and the
-  resolved compaction strategy, continuity mechanic, lifecycle, activity and
-  skill loadout.
-- **ProjectionPlan** (`projection-planner.ts:42`) — runtime projection plan for
-  a node: runtime, cwd, projection entries, startup block, diagnostics,
-  conflict/no-op classifications.
-- **RuntimeAdapter** (`runtime-adapter.ts:143`) — the five-method contract
+The profile-resolution and projection-plan types (`ResolvedNodeConfig`,
+`ProjectionPlan` and the `profile-resolver.ts` / `projection-planner.ts` /
+`startup-resolver.ts` chain behind them) were reachable only from a projection
+plan the product never filled, and have been removed.
+
+- **RuntimeAdapter** (`runtime-adapter.ts:143`) — the four-method contract
   (adapter detail in `adapters-and-runtimes.md`): `listInstalled(binding)`
-  (`runtime-adapter.ts:153`), `project(plan, binding)` (`:156`),
-  `deliverStartup(files, binding, sendInteractiveText?)` (`:160`),
-  `launchHarness(binding, opts)` (`:170`), `checkReady(binding)` (`:176`). The
-  interface also declares an optional `claudeManagedLaunch` property (`:145`)
-  and an optional method, `skillTargetPath?(...)` (`:150`). Required methods:
-  **5**
+  (`runtime-adapter.ts:153`), `deliverStartup(files, binding,
+  sendInteractiveText?)` (`:160`), `launchHarness(binding, opts)` (`:170`),
+  `checkReady(binding)` (`:176`). Required methods: **4**
   (`sed -n '/^export interface RuntimeAdapter /,/^}/p' packages/daemon/src/domain/runtime-adapter.ts | grep -c -E '^  [a-zA-Z]+\('`).
 - **HarnessLaunchResult** (`runtime-adapter.ts:97`) — returned by
   `launchHarness`: either `{ ok: true, resumeToken?, resumeType?,
@@ -94,47 +90,24 @@ spec/projection types live here.
 
 ## 3. Parsing, validation, resolution pipeline
 
-All of the files below are under `packages/daemon/src/domain/`, and none of
-them imports Hono: **0**
-(`git grep -l '"hono' -- packages/daemon/src/domain/{agent-manifest,rigspec-schema,rigspec-codec,startup-validation,path-safety,spec-validation-service,spec-review-service,agent-resolver,agent-preflight,profile-resolver,startup-resolver,projection-planner}.ts | wc -l`).
-
-**Parse / validate:**
-
-- `agent-manifest.ts` — canonical AgentSpec parse/normalize/validate.
-- `rigspec-schema.ts` — dual-format RigSpec validation.
-- `rigspec-codec.ts` — dual-format YAML codec.
-- `startup-validation.ts` — shared startup-block validation.
-- `path-safety.ts` — shared relative-path safety checks.
-- `spec-validation-service.ts` — pure raw-YAML validation helpers.
-- `spec-review-service.ts` — daemon-owned structured review model for
-  RigSpec/AgentSpec YAML, incl. topology preview, provenance state, managed-app
-  services metadata (`waitFor`, `surfaces`, `composePreview`).
-
-**Resolve:**
-
-- `agent-resolver.ts` — resolves `agent_ref`, imports, collision metadata.
-- `agent-preflight.ts` — single-agent resolution/preflight.
-- `profile-resolver.ts` — applies defaults, profile uses, resource selection,
-  startup layering, restore-policy narrowing.
-- `startup-resolver.ts` — additive startup layering.
-- `projection-planner.ts` — runtime resource projection planning.
+The spec parse/validate/resolve pipeline (`agent-manifest.ts`,
+`agent-resolver.ts`, `profile-resolver.ts`, `startup-resolver.ts`,
+`startup-validation.ts`, `projection-planner.ts`) was imported by nothing the
+daemon evaluates and has been removed with `startup.ts`'s stale imports. The
+spec YAML under `packages/daemon/specs` is still shipped and is still read by
+the packaging scripts (`generate-context-packs.mjs`,
+`check-first-run-references.mjs`); nothing in the daemon parses it at run
+time.
 
 ## 4. Startup orchestration (the spec-startup contract)
 
-`StartupOrchestrator.startNode` (`startup-orchestrator.ts:172`, a thin wrapper
-over `startNodeWithWarnings`, `:178`) drives, in source order: apply the seat's
-permission selection and the rig's non-interruptive setting to the binding
-(`NativePermissionStore.apply`, `:183`; `:193`) → mark pending (`:209`) and
-select the startup proof (`:210`) → project resources (`:224`) → deliver
-pre-launch files (`:266`) → persist startup context (`:282`) → launch harness,
-recording any resume token (`:301`, `:313`) → wait for ready (`:384`) → deliver
-the session identity prompt and interactive files (`:420`, `:473`) → execute
-`after_files` then the remaining `after_ready` actions (`:495`, `:502`; see
-the resume preload below) → check readiness
-again and, for a Claude resume, that the launched session agrees with the
-requested token (`:507`–`535`) → mark ready (`:538`). The class doc comment
-(`startup-orchestrator.ts:120`–`139`) lists ten steps; the code persists the
-startup context before the harness launch.
+`StartupOrchestrator.startNode` (`startup-orchestrator.ts:53`) drives, in source
+order: resolve the admitted managed attempt (`:56`) → mark the session pending
+and emit `node.startup_pending` (`:58`–`:59`) → deliver the startup files
+(`:62`) → write the turn prompt (`:66`–`:75`) → launch the harness and record
+its receipt (`:77`–`:86`) → wait for ready (`:87`) → emit
+`node.startup_ready` and mark the session ready (`:90`–`:91`). A failure at any
+step marks the session failed and emits `node.startup_failed` (`:93`–`:98`).
 
 **Pre-launch vs interactive delivery split** — the load-bearing seam:
 
@@ -327,11 +300,11 @@ topology roster a snapshot records (see `lifecycle-snapshot-restore.md`).
 ## See also
 
 - `daemon-core.md` — createDaemon wiring; the migration/route surface.
-- `adapters-and-runtimes.md` — the five-method RuntimeAdapter contract detail.
+- `adapters-and-runtimes.md` — the RuntimeAdapter contract detail.
 - `lifecycle-snapshot-restore.md` — snapshot/restore consumes persisted replay
   context.
 - `architecture-rules-and-event-system.md` — the cross-cutting architecture
   rules.
-- Source roots: `packages/daemon/src/domain/{agent-manifest,rigspec-schema,
-  profile-resolver,startup-orchestrator,whoami-service,claim-service}.ts`,
+- Source roots: `packages/daemon/src/domain/{rigspec-schema,
+  startup-orchestrator,whoami-service,claim-service}.ts`,
   `packages/daemon/src/routes/{rigspec,whoami}.ts`.
