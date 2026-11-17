@@ -32,6 +32,7 @@ npm run test -w packages/daemon -- \
   test/team-model-policy.test.ts \
   test/team-souls.test.ts \
   test/team-dependencies.test.ts \
+  test/setup.test.ts test/network-proxy.test.ts \
   test/framework-source.test.ts \
   test/framework-invocation.test.ts \
   test/lead-roster.test.ts \
@@ -71,7 +72,7 @@ npm run test -w packages/ui -- \
   src/team/__tests__/flow-events.test.ts src/team/__tests__/team-flow-adapter.test.tsx \
   src/team/__tests__/overview.test.tsx src/team/__tests__/tasks.test.tsx src/team/__tests__/reviews.test.tsx \
   src/team/__tests__/analytics.test.tsx src/team/__tests__/settings.test.tsx \
-  src/team/__tests__/github-gate.test.tsx src/team/__tests__/create-project.test.tsx \
+  src/team/__tests__/github-gate.test.tsx src/team/__tests__/setup.test.tsx src/team/__tests__/create-project.test.tsx \
   src/team/__tests__/project-home.test.tsx src/team/__tests__/chat-panel.test.tsx \
   src/team/__tests__/documents.test.tsx src/team/__tests__/project-files.test.tsx \
   src/team/__tests__/souls-workflows.test.tsx \
