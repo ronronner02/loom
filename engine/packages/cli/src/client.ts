@@ -3,7 +3,6 @@ import path from "node:path";
 import { ConfigStore } from "./config-store.js";
 import { getMultiAgentHome } from "@multi-agent/daemon/data-paths";
 import { fetchWithTimeout, FetchTimeoutError } from "./fetch-with-timeout.js";
-import { readLocalOrigin } from "./local-origin.js";
 
 export function terminalAuthHeaders(): Record<string, string> {
   const token = resolveTerminalToken();
@@ -21,27 +20,9 @@ export const SENDER_IDENTITY_HEADER = "X-Multi-Agent-Session";
  * a write with no actor at all is 400 actor_required — parameter completeness, not a refusal). One
  * chokepoint: `DaemonClient.fetch` stamps this on every request; callers never set it by hand.
  */
-export function senderIdentityHeaders(originSelfHostId?: string): Record<string, string> {
+export function senderIdentityHeaders(): Record<string, string> {
   const session = process.env.MULTI_AGENT_SESSION_NAME?.trim();
-  if (!session) return {};
-  // Preserve qualified senders; append only a locally derived instance id.
-  const value =
-    originSelfHostId && originSelfHostId.length > 0 && session.split("@").length < 3
-      ? `${session}@${originSelfHostId}`
-      : session;
-  return { [SENDER_IDENTITY_HEADER]: value };
-}
-
-/** Construct registered remote clients with the origin derived from this instance's durable store. */
-export function remoteDaemonClient(
-  clientFactory: (baseUrl: string) => DaemonClient,
-  url: string,
-  originSelfHostId?: string,
-): DaemonClient {
-  const client = clientFactory(url);
-  client.originSelfHostId = originSelfHostId;
-  client.remoteTarget = true;
-  return client;
+  return session ? { [SENDER_IDENTITY_HEADER]: session } : {};
 }
 
 function resolveTerminalToken(): string | null {
@@ -162,43 +143,8 @@ export class DaemonClient {
   readonly baseUrl: string;
   private fetchImpl: typeof fetch = fetch;
   private timeoutMs = 5_000;
-  /** Set by remoteDaemonClient; absent origin is labelled explicitly on remote requests. */
-  originSelfHostId?: string;
-  remoteTarget = false;
   private identity?: Promise<Record<string, string>>;
-  private originUnknown = false;
   private senderIdentity: boolean;
-
-  private async identityHeaders(): Promise<Record<string, string>> {
-    if (!this.senderIdentity) return {};
-    const localHeaders = senderIdentityHeaders();
-    const session = localHeaders[SENDER_IDENTITY_HEADER];
-    if (!session || session.split("@").length >= 3) return localHeaders;
-    const directTarget = process.env.MULTI_AGENT_URL;
-    if (!this.remoteTarget && !directTarget) return localHeaders;
-    const origin = this.originSelfHostId ?? readLocalOrigin();
-    if (!origin) {
-      this.originUnknown = true;
-      return { ...localHeaders, "X-Multi-Agent-Origin-Unknown": "true" };
-    }
-    if (!this.remoteTarget) {
-      // Loopback may be a forwarded endpoint. Only matching instance identity proves locality.
-      const controller = new AbortController();
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      try {
-        const target = await Promise.race([
-          (async () => {
-            const res = await this.fetchImpl(`${this.baseUrl.replace(/\/+$/, "")}/healthz`, { signal: controller.signal });
-            return res.ok ? (await res.json() as { selfHostId?: unknown }).selfHostId : undefined;
-          })(),
-          new Promise<undefined>(resolve => { timer = setTimeout(() => resolve(undefined), Math.min(this.timeoutMs, 1000)); }),
-        ]);
-        if (target === origin) return localHeaders;
-      } catch { /* Unproved locality: carry the known origin, never the endpoint's identity. */ }
-      finally { clearTimeout(timer); controller.abort(); }
-    }
-    return senderIdentityHeaders(origin);
-  }
 
   constructor(baseUrl?: string, options?: DaemonClientOptions) {
     if (baseUrl) {
@@ -298,8 +244,7 @@ export class DaemonClient {
     }
     // P18 sender-provenance: stamp the seat-derived identity header LAST, so the transport — never a
     // caller-supplied header or a request body — decides the caller identity the channel of record records.
-    // Known remote or unproved direct endpoints carry origin; proven local requests remain bare.
-    this.identity ??= this.identityHeaders();
+    this.identity ??= Promise.resolve(this.senderIdentity ? senderIdentityHeaders() : {});
     init = { ...init, headers: { ...(init.headers as Record<string, string> ?? {}), ...await this.identity } };
     let responseStatus: number | undefined;
     try {
@@ -316,10 +261,6 @@ export class DaemonClient {
           timeoutMessage: `Request to ${this.baseUrl}${path} timed out after ${timeoutMs}ms`,
         },
       );
-      if (response.ok && this.originUnknown) {
-        console.error("Origin instance unknown: local durable identity is unavailable; delivery continues with origin-unknown provenance.");
-        this.originUnknown = false;
-      }
       return response;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

@@ -14,7 +14,6 @@ import { derivePickup, type PickupReceipt } from "./queue-pickup.js";
 import { lastMeaningfulTransition, readWaitingView, type WaitingView, type WaitingActivityReader } from "./queue-waiting.js";
 import { wrapPaneEnvelope } from "../lib/pane-envelope.js";
 import { renderQueueHandoffNudge } from "./queue-nudge-text.js";
-import { getSelfHostId } from "./host-identity/fanout-contract.js";
 import { parseSessionName, isHumanSeatSessionRef } from "./session-name.js";
 import { parseReplyToChoice, formatReplyToChoice, describeReplyToFallback, REPLY_TO_CHOICE_ACTOR, type ReplyToChoice } from "./reply-to-choice.js";
 import { classifyDestination, type DestinationClass } from "./queue-routing/destination-resolver.js";
@@ -584,36 +583,9 @@ const COMPACT_QUEUE_COLUMNS =
   "qitem_id, ts_created, ts_updated, source_session, destination_session, state, priority, tier, tags, blocked_on, handed_off_to, handed_off_from, expires_at, closure_reason, closure_target, closure_required_at, claimed_at, last_nudge_attempt, last_nudge_result, last_heartbeat, resolution, target_repo";
 
 /**
- * Stamp-at-FORWARD only (founder root invariant 2026-08-27, superseding 51-09 incr 4
- * stamp-at-write): a LOCAL write never calls this — local rows store the bare
- * member@rig. The cross-host forwarding routes (routes/queue.ts) call it so the
- * forwarding daemon stamps ITS OWN id as the origin before the remote create; the
- * remote's not-bare guard then stores the received triple verbatim (origin never
- * forged). FAIL-OPEN: no reconciled self-id, or a value that is not a bare
- * member@rig (already a triple / malformed), passes through unchanged.
- */
-export function stampSelfHostSuffix(session: string): string;
-export function stampSelfHostSuffix(session: undefined): undefined;
-export function stampSelfHostSuffix(session: string | undefined): string | undefined;
-export function stampSelfHostSuffix(session: string | undefined): string | undefined {
-  if (session === undefined) return undefined;
-  const selfId = getSelfHostId();
-  if (!selfId) return session;
-  if (session.split("@").length !== 2) return session; // not a bare member@rig — untouched
-  return `${session}@${selfId}`;
-}
-
-/**
- * 51-09 increment 4b — additive TEACHING for the unknown_destination_rig refusal
- * (arch ruling c9964404, mechanism ii). 3-part destinations ALREADY refuse (BR-1:
- * member@rig@host greedy-folds to rig "rig@host", misses, rejects) — the code is
- * UNCHANGED (C1). When the rejected destination's greedy-parsed rig token CONTAINS
- * '@', return ADDITIVE structured fields (FR-7 precedent) teaching the out-of-band
- * path: the split echo + a hint naming `--host`. C4: a SELF-suffixed destination
- * names the self case and is NEVER auto-stripped/routed home (self-strip is option
- * (i), routed to arch). Returns undefined for 2-part / non-canonical tokens (the
- * refusal is byte-unchanged there). One helper, all four refusal sites (C2). Reads
- * the FR-8 parse contract; the parse family stays byte-identical (C3).
+ * The refusal teaching for a destination whose rig token carries an `@`: a host never rides in
+ * the session string, so the owner is told the split and the way to address a remote host.
+ * Returns undefined for a two-part or non-canonical token, whose refusal is unchanged.
  */
 export function destinationRigTeaching(session: string): Record<string, unknown> | undefined {
   const parsed = parseSessionName(session);
@@ -622,14 +594,9 @@ export function destinationRigTeaching(session: string): Record<string, unknown>
   const rig = parsed.rig.slice(0, at);
   const host = parsed.rig.slice(at + 1);
   const bare = `${parsed.member}@${rig}`;
-  const selfId = getSelfHostId();
-  const selfHost = !!selfId && host === selfId;
   return {
     destinationSplit: { member: parsed.member, rig, host },
-    selfHost,
-    hint: selfHost
-      ? `the host suffix '@${host}' is THIS host — the host never rides in the session string; resend the destination as ${bare}`
-      : `host does not ride in the session string; use --host ${host} with destination ${bare}`,
+    hint: `host does not ride in the session string; use --host ${host} with destination ${bare}`,
   };
 }
 

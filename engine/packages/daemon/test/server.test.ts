@@ -31,6 +31,21 @@ describe("Hono server (production app)", () => {
     }
   });
 
+  it("GET /healthz publishes no self-host identity: this daemon has none to resolve", async () => {
+    // The field was only ever written by a boot reconcile that no longer exists, so it is
+    // always absent. A reader that waited for it (the CLI's locality probe, the queue's
+    // host-qualified sender) failed open forever; the field and its readers are gone.
+    const db = createFullTestDb();
+    try {
+      const { app } = createTestApp(db);
+      const body = await (await app.request("/healthz")).json() as Record<string, unknown>;
+      expect(body).not.toHaveProperty("selfHostId");
+      expect(body).not.toHaveProperty("selfHostIdSource");
+    } finally {
+      db.close();
+    }
+  });
+
   it("unknown API routes return the JSON 404 contract for every method", async () => {
     const db = createFullTestDb();
     const uiDistDir = createTempUiDist();

@@ -16,7 +16,6 @@ import { EventBus } from "./domain/event-bus.js";
 import { codexDaemonSupportProbe } from "./domain/codex-daemon-support.js";
 import { prepareCodexTeamWorkspace } from "./domain/codex-team-workspace.js";
 // TODO: AS-T12 — migrate to pod-aware bundle source resolver
-import { setSelfHostId, setSelfHostIdSource } from "./domain/host-identity/fanout-contract.js";
 import { DaemonLifecycleStore } from "./domain/daemon-lifecycle-store.js";
 import { randomUUID } from "node:crypto";
 import { TranscriptStore } from "./domain/transcript-store.js";
@@ -416,9 +415,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // so an inherited digest can only name a token this daemon cannot honour.
   const workerControl = new WorkerControlAccess(db, teamControl.credentials);
   workerControl.reconcile();
-
-  setSelfHostId(null);
-  setSelfHostIdSource("generated");
 
   // P7 — the daemon's LIFECYCLE record (distinct from the 059 identity record).
   // A new boot mints a fresh epoch, stamps started_at, and clears any prior run's

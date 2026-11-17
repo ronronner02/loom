@@ -15,7 +15,6 @@ import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository, QueueRepositoryError } from "../src/domain/queue-repository.js";
 import { RigRepository } from "../src/domain/rig-repository.js";
 import { parseSessionName, isHumanSeatSessionRef } from "../src/domain/session-name.js";
-import { setSelfHostId } from "../src/domain/host-identity/fanout-contract.js";
 
 function setup(): { repo: QueueRepository; db: Database.Database } {
   const db = createDb();
@@ -46,7 +45,7 @@ async function refusalFrom(fn: () => Promise<unknown>): Promise<QueueRepositoryE
 
 describe("51-09 incr 4b — destination-host teaching refusal (injected topologyValidateRig)", () => {
   let db: Database.Database | undefined;
-  afterEach(() => { db?.close(); db = undefined; setSelfHostId(null); });
+  afterEach(() => { db?.close(); db = undefined; });
 
   it("RED1: a 3-part destination refuses with unknown_destination_rig (code UNCHANGED) + ADDITIVE teaching (split echo + --host hint)", async () => {
     const s = setup(); db = s.db;
@@ -56,16 +55,12 @@ describe("51-09 incr 4b — destination-host teaching refusal (injected topology
     expect(err.meta!["destinationSplit"]).toEqual({ member: "orch", rig: "unknown", host: "vps-b" });
     expect(String(err.meta!["hint"])).toContain("--host vps-b");
     expect(String(err.meta!["hint"])).toContain("orch@unknown"); // resend bare
-    expect(err.meta!["selfHost"]).toBe(false);
   });
 
-  it("RED2 (C4): a SELF-suffixed destination gets the SAME refusal with the SELF case named — NO auto-strip / route-home", async () => {
+  it("RED2 (C4): a self-suffixed destination is refused the same way and never routed home", async () => {
     const s = setup(); db = s.db;
-    setSelfHostId("host-self");
     const err = await refusalFrom(() => s.repo.create({ sourceSession: "orch@known-rig", destinationSession: "orch@known-rig@host-self", body: "hi", priority: "routine" }));
     expect(err.code).toBe("unknown_destination_rig"); // refused, NOT routed home
-    expect(err.meta!["selfHost"]).toBe(true);
-    expect(String(err.meta!["hint"])).toMatch(/THIS host/i);
     expect(String(err.meta!["hint"])).toContain("orch@known-rig"); // resend bare
     expect(err.meta!["destinationSplit"]).toEqual({ member: "orch", rig: "known-rig", host: "host-self" });
   });

@@ -5,10 +5,8 @@
 // forwarding boundary (routes/queue.ts stamp-at-FORWARD, preserved) and rides verbatim when a
 // genuine origin triple arrives.
 //
-// RED at pre-fix bytes: the 51-09 always-suffix producers stamp the self-host id locally —
-// create persists the triple, the frozen wake envelope renders the triple From/reply-hint,
-// and the envelope wrapper appends the id it is handed. These pins fail until the local
-// producers are deleted.
+// These pins hold by construction: no producer here has a host id to stamp, so every
+// intra-instance surface stays bare and a genuine origin triple rides through verbatim.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { QueueRepository } from "../src/domain/queue-repository.js";
@@ -17,7 +15,6 @@ import { OutboxHandler, WAKE_INTENT_PREFIX } from "../src/domain/outbox-handler.
 import { initializeDatabase } from "../src/db/baseline.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { wrapPaneEnvelope } from "../src/lib/pane-envelope.js";
-import { setSelfHostId, getSelfHostId } from "../src/domain/host-identity/fanout-contract.js";
 
 const TEST_HOST = "host-red-invariant";
 
@@ -25,7 +22,6 @@ describe("local bare identity — no self-host suffix on any intra-instance surf
   let db: Database.Database;
   let repo: QueueRepository;
   let outbox: OutboxHandler;
-  let priorSelfId: string | null;
 
   beforeEach(() => {
     db = new Database(":memory:");
@@ -33,11 +29,8 @@ describe("local bare identity — no self-host suffix on any intra-instance surf
     repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
     outbox = new OutboxHandler(db);
     repo.attachOutbox(outbox);
-    priorSelfId = getSelfHostId();
-    setSelfHostId(TEST_HOST); // the boot-reconciled self id IS known — and must not leak locally
   });
   afterEach(() => {
-    setSelfHostId(priorSelfId);
     db.close();
   });
 
@@ -90,7 +83,6 @@ describe("local bare identity — no self-host suffix on any intra-instance surf
       "dev-driver@v-multi-agent-build",
       "orch-lead@v-multi-agent-build",
       "hello",
-      TEST_HOST,
     );
     expect(env).toContain("From: dev-driver@v-multi-agent-build\n");
     expect(env).toContain(`↩ Reply: multi-agent send dev-driver@v-multi-agent-build "..."`);
@@ -102,7 +94,6 @@ describe("local bare identity — no self-host suffix on any intra-instance surf
       "pm-lead@other-rig@host-remote1",
       "orch-lead@v-multi-agent-build",
       "hello from afar",
-      TEST_HOST,
     );
     expect(env).toContain("From: pm-lead@other-rig@host-remote1");
     expect(env).toContain(`↩ Reply: multi-agent send pm-lead@other-rig@host-remote1 "..."`);
