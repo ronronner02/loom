@@ -67,11 +67,11 @@ describe("addressed mailbox delivery", () => {
     expect(() => mailbox.send({ ...input, recipient: "other@team" })).toThrowError(expect.objectContaining({ code: "mailbox_id_conflict" }));
   });
 
-  it("deduplicates a stable message id when the optional capability is omitted on retry", () => {
-    const input = { rigId, sender: "lead@team", recipient: "worker@team", taskId: "T009", runId: "run-1", body: "retry without capability", messageId: "mail-without-capability" };
+  it("deduplicates a stable message id on retry under the same seat capability", () => {
+    const input = { rigId, sender: "lead@team", recipient: "worker@team", taskId: "T009", runId: "run-1", body: "retry", messageId: "mail-retried", capability: cap("1") };
     const first = mailbox.send(input);
     expect(mailbox.send(input).id).toBe(first.id);
-    expect(first.capability).toMatch(/^mailbox:[A-Za-z0-9_-]{43}$/);
+    expect(first.capability).toBe(cap("1"));
     expect((db.prepare("SELECT count(*) AS count FROM chat_messages").get() as { count: number }).count).toBe(1);
   });
 
@@ -160,13 +160,31 @@ describe("addressed mailbox delivery", () => {
   });
 
   it("tells a foreign or weak capability nothing about the recipient seat", () => {
-    const scope = { rigId, recipient: "worker@team", taskId: "T009", runId: "run-1" };
+    const scope = { rigId, recipient: "worker@team", taskId: "T009", runId: "run-1", capability: cap("owner") };
     mailbox.send({ ...scope, sender: "lead@team", body: "secret", messageId: "mail-foreign", capability: cap("owner") });
     promptState = "blocked";
     expect(mailbox.poll({ ...scope, capability: cap("foreign") })).toMatchObject({ promptState: "unknown", pendingCount: 0, messages: [] });
     expect(() => mailbox.consume({ ...scope, capability: cap("foreign"), messageId: "mail-foreign", consumedBy: "worker@team" })).toThrowError(expect.objectContaining({ code: "mailbox_scope_mismatch" }));
     expect(() => mailbox.send({ ...scope, sender: "lead@team", body: "weak", messageId: "mail-weak", capability: "x" })).toThrowError(expect.objectContaining({ code: "invalid_mailbox_input" }));
     expect(() => mailbox.poll({ ...scope, capability: cap("owner"), state: "bogus" as never })).toThrowError(expect.objectContaining({ code: "invalid_mailbox_state" }));
+  });
+
+  it("refuses a send for a seat whose mailbox has no recorded capability, instead of minting an unreadable value", () => {
+    // A value minted at send time is one the seat's poll was never scoped by: the message would
+    // be written and never readable. The seat's assignment is the only place a capability comes from.
+    const unwired = new MailboxDelivery(chatRepo, () => "clear");
+    expect(() => unwired.send({ rigId, sender: "lead@team", recipient: "worker@team", taskId: "T009", runId: "run-1", body: "nowhere" }))
+      .toThrowError(expect.objectContaining({ code: "mailbox_capability_required" }));
+    const capabilities = new SeatMailboxCapabilities(db);
+    db.prepare(`INSERT INTO team_runs (id, rig_id, binding_json, binding_digest, state, created_at, updated_at)
+      VALUES ('run-unrecorded', ?, '{}', 'digest', 'approved', '2026-10-23T00:00:00.000Z', '2026-10-23T00:00:00.000Z')`).run(rigId);
+    // A seat the run never minted a capability for reads null, and the send refuses rather than
+    // writing under a value nothing polls for.
+    const managed = new MailboxDelivery(chatRepo, () => "clear", () => null,
+      (runId, sessionId) => capabilities.find(runId, sessionId));
+    expect(() => managed.send({ rigId, sender: "lead@team", recipient: "worker@team", taskId: "T009", runId: "run-unrecorded", body: "nowhere" }))
+      .toThrowError(expect.objectContaining({ code: "mailbox_capability_required" }));
+    expect((db.prepare("SELECT count(*) AS count FROM chat_messages").get() as { count: number }).count).toBe(0);
   });
 
   it("mints one capability per seat, and a managed send reuses the seat's value", () => {
