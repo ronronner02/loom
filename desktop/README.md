@@ -1,6 +1,6 @@
 # Loom for Windows
 
-A native Windows window around the Multi-Agent team UI. The engine is the app's own child
+A native Windows window around the Loom team UI. The engine is the app's own child
 process: the window starts it, connects to it, and shows your projects. No WSL, no terminal, and
 no separate engine install.
 
@@ -74,13 +74,8 @@ The mobile layout folds navigation into a menu. See the [quick start](../README.
 and [operations guide](../docs/operations.md) for CLI commands, Create retries and
 browser setup.
 
-The **Shuimo Danqing** ink-wash backdrop remains visible around the content panels
-and in the Overview heading. **Settings → Appearance** controls theme and background
-motion. The entrance plays once per app session. Afterward, only the fully revealed
-character remains animated: navigation, reload and reconnect do not replay the
-entrance or the fade to an empty canvas. Closing and reopening the app starts a new
-session. Animation pauses while the window is unfocused or hidden; reduced motion
-or disabling background motion shows the portrait still instead.
+The theme and background come from the shared Web UI: **Settings → Appearance** selects
+light or dark and whether the background is animated. The desktop adds no chrome of its own.
 
 ## Building
 
@@ -124,7 +119,8 @@ The app runs the daemon from `resources/engine/packages/daemon/dist/index.js` wh
 from `engine/packages/daemon/dist/index.js` in a source checkout (`src/engine-paths.js`). Run the
 app from source with `npm start`. Run the unit tests with `npm test`; they cover the startup
 sequence, the dynamic origin, pairing, dependency rows, the folder dialog, the preload boundary,
-reconnect, shutdown, and the staged installer tree, with an in-memory window. The installer
+reconnect, the lifecycle races between a start in flight and Stop or Reconnect, the close
+confirmation, shutdown, and the staged installer tree, with an in-memory window. The installer
 lifecycle test is opt-in (`MULTI_AGENT_INSTALLER_SMOKE=1` with two artifacts) because it installs
 an artifact and writes an uninstall entry.
 
