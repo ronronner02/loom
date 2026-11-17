@@ -187,7 +187,7 @@ function resolveDefaultUiDistDir(): string {
 }
 
 export const WEB_UI_OFF_MESSAGE =
-  "The Multi-Agent web UI is off. To turn it on, run `multi-agent config set ui.enabled true`, then stop and start the daemon (`multi-agent daemon stop`, `multi-agent daemon start`).\n";
+  "The Multi-Agent web UI is off for this daemon. Set MULTI_AGENT_UI_ENABLED=true in its environment, then stop and start it (`multi-agent daemon stop`, `multi-agent daemon start`).\n";
 
 function safeResolveUiPath(uiDistDir: string, requestPath: string): string | null {
   const relativePath = requestPath.replace(/^\/+/, "") || "index.html";

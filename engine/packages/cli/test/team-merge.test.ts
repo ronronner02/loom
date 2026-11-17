@@ -63,8 +63,11 @@ describe("multi-agent team merge", () => {
     const calls = (fetchImpl as unknown as { mock: { calls: Array<[string, RequestInit]> } }).mock.calls;
     const [url, init] = calls.find(([, request]) => request.method === "POST")!;
     expect(url).toBe("http://127.0.0.1:7433/api/team-control/runs/run-1/merge");
-    expect(JSON.parse(String(init.body))).toMatchObject({ protocolVersion: "1.0", runId: "run-1", actionId: "run-1",
-      expectedEntityVersion: 9, payload: {} });
+    const body = JSON.parse(String(init.body));
+    expect(body).toMatchObject({ protocolVersion: "1.0", runId: "run-1", expectedEntityVersion: 9, payload: {} });
+    // A merge is a first-class write, so its action id must not be the run id (a replay would collide).
+    expect(body.actionId).toEqual(expect.any(String));
+    expect(body.actionId).not.toBe("run-1");
     expect(result.lines.join("\n")).toContain("Merged team/add-a-health-endpoint-run-1 (fast-forwarded) at 0123456.");
   });
 

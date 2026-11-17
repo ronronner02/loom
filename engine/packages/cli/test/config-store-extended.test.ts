@@ -737,11 +737,11 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     expect(store.resolve().onboarding.defaultPack.enabled).toBe(false);
   });
 
-  it("malformed config.json throws with reset hint (preserves legacy behavior)", () => {
+  it("malformed config.json throws with a fix-it hint", () => {
     writeFileSync(configPath, "{not-json");
     const store = new ConfigStore(configPath);
     expect(() => store.resolve()).toThrow(/malformed/i);
-    expect(() => store.resolve()).toThrow(/reset/i);
+    expect(() => store.resolve()).toThrow(/delete the file/i);
   });
 
   // --- Preview Terminal v0 (PL-018) keys ---

@@ -45,8 +45,8 @@ export interface MultiAgentConfig {
   topology: {
     root: string;
   };
-  // OPR.0.5.9.5 Wave B — the addressable context library root (`multi-agent context add`
-  // installs here). The removed packsRoot shape is refused, never bridged.
+  // The addressable context library root. The removed packsRoot shape is refused, never
+  // bridged.
   context: {
     root: string;
     systemWorld: string;
@@ -344,19 +344,16 @@ const DEFAULTS = {
 export const VALID_KEYS = [
   "daemon.port",
   "daemon.host",
-  // OPR.0.4.6.MH1 FR-1 — the persisted host-selection pointer (the
-  // kubectl current-context shape). ONE static key, lockstep with the
-  // daemon settings-store twin (parity test pins both). Registry-
-  // membership validation of the VALUE happens at the `multi-agent host select`
-  // verb layer (the store stays value-agnostic); the daemon config
-  // write is the one write path — the CLI verb is a thin client.
-  // Default "local" (unset ≡ the local host — the FR-2 zero-regression
-  // posture by construction).
+  // The persisted host-selection pointer (the kubectl current-context
+  // shape). ONE static key, lockstep with the daemon settings-store twin
+  // (parity test pins both). Registry-membership validation of the VALUE
+  // happens at the verb layer (the store stays value-agnostic); the daemon
+  // config write is the one write path. Default "local" (unset is the local
+  // host).
   "host.selected",
-  // OPR.0.4.6.MH1 FR-4 — the own-host display name (arch Ruling 1: home =
-  // the settings twins, never hosts.yaml). One stored name, every surface
-  // reads it (dashboard/explorer/ls/whoami). Write path = the daemon
-  // config write via `multi-agent host rename` (thin client, same as select).
+  // The own-host display name, stored in the settings twins rather than a
+  // hosts file. One stored name, every surface reads it. Write path = the
+  // daemon config write, same as the selection pointer above.
   "host.name",
   // OPR.0.4.6.WF5 FR-2 — the host-level maturity-dial default (lockstep
   // with the daemon settings twin). "orchestrator" | "human_only";
@@ -744,10 +741,10 @@ function setNestedValue(obj: Record<string, unknown>, parts: string[], value: un
 
 // Per-subdir defaults derived from workspace.root. Steering is a FILE path.
 // Slice discovery defaults to the mission-aware workspace/missions contract;
-// the indexer remains backward-compatible with flat slice roots when an
-// operator sets workspace.slices_root explicitly.
-// Files and Progress default to the whole workspace so a fresh
-// `multi-agent config init-workspace` install is browsable without extra env wiring.
+// the indexer remains backward-compatible with flat slice roots when an owner
+// sets workspace.slices_root explicitly.
+// Files and Progress default to the whole workspace so a fresh instance is
+// browsable without extra env wiring.
 export function deriveWorkspaceDefault(key: ValidKey, workspaceRoot: string): string {
   switch (key) {
     case "workspace.slices_root":      return join(workspaceRoot, "missions");
@@ -853,8 +850,8 @@ const KEY_CONSTRAINTS: Partial<Record<ValidKey, (raw: string, coerced: string | 
       throw new Error(`Invalid value for runtime.readiness_timeout_seconds: must be an integer in [1, 600], got "${raw}"`);
     }
   },
-  // daemon.port had no KEY_CONSTRAINTS entry, so `multi-agent config set daemon.port
-  // 99999` stored 99999 and the next daemon start died with a raw
+  // daemon.port had no KEY_CONSTRAINTS entry, so a stored 99999 reached the
+  // next daemon start and died with a raw
   // ERR_SOCKET_BAD_PORT from serve(). The check range-validates the value
   // the runtime actually consumes — the same parseInt the boot path runs on
   // MULTI_AGENT_PORT (startServer) — rather than the raw input format, so
@@ -1415,7 +1412,7 @@ export class ConfigStore {
         parsed = JSON.parse(raw) as Record<string, unknown>;
       } catch {
         throw new Error(
-          `Config file at ${this.configPath} is malformed. Fix the JSON or reset with: multi-agent config reset`
+          `Config file at ${this.configPath} is malformed. Fix the JSON, or delete the file to return every setting to its default.`
         );
       }
     }

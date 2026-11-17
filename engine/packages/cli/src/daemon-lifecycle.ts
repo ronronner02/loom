@@ -2,7 +2,6 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import type { ChildProcess } from "node:child_process";
 import { connectionErrorCode, formatDaemonHostForUrl } from "./client.js";
-import { blockedConnectionGuidance, isBlockedConnectionCode } from "./daemon-reachability.js";
 import type { DaemonStartLock } from "./daemon-start-lock.js";
 import { DAEMON_STOP_WAIT_MS, DAEMON_SHUTDOWN_RECEIPT, type DaemonShutdownReceipt } from "@multi-agent/daemon/daemon-shutdown";
 import { ConfigStore } from "./config-store.js";
@@ -15,12 +14,9 @@ export interface DaemonState {
   startedAt: string;
 }
 
-/**
- * OPR.0.4.3.21 — event-loop wedge evidence read from the enriched `/healthz`
- * body. Present only when the daemon actually answered healthz with a monitor
- * wired; absent when healthz timed out (a wedged loop can't respond — the
- * evidence in that case is `reason: "unresponsive"`).
- */
+/** Event-loop wedge evidence read from the enriched `/healthz` body. Present only when the
+ *  daemon actually answered healthz with a monitor wired; absent when healthz timed out (a
+ *  wedged loop can't respond — the evidence in that case is `reason: "unresponsive"`). */
 export interface DaemonEventLoopEvidence {
   lagMeanMs: number;
   lagP99Ms: number;
@@ -30,24 +26,20 @@ export interface DaemonEventLoopEvidence {
 }
 
 export interface DaemonStatus {
-  /** RULING 1ae863d2 — C3 3-state semantics (canonical: daemon crash-cart-detect.ts, kept in
-   *  lockstep): "stopped" requires POSITIVE evidence (connection refused); a probe TIMEOUT or
-   *  other non-refusal failure is "unverified" — never a down assertion. */
+  /** "stopped" requires POSITIVE evidence (connection refused); a probe TIMEOUT or other
+   *  non-refusal failure is "unverified" — never a down assertion. */
   state: "running" | "stopped" | "stale" | "unverified";
   port?: number;
   host?: string;
   pid?: number;
   healthy?: boolean;
-  /**
-   * OPR.0.4.3.21 — why an alive+listening daemon is unhealthy. "unresponsive"
-   * = the process is up but `/healthz` timed out (the honest wedged-loop
-   * signal); "event-loop-starved" = healthz answered but the loop-lag /
-   * last-tick evidence crossed the threshold. Absent when healthy.
-   */
+  /** Why an alive+listening daemon is unhealthy. "unresponsive" = the process is up but
+   *  `/healthz` timed out (the honest wedged-loop signal); "event-loop-starved" = healthz
+   *  answered but the loop-lag / last-tick evidence crossed the threshold. Absent when healthy. */
   reason?: "unresponsive" | "event-loop-starved";
-  /** OPR.0.4.3.21 — event-loop evidence when healthz answered with a monitor. */
+  /** Event-loop evidence when healthz answered with a monitor. */
   eventLoop?: DaemonEventLoopEvidence;
-  /** #275 — the OS code behind a failed health probe (e.g. EPERM when a sandbox blocked it). */
+  /** The OS code behind a failed health probe (e.g. EPERM when a sandbox blocked it). */
   probeErrorCode?: string;
 }
 
@@ -57,97 +49,6 @@ export type ProcessLiveness = "alive" | "dead" | "unknown";
 export interface GetDaemonStatusOptions {
   /** Observers may disable cleanup; only a matching clean shutdown permits removal. */
   cleanupStaleState?: boolean;
-}
-
-/** Build the daemon HTTP URL from status. Uses persisted host or defaults to 127.0.0.1. */
-export function getDaemonUrl(status: DaemonStatus): string {
-  return `http://${formatDaemonHostForUrl(status.host ?? DEFAULT_HOST)}:${status.port}`;
-}
-
-/**
- * OPR.0.3.3.04.2 (AC-4): the ONE shared honest daemon-not-running error for the
- * daemon-dependent journey verbs (bootstrap / discover / workspace / workflow).
- * Mirrors the repo's 3-part fact / consequence / action convention
- * (commands/archive.ts, commands/queue.ts) so the daemon-dependency UX is
- * consistent across the new-operator journey instead of four divergent bare
- * dead-ends. Bounded to the daemon-not-running path - NOT a general
- * error-framework (that would be its own slice).
- */
-export interface DaemonNotRunningError {
-  fact: string;
-  consequence: string;
-  action: string;
-  /** The OS code behind the failed probe, when known. */
-  causeCode?: string;
-}
-
-export function daemonNotRunningError(): DaemonNotRunningError {
-  return {
-    fact: "Daemon not running.",
-    consequence: "This command needs a running daemon.",
-    action: "Run 'multi-agent daemon start'.",
-  };
-}
-
-/**
- * Print the shared daemon-not-running error and set a failing exit code. Pass
- * `{ json: true }` for the agent-facing `{ error: { fact, consequence, action } }`
- * envelope (matching commands/queue.ts JSON output).
- */
-
-/** B8-1b (shape 73ee4b25) — the epistemic-matched guard message: language derives from
- *  what the probe KNOWS. UNVERIFIED/unhealthy = "did not respond" (down ≠ busy);
- *  stopped/stale = the plain not-running truth. Pure so every surface shares it. */
-export function statusGuardMessage(status: DaemonStatus): DaemonNotRunningError {
-  if (status.state === "stopped" || status.state === "stale") {
-    return daemonNotRunningError();
-  }
-  const causeCode = status.probeErrorCode ? { causeCode: status.probeErrorCode } : {};
-  if (isBlockedConnectionCode(status.probeErrorCode)) {
-    const blocked = blockedConnectionGuidance(status.probeErrorCode);
-    return {
-      fact: `Daemon could not be checked: the health probe was blocked (${status.probeErrorCode}).`,
-      consequence: `This command needs a responsive daemon. ${blocked.consequence}`,
-      action: blocked.action,
-      ...causeCode,
-    };
-  }
-  // unverified, or running-but-unhealthy: we do NOT know it is down.
-  return {
-    fact: "Daemon did not respond — it may be busy or stopped (state not confirmed).",
-    consequence: "This command needs a responsive daemon; the outcome of proceeding would be indeterminate.",
-    action: "Re-check with 'multi-agent daemon status'. If it is confirmed stopped, run 'multi-agent daemon start'.",
-    ...causeCode,
-  };
-}
-
-/** B8-1b — THE precheck chokepoint: returns true when the daemon is running+healthy;
- *  otherwise prints the epistemic-matched 3-part (+ the wrong-home sibling hint when
- *  present), sets exit 1, returns false. Replaces the ~55 hand-rolled verbatim guards. */
-export function daemonStatusGuard(status: DaemonStatus, opts?: { json?: boolean }): boolean {
-  if (status.state === "running" && status.healthy !== false) return true;
-  const err = statusGuardMessage(status);
-  if (opts?.json) {
-    console.log(JSON.stringify({ error: err }));
-  } else {
-    console.error(`Error: ${err.fact}`);
-    console.error(`  ${err.consequence}`);
-    console.error(`  ${err.action}`);
-  }
-  process.exitCode = 1;
-  return false;
-}
-
-export function printDaemonNotRunning(opts?: { json?: boolean }): void {
-  const err = daemonNotRunningError();
-  if (opts?.json) {
-    console.log(JSON.stringify({ error: err }));
-  } else {
-    console.error(`Error: ${err.fact}`);
-    console.error(`  ${err.consequence}`);
-    console.error(`  ${err.action}`);
-  }
-  process.exitCode = 1;
 }
 
 export interface StartOptions {
@@ -165,9 +66,8 @@ export interface LifecycleDeps {
     detached: boolean;
     windowsHide?: boolean;
   }) => ChildProcess;
-  // OPR.0.4.3.21 — optional `json` lets getDaemonStatus read the enriched
-  // /healthz body (event-loop evidence). Optional so existing mocks that
-  // return `{ ok }` are unchanged; production (realDeps) supplies it.
+  /** Optional `json` lets getDaemonStatus read the enriched /healthz body (event-loop
+   *  evidence). Optional so existing mocks that return `{ ok }` are unchanged. */
   fetch: (url: string) => Promise<{ ok: boolean; json?: () => Promise<unknown> }>;
   /** Exclusive bind check used only after a no-state health probe times out. */
   isPortOccupied?: (host: string, port: number) => Promise<boolean>;
@@ -187,23 +87,22 @@ export interface LifecycleDeps {
   isProcessAlive: (pid: number) => boolean;
   /** Platform for the stop path's exit semantics. Absent = the POSIX rules; realDeps supplies the running platform. */
   platform?: NodeJS.Platform;
-  /** #275 — three-state liveness for status reads (production: realDeps). Optional so existing
+  /** Three-state liveness for status reads (production: realDeps). Optional so existing
    *  mocks keep the boolean rule; absent = derived from isProcessAlive. */
   processLiveness?: (pid: number) => ProcessLiveness;
-  // OPR.0.4.2.1 — optional injectable delay for the status-probe bounded settle/retry.
-  // Defaults to a real setTimeout in production; tests pass a no-op to stay fast. Optional so
-  // existing deps / mocks / callers are untouched.
+  /** Optional injectable delay for the status-probe bounded settle/retry. Defaults to a real
+   *  setTimeout in production; tests pass a no-op to stay fast. */
   sleep?: (ms: number) => Promise<void>;
-  // RULING 1ae863d2 — optional home-resolution honesty deps (optional so existing
-  // mocks/callers are untouched): homeDir overrides the module-load MULTI_AGENT_DIR for
-  // the sibling-home scan; listDir lists a directory (production: fs.readdirSync).
+  /** Home-resolution honesty deps, optional so existing mocks/callers are untouched:
+   *  homeDir overrides the module-load MULTI_AGENT_DIR for the sibling-home scan; listDir
+   *  lists a directory (production: fs.readdirSync). */
   homeDir?: string;
   listDir?: (path: string) => string[];
 }
 
 export const MULTI_AGENT_DIR = MULTI_AGENT_HOME;
 export const STATE_FILE = path.join(MULTI_AGENT_DIR, "daemon.json");
-export const LOG_FILE = path.join(MULTI_AGENT_DIR, "daemon.log");
+const LOG_FILE = path.join(MULTI_AGENT_DIR, "daemon.log");
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 7433;
@@ -213,24 +112,19 @@ const DEFAULT_DB = "multi-agent.sqlite";
 // bounded, but do not kill a healthy daemon during first-boot slack.
 const HEALTHZ_RETRIES = 80;
 const HEALTHZ_DELAY_MS = 250;
-// OPR.0.4.7 slice-05 item-4: the WHOLE status health probe stays within ONE normal
+// The WHOLE status health probe stays within ONE normal
 // CLI request window (~5s, matching DaemonClient's timeoutMs) — immediate connection
 // errors may retry INSIDE this deadline, but it is NEVER re-allocated per retry. So a
 // slow-but-answering /healthz (e.g. 400ms) is OBSERVED rather than falsely reported
 // stopped; a genuine connection refusal still fails within the window -> stopped.
 const STATUS_PROBE_DEADLINE_MS = 5000;
-// OPR.0.4.2.1 — status-probe bounded settle: a single /healthz fetch loses to the post-restart
+// Status-probe bounded settle: a single /healthz fetch loses to the post-restart
 // listener bind window (process up, not yet accepting). getDaemonStatus retries a HARD-BOUNDED
 // number of attempts with a short backoff so the status reflects the ACTUAL /healthz answer. This
 // is status-probe-LOCAL (does NOT change start/stop/checkPid timing). Worst-case added latency for
 // a genuine-down status check is bounded ((ATTEMPTS-1)*DELAY + per-attempt timeout) — never a hang.
 const STATUS_PROBE_MAX_ATTEMPTS = 5;
 const STATUS_PROBE_RETRY_DELAY_MS = 200;
-// Per-probe /healthz timeout for the SINGLE-SHOT callers that are NOT the status
-// settle path — checkPid classification and the start/stop recovery guards, plus
-// each iteration of startDaemon's own HEALTHZ_RETRIES poll loop. These keep their
-// prior fixed-bound timing (the settle deadline above is status-probe-LOCAL); this
-// restores the timeout the removed HEALTHZ_PROBE_TIMEOUT_MS supplied to them.
 const HEALTHZ_PROBE_TIMEOUT_MS = 250;
 // Windows terminates a process outright on SIGTERM, so the killed daemon leaves the keep-alive
 // socket the probe just used reset (ECONNRESET) rather than the port refusing. This bounded
@@ -272,7 +166,7 @@ function summarizeDaemonStartFailure(healthzUrl: string, logContent: string | nu
   return `${generic}. Recent daemon log: ${detail}`;
 }
 
-export function resolveCliBaseDir(baseDir: string): string {
+function resolveCliBaseDir(baseDir: string): string {
   return path.basename(baseDir) === "commands" ? path.resolve(baseDir, "..") : baseDir;
 }
 
@@ -293,9 +187,7 @@ export function resolveCliBaseDir(baseDir: string): string {
  *
  * Picking the vendored copy first (the prior order) means devs run a
  * stale daemon through `multi-agent daemon start` whenever they've rebuilt
- * `@multi-agent/daemon` but haven't rerun `build-package.sh`. That hid the
- * fact that QA on local main 55e01f2e was getting a daemon WITHOUT the
- * shipped slice-09 `/api/rig-mode/*` routes (qitem-20260518054224).
+ * `@multi-agent/daemon` but haven't rerun `build-package.sh`.
  *
  * In an npm-install layout `packages/daemon/dist` does not exist
  * (only the bundled `packages/cli/daemon` lives next to the cli);
@@ -307,10 +199,8 @@ export function resolveDaemonPath(baseDir: string, exists: (p: string) => boolea
   if (exists(path.join(monorepo, "dist/index.js"))) return monorepo;
   const bundled = path.resolve(cliBaseDir, "../daemon");
   if (exists(path.join(bundled, "dist/index.js"))) return bundled;
-  // Last-resort: return the monorepo path so callers get a meaningful
-  // error rather than crashing on undefined. The caller validates
-  // existence elsewhere (doctor / start) and surfaces "daemon dist not
-  // found at <path>".
+  // Last-resort: return the monorepo path so the caller's own existence check
+  // reports "daemon dist not found at <path>" instead of crashing on undefined.
   return monorepo;
 }
 
@@ -319,7 +209,7 @@ export function getDaemonPath(): string {
 }
 
 function readState(deps: LifecycleDeps): DaemonState | null {
-  const stateFile = resolveLifecycleFile(deps, "daemon.json");
+  const stateFile = STATE_FILE;
   if (!deps.exists(stateFile)) return null;
   const raw = deps.readFile(stateFile);
   if (!raw) return null;
@@ -330,10 +220,6 @@ function readState(deps: LifecycleDeps): DaemonState | null {
     console.error("Warning: malformed daemon.json; target identity unavailable");
     return null;
   }
-}
-
-function resolveLifecycleFile(_deps: LifecycleDeps, filename: "daemon.json" | "daemon.log"): string {
-  return filename === "daemon.json" ? STATE_FILE : LOG_FILE;
 }
 
 /** Check if a PID is an Multi-Agent daemon. Returns:
@@ -372,18 +258,16 @@ function resolveConfiguredDaemonTarget(): { host: string; port: number } {
 
 /**
  * Scrub list: environment variable prefixes and exact names that should NOT
- * be forwarded from the operator shell into the daemon process. These are
+ * be forwarded from the launching shell into the daemon process. These are
  * terminal-emulator, GUI-session, and cmux-session variables that can break
  * adapter initialization when the daemon runs detached.
  */
 const ENV_SCRUB_PREFIXES = ["CODEX_", "GHOSTTY_", "XPC_", "__CF"];
-// S20 (OPR.0.5.5.20) — the ROUTING-OVERLOADED vars: client/endpoint state a managed
-// environment may inject, byte-indistinguishable from operator opt-in. They are ALWAYS
-// scrubbed from the daemon env; bind intent crosses ONLY via the dedicated
-// MULTI_AGENT_BIND_HOST (exported below when opts.host declares it). THE RULE FOR FUTURE
-// PASSTHROUGH EDITS: any env var that doubles as client routing state must join this
-// set — routing state silently becoming bind policy is the incident class
-// (operator baton qitem-20260827070400: parent lost its Tailscale listener).
+// Routing state a managed environment may inject is byte-indistinguishable from opt-in, so
+// it is ALWAYS scrubbed from the daemon env; bind intent crosses ONLY via the dedicated
+// MULTI_AGENT_BIND_HOST (exported below when opts.host declares it). Any env var that
+// doubles as client routing state must join this set: routing state silently becoming
+// bind policy is the incident class this rules out.
 const ROUTING_ENV_SCRUB = new Set(["MULTI_AGENT_HOST"]);
 
 const ENV_SCRUB_EXACT = new Set([
@@ -402,16 +286,11 @@ export function buildDaemonEnv(
   opts: {
     port: number;
     /**
-     * Operator-explicit bind host. When undefined the CLI is signaling
-     * "no operator opt-in" so the daemon's index.ts can fall through to
-     * the default loopback+tailscale-auto multi-bind path (bug-fix slice
-     * auth-bearer-tailscale-trust). When defined, the daemon takes the
-     * explicit-host branch and applies the bearer invariant to it.
-     * S20: when undefined, NO env fallback exists — inherited
-     * MULTI_AGENT_HOST are ROUTING state and are scrubbed by
-     * ROUTING_ENV_SCRUB (the shell-level-opt-in premise died: injected
-     * routing env is byte-indistinguishable from opt-in). The dedicated
-     * MULTI_AGENT_BIND_HOST is the only env opt-in and passes through.
+     * Operator-explicit bind host. When undefined the daemon falls through to its default
+     * loopback+tailscale-auto multi-bind path; there is NO env fallback, because an inherited
+     * MULTI_AGENT_HOST is routing state and is scrubbed by ROUTING_ENV_SCRUB (an injected
+     * routing env is byte-indistinguishable from opt-in). MULTI_AGENT_BIND_HOST is the only
+     * env opt-in and passes through.
      */
     host?: string;
     db: string;
@@ -421,7 +300,7 @@ export function buildDaemonEnv(
 
   for (const [key, value] of Object.entries(baseEnv)) {
     if (ENV_SCRUB_EXACT.has(key)) continue;
-    if (ROUTING_ENV_SCRUB.has(key)) continue; // S20: routing env never crosses (see the set's contract)
+    if (ROUTING_ENV_SCRUB.has(key)) continue; // routing env never crosses (see the set's contract)
     // CODEX_HOME is daemon topology/config-root state. Every other CODEX_*
     // value remains transient runtime/auth/session state and stays scrubbed.
     if (key !== "CODEX_HOME" && ENV_SCRUB_PREFIXES.some((prefix) => key.startsWith(prefix))) continue;
@@ -434,8 +313,8 @@ export function buildDaemonEnv(
   // Explicit MULTI_AGENT_* overrides — always win over inherited values
   env["MULTI_AGENT_PORT"] = String(opts.port);
   if (opts.host !== undefined) {
-    // S20 — DECLARED intent exports the dedicated bind surface plus a COHERENT routing
-    // value (seats/consumers route where the daemon actually binds).
+    // Declared intent exports the dedicated bind surface plus a COHERENT routing value
+    // (seats/consumers route where the daemon actually binds).
     env["MULTI_AGENT_BIND_HOST"] = opts.host;
     env["MULTI_AGENT_HOST"] = opts.host;
   }
@@ -444,7 +323,7 @@ export function buildDaemonEnv(
   return env;
 }
 
-// ── OPR.0.5.5.20 — bind-intent provenance + the listener adoption gate (S20 RED: unwired) ──
+// ── Bind-intent provenance and the listener adoption gate ──
 
 /** Resolve OPERATOR BIND INTENT from the dedicated surfaces ONLY: the --host flag, the
  *  daemon.host config key read from the FILE, or the dedicated MULTI_AGENT_BIND_HOST env.
@@ -550,12 +429,10 @@ export async function startDaemon(opts: StartOptions, deps: LifecycleDeps): Prom
 async function startOwnedDaemon(opts: StartOptions, deps: LifecycleDeps, lock: DaemonStartLock): Promise<DaemonState> {
   const port = opts.port ?? DEFAULT_PORT;
   const db = opts.db ?? DEFAULT_DB;
-  // bug-fix slice auth-bearer-tailscale-trust: preserve the
-  // user-explicit-vs-default distinction. `opts.host` is undefined when
-  // the operator never opted in; in that case healthz probes still use
-  // the loopback default, but buildDaemonEnv must NOT export
-  // MULTI_AGENT_HOST so the daemon falls through to the multi-bind default
-  // (loopback + tailscale auto-detect).
+  // Preserve the user-explicit-vs-default distinction. `opts.host` is undefined when the
+  // owner declared no bind host; healthz probes then use the loopback default, but
+  // buildDaemonEnv must NOT export MULTI_AGENT_HOST so the daemon falls through to the
+  // multi-bind default (loopback + tailscale auto-detect).
   const explicitHost = opts.host;
   const probeHost = explicitHost ?? DEFAULT_HOST;
 
@@ -705,7 +582,7 @@ async function startOwnedDaemon(opts: StartOptions, deps: LifecycleDeps, lock: D
       await Promise.race([new Promise((resolve) => setTimeout(resolve, HEALTHZ_DELAY_MS)), failed]);
     }
     if (!healthy) {
-      throw new Error(`${summarizeDaemonStartFailure(healthzUrl, deps.readFile(resolveLifecycleFile(deps, "daemon.log")))}. Last probe: ${lastProbe}`);
+      throw new Error(`${summarizeDaemonStartFailure(healthzUrl, deps.readFile(LOG_FILE))}. Last probe: ${lastProbe}`);
     }
     assertChild();
     if (!deps.isProcessAlive(pid!)) throw new Error(`Daemon child ${pid} liveness could not be confirmed; state not published`);
@@ -808,7 +685,7 @@ export async function stopDaemon(deps: LifecycleDeps): Promise<"stopped" | "no-t
     if (effect !== "refused") {
       throw new Error(`Daemon state is missing — cannot stop safely. Checked ${check}; listener ${effect}.`);
     }
-    const stateFile = resolveLifecycleFile(deps, "daemon.json");
+    const stateFile = STATE_FILE;
     if (deps.exists(stateFile)) {
       throw new Error(`Daemon target state is unreadable; drain completion unverified. Checked ${check}; listener refused; no signal sent. Inspect ${stateFile}.`);
     }
@@ -819,7 +696,7 @@ export async function stopDaemon(deps: LifecycleDeps): Promise<"stopped" | "no-t
     // No target is not a clean-drain verdict, including after an earlier clean stop.
     return "no-target";
   }
-  const stateFile = resolveLifecycleFile(deps, "daemon.json");
+  const stateFile = STATE_FILE;
 
   const pidState = await checkPid(state, deps);
   if (pidState === "not_multi-agent") {
@@ -865,7 +742,7 @@ export async function stopDaemon(deps: LifecycleDeps): Promise<"stopped" | "no-t
   return "stopped";
 }
 
-/** RULING 1ae863d2 — positive-down evidence classifier (lockstep with the daemon's
+/** Positive-down evidence classifier (lockstep with the daemon's
  *  crash-cart-detect semantics): ONLY a connection refusal is strong down evidence;
  *  a timeout / abort / anything else never proves the daemon dead. */
 function isRefusedError(err: unknown): boolean {
@@ -918,7 +795,7 @@ export async function getDaemonStatus(
     : deps.isProcessAlive(state.pid) ? "alive" : "dead";
   if (liveness === "dead") {
     // A status read must not erase the identity needed to judge a failed stop.
-    const stateFile = resolveLifecycleFile(deps, "daemon.json");
+    const stateFile = STATE_FILE;
     const { receipt } = readShutdownReceipt(deps, stateFile);
     if (options.cleanupStaleState !== false && receiptMatchesState(receipt, state) && isCleanShutdown(receipt)) {
       removeMatchingState(deps, stateFile, state);
@@ -928,7 +805,7 @@ export async function getDaemonStatus(
 
   const host = state.host ?? DEFAULT_HOST;
   if (liveness === "unknown") {
-    // #275: this shell can neither signal nor inspect the recorded PID (a sandbox, or another
+    // This shell can neither signal nor inspect the recorded PID (a sandbox, or another
     // user's process). Never call that stale; let the daemon answer, and touch no state file.
     try {
       const res = await probeHealthzWithSettle(deps, `http://${formatDaemonHostForUrl(host)}:${state.port}/healthz`);
@@ -952,9 +829,9 @@ export async function getDaemonStatus(
     reason = ev.reason;
     eventLoop = ev.eventLoop;
   } catch (err) {
-    // OPR.0.4.3.21 — pid alive but healthz timed out: the honest wedged-loop
+    // Pid alive but healthz timed out: the honest wedged-loop
     // signal. Report process-present/unhealthy (NOT "stopped") with the
-    // "unresponsive" reason so the operator knows it's the control plane.
+    // "unresponsive" reason so the caller knows it's the control plane.
     reason = "unresponsive";
     probeFailure = probeErrorCodeOf(err);
   }
@@ -963,20 +840,20 @@ export async function getDaemonStatus(
   return { state: "running", port: state.port, host, pid: state.pid, healthy, reason, eventLoop, ...probeFailure };
 }
 
-/** #275 — keep the OS code of a failed health probe (absent for a timeout). */
+/** Keep the OS code of a failed health probe (absent for a timeout). */
 function probeErrorCodeOf(err: unknown): Pick<DaemonStatus, "probeErrorCode"> {
   const code = connectionErrorCode(err);
   return code ? { probeErrorCode: code } : {};
 }
 
 export function readLogs(deps: LifecycleDeps): string | null {
-  const logFile = resolveLifecycleFile(deps, "daemon.log");
+  const logFile = LOG_FILE;
   if (!deps.exists(logFile)) return null;
   return deps.readFile(logFile);
 }
 
 export function tailLogs(deps: LifecycleDeps, opts: { follow: boolean }): void {
-  const logFile = resolveLifecycleFile(deps, "daemon.log");
+  const logFile = LOG_FILE;
   if (!deps.exists(logFile)) return;
 
   const args = opts.follow ? ["-f", logFile] : [logFile];
@@ -990,11 +867,10 @@ export function tailLogs(deps: LifecycleDeps, opts: { follow: boolean }): void {
 }
 
 /**
- * OPR.0.4.3.21 — read event-loop wedge evidence from a healthz probe result.
- * A plain `{ ok: true }` (mocks, or a monitor-less daemon) → healthy with no
- * evidence. When the enriched body carries an `eventLoop` block, its `healthy`
- * verdict is honored (a starved loop that still answers healthz reports
- * process-present/unhealthy with the loop-lag evidence attached).
+ * Read event-loop wedge evidence from a healthz probe result. A plain `{ ok: true }` (mocks,
+ * or a monitor-less daemon) is healthy with no evidence. When the enriched body carries an
+ * `eventLoop` block, its `healthy` verdict is honored (a starved loop that still answers
+ * healthz reports process-present/unhealthy with the loop-lag evidence attached).
  */
 async function readHealthEvidence(
   res: { ok: boolean; json?: () => Promise<unknown> },
@@ -1039,7 +915,7 @@ async function fetchDaemonProbe(deps: LifecycleDeps, url: string, timeoutMs: num
 const defaultSleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * OPR.0.4.2.1 — status-probe-LOCAL bounded settle/retry around fetchDaemonProbe. A single /healthz
+ * Status-probe-LOCAL bounded settle/retry around fetchDaemonProbe. A single /healthz
  * fetch loses to the post-restart listener bind window (process up but not yet accepting), yielding
  * a false 'down'/'unhealthy'. Retry a HARD-BOUNDED number of attempts with a short backoff so the
  * status probe reflects the ACTUAL /healthz answer. Bounded by construction: a genuine-down answers
@@ -1071,65 +947,4 @@ async function probeHealthzWithSettle(deps: LifecycleDeps, url: string): Promise
     }
   }
   throw lastErr;
-}
-
-// V0.3.1 slice 05 kernel-rig-as-default — forward-fix #3 architectural.
-// Poll GET /api/kernel/status until kernel_state reaches ready or
-// partial_ready (the two "operator can use the kernel" states) or the
-// timeout elapses. Used by `multi-agent daemon start --wait-for-kernel`.
-//
-// Returns { ok: true, ... } on success; { ok: false, ... } with the
-// last observed kernelState + detail for the CLI's 3-part error.
-export interface KernelReadyResult {
-  ok: boolean;
-  kernelState: string | null;
-  variant: string | null;
-  detail: string | null;
-}
-
-export async function waitForKernelReady(
-  baseUrl: string,
-  timeoutMs: number,
-  pollIntervalMs = 500,
-): Promise<KernelReadyResult> {
-  const deadline = Date.now() + timeoutMs;
-  let last: KernelReadyResult = { ok: false, kernelState: null, variant: null, detail: null };
-  while (Date.now() < deadline) {
-    const remainingMs = Math.max(1, deadline - Date.now());
-    try {
-      const res = await fetch(`${baseUrl}/api/kernel/status`, {
-        signal: AbortSignal.timeout(remainingMs),
-      });
-      if (res.ok) {
-        const body = (await res.json()) as {
-          kernel_state?: string;
-          variant?: string | null;
-          detail?: string | null;
-        };
-        last = {
-          ok: body.kernel_state === "ready" || body.kernel_state === "partial_ready",
-          kernelState: body.kernel_state ?? null,
-          variant: body.variant ?? null,
-          detail: body.detail ?? null,
-        };
-        if (last.ok) return last;
-        // Terminal non-ready states: don't keep polling.
-        if (
-          body.kernel_state === "auth_blocked" ||
-          body.kernel_state === "spec_missing" ||
-          body.kernel_state === "bootstrap_failed" ||
-          body.kernel_state === "degraded" ||
-          body.kernel_state === "skipped"
-        ) {
-          return last;
-        }
-      }
-    } catch {
-      // Transient fetch failure; keep polling until the deadline.
-    }
-    const sleepMs = Math.min(pollIntervalMs, Math.max(0, deadline - Date.now()));
-    if (sleepMs <= 0) break;
-    await new Promise((r) => setTimeout(r, sleepMs));
-  }
-  return last;
 }

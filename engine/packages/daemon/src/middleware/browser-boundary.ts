@@ -378,7 +378,7 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
       if (!ownUi && !explicitlyAllowedOrigin(originHeader, origin)) {
         const value = shown(originHeader);
         return refuse(c, "browser_origin_refused", value,
-          `This Multi-Agent daemon refuses browser requests from origin "${value}". Open the Multi-Agent UI from the daemon's own address with the web UI enabled (multi-agent config set ui.enabled true, then restart the daemon), or add this exact origin to MULTI_AGENT_ALLOWED_ORIGINS in the daemon's environment and restart. Web pages on other origins cannot read this response.`);
+          `This Multi-Agent daemon refuses browser requests from origin "${value}". Open the Multi-Agent UI from the daemon's own address with the web UI enabled (MULTI_AGENT_UI_ENABLED=true, then restart the daemon), or add this exact origin to MULTI_AGENT_ALLOWED_ORIGINS in the daemon's environment and restart. Web pages on other origins cannot read this response.`);
       }
     }
 

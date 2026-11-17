@@ -1,10 +1,8 @@
-// OPR.0.5.5.19 — THE FORMAL ACTIVITY TAXONOMY: the declared state language every surface
-// renders from (TUI, `multi-agent ps`, node-inventory). Three orthogonal axes plus derived
-// diagnoses, ratified at product/from-multi-agent.dev/taxonomy-agent-state-ADDENDUM-2026-08-26.md
-// (founder ruling 22:00Z); reconciliation vs herdr/omnigent lives in
-// docs/reference/agent-state-taxonomy.md — the doc CITES the addendum, never forks it.
+// THE FORMAL ACTIVITY TAXONOMY: the declared state language every surface renders from
+// (the desktop app's task views and node inventory). Three orthogonal axes plus derived
+// diagnoses; reconciliation vs herdr/omnigent lives in docs/reference/agent-state-taxonomy.md.
 //
-// BINDING EXCLUSIONS (SPEC mini-req 1, adversarially held — verdict 1229a4b7):
+// BINDING EXCLUSIONS:
 //  - attention and needs-input are NEVER values of the activity enum. needs-input rides
 //    as a count + short reason phrase (the omnigent pending_elicitations_count +
 //    blocked_on shape); attention stays in its own machinery (attentionCount).

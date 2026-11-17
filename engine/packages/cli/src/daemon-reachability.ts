@@ -1,4 +1,4 @@
-// #275 (OPR.0.6.5.5) — "my rig command can't reach the daemon": BLOCKED is not DOWN.
+// "My command can't reach the daemon": BLOCKED is not DOWN.
 //
 // The ONE blocked-connection guidance, shared by the transport render (cli-error.ts) and the
 // precheck guard (daemon-lifecycle.ts) so both entry points say the same thing. Kept apart from
@@ -17,8 +17,9 @@ export function isBlockedConnectionCode(code: string | undefined): code is strin
 const HELP_SECTION = "The agent is waiting for permission or can't reach the daemon";
 
 /** Never advises starting a daemon, and names no access setting: whether a seat gets network
- *  access is the user's choice, taught in the help guide section it routes to. The guide is the
- *  offline copy, because `multi-agent context get` itself needs the daemon this shell cannot reach. */
+ *  access is the user's choice, taught in the help guide section it routes to. The guide must be
+ *  the offline copy, because the installed reference docs already need the daemon this shell
+ *  cannot reach. */
 export function blockedConnectionGuidance(
   code: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -30,7 +31,7 @@ export function blockedConnectionGuidance(
   const blocked = `This machine blocked the connection (${code}), so the daemon may still be running.`;
   if (env.CODEX_SANDBOX_NETWORK_DISABLED === "1") {
     return {
-      consequence: `${blocked} This shell runs in a Codex sandbox with network access off, which blocks the local Multi-Agent daemon (#275). The seat cannot change its own sandbox.`,
+      consequence: `${blocked} This shell runs in a Codex sandbox with network access off, which blocks the local Multi-Agent daemon. The seat cannot change its own sandbox.`,
       action: `Do not start another daemon. Tell the user this seat cannot reach Multi-Agent from its sandbox; whether it gets network access is their choice. See ${guide}.`,
     };
   }

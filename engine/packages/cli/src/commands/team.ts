@@ -24,7 +24,7 @@ export interface TeamStartDeps {
 }
 
 interface StartReceipt { runId: string; rigId: string; taskId: string; seat: string; leadSeat?: string | null; state: string;
-  /** U5 — `planning` until the owner approves the plan; `delivery` otherwise. */
+  /** `planning` until the owner approves the plan; `delivery` otherwise. */
   phase?: string }
 
 /** The team `multi-agent team create` returns; the daemon keeps the seat names to itself. */
@@ -55,9 +55,9 @@ export function readOwnerTokenFile(env: NodeJS.ProcessEnv = process.env): string
 }
 
 /** The one credential resolution every verb uses: explicit dep, then the environment, then setup's file. */
-function ownerToken(deps: TeamStartDeps): string | null {
+export function ownerToken(deps: TeamStartDeps, env: NodeJS.ProcessEnv = process.env): string | null {
   return deps.ownerToken === undefined
-    ? process.env.MULTI_AGENT_OWNER_TOKEN?.trim() || readOwnerTokenFile() : deps.ownerToken;
+    ? env.MULTI_AGENT_OWNER_TOKEN?.trim() || readOwnerTokenFile(env) : deps.ownerToken;
 }
 
 class TeamCommandError extends Error {
@@ -277,7 +277,7 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
     throw new TeamCommandError(code, message);
   }
 
-  /** The run's only implementer task, so `multi-agent team diff <run-id>` needs no task id for a one-task run. */
+  /** The run's only implementer task, so `team diff <run-id>` needs no task id for a one-task run. */
   async function firstTask(client: DaemonClient, runId: string, headers: Record<string, string>): Promise<string> {
     const response = await client.get<{ code?: string; error?: string; read?: { tasks: Array<{ taskId: string; role: string }> } }>(
       `${BASE}/runs/${encodeURIComponent(runId)}/read`, { headers });
@@ -337,7 +337,7 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
     });
 
   /**
-   * U5 — the owner's one action on a planning run: approve the plan.
+   * The owner's one action on a planning run: approve the plan.
    *
    * The daemon reads the plan from the lead's own tree and refuses a missing one by name, so
    * this verb cannot approve an artifact the lead did not write. The write scope is the one the
@@ -409,7 +409,7 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
       }
       const answer = await client.post<{ status?: string; code?: string; reason?: string | null; error?: string;
         branch?: string; mode?: string | null; head?: string | null }>(`${path}/merge`, {
-        protocolVersion: "1.0", runId, actionId: runId, expectedEntityVersion: run.data.run!.entityVersion,
+        protocolVersion: "1.0", runId, actionId: crypto.randomUUID(), expectedEntityVersion: run.data.run!.entityVersion,
         idempotencyKey: crypto.randomUUID(), payload: {} }, { headers });
       if (answer.status !== 200 || answer.data.status !== "merged") {
         throw new TeamCommandError(answer.data.code ?? "team_merge_refused",

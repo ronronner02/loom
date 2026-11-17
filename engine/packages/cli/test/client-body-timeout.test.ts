@@ -50,12 +50,12 @@ function observedFetch() {
 }
 
 describe("DaemonClient response body deadline", () => {
-  it.each(["json", "text"])("honors caller cancellation during a %s body read", async (kind) => {
+  it("honors caller cancellation during a body read", async () => {
     const endpoint = await slowBodyServer(500);
     const observed = observedFetch();
     const client = new DaemonClient(endpoint.url, { fetchImpl: observed.fetchImpl });
     const controller = new AbortController();
-    const request = kind === "json" ? client.get("/read", { signal: controller.signal }) : client.getText("/read", { signal: controller.signal });
+    const request = client.get("/read", { signal: controller.signal });
     const result = request.then(() => null, (error: unknown) => error);
     await observed.headersReceived;
     controller.abort(new Error("Owned caller deadline"));
@@ -73,11 +73,11 @@ describe("DaemonClient response body deadline", () => {
     expect(endpoint.requests()).toBe(0);
   });
 
-  it.each(["json", "text", "write"])("bounds %s body reads after headers arrive", async (kind) => {
+  it.each(["json", "write"])("bounds %s body reads after headers arrive", async (kind) => {
     const endpoint = await slowBodyServer(4_000);
     const observed = observedFetch();
     const client = new DaemonClient(endpoint.url, { timeoutMs: 1_000, fetchImpl: observed.fetchImpl });
-    const request = kind === "json" ? client.get("/read") : kind === "text" ? client.getText("/read") : client.post("/write", { action: "once" });
+    const request = kind === "json" ? client.get("/read") : client.post("/write", { action: "once" });
     const result = request.then(() => null, (error: unknown) => error);
     await expect(Promise.race([endpoint.headersWritten.then(() => "headers written"), result])).resolves.toBe("headers written");
     await expect(Promise.race([observed.headersReceived.then(() => "headers received"), result])).resolves.toBe("headers received");

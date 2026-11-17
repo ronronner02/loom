@@ -45,7 +45,7 @@ export function signalProbe(pid: number, kill: (pid: number, signal: 0) => unkno
   }
 }
 
-/** #275 — three-state liveness for status reads. Only a missing process (ESRCH) or a zombie is
+/** Three-state liveness for status reads. Only a missing process (ESRCH) or a zombie is
  *  dead. A process that exists but cannot be inspected (EPERM, or `ps` cannot run, as inside
  *  Codex's macOS sandbox) is UNKNOWN, never dead: calling it dead turned a running daemon into
  *  `stale` before any health probe. The boolean createIsProcessAlive (start/stop) is unchanged. */
@@ -97,8 +97,8 @@ export function realDeps(): LifecycleDeps {
         timeoutMs: 1_500,
         timeoutMessage: `Daemon health probe timed out for ${url}`,
       });
-      // OPR.0.4.3.21 — expose json() so getDaemonStatus can read the enriched
-      // /healthz event-loop evidence. Bound to this Response instance.
+      // Expose json() so a status read can see the enriched /healthz event-loop
+      // evidence. Bound to this Response instance.
       return { ok: res.ok, json: () => res.json() };
     },
     isPortOccupied: (host, port) => new Promise((resolve) => {
@@ -149,7 +149,7 @@ export function realDeps(): LifecycleDeps {
     openForAppend: (p) => fs.openSync(p, "a"),
     closeFile: (fd) => fs.closeSync(fd),
     isProcessAlive,
-    // RULING 1ae863d2 — sibling-home scan (home-resolution honesty).
+    // Sibling-home scan input for home-resolution honesty.
     listDir: (p) => { try { return fs.readdirSync(p); } catch { return []; } },
   };
 }
@@ -178,15 +178,13 @@ export function daemonCommand(depsOverride?: LifecycleDeps, httpDeps?: { baseUrl
         if (Number.isNaN(effectivePort) || effectivePort < 0 || effectivePort > 65535) {
           throw new Error(`Invalid --port: must be an integer in [0, 65535], got "${opts.port}"`);
         }
-        // bug-fix slice auth-bearer-tailscale-trust: distinguish
-        // user-explicit from default-fallback so the daemon can
-        // multi-bind (loopback + tailscale auto-detect) when the operator
-        // never opted in to a specific host.
+        // Distinguish an operator-explicit host from the default fallback so the daemon
+        // can multi-bind (loopback + tailscale auto-detect) when no bind host was declared.
         const hostResolution = configStore.resolveWithSource("daemon.host");
-        // S20 — bind intent comes ONLY from the dedicated surfaces: the --host flag,
-        // a FILE-sourced daemon.host, or MULTI_AGENT_BIND_HOST. An env-sourced daemon.host
-        // is the overloaded routing channel (ENV_MAP maps it from MULTI_AGENT_HOST — the
-        // exact injected state a managed environment carries) and never creates intent.
+        // Bind intent comes ONLY from the dedicated surfaces: the --host flag, a
+        // FILE-sourced daemon.host, or MULTI_AGENT_BIND_HOST. An env-sourced daemon.host
+        // is the overloaded routing channel (ENV_MAP maps it from MULTI_AGENT_HOST, the
+        // exact state a managed environment injects) and never creates intent.
         const intent = resolveBindIntent({
           flagHost: opts.host,
           envBindHost: process.env["MULTI_AGENT_BIND_HOST"],
@@ -214,7 +212,7 @@ export function daemonCommand(depsOverride?: LifecycleDeps, httpDeps?: { baseUrl
   cmd
     .command("stop")
     .description("Stop the daemon (10s shutdown budget; 12s process wait; incomplete drain exits nonzero)")
-    .addHelpText("after", "\nSends at most one SIGTERM to a live target and verifies the original PID and listener. Repeated signals join shutdown.\nFor a recorded target, missing/stale receipts and incomplete drains exit nonzero, including retries.\nTarget state is retained until a matching clean receipt; status reads preserve unverified state.\nNo target is a distinct no-op, never clean-drain certification; unbound incomplete evidence stays unverified.\nInspect MULTI_AGENT_HOME/daemon-shutdown.json and daemon.log for the phase and outcome.\nThe bound covers asynchronous shutdown; an event-loop wedge still requires operator recovery.\nOn Windows SIGTERM terminates the process rather than draining it, so a stop reports that no graceful drain ran and the daemon reconciles interrupted work at its next start.\n")
+    .addHelpText("after", "\nSends at most one SIGTERM to a live target and verifies the original PID and listener. Repeated signals join shutdown.\nFor a recorded target, missing/stale receipts and incomplete drains exit nonzero, including retries.\nTarget state is retained until a matching clean receipt; status reads preserve unverified state.\nNo target is a distinct no-op, never clean-drain certification; unbound incomplete evidence stays unverified.\nInspect MULTI_AGENT_HOME/daemon-shutdown.json and daemon.log for the phase and outcome.\nThe bound covers asynchronous shutdown; an event-loop wedge still requires manual recovery.\nOn Windows SIGTERM terminates the process rather than draining it, so a stop reports that no graceful drain ran and the daemon reconciles interrupted work at its next start.\n")
     .action(async () => {
       try {
         const outcome = await stopDaemon(getDeps());

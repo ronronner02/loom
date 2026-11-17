@@ -1,13 +1,11 @@
 // User Settings v0 — daemon-side settings store.
 //
-// The CLI's @multi-agent/cli ConfigStore is the canonical write surface
-// (operator + agent edit via `multi-agent config`). The daemon needs read+write
-// access too — for the UI's System drawer Settings panel + the daemon
-// HTTP route at /api/config. Rather than depend on the CLI package
-// (which would require workspace exports + a dist build), this module
-// duplicates the small, stable resolution + write logic. The constants
-// (VALID_KEYS, ENV_MAP, KEY_TO_PATH) are kept in lockstep with
-// cli/src/config-store.ts via cross-package tests.
+// The settings write path the app and its HTTP route use. The CLI package's
+// ConfigStore resolves the same key set for the verbs that read it; the two
+// are kept in lockstep by cross-package tests rather than sharing a module,
+// since the CLI never imports the daemon's internal store.
+// The constants (VALID_KEYS, ENV_MAP, KEY_TO_PATH) therefore appear in both
+// cli/src/config-store.ts and here, pinned by tests.
 //
 // Storage: the canonical configuration root shared with the CLI.
 // Resolution: same env > file > default precedence. Decoded helpers
@@ -735,8 +733,8 @@ const KEY_CONSTRAINTS: Partial<Record<SettingsValidKey, (raw: string, coerced: s
     }
   },
   // Constraint gap fix — lockstep with cli/src/config-store.ts KEY_CONSTRAINTS.
-  // daemon.port had no entry, so `multi-agent config set daemon.port 99999` stored
-  // 99999 and the next daemon start died with a raw ERR_SOCKET_BAD_PORT
+  // daemon.port had no entry, so a stored 99999 reached the next daemon start
+  // and died with a raw ERR_SOCKET_BAD_PORT
   // from serve(). The check range-validates the value the runtime actually
   // consumes — the same parseInt the boot path runs on MULTI_AGENT_PORT
   // (startServer) — rather than the raw input format, so everything that

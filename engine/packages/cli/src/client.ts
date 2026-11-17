@@ -4,11 +4,6 @@ import { ConfigStore } from "./config-store.js";
 import { getMultiAgentHome } from "@multi-agent/daemon/data-paths";
 import { fetchWithTimeout, FetchTimeoutError } from "./fetch-with-timeout.js";
 
-export function terminalAuthHeaders(): Record<string, string> {
-  const token = resolveTerminalToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 /** The header carrying the caller's seat identity, derived ONCE at the transport chokepoint. */
 export const SENDER_IDENTITY_HEADER = "X-Multi-Agent-Session";
 
@@ -25,19 +20,6 @@ export function senderIdentityHeaders(): Record<string, string> {
   return session ? { [SENDER_IDENTITY_HEADER]: session } : {};
 }
 
-function resolveTerminalToken(): string | null {
-  const env = process.env.MULTI_AGENT_TERMINAL_BEARER_TOKEN?.trim();
-  if (env) return env;
-  try {
-    const homeDir = getMultiAgentHome();
-    const tokenPath = path.join(homeDir, "terminal-token");
-    const token = fs.readFileSync(tokenPath, "utf-8").trim();
-    return token || null;
-  } catch {
-    return null;
-  }
-}
-
 /** The OS code behind a failed connection (`EPERM`, `ECONNREFUSED`, …) when Node exposes one.
  *  `fetch` reports every connection failure as "fetch failed" and keeps the code on `cause`. */
 export function connectionErrorCode(err: unknown): string | undefined {
@@ -49,7 +31,7 @@ export function connectionErrorCode(err: unknown): string | undefined {
 export class DaemonConnectionError extends Error {
   /** A write caller cannot infer nondelivery from losing the response. */
   writeOutcome?: "unknown";
-  /** #275: the OS cause, so a connection this machine blocked is not rendered as a stopped daemon. */
+  /** The OS cause, so a connection this machine blocked is not rendered as a stopped daemon. */
   causeCode?: string;
 
   constructor(message: string, causeCode?: string) {
@@ -191,47 +173,10 @@ export class DaemonClient {
     return this.requestJson<T>(path, { method: "GET" }, options);
   }
 
-  async getText(path: string, options?: DaemonRequestOptions): Promise<DaemonResponse<string>> {
-    return this.requestText(path, { method: "GET" }, options);
-  }
-
   async post<T = unknown>(path: string, body?: unknown, options?: DaemonRequestOptions): Promise<DaemonResponse<T>> {
     return this.requestJson<T>(path, {
       method: "POST",
       headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    }, options);
-  }
-
-  async postText<T = unknown>(path: string, text: string, contentType = "text/yaml", extraHeaders?: Record<string, string>, options?: DaemonRequestOptions): Promise<DaemonResponse<T>> {
-    return this.requestJson<T>(path, {
-      method: "POST",
-      headers: { "Content-Type": contentType, ...extraHeaders },
-      body: text,
-    }, options);
-  }
-
-  async postExpectText(path: string, body?: unknown, options?: DaemonRequestOptions): Promise<DaemonResponse<string>> {
-    return this.requestText(path, {
-      method: "POST",
-      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    }, options);
-  }
-
-  async delete<T = unknown>(path: string, options?: DaemonRequestOptions): Promise<DaemonResponse<T>> {
-    return this.requestJson<T>(path, {
-      method: "DELETE",
-      headers: options?.headers,
-    }, options);
-  }
-
-  async put<T = unknown>(path: string, body?: unknown, options?: DaemonRequestOptions): Promise<DaemonResponse<T>> {
-    const baseHeaders: Record<string, string> = body !== undefined ? { "Content-Type": "application/json" } : {};
-    const headers = { ...baseHeaders, ...(options?.headers ?? {}) };
-    return this.requestJson<T>(path, {
-      method: "PUT",
-      headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     }, options);
   }
@@ -297,9 +242,4 @@ export class DaemonClient {
     }
   }
 
-  private async requestText(path: string, init: RequestInit, options?: DaemonRequestOptions): Promise<DaemonResponse<string>> {
-    let data = "";
-    const res = await this.fetch(path, init, options, async (response) => { data = await response.text(); });
-    return { status: res.status, data };
-  }
 }
