@@ -10,7 +10,7 @@ import { buildDocsGuardMessage, findBlockedDocsPaths, listTrackedDocsPaths } fro
 test("findBlockedDocsPaths allows durable docs folders and rejects other docs paths", () => {
   const blocked = findBlockedDocsPaths([
     "docs/as-built/architecture.md",
-    "docs/reference/rig-spec.md",
+    "docs/reference/sdlc-conventions.md",
     "docs/releases/v0.1.12.md",
     "docs/plans/2026-04-10-thing.md",
     "docs/local/notes.md",
@@ -46,7 +46,7 @@ test("buildDocsGuardMessage explains the policy and offending files", () => {
 //                     source-derived, and Q1 explicitly rules this out anyway
 //   docs/reference/ — that directory SHIPS (build-package.sh stages it into the package and the
 //                     daemon materializes it to $MULTI_AGENT_HOME/reference/), so moving there would
-//                     start distributing the brand spec to every operator
+//                     start distributing the brand spec to every install
 //   docs/releases/  — not a release note
 // So this one file is named explicitly rather than relocated, and the directory allowlist is
 // left alone. Consequence today: root `npm run test:repo` cannot pass on a clean tree, which

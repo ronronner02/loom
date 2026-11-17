@@ -20,7 +20,7 @@ lifecycle:
       workflow:
         entry: { role: orchestrator }
         # Entry/ordinary custody and exception selection are separate decisions.
-        # Replace the example target with a declared member (multi-agent ps --nodes --json).
+        # Replace the example target with a declared member of the team.
         # Inspect with workflow compile/show; adopt later corrections with workflow revise.
         exception_routing: { orchestrator_role: orchestrator }
         roles:

@@ -37,7 +37,7 @@ one does not deprecate the others. Nothing below deletes or overrides an existin
 | **PRODUCT / MISSION PREPARATION** | **The product-management pass** — the layer above planning, run by the advisor/PM seat before planners touch a mission. The build is a lossy compression pipeline (PM intent → planner spec → builder code); nothing leaks downward by proximity, so this pass grounds in the raw sources, synthesizes ONE scope of record, presents owner decisions decision-ready, mints slices at plan time, deposits the full design contract INLINE in each design-bearing spec (owner words verbatim, settled decisions, evidence, shape of done, anti-goals), routes the complete reading list and internet-research assignments from the spec itself, frames each slice's planning-dial rung with its reason, and rereads every spec as the narrow downstream reader. The measuring stick: SPEC.md alone, plus what it explicitly routes to, reproduces the intent in a reader with none of the author's context. Full reference: `product-management-pass.md`. |
 | **PLAN** | **The planning dial** — planning rigor is a spectrum chosen per piece: P0 mini-requirements and pointers (simple, reversible work) · P1 an authored spec with a proof contract (the default) · P2 plus a research round before the spec freezes, run BEFORE build dispatch · P3 plus an adversarial pass by a non-author, judged against product goals, landing amendments with proof-contract teeth · P4 plus a blind from-scratch design diffed against priors before proceeding. Dial up by what the piece is, exactly as build care is priced below. Full reference: `planning-dial.md`. |
 | **BUILD** | **Part A, the simple flow** (below — the default) · **product-journey components** — a mission-selectable menu for greenfield work, drift recovery, public journey probes, one evidence-gated look at the layer below, minimal repair, independent QA/review, integration, and installed smoke; compose only what the work needs in mission/slice YAML, never as a new mode or mandatory pipeline. Full reference: `product-journey-sdlc.md` · **the wave model** — slices build in parallel in disjoint file territories, an integrator merges serially, and independent review fires once per wave (two reviewers with different vantages, never the writers; fix rounds re-earn verdicts at one final revision; per-slice discipline stays failing-test-first and verify-by-effect). The wave IS the care dial: what shares a wave decides how much review each piece gets · **Part B, the rigorous overlay** (below — only when assigned). These combine: a wave can carry one Part-B piece. Full wave reference: `wave-sdlc.md`. |
-| **DISPATCH DATA** | **The execution-data conventions (S27)** — three tiny data disciplines that make execution state derivable instead of hand-tabulated, consumed by `multi-agent view show execution`. **EC-1, edges in frontmatter:** every open slice carries its hard edges in `depends_on:` (an inline JSON array; an explicit `[]` is a statement, absence is INDETERMINATE; when the slice's `slice.yaml` carries `execution.depends_on`, that list takes precedence); soft/serialization edges are one machine-readable Territory line, exactly `SOFT-AFTER: [ids] — reason`. **EC-2, wave-as-data:** wave composition + review model live in `mission.yaml` `arrangement.waves` (`{id, slices, review_model?}`; a slice may also name its wave in `slice.yaml` `execution.wave`). Only when the mission has no `mission.yaml`, or it is malformed, does the view fall back to the legacy form: the newest queue row tagged `format:wave-map-v1` and `mission:<mission>` whose body carries one fenced ```json block (`{format:"wave-map-v1", mission, waves:[{id, slices, serialized_order?, review_model?}]}`) — composition only, never status labels (status derives at read time); the planning dial recorded at lock surfaces as the frontmatter field `approved-spec-dial:` beside the approve stamp. **EC-3, dispatch names the worktree:** build batons carry the exact body line `worktree_path=<path>` from dispatch onward — it is Q1's join key; batons without it join by naming only and the view marks them `fragile_join`. Existing batons are never rewritten. |
+| **DISPATCH DATA** | **The execution-data conventions (S27)** — three tiny data disciplines that make execution state derivable instead of hand-tabulated, consumed by the execution view. **EC-1, edges in frontmatter:** every open slice carries its hard edges in `depends_on:` (an inline JSON array; an explicit `[]` is a statement, absence is INDETERMINATE; when the slice's `slice.yaml` carries `execution.depends_on`, that list takes precedence); soft/serialization edges are one machine-readable Territory line, exactly `SOFT-AFTER: [ids] — reason`. **EC-2, wave-as-data:** wave composition + review model live in `mission.yaml` `arrangement.waves` (`{id, slices, review_model?}`; a slice may also name its wave in `slice.yaml` `execution.wave`). Only when the mission has no `mission.yaml`, or it is malformed, does the view fall back to the legacy form: the newest queue row tagged `format:wave-map-v1` and `mission:<mission>` whose body carries one fenced ```json block (`{format:"wave-map-v1", mission, waves:[{id, slices, serialized_order?, review_model?}]}`) — composition only, never status labels (status derives at read time); the planning dial recorded at lock surfaces as the frontmatter field `approved-spec-dial:` beside the approve stamp. **EC-3, dispatch names the worktree:** build batons carry the exact body line `worktree_path=<path>` from dispatch onward — it is Q1's join key; batons without it join by naming only and the view marks them `fragile_join`. Existing batons are never rewritten. |
 | **RELEASE** | The release ceremony conventions (publication identity, honest release notes) and the CAPABILITY-DELTA LIFECYCLE LAW: each release's delta is authored at the fence and bound to the exact candidate, then reconciled to the published cut. Expiry requires both the canon header naming the absorbed delta and a distinct successor delta existing; a draft header alone is insufficient. Verify the actual boundary event and stop citing an expired delta. Full statement: `release-boundary.md` §6. |
 | **BOUNDARY** | **The release boundary** — housekeeping run once per fence so the next release starts clean: seats reset or re-primed per their continuity needs, memory distilled (keep what changed a decision recently), every queue swept by destination and dispositioned, substrate torn down, boards frozen as records, a clean-box baseline captured. A checklist of judgment guides, not gates. Full reference: `release-boundary.md`. |
 
@@ -65,7 +65,7 @@ intent (what is this for, what does done look like)
       → build it
       → test it with your own eyes
       → record honestly what you verified, and what you did NOT
-      → hand off (multi-agent queue handoff) or stop
+      → hand off or stop
 ```
 
 Verify the whole outcome at completion, not through a review chain per increment.
@@ -77,7 +77,7 @@ Bring work with evidence that its promised user outcome actually works.
 
 For a release mission, `mission.yaml` also names the Git strategy before build
 work starts: the branch/ref that is cumulative integration truth
-(`arrangement.source.integration_ref`, the ref `multi-agent view show execution` tests
+(`arrangement.source.integration_ref`, the ref the execution view tests
 a candidate's folding against; `main` when unset), its base, and when that
 truth is reconciled to main. Continuous integration to main and a
 release-line fold followed by one explicit merge are both valid; leaving the
@@ -105,30 +105,28 @@ Each slice directory carries:
 - **`PROGRESS.md`** — the slice's current delivery state and retained outcome
   log. Record material changes with links to proof; historical checkboxes are
   testimony, not current acceptance authority. For a selected proof policy,
-  `multi-agent proof show <mission>/slices/<slice>` derives current readiness from the proof contract
-  and attributed judgments. In-process steps stay in the working agent's
-  own todo tool.
+  the proof contract and its attributed judgments derive the slice's current
+  readiness. In-process steps stay in the working agent's own todo tool.
 - **`PROOF.md`** — the retained proof summary, explicitly paired to the
   `SPEC.md` proof contract.
 - **`proof/`** — the proof-artifact directory. Curated canonical evidence
-  lands here via `multi-agent proof` with valid C1 headers (B3).
+  lands here with valid C1 headers (B3).
 
 Legacy `README.md`, `IMPLEMENTATION-PRD.md`, and pre-convention trees remain
 readable indefinitely. New scaffolds do not create or mirror them, and repair
 is additive: it never deletes, renames, or rewrites legacy bytes.
 
-When the owning scope selects `proofPolicy.judges`, use `multi-agent proof judge` to
-record an attributed accept, reject or withdraw decision on a contract item,
-and `multi-agent proof show` to read derived readiness up through slice, mission and
-project. The nearest slice, mission or project policy selects authorized judges;
-`multi-agent proof --help` describes setup, selectors and evidence requirements. In a
-multi-project workspace catalog, name the project with `--project <id>` or a
+When the owning scope selects `proofPolicy.judges`, an attributed accept, reject or
+withdraw decision on a contract item is recorded against the slice, and the proof
+contract plus those judgments derive readiness up through slice, mission and
+project. The nearest slice, mission or project policy selects authorized judges.
+In a multi-project workspace catalog, a project is named with `--project <id>` or a
 `<id>:` scope prefix (`alpha:m0/slices/01-t001`); unqualified scopes use the
 daemon's selected workspace. The prefix counts only when it names a catalogued
 project and no scope exists at that literal path, so a mission folder with a
 colon (`alpha:trial/slices/01-t001`) still resolves as written. The scopes views
 read a catalog project's readiness against the same project root, so they agree
-with `multi-agent proof show`. A catalog-project read names the project
+with the proof contract. A catalog-project read names the project
 (`project: { id, root }`) and reports its source watcher as unavailable; a
 judgment carries that root and is refused (409 `project_changed`) if the
 catalog has since moved the project. A
@@ -223,25 +221,22 @@ are losslessness checks on the decompression from intent to delivery, not
 paperwork. Scaffolding emits the sections; it must never mint ceremony.
 ## A6. The audit (advisory, fail-open — always)
 
-`multi-agent scope audit --mission <name>` (and the advisory `sdlc_convention_sections`
-row in `multi-agent workspace doctor`) checks these conventions: the section headings
-present, the proof contract well-formed, `proof/` artifacts carrying valid C1
-headers, UI slices referencing a mockup. Convention findings are low or info
-severity, except an invalid C1 header on a `proof/` artifact, which is medium.
-All of them **record and advise — they never block a write path and never
-change the exit code**. (`multi-agent scope audit` exits 1 only on high-severity
-structural findings, such as a missing `PROGRESS.md` or id.) Unknown is
-reported as unknown, not failure.
+The advisory scope audit checks these conventions: the section headings present,
+the proof contract well-formed, `proof/` artifacts carrying valid C1 headers, UI
+slices referencing a mockup. Convention findings are low or info severity, except
+an invalid C1 header on a `proof/` artifact, which is medium. All of them **record
+and advise — they never block a write path and never change an exit code**. Only
+high-severity structural findings, such as a missing `PROGRESS.md` or id, fail.
+Unknown is reported as unknown, not failure.
 ## A7. Where the knowledge lives (the four pointers)
 
 - **This document** — the SSOT.
-- **Scaffold**: `multi-agent scope slice create` emits `SPEC.md` + `slice.yaml` +
+- **Scaffold**: a slice scaffold emits `SPEC.md` + `slice.yaml` +
   `PROGRESS.md` + `PROOF.md` + `proof/` for every template kind (and registers
   the slice in `mission.yaml` when that manifest exists; legacy missions
-  without one remain supported); `multi-agent scope mission create` emits an
-  intent-bearing `SPEC.md` + `mission.yaml` + `PROGRESS.md` + `NOTES.md` +
-  `slices/` (plus `CAPABILITY-DELTA-v<version>.md` for a `release-X.Y.Z`
-  mission). Core emits only this
+  without one remain supported); a mission scaffold emits an intent-bearing
+  `SPEC.md` + `mission.yaml` + `PROGRESS.md` + `NOTES.md` + `slices/` (plus
+  `CAPABILITY-DELTA-v<version>.md` for a `release-X.Y.Z` mission). Core emits only this
   mode-neutral shape; mode plugins add richer material through the extension
   seam rather than teaching core a mode.
 - **Skill**: `mission-slice-sop` teaches **Part A**, the light default. **Part B**
@@ -264,11 +259,11 @@ reported as unknown, not failure.
 
 ```
 intent → mini-requirements + proof contract → (UI slices: mockups)
-      → plan-lock (multi-agent scope slice approve --scope spec)
+      → plan-lock
       → build the LOCKED set
       → QA: mockup ↔ delivered VISUAL compare
-      → proof drops (multi-agent proof add <slice> …)
-      → proof-lock (multi-agent scope slice approve --scope delivery)
+      → proof drops
+      → proof-lock
 ```
 
 ## B1. The proof contract format
@@ -279,7 +274,7 @@ deliverable, written as an observable outcome:
 ```markdown
 ## Proof contract
 
-- [ ] The consolidated `multi-agent ps` default renders all rigs with a rollup footer — captured.
+- [ ] The overview's default view renders every team with a rollup footer — captured.
 - [ ] UI: the slice review tab renders the three-section stack — screenshot vs the locked mockup.
 ```
 
@@ -298,16 +293,15 @@ deliverable, written as an observable outcome:
 
 ## B2. The two locks (shipped verb — not new machinery)
 
-Two deliberate stamps, both written by the SAME shipped verb
-(`multi-agent scope slice approve`, one daemon-side write path: frontmatter stamp +
-append-only audit row land together):
+Two deliberate stamps, both written by the same verb (one daemon-side write path:
+the frontmatter stamp and the append-only audit row land together):
 
-- **Plan-lock:** `multi-agent scope slice approve <slice> --scope spec` — "the spec
+- **Plan-lock** (`--scope spec`) — "the spec
   matches my intent; THIS artifact set is what gets built." Pins `SPEC.md`
   (and planned mockups, when present) out of everything else in the folder.
   `--locked-artifacts "SPEC.md,…"` names the set explicitly instead; a
   plan-lock on an unedited scaffold `SPEC.md` with nothing else to pin refuses.
-- **Proof-lock:** `multi-agent scope slice approve <slice> --scope delivery`
+- **Proof-lock** (`--scope delivery`)
   (the default scope) — the terminal "this is done" sign-off. (It does not
   render the frozen export; the approve result reports `freezeFired: false`.)
 
@@ -320,10 +314,10 @@ the prior one in the audit log.
 
 ## B3. Proof drops and the C1 header (closed sets)
 
-Proof artifacts land in `proof/` via the shipped verb:
+Proof artifacts land in `proof/` in this shape:
 
-```bash
-multi-agent proof add <slice> \
+```text
+proof drop <slice> \
   --artifact-type qa \
   --verdict PASS \
   --candidate-sha <the-proven-tip> \

@@ -14,7 +14,7 @@ import { pathToFileURL } from "node:url";
  *                     source-derived, and Q1 rules this destination out by name
  *   docs/reference/ — that directory SHIPS (scripts/build-package.sh stages it into the package
  *                     and the daemon materializes it to $MULTI_AGENT_HOME/reference/), so moving
- *                     there would start distributing the brand spec to every operator
+ *                     there would start distributing the brand spec to every install
  *   docs/releases/  — not a release note
  *
  * So it is named here as an EXACT PATH rather than relocated or covered by a widened directory

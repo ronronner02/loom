@@ -27,8 +27,7 @@ nodes, and carry no chain file).
 
 Rooted at the typed config key **`topology.root`** (resolution
 `env MULTI_AGENT_TOPOLOGY_ROOT > config file > derived default
-$MULTI_AGENT_HOME/topology`). Never hardcode the path — `multi-agent config get
-topology.root` is the answer on any machine. The instance altitude **is the
+$MULTI_AGENT_HOME/topology`). Never hardcode the path: resolve `topology.root` from the settings on any machine. The instance altitude **is the
 top of the root** (there is no instance directory to find; the root is the
 instance):
 
@@ -67,8 +66,7 @@ without a `SPEC.md`.
 **Project-tree context cannot ship.** It describes what *you* are building —
 mission intent, slice specifications, proof contracts. No vendor can author it
 in advance, and shipping a default would install someone else's project as
-your context. Real projects author their own; `multi-agent scope mission create` and
-`multi-agent scope slice create` start the tree. (Topology-tree context is the opposite: how a team
+your context. Real projects author their own; a mission and slice scaffold start the tree. (Topology-tree context is the opposite: how a team
 of agents runs well is largely general, which is why included rigs ship
 defaults.)
 
@@ -76,9 +74,8 @@ defaults.)
 
 Before this convention the topology tree lived at `~/.multi-agent/shared-docs/rigs/`
 (design decision 2026-08-14: an arbitrary folder on one machine, not a product
-path). That location **stays readable** as a per-level fallback for
-`multi-agent context trace`, at the rig and seat levels, so existing rigs migrate instead
-of breaking. The refocus trace, `seat:` profile atoms and handover priming read
+path). That location **stays readable** as a per-level fallback at the team and seat levels, so
+existing teams migrate instead of breaking. The refocus trace, `seat:` profile atoms and handover priming read
 only `topology.root`, so until migration they report those files as missing. Every
 read that resolves to the legacy location emits a
 named advisory (`legacy-topology-read: …`) stating the legacy source, the
@@ -89,8 +86,7 @@ no path literal.
 
 ## The trace
 
-`multi-agent context trace --rig <rig> [--pod <pod>] [--seat <seat>] --name <NAME>.md`
-performs the walk: it prints each selected altitude root-first (general →
+The topology trace over a team and seat performs the walk: it prints each selected altitude root-first (general →
 specific), marks whether content came from `topology.root`, the legacy tree
 (with the advisory on stderr), or is absent, and needs no running daemon —
 orientation is exactly when the daemon may be down. Existing rig/seat traces
