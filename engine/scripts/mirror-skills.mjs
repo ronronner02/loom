@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   buildInternalLeakMessage,
   scanInternalLeaks,
@@ -323,7 +324,6 @@ export async function regeneratePublicSkills({
   membership,
   rules,
   layout,
-  exec = execFileSync,
 }) {
   validateAuthoringLayout(layout);
   const shipping = shipSetFromMembership(membership);
@@ -374,17 +374,8 @@ export async function regeneratePublicSkills({
       }
 
       mkdirSync(edgeRoot, { recursive: true });
-      const output = runRsyncAbsolute(projectedRoot, edgeRoot, exec);
-      for (const line of parseChanges(output)) {
-        changes.push({
-          edge,
-          path: rsyncChangePath(line),
-          reason: line.startsWith("*deleting ")
-            ? "delete"
-            : line.startsWith(".f") && line[5] === "p"
-              ? "mode"
-              : "write",
-        });
+      for (const change of syncTree(projectedRoot, edgeRoot)) {
+        changes.push({ edge, ...change });
       }
     }
     return { changes };
@@ -441,7 +432,9 @@ export async function main(argv = process.argv.slice(2), dependencies = {}) {
   }
 }
 
-if (import.meta.url === `file://${resolve(process.argv[1])}`) {
+// pathToFileURL normalizes a Windows argv[1]; `file://${argv[1]}` never matches there, which made
+// `--check` (the tarball leak gate) exit 0 without comparing anything.
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   await main();
 }
 
@@ -661,19 +654,45 @@ function copyTree(sourceRoot, targetRoot) {
   }
 }
 
-function runRsyncAbsolute(sourceRoot, targetRoot, exec) {
-  return exec(
-    "rsync",
-    rsyncAbsoluteArgs({
-      sourceDir: sourceRoot,
-      targetDir: targetRoot,
-      dryRun: false,
-    }),
-    {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "inherit"],
-    },
-  );
+/**
+ * Copy `sourceRoot` over `targetRoot`, deleting target entries the source no longer has.
+ *
+ * This is the apply step the edges used to delegate to an external rsync. Doing it in Node keeps
+ * the authoring flow runnable on Windows (where no rsync exists) and makes the reported changes
+ * exact rather than parsed from another tool's output.
+ */
+function syncTree(sourceRoot, targetRoot) {
+  const changes = [];
+  const sourceFiles = new Map(walkFiles(sourceRoot).map((path) => [relative(sourceRoot, path), path]));
+  for (const [rel, sourcePath] of [...sourceFiles].sort(([a], [b]) => a.localeCompare(b))) {
+    const targetPath = join(targetRoot, rel);
+    let identical = false;
+    try {
+      identical = readFileSync(targetPath).equals(readFileSync(sourcePath));
+    } catch {
+      identical = false;
+    }
+    if (identical) continue;
+    mkdirSync(dirname(targetPath), { recursive: true });
+    copyFileSync(sourcePath, targetPath);
+    changes.push({ path: rel.replaceAll("\\", "/"), reason: "write" });
+  }
+  const walkTarget = (dir, rel = "") => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const childRel = rel ? `${rel}/${entry.name}` : entry.name;
+      const absolute = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walkTarget(absolute, childRel);
+        if (readdirSync(absolute).length === 0) rmSync(absolute, { recursive: true, force: true });
+      } else if (!sourceFiles.has(relative(sourceRoot, join(sourceRoot, childRel)))) {
+        rmSync(absolute, { force: true });
+        changes.push({ path: childRel, reason: "delete" });
+      }
+    }
+  };
+  walkTarget(targetRoot);
+  return changes;
 }
 
 function rsyncAbsoluteArgs({ sourceDir, targetDir, dryRun }) {
@@ -688,12 +707,6 @@ function rsyncAbsoluteArgs({ sourceDir, targetDir, dryRun }) {
     sourceDir.endsWith("/") ? sourceDir : sourceDir + "/",
     targetDir.endsWith("/") ? targetDir : targetDir + "/",
   ];
-}
-
-function rsyncChangePath(line) {
-  if (line.startsWith("*deleting ")) return line.slice("*deleting ".length);
-  const separator = line.indexOf(" ");
-  return separator === -1 ? line : line.slice(separator + 1).trim();
 }
 
 function validateGeneratedControls(layout, digests) {

@@ -7,6 +7,8 @@
 // native code runs, then proves the binding can actually open a database.
 // The open runs in a child process so a native crash is reported, not silent.
 
+import { pathToFileURL } from "node:url";
+
 const SUPPORTED_MAJORS = [22, 24];
 
 const box = (lines) =>
@@ -154,7 +156,7 @@ export function openInChildProcess(addonPath, spawnSync) {
 // --- Run when executed as postinstall script ---
 const isMain =
   process.argv[1] &&
-  (import.meta.url === `file://${process.argv[1]}` ||
+  (import.meta.url === pathToFileURL(process.argv[1]).href ||
     process.argv[1].endsWith("check-abi.mjs"));
 
 if (isMain) {
