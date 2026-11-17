@@ -44,6 +44,9 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: engine
+      - name: Repository guards and script tests
+        run: npm run test:repo
+        working-directory: engine
       - name: Typecheck
         run: npm run lint
         working-directory: engine
@@ -54,14 +57,50 @@ jobs:
         run: npm run smoke
         working-directory: engine
 
-  # U1 — native Windows coverage. This job proves the daemon typechecks and the platform-boundary
-  # tests pass on the shipped target: the executable resolver, the process identity and tree kill,
-  # the mailbox roots, and the worker-written-file boundary. Later units add their Windows-relevant
-  # test files to the list below; U23 replaces this job with the full two-OS smoke.
-  windows-native:
+  # The installer ships `resources/engine`; the staged-tree tests skip themselves when it is
+  # absent, so this job stages first and then fails if anything is missing. The bundled gh.exe
+  # comes from the network, so it is not staged in pull-request CI.
+  desktop:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          symlinks: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            engine/package-lock.json
+            desktop/package-lock.json
+      - name: Install engine
+        run: npm ci --no-audit --no-fund --ignore-scripts
+        working-directory: engine
+      - name: Build engine
+        run: npm run build
+        working-directory: engine
+      - name: Install desktop
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: desktop
+      - name: Stage the engine tree
+        run: node scripts/stage-engine.mjs
+        working-directory: desktop
+      - name: Desktop tests
+        run: npm test
+        working-directory: desktop
+
+  # This job proves the daemon typechecks and the platform-boundary tests pass on the shipped
+  # target: the executable resolver, the process identity and tree kill, the mailbox roots, and the
+  # worker-written-file boundary. It also runs the repository guards, which must not be silent
+  # no-ops on Windows.
+  windows-native:
+    runs-on: windows-latest
+    steps:
+      # The skill and reference packs are symlinked into the repo. Without this a Windows checkout
+      # writes each link target as a plain file, and the pack checks fail.
+      - uses: actions/checkout@v4
+        with:
+          symlinks: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -76,9 +115,12 @@ jobs:
         run: npx tsc --noEmit --project packages/daemon/tsconfig.json
         working-directory: engine
       # The CLI imports @multi-agent/daemon/daemon-shutdown through its package exports, which point
-      # at dist, and this job installs with --ignore-scripts and builds nothing.
-      - name: Build daemon
-        run: npm run build -w packages/daemon
+      # at dist, and this job installs with --ignore-scripts, so the build is explicit.
+      - name: Build engine
+        run: npm run build
+        working-directory: engine
+      - name: Repository guards and script tests
+        run: npm run test:repo
         working-directory: engine
       - name: Native platform tests
         run: npx vitest run --maxWorkers=2 packages/daemon/test/source-brand.test.ts packages/daemon/test/data-paths.test.ts packages/daemon/test/platform.test.ts packages/daemon/test/executable-resolver.test.ts packages/daemon/test/process-identity.test.ts packages/daemon/test/unisolated-roots.test.ts packages/daemon/test/team-workspace-windows.test.ts packages/daemon/test/team-workspace-line-endings.test.ts packages/daemon/test/attempt-completion-windows.test.ts packages/daemon/test/worktree-policy.test.ts packages/daemon/test/team-control-paths.test.ts packages/daemon/test/team-setup.test.ts packages/daemon/test/team-project-files.test.ts packages/daemon/test/team-attachments.test.ts packages/daemon/test/project-bootstrap-limits.test.ts packages/daemon/test/team-github.test.ts packages/daemon/test/project-bootstrap.test.ts packages/daemon/test/child-process-supervisor.test.ts packages/daemon/test/native-pairing.test.ts packages/daemon/test/u4-recovery.test.ts packages/daemon/test/worker-trees-shutdown.test.ts packages/daemon/test/desktop-dependencies.test.ts packages/daemon/test/windows-hide-child-processes.test.ts packages/daemon/test/db-upgrades.test.ts packages/daemon/test/worker-mailbox-pipe-windows.test.ts
