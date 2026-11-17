@@ -281,10 +281,6 @@ packages.
   (the daemon `specs/` tree before it is copied into the package), and in the release-time
   substance gate (`scripts/check-substance-gate.mjs`, `npm run gate:substance`) over the packed
   CLI. No workflow runs it over a pull request's whole diff.
-- **Portability report** (`.github/workflows/portability-report.yml`, running
-  `scripts/portability-report.mjs`). On each pull request it lists added lines containing
-  machine-specific values: credentials, home and temporary paths, network addresses, email
-  addresses. It never fails the job; you read it and decide.
 - **Generated files.** Do not hand-edit `scripts/*.generated.json` or anything under
   `packages/daemon/context-packs/`. The skill-edge digests are the one generated file a contributor
   refreshes, with `node scripts/regen-edge-digests.mjs` (see "A shipped skill").

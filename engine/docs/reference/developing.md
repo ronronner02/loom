@@ -31,9 +31,7 @@ suite. Both sets are readable in the root `package.json` scripts.
 
 ## Advisory lane
 
-| Lane | Command | Meaning |
-|---|---|---|
-| Portability report | `node scripts/portability-report.mjs` | lists added lines with machine-specific values; findings never fail it (`.github/workflows/portability-report.yml`) |
+No advisory lanes are configured; every lane above blocks.
 
 ## The norm (web-UI freeze at 0.5.0)
 

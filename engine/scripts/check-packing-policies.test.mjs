@@ -8,9 +8,9 @@
 //   packed           daemon/policies/builtin/<name>.policy.md   (build-package.sh staging)
 //   installed stable $MULTI_AGENT_HOME/reference/policies/builtin/<name>.policy.md
 //                    (daemon startup materializer, mode 0444 inspection copies)
-// The runtime edge is proven at the compiled assembled boundary by
-// scripts/verify-packaged-builtins.mjs (plan D5b); these tests pin the source
-// and staging legs so a dropped staging block or edited source fails loudly.
+// The runtime edge is proven at the compiled assembled boundary by the substance gate
+// (scripts/check-substance-gate.mjs); these tests pin the source and staging legs so a dropped
+// staging block or edited source fails loudly.
 import { readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
