@@ -1,7 +1,6 @@
 // Platform facts the repository scripts and their tests need to stay portable.
 
 import { mkdtempSync, rmSync, symlinkSync, writeFileSync, existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -50,17 +49,3 @@ export function supportsSymlinks() {
   return symlinkSupport;
 }
 
-let rsyncPresent;
-
-/**
- * Whether `rsync` is on this machine.
- *
- * The skill mirror's legacy apply modes are written against rsync; Windows has none, and the
- * digest check (`mirror-skills.mjs --check`) needs no external tool at all. Callers that depend on
- * rsync skip with this fact instead of failing a test run.
- */
-export function hasRsync() {
-  if (rsyncPresent !== undefined) return rsyncPresent;
-  rsyncPresent = spawnSync("rsync", ["--version"], { encoding: "utf8", stdio: "ignore" }).status === 0;
-  return rsyncPresent;
-}
