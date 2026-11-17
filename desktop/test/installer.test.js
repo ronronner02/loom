@@ -75,8 +75,13 @@ function seedUserData(profile) {
   return { state, config };
 }
 
+// electron-builder derives the executable name from `productName`; read it rather than pinning a
+// name that drifts with the brand.
+const BUILDER_CONFIG = fs.readFileSync(path.join(__dirname, '..', 'electron-builder.yml'), 'utf8');
+const EXECUTABLE_NAME = `${BUILDER_CONFIG.match(/^productName:\s*(\S+)\s*$/m)[1]}.exe`;
+
 const requiredBinaries = [
-  'Multi-Agent.exe',
+  EXECUTABLE_NAME,
   path.join('resources', 'engine', 'packages', 'daemon', 'dist', 'index.js'),
   path.join('resources', 'engine', 'node_modules', 'better-sqlite3', 'prebuilds', 'win32-x64.node'),
   path.join('resources', 'engine', 'plugins', 'github-cli', 'gh.exe'),
@@ -89,7 +94,7 @@ test('install N, upgrade to N+1, then uninstall: binaries are replaced and user 
     for (const relative of requiredBinaries) {
       assert.ok(fs.existsSync(path.join(profile.program, relative)), `version N ships ${relative}`);
     }
-    const previousBinary = fs.statSync(path.join(profile.program, 'Multi-Agent.exe')).mtimeMs;
+    const previousBinary = fs.statSync(path.join(profile.program, EXECUTABLE_NAME)).mtimeMs;
 
     const data = seedUserData(profile);
 
@@ -98,7 +103,7 @@ test('install N, upgrade to N+1, then uninstall: binaries are replaced and user 
     for (const relative of requiredBinaries) {
       assert.ok(fs.existsSync(path.join(profile.program, relative)), `version N+1 ships ${relative}`);
     }
-    assert.notEqual(fs.statSync(path.join(profile.program, 'Multi-Agent.exe')).mtimeMs, previousBinary,
+    assert.notEqual(fs.statSync(path.join(profile.program, EXECUTABLE_NAME)).mtimeMs, previousBinary,
       'the upgrade replaced the executable');
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(data.state, 'engine', 'state', 'marker.json'), 'utf8')), { projects: 1 });
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(data.state, 'engine', 'state', 'recovery-record.json'), 'utf8')), { interrupted: 1 },
@@ -110,7 +115,7 @@ test('install N, upgrade to N+1, then uninstall: binaries are replaced and user 
     assert.ok(uninstaller, 'the installer writes an uninstaller');
     execFileSync(path.join(profile.program, uninstaller), ['/S'], { env: installerEnv(profile), windowsHide: true, stdio: 'ignore' });
 
-    assert.equal(fs.existsSync(path.join(profile.program, 'Multi-Agent.exe')), false, 'uninstall removed the program files');
+    assert.equal(fs.existsSync(path.join(profile.program, EXECUTABLE_NAME)), false, 'uninstall removed the program files');
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(data.state, 'engine', 'state', 'recovery-record.json'), 'utf8')), { interrupted: 1 },
       'the recovery record survives the uninstall');
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(data.config, 'config.json'), 'utf8')), { ui: { enabled: true } },

@@ -90,14 +90,27 @@ function copyTree(source, target, { skip = [], prune } = {}) {
  * dependency lists.
  */
 function runtimeClosure() {
-  const output = execFileSync('npm', ['ls', '--omit=dev', '--all', '--parseable', '-w', 'packages/daemon'],
-    { cwd: ENGINE_ROOT, encoding: 'utf8', shell: process.platform === 'win32' });
+  // npm is a `.cmd` shim on Windows, which `execFileSync` cannot launch without a shell; running
+  // npm's own CLI entry under this Node keeps the argument array escaped instead.
+  const npm = npmCliEntry();
+  const output = execFileSync(process.execPath, [...npm, 'ls', '--omit=dev', '--all', '--parseable', '-w', 'packages/daemon'],
+    { cwd: ENGINE_ROOT, encoding: 'utf8' });
   const modules = path.join(ENGINE_ROOT, 'node_modules') + path.sep;
   return output.split(/\r?\n/).filter(Boolean)
     .map(entry => path.resolve(entry))
     .filter(entry => entry.startsWith(modules))
     .map(entry => path.relative(ENGINE_ROOT, entry))
     .filter(entry => !entry.split(path.sep).includes('@multi-agent'));
+}
+
+/** The npm CLI entry point installed beside this Node, or the one the caller came through. */
+function npmCliEntry() {
+  if (process.env.npm_execpath) return [process.env.npm_execpath];
+  const nodeDir = path.dirname(process.execPath);
+  return [
+    path.join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    path.join(nodeDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  ].filter(entry => existsSync(entry)).slice(0, 1);
 }
 
 /**
@@ -177,6 +190,52 @@ function stamp() {
   };
 }
 
+/**
+ * The build-identity values the installer ships.
+ *
+ * The committed `build-info.ts` is the dev stub (all null), and `engine/scripts/build-package.sh`
+ * writes the real stamp only into the publishable CLI package. The installed desktop app stages
+ * `dist/` directly, so without this the `/healthz` of the build a user runs reports no version or
+ * commit. Same payload and same source rules as the package build: the desktop version, the
+ * engine checkout's HEAD, and dirty only when the build inputs differ from that commit.
+ */
+function buildStamp() {
+  const git = args => execFileSync('git', args, { cwd: REPOSITORY_ROOT, encoding: 'utf8' }).trim();
+  const commit = git(['rev-parse', 'HEAD']);
+  let dirty = false;
+  try {
+    dirty = git(['status', '--porcelain', '--', 'engine/packages', 'engine/scripts']) !== '';
+  } catch {
+    dirty = true;
+  }
+  return { semver: shippedVersion(), commit, dirty, builtAt: new Date().toISOString() };
+}
+
+/** The desktop artifact version; the engine ships with the app, so the app owns the number. */
+function shippedVersion() {
+  return JSON.parse(readFileSync(path.join(DESKTOP_ROOT, 'package.json'), 'utf8')).version;
+}
+
+/** Write the daemon's compiled build-info with the staged identity, beside the copied build. */
+function writeBuildInfo(info) {
+  const target = path.join(RESOURCES_ROOT, 'packages', 'daemon', 'dist', 'build-info.js');
+  if (!existsSync(path.dirname(target))) fail('the daemon dist is missing from the staged tree');
+  writeFileSync(target, [
+    '// Written by desktop/scripts/stage-engine.mjs — the installed build identity.',
+    `export const BUILD_INFO = {
+  semver: ${JSON.stringify(info.semver)},
+  commit: ${JSON.stringify(info.commit)},
+  dirty: ${JSON.stringify(info.dirty)},
+  builtAt: ${JSON.stringify(info.builtAt)},
+};`,
+    `export function stampFields(info = BUILD_INFO) {
+  if (!info.commit) return {};
+  return { semver: info.semver, commit: info.commit, dirty: info.dirty, builtAt: info.builtAt };
+}`,
+    '',
+  ].join('\n'));
+}
+
 /** Whether an existing tree is newer than its inputs. A stale tree would ship an old daemon. */
 function isFresh() {
   const marker = path.join(RESOURCES_ROOT, '.stage-manifest.json');
@@ -184,6 +243,9 @@ function isFresh() {
   let recorded;
   try { recorded = JSON.parse(readFileSync(marker, 'utf8')); } catch { return false; }
   if (recorded.nativePrebuild !== NATIVE_PREBUILD) return false;
+  // A build identity is part of the staged tree; an unstamped tree cannot answer /healthz.
+  if (!recorded.buildInfo?.commit) return false;
+  if (recorded.buildInfo.semver !== shippedVersion()) return false;
   const stagedAt = statSync(marker).mtimeMs;
   const inputs = [
     ...ENGINE_TREES.map(([tree]) => path.join(ENGINE_ROOT, tree)),
@@ -220,8 +282,10 @@ function stageEngine() {
     cpSync(path.join(ENGINE_ROOT, file), target);
   }
   for (const relative of runtimeClosure()) copyPackage(relative);
+  const info = buildStamp();
+  writeBuildInfo(info);
   assertLayout();
-  writeFileSync(path.join(RESOURCES_ROOT, '.stage-manifest.json'), JSON.stringify(stamp(), null, 2) + '\n');
+  writeFileSync(path.join(RESOURCES_ROOT, '.stage-manifest.json'), JSON.stringify({ ...stamp(), buildInfo: info }, null, 2) + '\n');
   console.log(`stage-engine: wrote ${path.relative(DESKTOP_ROOT, RESOURCES_ROOT)}`);
 }
 

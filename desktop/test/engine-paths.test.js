@@ -77,6 +77,8 @@ test('the packaged tree wins over the checkout when both exist', () => {
 });
 
 const staged = fs.existsSync(path.join(RESOURCES_ENGINE, DAEMON_ENTRY_PATH));
+/** The bundled gh.exe comes from the network, so a job that stages only the engine leaves it out. */
+const ghStaged = fs.existsSync(path.join(RESOURCES_ENGINE, 'plugins', 'github-cli', 'gh.exe'));
 
 test('the staged tree is current with the engine build it was copied from', { skip: !staged && 'resources/engine is not staged; run npm run stage' }, () => {
   // `--check` proves the staged tree is newer than its inputs without rewriting it, so an engine
@@ -84,6 +86,7 @@ test('the staged tree is current with the engine build it was copied from', { sk
   const { execFileSync } = require('node:child_process');
   execFileSync(process.execPath, [path.join(DESKTOP_ROOT, 'scripts', 'stage-engine.mjs'), '--check'],
     { cwd: DESKTOP_ROOT, encoding: 'utf8', stdio: 'pipe' });
+  if (!ghStaged) return;
   execFileSync(process.execPath, [path.join(DESKTOP_ROOT, 'scripts', 'stage-gh.mjs'), '--check'],
     { cwd: DESKTOP_ROOT, encoding: 'utf8', stdio: 'pipe' });
 });
@@ -102,7 +105,7 @@ test('the staged engine keeps the relative layout the daemon reads at runtime', 
   }
 });
 
-test('the staged gh is the pinned release and sits where the resolver looks', { skip: !staged && 'resources/engine is not staged; run npm run stage' }, () => {
+test('the staged gh is the pinned release and sits where the resolver looks', { skip: !ghStaged && 'the bundled gh.exe is not staged; run node scripts/stage-gh.mjs' }, () => {
   const lock = JSON.parse(fs.readFileSync(path.join(REPOSITORY_ROOT, 'engine', 'config', 'toolchain', 'gh-lock.json'), 'utf8'));
   assert.match(lock.windows.amd64, /^[a-f0-9]{64}$/, 'the Windows release is pinned by SHA-256');
   const record = JSON.parse(fs.readFileSync(path.join(RESOURCES_ENGINE, 'plugins', 'github-cli', '.gh-manifest.json'), 'utf8'));
