@@ -1,32 +1,36 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* The page behind the shell. Everything the shell itself draws uses the `--ui-*` tokens in
+ * team.css; this file only styles the document the React root mounts into. */
 
-/* The command center's own surfaces live in team.css; this file keeps the page that hosts
- * them and the Tailwind base layer the portals (dialogs, palettes) rely on. */
-@layer base {
+:root {
+  --page-background: #ffffff;
+  --page-ink: #33402f;
+  --page-selection: rgb(85 99 110 / .2);
+}
+
+@media (prefers-color-scheme: dark) {
   :root {
-    --background: 0 0% 100%;
-    --on-surface: 120 8% 19%;
-    --secondary: 213 15% 39%;
-  }
-
-  body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--on-surface));
-    font-family: "Inter", system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  ::selection {
-    background-color: hsl(var(--secondary) / 0.2);
-    color: hsl(var(--on-surface));
+    --page-background: #111410;
+    --page-ink: #e2e6dd;
+    --page-selection: rgb(160 185 200 / .3);
   }
 }
 
+/* The shell's own theme choice wins over the system when it paints the document. */
 .dark {
-  --background: 120 8% 7%;
-  --on-surface: 100 10% 90%;
-  --secondary: 213 30% 70%;
+  --page-background: #111410;
+  --page-ink: #e2e6dd;
+  --page-selection: rgb(160 185 200 / .3);
+}
+
+body {
+  background-color: var(--page-background);
+  color: var(--page-ink);
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: var(--page-selection);
+  color: var(--page-ink);
 }
