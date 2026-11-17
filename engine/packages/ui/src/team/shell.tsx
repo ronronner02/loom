@@ -616,7 +616,7 @@ function ProjectShell({ language, onLanguage, appearance }: {
           onOpenChat={opener => { chatOpener.current = opener; setChatOpen(true); }} />
       : overviewTab === "flow"
         ? <FlowView key={runId} events={adaptTeamEvents(data.events.data?.events ?? [], runId)}
-            loading={data.read.isPending || (!!read && data.events.data === undefined)}
+            loading={!!runId && (data.read.isPending || (!!read && data.events.data === undefined))}
             error={!!data.read.error}
             seats={flowSeats}
             nodeStates={flowNodeStates} />
