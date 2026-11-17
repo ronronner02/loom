@@ -1,4 +1,4 @@
-import type { FlowEvent, FlowSeat } from "./flow-events.js";
+import type { FlowEvent, FlowSeat } from "../flow/flow-events.js";
 
 const BASE_TIME = Date.parse("2026-11-10T00:00:00.000Z");
 

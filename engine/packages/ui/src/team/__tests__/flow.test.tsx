@@ -4,7 +4,7 @@ import { createInterfaceI18n, type InterfaceLanguage } from "@multi-agent/i18n";
 import { I18nextProvider } from "react-i18next";
 import type { i18n as I18n } from "i18next";
 import { FlowView } from "../flow/FlowView.js";
-import { HIGH_DENSITY_EVENTS, HIGH_DENSITY_SEATS, LOW_DENSITY_EVENTS, FLOW_FIXTURE_SEATS } from "../flow/fixtures.js";
+import { HIGH_DENSITY_EVENTS, HIGH_DENSITY_SEATS, LOW_DENSITY_EVENTS, FLOW_FIXTURE_SEATS } from "./flow-fixtures.js";
 import { mapTeamEvents } from "../flow/flow-events.js";
 import { FlowRenderer } from "../flow/flow-renderer.js";
 import { getVendorAvatarUrl, resolveAvatarState, resolveVendorForNode } from "../flow/vendor-avatars.js";
@@ -48,14 +48,26 @@ describe("FlowView", () => {
     Object.defineProperty(window, "matchMedia", { configurable: true, value: originalMatchMedia });
   });
 
-  it("renders accessible names and supports keyboard node selection", () => {
+  it("renders accessible names and selects a node with a native click", () => {
     show();
     const worker = screen.getByRole("button", { name: /Worker 1, implementer/i });
-    fireEvent.keyDown(worker, { key: "Enter" });
+    fireEvent.click(worker);
     expect(worker.getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("status", { name: /Selected Worker 1/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Lead, lead/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Reviewer, reviewer/i })).toBeTruthy();
+  });
+
+  it("shows a loading state instead of an empty stage while the events query seeds", () => {
+    render(<I18nextProvider i18n={languages.get("en")!}><FlowView events={[]} loading /></I18nextProvider>);
+    expect(screen.getByRole("status").textContent).toBe("Loading team events…");
+    expect(screen.queryByRole("group", { name: "Team seats" })).toBeNull();
+  });
+
+  it("shows a read failure instead of an empty stage when the run read fails", () => {
+    render(<I18nextProvider i18n={languages.get("en")!}><FlowView events={[]} error /></I18nextProvider>);
+    expect(screen.getByRole("alert").textContent).toBe("Read failed");
+    expect(screen.queryByRole("group", { name: "Team seats" })).toBeNull();
   });
 
   it("sizes the canvas to the available mobile stage instead of clipping it", () => {
@@ -131,7 +143,7 @@ describe("FlowView", () => {
   it("renders its controls and states from the active interface language", () => {
     show("zh-CN");
     expect(screen.getByRole("button", { name: "暂停" })).toBeTruthy();
-    expect(screen.getByRole("list", { name: "团队席位" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "团队席位" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /负责人，负责人/ })).toBeTruthy();
   });
 
@@ -290,6 +302,11 @@ describe("vendor avatars", () => {
     expect(resolveAvatarState("complete", false)).toBe("milestone");
     expect(resolveAvatarState("working", true)).toBe("messaging");
     expect(getVendorAvatarUrl("claude", "working")).toBe("/avatars/vendors/claude_working.png");
+  });
+
+  it("does not draw a failed worker with the calm waiting avatar", () => {
+    expect(resolveAvatarState("error", false)).not.toBe("waiting");
+    expect(resolveAvatarState("error", false)).toBe("master");
   });
 
   it("renders vendor avatar images on FlowView nodes", () => {
