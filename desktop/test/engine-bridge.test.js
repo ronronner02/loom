@@ -1,10 +1,11 @@
 'use strict';
 /**
- * U5 — tests for the engine bridge: fork, ready IPC, port capture, crash,
- * shutdown, second instance, and no LAN bind.
+ * Tests for the engine bridge: fork, ready IPC, port capture, crash, shutdown, and the pairing
+ * and dependency requests over the private parent channel.
  *
- * These tests mock Electron's `utilityProcess.fork` and follow the same
- * `vm.runInContext` pattern as `desktop.test.js`.
+ * These tests mock Electron's `utilityProcess.fork` and follow the same `vm.runInContext` pattern
+ * as `desktop.test.js`. Each fork produces a fresh fake child, so a test can prove that a late
+ * exit from a replaced child leaves the current one alone.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -16,43 +17,48 @@ const vm = require('node:vm');
 // Test context factory
 // ---------------------------------------------------------------------------
 
-function bridgeContext(overrides) {
+function bridgeContext() {
   let forkEntry = null;
   let forkArgs = null;
   let forkOpts = null;
-  const postedMessages = [];
+  const children = [];
 
-  const childListeners = new Map();
-  let childDestroyed = false;
-
-  const child = {
+  class Child {
+    constructor() {
+      this.listeners = new Map();
+      this.posted = [];
+      this.destroyed = false;
+    }
     on(event, fn) {
-      const list = childListeners.get(event) || [];
+      const list = this.listeners.get(event) || [];
       list.push(fn);
-      childListeners.set(event, list);
-    },
+      this.listeners.set(event, list);
+    }
     once(event, fn) {
-      const list = childListeners.get(event) || [];
       const wrapper = (...args) => {
         fn(...args);
-        const l = childListeners.get(event) || [];
-        childListeners.set(event, l.filter(item => item !== wrapper));
+        this.listeners.set(event, (this.listeners.get(event) || []).filter(item => item !== wrapper));
       };
-      list.push(wrapper);
-      childListeners.set(event, list);
-    },
+      this.on(event, wrapper);
+    }
+    emit(event, ...args) {
+      for (const fn of [...(this.listeners.get(event) || [])]) fn(...args);
+    }
     postMessage(msg) {
-      postedMessages.push(msg);
-      setImmediate(() => {
-        for (const fn of childListeners.get('message') || []) fn(msg);
-      });
-    },
+      this.posted.push(msg);
+      // The fake daemon answers a request on the next tick, the way the real child does.
+      if (!this.handler) setImmediate(() => this.emit('message', msg));
+    }
+    /** Answer subsequent requests with `handler(msg, reply)` instead of echoing them. */
+    answer(handler) {
+      this.handler = handler;
+      this.postMessage = (msg) => { this.posted.push(msg); handler(msg, message => this.emit('message', message)); };
+    }
     kill() {
-      childDestroyed = true;
-      for (const fn of childListeners.get('exit') || []) fn(0);
-    },
-    isDestroyed() { return childDestroyed; },
-  };
+      this.destroyed = true;
+      this.emit('exit', 0);
+    }
+  }
 
   const bridgeExports = {};
   const ctx = vm.createContext({
@@ -93,16 +99,16 @@ function bridgeContext(overrides) {
               forkEntry = entry;
               forkArgs = args;
               forkOpts = opts;
+              const child = new Child();
+              children.push(child);
               return child;
             },
           },
         };
       }
       if (name === 'node:path') return path;
-      if (name === 'node:worker_threads') return { parentPort: null };
       return require(name);
     },
-    ...overrides,
   });
 
   vm.runInContext(
@@ -116,16 +122,24 @@ function bridgeContext(overrides) {
     forkEntry: () => forkEntry,
     forkArgs: () => forkArgs,
     forkOpts: () => forkOpts,
-    postedMessages: () => postedMessages,
-    child,
-    childListeners,
-    startEngine: (...args) => {
-      return vm.runInContext('startEngine', ctx)(...args);
-    },
-    isRunning: () => vm.runInContext('isRunning', ctx)(),
-    port: () => vm.runInContext('port', ctx)(),
-    killEngine: () => vm.runInContext('killEngine', ctx)(),
+    /** The most recently forked child. */
+    child: () => children.at(-1),
+    children,
+    startEngine: (...args) => vm.runInContext('startEngine', ctx)(...args),
   };
+}
+
+const tick = () => new Promise(resolve => setImmediate(resolve));
+const ENV = { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') };
+const OPTS = { dataDir: path.join('C:', 'tmp', 'engine-data'), env: ENV };
+
+/** A started bridge whose child has reported ready. */
+async function started(overrides = {}) {
+  const bridge = bridgeContext();
+  const engine = bridge.startEngine({ ...OPTS, ...overrides });
+  bridge.child().postMessage({ type: 'ready', port: 54321, pid: 12345 });
+  await tick();
+  return { bridge, engine };
 }
 
 // ---------------------------------------------------------------------------
@@ -134,246 +148,181 @@ function bridgeContext(overrides) {
 
 test('startEngine forks utility process with correct entry and env', async () => {
   const bridge = bridgeContext();
-  const env = { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') };
-
-  const engine = bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env });
+  const engine = bridge.startEngine(OPTS);
 
   assert.ok(bridge.forkEntry(), 'utilityProcess.fork must be called');
   assert.ok(bridge.forkEntry().endsWith('engine-host.js'),
     `entry must end with engine-host.js, got ${bridge.forkEntry()}`);
-  assert.equal(bridge.forkOpts().env.MULTI_AGENT_HOME, path.join('C:', 'tmp', 'rig-home'));
+  assert.equal(bridge.forkOpts().env.MULTI_AGENT_HOME, ENV.MULTI_AGENT_HOME);
   assert.equal(bridge.forkOpts().serviceName, 'multi-agent-daemon');
 
-  // Simulate ready message from child (as engine-host.js would do)
-  bridge.child.postMessage({ type: 'ready', port: 54321, pid: 12345 });
+  bridge.child().postMessage({ type: 'ready', port: 54321, pid: 12345 });
 
-  const readyResult = await engine.ready;
-  assert.equal(readyResult.port, 54321);
-  assert.equal(readyResult.pid, 12345);
-  assert.ok(bridge.isRunning());
-  assert.equal(bridge.port(), 54321);
+  assert.deepEqual({ ...await engine.ready }, { port: 54321, pid: 12345 });
+  assert.ok(engine.isRunning());
+  assert.equal(engine.port(), 54321);
 });
 
-test('startEngine reports crash when daemon fails', async () => {
+test('startEngine reports a daemon crash before ready', async () => {
   const bridge = bridgeContext();
-  const env = { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') };
+  const engine = bridge.startEngine(OPTS);
 
-  const engine = bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env });
-
-  bridge.child.postMessage({ type: 'crash', error: 'ENOENT: module not found' });
+  bridge.child().postMessage({ type: 'crash', error: 'ENOENT: module not found' });
 
   await assert.rejects(engine.ready, /Daemon crash/);
-  // The ready promise rejects with the crash message. isRunning() stays true
-  // because the child process still exists (only the daemon inside failed).
 });
 
-test('startEngine rejects when child exits before ready', async () => {
+test('startEngine rejects when the child exits before ready', async () => {
+  const { engine } = await started();
   const bridge = bridgeContext();
-  const env = { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') };
-
-  const engine = bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env });
-
-  // Simulate child exit before ready
-  setImmediate(() => {
-    for (const fn of bridge.childListeners.get('exit') || []) fn(1);
-  });
-
-  await assert.rejects(engine.ready, /Daemon exited with code 1 before ready/);
+  const fresh = bridge.startEngine(OPTS);
+  bridge.child().emit('exit', 1);
+  await assert.rejects(fresh.ready, /Daemon exited with code 1 before ready/);
+  assert.equal(fresh.isRunning(), false);
+  assert.ok(engine.isRunning(), 'an unrelated handle is untouched');
 });
 
-test('shutdown sends shutdown message and waits for exit', async () => {
-  const bridge = bridgeContext();
-  const env = { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') };
-
-  const engine = bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env });
-
-  // Send ready first so isRunning is true
-  bridge.child.postMessage({ type: 'ready', port: 9876, pid: 999 });
-  await new Promise(r => setImmediate(r));
-
-  assert.ok(bridge.isRunning());
-
-  // Have the child respond to shutdown by exiting
-  const msgs = [];
-  // Override to simulate exit on shutdown message
-  bridge.child.postMessage = (msg) => {
-    msgs.push(msg);
-    if (msg && msg.type === 'shutdown') {
-      // Exit on next tick
-      setImmediate(() => {
-        for (const fn of bridge.childListeners.get('exit') || []) fn(0);
-      });
-    }
-  };
+test('shutdown sends the shutdown message and waits for exit', async () => {
+  const { bridge, engine } = await started();
+  const child = bridge.child();
+  child.answer(msg => { if (msg.type === 'shutdown') setImmediate(() => child.emit('exit', 0)); });
 
   await engine.shutdown();
 
-  assert.ok(msgs.some(msg => msg && msg.type === 'shutdown'),
-    'shutdown message must be sent to child');
-  assert.equal(bridge.isRunning(), false);
+  assert.ok(child.posted.some(msg => msg.type === 'shutdown'), 'the shutdown message is sent');
+  assert.equal(engine.isRunning(), false);
+  assert.equal(engine.port(), null);
 });
 
 test('shutdown is idempotent', async () => {
-  const bridge = bridgeContext();
-  const env = { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') };
-
-  const engine = bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env });
-  bridge.child.postMessage({ type: 'ready', port: 1111, pid: 222 });
-  await new Promise(r => setImmediate(r));
-
-  // Override postMessage to trigger exit for first shutdown call
-  const shutdownMsgs = [];
-  bridge.child.postMessage = (msg) => {
-    shutdownMsgs.push(msg);
-    if (msg && msg.type === 'shutdown') {
-      setImmediate(() => {
-        for (const fn of bridge.childListeners.get('exit') || []) fn(0);
-      });
-    }
-  };
+  const { bridge, engine } = await started();
+  const child = bridge.child();
+  child.answer(msg => { if (msg.type === 'shutdown') setImmediate(() => child.emit('exit', 0)); });
 
   await engine.shutdown();
-  // After first shutdown, child is gone; subsequent shutdowns are no-ops.
-  assert.equal(bridge.isRunning(), false);
-  // Second and third calls are idempotent
+  assert.equal(engine.isRunning(), false);
   await engine.shutdown();
   await engine.shutdown();
-
-  assert.equal(bridge.isRunning(), false);
+  assert.equal(engine.isRunning(), false);
 });
 
-test('killEngine kills the child immediately', async () => {
-  const bridge = bridgeContext();
-  const env = { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') };
-
-  bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env });
-  bridge.child.postMessage({ type: 'ready', port: 1111, pid: 222 });
-  await new Promise(r => setImmediate(r));
-
-  bridge.killEngine();
-  assert.equal(bridge.isRunning(), false);
+test('kill ends the child immediately', async () => {
+  const { engine } = await started();
+  engine.kill();
+  assert.equal(engine.isRunning(), false);
 });
 
-test('no LAN bind: engine bridge does not expose non-loopback port', () => {
-  // The engine-bridge only passes port 0 to the daemon and reads back
-  // whatever port the daemon binds. The daemon's resolveBindPlan ensures
-  // loopback-only. The bridge itself has no LAN fallback.
+test('the bridge has no module-level process state left behind', async () => {
+  const before = await started();
+  const after = await started();
+  // Two live handles from the same module: neither sees the other's child.
+  assert.equal(before.engine.isRunning(), true);
+  assert.equal(after.engine.isRunning(), true);
+  assert.notEqual(before.bridge.child(), after.bridge.child());
+  before.engine.kill();
+  assert.equal(before.engine.isRunning(), false);
+  assert.equal(after.engine.isRunning(), true, "one handle's kill does not touch the other child");
+  assert.equal(after.engine.port(), 54321);
+});
+
+test('no LAN bind: the bridge passes the daemon its own env and reads back its port', () => {
   const bridge = bridgeContext();
   assert.ok(bridge, 'engine bridge loads without error');
+  assert.ok(!('MULTI_AGENT_BIND_HOST' in ENV), 'the bridge adds no bind override; the daemon binds loopback');
 });
 
 test('an unexpected exit reaches onExit and an expected one does not', async () => {
   const bridge = bridgeContext();
   const exits = [];
-  bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env: { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') },
-    onExit: exit => exits.push(exit) });
-  bridge.child.postMessage({ type: 'ready', port: 54321, pid: 12345 });
-  await new Promise(r => setImmediate(r));
-  for (const fn of bridge.childListeners.get('exit') || []) fn(0);
+  const engine = bridge.startEngine({ ...OPTS, onExit: exit => exits.push(exit) });
+  bridge.child().postMessage({ type: 'ready', port: 54321, pid: 12345 });
+  await tick();
+  bridge.child().emit('exit', 0);
   assert.equal(exits.length, 1, 'a daemon exit nobody asked for is reported');
   assert.equal(exits[0].code, 0);
   assert.match(exits[0].reason, /exit code 0/);
+  assert.equal(engine.isRunning(), false);
 });
 
 test('an exit after shutdown is not reported as unexpected', async () => {
+  const { bridge, engine } = await started({ onExit: () => { throw new Error('unexpected exit reported'); } });
+  const child = bridge.child();
+  child.answer(msg => { if (msg.type === 'shutdown') setImmediate(() => child.emit('exit', 0)); });
+  await engine.shutdown();
+});
+
+test('a late exit from a replaced child does not settle the new child', async () => {
   const bridge = bridgeContext();
   const exits = [];
-  const engine = bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env: { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') },
-    onExit: exit => exits.push(exit) });
-  bridge.child.postMessage({ type: 'ready', port: 54321, pid: 12345 });
-  await new Promise(r => setImmediate(r));
-  bridge.child.postMessage = (msg) => {
-    if (msg && msg.type === 'shutdown') {
-      setImmediate(() => { for (const fn of bridge.childListeners.get('exit') || []) fn(0); });
-    }
-  };
-  await engine.shutdown();
-  assert.equal(exits.length, 0, 'the shutdown this app asked for is not a crash');
+  const first = bridge.startEngine({ ...OPTS, onExit: exit => exits.push(exit) });
+  const firstChild = bridge.child();
+  first.ready.catch(() => {}); // the first start never reached ready; that is not the subject here
+  firstChild.emit('exit', 0);
+  await tick();
+
+  const second = bridge.startEngine({ ...OPTS, onExit: exit => exits.push(exit) });
+  const secondChild = bridge.child();
+  secondChild.postMessage({ type: 'ready', port: 54322, pid: 999 });
+  await tick();
+  assert.equal(second.port(), 54322);
+  assert.equal(exits.length, 1, 'the first child exit, nobody asked for it, was reported');
+
+  // The previous child emits one more exit, late, after its replacement is live.
+  firstChild.emit('exit', 3);
+
+  assert.equal(second.port(), 54322, "the replacement's port survives a stale exit");
+  assert.equal(second.isRunning(), true, 'the replacement is still the running child');
+  assert.equal(exits.length, 1, 'a stale exit is not reported as the current engine going away');
+  assert.deepEqual({ ...await second.ready }, { port: 54322, pid: 999 });
 });
 
 // ---------------------------------------------------------------------------
-// U12 — the first-run dependency probe over the private parent channel
+// The first-run dependency probe over the private parent channel
 // ---------------------------------------------------------------------------
 
 test('dependencies posts the probe and resolves the daemon resolver output', async () => {
-  const bridge = bridgeContext();
-  const engine = bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env: { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') } });
-  bridge.child.postMessage({ type: 'ready', port: 54321, pid: 12345 });
-  await new Promise(r => setImmediate(r));
-
-  const posted = [];
+  const { bridge, engine } = await started();
+  const child = bridge.child();
   const resolutions = [{ ok: true, client: 'git', path: 'D:\\git.exe', source: 'path' }];
-  bridge.child.postMessage = (msg) => {
-    posted.push(msg);
-    if (msg && msg.type === 'dependencies') {
-      setImmediate(() => { for (const fn of bridge.childListeners.get('message') || []) fn({ type: 'dependencies', resolutions }); });
-    }
-  };
+  child.answer((msg, reply) => { if (msg.type === 'dependencies') setImmediate(() => reply({ type: 'dependencies', resolutions })); });
 
   assert.deepEqual(await engine.dependencies(), resolutions);
-  assert.ok(posted.some(msg => msg.type === 'dependencies'), 'the probe goes over the port');
+  assert.ok(child.posted.some(msg => msg.type === 'dependencies'), 'the probe goes over the port');
 });
 
 test('dependencies rejects with the daemon answer and when no daemon is running', async () => {
-  const bridge = bridgeContext();
-  const engine = bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env: { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') } });
-  bridge.child.postMessage({ type: 'ready', port: 54321, pid: 12345 });
-  await new Promise(r => setImmediate(r));
-
-  bridge.child.postMessage = (msg) => {
-    if (msg && msg.type === 'dependencies') {
-      setImmediate(() => { for (const fn of bridge.childListeners.get('message') || []) fn({ type: 'dependencies-error', error: 'probe_failed' }); });
-    }
-  };
+  const { bridge, engine } = await started();
+  const child = bridge.child();
+  child.answer((msg, reply) => { if (msg.type === 'dependencies') setImmediate(() => reply({ type: 'dependencies-error', error: 'probe_failed' })); });
   await assert.rejects(engine.dependencies(), /probe_failed/);
 
-  bridge.killEngine();
+  engine.kill();
   await assert.rejects(engine.dependencies(), /not running/);
 });
 
 // ---------------------------------------------------------------------------
-// U6 — minting a one-time pairing code over the private parent channel
+// Minting a one-time pairing code over the private parent channel
 // ---------------------------------------------------------------------------
 
 test('mintPairing posts mint-pairing and resolves the daemon code', async () => {
-  const bridge = bridgeContext();
-  const engine = bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env: { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') } });
-  bridge.child.postMessage({ type: 'ready', port: 54321, pid: 12345 });
-  await new Promise(r => setImmediate(r));
+  const { bridge, engine } = await started();
+  const child = bridge.child();
+  child.answer((msg, reply) => { if (msg.type === 'mint-pairing') setImmediate(() => reply({ type: 'pairing-code', code: 'one-time-code' })); });
 
-  const posted = [];
-  bridge.child.postMessage = (msg) => {
-    posted.push(msg);
-    if (msg && msg.type === 'mint-pairing') {
-      setImmediate(() => { for (const fn of bridge.childListeners.get('message') || []) fn({ type: 'pairing-code', code: 'one-time-code' }); });
-    }
-  };
-
-  const code = await engine.mintPairing();
-  assert.equal(code, 'one-time-code');
-  assert.ok(posted.some(msg => msg.type === 'mint-pairing'), 'the mint request goes over the port');
+  assert.equal(await engine.mintPairing(), 'one-time-code');
+  assert.ok(child.posted.some(msg => msg.type === 'mint-pairing'), 'the mint request goes over the port');
 });
 
 test('mintPairing rejects when the daemon reports a mint error', async () => {
-  const bridge = bridgeContext();
-  const engine = bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env: { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') } });
-  bridge.child.postMessage({ type: 'ready', port: 54321, pid: 12345 });
-  await new Promise(r => setImmediate(r));
-
-  bridge.child.postMessage = (msg) => {
-    if (msg && msg.type === 'mint-pairing') {
-      setImmediate(() => { for (const fn of bridge.childListeners.get('message') || []) fn({ type: 'pairing-error', error: 'owner_session_unavailable' }); });
-    }
-  };
+  const { bridge, engine } = await started();
+  const child = bridge.child();
+  child.answer((msg, reply) => { if (msg.type === 'mint-pairing') setImmediate(() => reply({ type: 'pairing-error', error: 'owner_session_unavailable' })); });
 
   await assert.rejects(engine.mintPairing(), /owner_session_unavailable/);
 });
 
 test('mintPairing rejects when the daemon is not running', async () => {
-  const bridge = bridgeContext();
-  const engine = bridge.startEngine({ dataDir: path.join('C:', 'tmp', 'engine-data'), env: { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') } });
-  bridge.child.postMessage({ type: 'ready', port: 54321, pid: 12345 });
-  await new Promise(r => setImmediate(r));
-  bridge.killEngine();
+  const { engine } = await started();
+  engine.kill();
   await assert.rejects(engine.mintPairing(), /not running/);
 });
