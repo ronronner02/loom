@@ -1,19 +1,17 @@
-
-## Browser access and allowed addresses
+# Browser access and allowed addresses
 
 The Multi-Agent daemon answers its API only when a request is addressed to this machine and, if it
 comes from a web page, only when that page is the Multi-Agent UI or a page you allowed.
 
 ### What works with no setup
 
-- The CLI, the TUI and agents on this machine, addressing the daemon by `localhost` or an IP
-  address.
+- The CLI and agents on this machine, addressing the daemon by `localhost` or an IP address.
 - Other Multi-Agent hosts and clients that reach this daemon by its IP address, its own hostname, or
   its own Tailscale name (for example `my-machine.your-tailnet.ts.net`, or the short `my-machine`).
   The daemon learns its own Tailscale name automatically from Tailscale on this machine.
-- The web UI, when it is turned on (`multi-agent config set ui.enabled true`, then restart the daemon) and
-  opened over `http` on the daemon's own port at any address the daemon accepts, including its
-  Tailscale name. A UI page served any other way, such as over `https` through your own domain,
+- The web UI, when it is turned on (set `MULTI_AGENT_UI_ENABLED=true` in the daemon's environment,
+  then restart it) and opened over `http` on the daemon's own port at any address the daemon
+  accepts, including its Tailscale name. A UI page served any other way, such as over `https` through your own domain,
   also needs its exact origin in `MULTI_AGENT_ALLOWED_ORIGINS`, then a daemon restart.
 
 ### When you see a refusal

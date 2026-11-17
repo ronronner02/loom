@@ -1,7 +1,7 @@
 # Help your user get unstuck
 
-This page is for an owner or agent whose Multi-Agent team flow is not working. The command line and Web UI
-read the same authenticated team-control state. Use the installed command's help before choosing an option:
+This page is for an owner or agent whose Multi-Agent team flow is not working. The desktop app and the
+command line read the same authenticated team-control state. Use the installed command's help before choosing an option:
 
 ```sh
 multi-agent --help
@@ -54,10 +54,10 @@ Use `multi-agent github status` to inspect the account used by the daemon. Run `
 only when the status and the error show that authentication is the missing decision. A repository creation or
 push remains an owner decision; review the project preview before confirming it.
 
-## UI and data paths
+## App and data paths
 
-The Web UI at `/team` is another view of the same team-control API. If the UI is unavailable, use the CLI
-against the same local daemon. On Windows, mutable state is under `%LOCALAPPDATA%\Multi-Agent` and configuration
+The desktop app and the browser UI at `/team` are other views of the same team-control API. If neither is
+available, use the CLI against the same local daemon. On Windows, mutable state is under `%LOCALAPPDATA%\Multi-Agent` and configuration
 under `%APPDATA%\Multi-Agent`; other platforms default to `~/.multi-agent`. `MULTI_AGENT_HOME` overrides the
 mutable state root for an isolated process. Legacy product directories and environment names are not read.
 

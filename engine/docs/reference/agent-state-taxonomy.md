@@ -1,11 +1,10 @@
 # Agent state taxonomy
 
-The formal activity language Multi-Agent's surfaces render from — the TUI and the `multi-agent ps`
-ACTIVITY column. One oracle computes it; surfaces render it. Two exceptions remain: the web
-UI's graph node still derives its own running/needs-input/idle/unknown from the legacy
-`agentActivity`, and `multi-agent ps --active` / `--filter agentActivity.state` filter on that legacy
-field. Startup, orientation, restore and attention states are separate vocabularies, listed
-under "Other state on the same surfaces" below.
+The formal activity language Multi-Agent's surfaces render from — the desktop app's task
+views and the seat activity model. One oracle computes it; surfaces render it. One exception
+remains: a graph node can still derive its own running/needs-input/idle/unknown from the legacy
+`agentActivity` field. Startup, orientation, restore and attention states are separate
+vocabularies, listed under "Other state on the same surfaces" below.
 
 **This document is the canonical text for the shipped taxonomy** and adds the
 engineering reconciliation; it never forks a second vocabulary. Its typed source of
@@ -20,7 +19,7 @@ truth is `packages/daemon/src/domain/activity-taxonomy.ts`.
 | resumability | `live` · `resumable` · `context-walled` | what a non-present agent can come back as |
 
 Only the activity axis is served today. The session and resumability values are declared in
-`activity-taxonomy.ts` but no surface reads them: `multi-agent ps --nodes --full` shows the raw session
+`activity-taxonomy.ts` but no surface reads them: a full node view shows the raw session
 STATUS, both node views show a LIFECYCLE of `running`, `detached`, `recoverable` or `attention_required` (`run`, `det`, `rec`,
 `att`), and node inventory serves `occupantLifecycle` (`active`, `retiring`, `retired`,
 `context_walled`, `compacted`, `crashed`, `unknown`).
@@ -46,12 +45,10 @@ collision in both codebases.
 - **PARKED** — the disease: `(activity = idle-at-prompt OR needs-input pending) ×
   (open obligations OR unhealthy HELD rows)`. A dropped baton or an unanswered block. When
   activity is `unknown` the verdict is `indeterminate`, never parked or not-parked. Queryable
-  at rig and seat level with `multi-agent parked [seat] [--rig <name>] [--json]`; the join lives in the
-  parked query, never inside the oracle (the oracle's non-inference contract: it never reads
-  queue state).
+  at team and seat level; the join lives in the parked query, never inside the oracle (the
+  oracle's non-inference contract: it never reads queue state).
 - **HELD** — the deliberate counterpart: a queue-level hold with a named owner and an
-  armed wake (`multi-agent view show held`). Stopping on purpose is HELD; stopping by accident is
-  PARKED. A HELD row is healthy only while its wake is live, and not fired-but-unconsumed
+  armed wake. Stopping on purpose is HELD; stopping by accident is PARKED. A HELD row is healthy only while its wake is live, and not fired-but-unconsumed
   unless the stuck sweep owns its recovery; an unhealthy HELD row on a stopped seat makes
   the seat parked.
 - **DONE-UNSEEN** — finished work whose completion nobody consumed (herdr derives it as
@@ -105,14 +102,13 @@ authority (hooks live in occupant config while the pane is seat-persistent).
 
 ## Other state on the same surfaces
 
-These are separate vocabularies, not activity values. `multi-agent ps --nodes --full` shows them in
-its STARTUP, ORIENTED, LIFECYCLE and RESTORE columns (the default compact view shows only
-LIFECYCLE); see the
-[startup guide](agent-startup-guide.md) for how each arises.
+These are separate vocabularies, not activity values. A full node view shows them in its
+STARTUP, ORIENTED, LIFECYCLE and RESTORE columns (the default compact view shows only
+LIFECYCLE).
 
 - **Startup status:** `pending`, `ready`, `attention_required`, `failed`. `ready` means
   startup finished, never that the seat is oriented, and a seat isn't marked `ready` while
-  its startup context is still pending for `multi-agent seat continue`.
+  its startup context is still pending.
 - **Oriented:** `verified`, `missing`, `rejected`, `n-a`, from the startup proof.
 - **Attention codes:** `trust_gate`, `hook_trust_gate`, `update_gate`, `login_required`,
   `mcp_gate`, `bypass_consent_gate`, `codex_auth_refusal`, `codex_client_incompatible`.
