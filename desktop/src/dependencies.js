@@ -1,8 +1,8 @@
 'use strict';
 /**
- * First-run dependency rows (R10).
+ * First-run dependency rows.
  *
- * The daemon's own resolver (U1, `domain/executable-resolver.ts`) decides what is installed and
+ * The daemon's own resolver (`domain/executable-resolver.ts`) decides what is installed and
  * where it is; this file only puts that answer into the owner's terms — a label, the resolved
  * path when found, and one install line when it is not. No second resolver exists.
  *
@@ -11,7 +11,7 @@
 
 const DEPENDENCIES = [
   { client: 'git', label: 'Git', missing: 'Install Git for Windows: https://git-scm.com/download/win.' },
-  { client: 'gh', label: 'GitHub CLI', missing: 'Reinstall Multi-Agent to restore the bundled gh.exe, or install GitHub CLI: https://cli.github.com.' },
+  { client: 'gh', label: 'GitHub CLI', missing: 'Reinstall Loom to restore the bundled gh.exe, or install GitHub CLI: https://cli.github.com.' },
   { client: 'claude', label: 'Claude Code', missing: 'Install Claude Code: npm install -g @anthropic-ai/claude-code.' },
   { client: 'codex', label: 'Codex', missing: 'Install Codex: npm install -g @openai/codex.' },
 ];

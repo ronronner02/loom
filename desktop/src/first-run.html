@@ -91,12 +91,12 @@
       };
 
       const BUTTONS = {
-        'start-failed': [['Reconnect', 'reconnect-engine', true]],
-        'engine-missing': [['Reconnect', 'reconnect-engine', true]],
-        'connection-failed': [['Reconnect', 'reconnect-engine', true]],
-        'engine-exited': [['Reconnect', 'reconnect-engine', true]],
-        stopped: [['Reconnect', 'reconnect-engine', true]],
-        unknown: [['Reconnect', 'reconnect-engine', true]],
+        'start-failed': [['Reconnect', true]],
+        'engine-missing': [['Reconnect', true]],
+        'connection-failed': [['Reconnect', true]],
+        'engine-exited': [['Reconnect', true]],
+        stopped: [['Reconnect', true]],
+        unknown: [['Reconnect', true]],
       };
 
       function row(item) {
@@ -135,7 +135,7 @@
       function render(next) {
         if (!next) return;
         const ready = next.phase === 'ready';
-        document.getElementById('title').textContent = ready ? 'Opening Multi-Agent' : 'Starting Multi-Agent';
+        document.getElementById('title').textContent = ready ? 'Opening Loom' : 'Starting Loom';
         const panel = document.getElementById('panel');
         panel.innerHTML = (PANELS[next.phase] || PANELS.unknown)();
         if (Array.isArray(next.dependencies) && next.dependencies.length) panel.appendChild(dependenciesPanel(next.dependencies));
@@ -143,14 +143,14 @@
         const actions = document.getElementById('actions');
         actions.innerHTML = '';
         const busy = BUSY.includes(next.phase);
-        for (const [label, action, primary] of BUTTONS[next.phase] || []) {
+        for (const [label, primary] of BUTTONS[next.phase] || []) {
           const button = document.createElement('button');
           button.textContent = label;
           if (primary) button.className = 'primary';
           button.disabled = busy;
           button.addEventListener('click', async () => {
             for (const other of actions.querySelectorAll('button')) other.disabled = true;
-            render(await api.run(action));
+            render(await api.reconnectEngine());
           });
           actions.appendChild(button);
         }

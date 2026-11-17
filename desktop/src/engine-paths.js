@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Where the engine lives, packaged and in a checkout (U18).
+ * Where the engine lives, packaged and in a checkout.
  *
  * The installer ships the engine tree at `resources/engine` next to `app.asar`, so a packaged
  * app resolves the daemon from `process.resourcesPath`. A development run resolves the same

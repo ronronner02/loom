@@ -1,10 +1,10 @@
 'use strict';
 /**
- * U12 — the desktop window's own boundary: the native folder dialog, the preload surface, the
- * origin rules, and a source scan that proves the WSL path is gone.
+ * The desktop window's own boundary: window options, the native folder dialog, the origin rules,
+ * the preload surface, and source scans that prove the retired WSL path is gone.
  *
- * These drive `src/main.js` in a `vm` context with a mocked Electron, so they run under
- * `node --test` without an Electron binary and without starting anything.
+ * These drive the real `src/main.js` module graph in a `vm` context with a mocked Electron, so
+ * they run under `node --test` without an Electron binary and without starting anything.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -13,27 +13,32 @@ const path = require('node:path');
 const vm = require('node:vm');
 const originRules = require('../src/origin.js');
 const { dependencyRows } = require('../src/dependencies.js');
-const enginePaths = require('../src/engine-paths.js');
+const { desktopContext } = require('./fixtures/desktop-context.js');
 
 const ORIGIN = 'http://127.0.0.1:58123';
+const SRC = path.resolve(__dirname, '../src');
+
+const flush = async () => { for (let i = 0; i < 4; i += 1) await new Promise(resolve => setImmediate(resolve)); };
 
 /**
- * Build a main.js fixture.
+ * Build a `main.js` fixture.
  *
  * @param {object} [options]
  * @param {object} [options.selected] – the folder dialog's answer
  */
-function desktop(options = {}) {
+async function desktop(options = {}) {
   const selected = options.selected ?? { canceled: false, filePaths: [String.raw`D:\Client Work\fixture`] };
   const dialogs = [];
   const loaded = [];
   const ipcHandlers = new Map();
-  let options2;
+  let windowOptions;
   const contents = {
-    mainFrame: { url: `${ORIGIN}/team` }, on() {}, send() {}, setWindowOpenHandler() {}, reload() {},
+    mainFrame: { url: `${ORIGIN}/team` },
+    on() {}, send() {}, setWindowOpenHandler() {}, reload() {},
+    getURL() { return contents.mainFrame.url; },
   };
   class Window {
-    constructor(value) { options2 = value; this.webContents = contents; this.destroyed = false; }
+    constructor(value) { windowOptions = value; this.webContents = contents; this.destroyed = false; }
     once() {}
     on() {}
     isDestroyed() { return this.destroyed; }
@@ -43,43 +48,47 @@ function desktop(options = {}) {
   }
   const electron = {
     app: {
-      requestSingleInstanceLock: () => true, on() {}, whenReady: () => ({ then() {} }),
+      requestSingleInstanceLock: () => true, on() {}, whenReady: () => Promise.resolve(),
       getPath: name => name === 'appData' ? path.join('D:', 'ma', 'tmp', 'appData') : path.join('D:', 'ma', 'tmp', 'userData'),
     },
     BrowserWindow: Window,
     Menu: { buildFromTemplate: () => ({}), setApplicationMenu() {} },
     session: { defaultSession: { cookies: { set: async () => {} }, setPermissionRequestHandler() {} } },
     screen: { getPrimaryDisplay: () => ({ workAreaSize: { width: 1440, height: 940 } }) },
-    dialog: { showOpenDialog: async (parent, settings) => { dialogs.push({ parent, settings }); return selected; }, showMessageBox: async () => ({ response: 1 }) },
+    dialog: {
+      showOpenDialog: async (parent, settings) => { dialogs.push({ parent, settings }); return selected; },
+      showMessageBox: async () => ({ response: 1 }),
+    },
     ipcMain: { handle(channel, fn) { ipcHandlers.set(channel, fn); }, on(channel, fn) { ipcHandlers.set(channel, fn); } },
     shell: { openExternal: async () => {} },
     clipboard: { writeText: () => {} },
   };
-  const bridge = {
-    startEngine() { throw new Error('these tests do not start the engine'); },
-    isRunning: () => false, port: () => null, killEngine: () => {},
-  };
-  const context = vm.createContext({
-    __dirname: path.resolve(__dirname, '../src'),
-    URL, console,
+  const globals = {
+    __dirname: SRC,
     process: { env: {} },
     fetch: async () => ({ ok: false, status: 404, text: async () => '' }),
-    AbortSignal: { timeout: () => undefined },
-    require: name => {
-      if (name === 'electron') return electron;
-      if (name === './engine-bridge.js') return bridge;
-      if (name === './engine-paths.js') return enginePaths;
-      if (name === './origin.js') return originRules;
-      if (name === './dependencies.js') return { dependencyRows };
-      if (name === 'node:child_process' || name === 'node:worker_threads') throw new Error(`Folder selection must not load ${name}`);
-      return require(name);
-    },
-  });
-  vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../src/main.js'), 'utf8'), context);
-  vm.runInContext('createWindow(); allowedOrigin = "http://127.0.0.1:58123";', context);
+  };
+  const externals = {
+    './engine-bridge.js': { startEngine() { throw new Error('these tests do not start the engine'); } },
+    './dependencies.js': { dependencyRows },
+    './origin.js': originRules,
+    'node:child_process': () => { throw new Error('Folder selection must not spawn a process'); },
+    'node:worker_threads': () => { throw new Error('Folder selection must not use worker threads'); },
+  };
+  const { load } = desktopContext({ electron, externals, globals });
+  // These tests never start an engine, so the IPC module is given the origin a running engine
+  // would publish; every other wiring stays the app's own.
+  const realIpc = load('ipc.js');
+  externals['./ipc.js'] = {
+    createIpcModule: (config) => realIpc.createIpcModule({ ...config, getOrigin: () => ORIGIN }),
+  };
+  load('main.js');
+  // app readiness creates the window and registers the IPC handlers.
+  await flush();
   const event = { sender: contents, senderFrame: contents.mainFrame };
-  return { context, contents, event, dialogs, loaded, ipcHandlers, options: options2,
-    pick: (sender = event) => vm.runInContext('pickFolder', context)(sender),
+  return {
+    contents, event, dialogs, loaded, windowOptions: () => windowOptions,
+    pick: (sender = event) => ipcHandlers.get('desktop:pick-folder')(sender),
   };
 }
 
@@ -101,34 +110,49 @@ function preload(pick = async () => String.raw`D:\Client Work\fixture`) {
         contextBridge: { exposeInMainWorld: (name, value) => { assert.equal(name, 'multiAgentDesktop'); bridge = value; } },
         ipcRenderer: {
           sendSync: channel => { assert.equal(channel, 'desktop:csrf-token'); return 'fixture-session-handoff'; },
-          invoke: channel => channel === 'desktop:engine-status' ? Promise.resolve({ running: true, pid: 4321, exit: null })
-            : channel === 'desktop:pick-folder' ? pick() : Promise.resolve(status),
+          invoke: channel => channel === 'desktop:pick-folder' ? pick() : Promise.resolve(status),
           on: (channel, listener) => { const list = listeners.get(channel) ?? []; list.push(listener); listeners.set(channel, list); },
           removeListener: (channel, listener) => listeners.set(channel, listeners.get(channel).filter(item => item !== listener)),
         },
       };
     },
   });
-  vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../src/preload.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(SRC, 'preload.js'), 'utf8'), context);
   return { bridge, status, document, storage, events, writes,
     loaded: () => { document.readyState = 'complete'; domListeners.get('DOMContentLoaded')?.(); },
     publish: next => { for (const listener of listeners.get('desktop:state') ?? []) listener({}, next); },
   };
 }
 
-test('keeps the native caption overlay aligned with the shared 52px strip and the window sandboxed', () => {
-  const fixture = desktop();
-  assert.equal(fixture.options.titleBarStyle, 'hidden');
-  assert.equal(fixture.options.titleBarOverlay.height, 52);
-  assert.equal(fixture.options.titleBarOverlay.color, '#faf8f5');
-  assert.equal(fixture.options.webPreferences.contextIsolation, true);
-  assert.equal(fixture.options.webPreferences.nodeIntegration, false);
-  assert.equal(fixture.options.webPreferences.sandbox, true);
-  assert.equal(fixture.options.webPreferences.webSecurity, true);
+test('keeps the native caption overlay aligned with the shared 52px strip and the window sandboxed', async () => {
+  const options = (await desktop()).windowOptions();
+  assert.equal(options.titleBarStyle, 'hidden');
+  assert.equal(options.titleBarOverlay.height, 52);
+  assert.equal(options.titleBarOverlay.color, '#faf8f5');
+  assert.equal(options.webPreferences.contextIsolation, true);
+  assert.equal(options.webPreferences.nodeIntegration, false);
+  assert.equal(options.webPreferences.sandbox, true);
+  assert.equal(options.webPreferences.webSecurity, true);
+});
+
+test('the window first shows the first-run page as a file URL', async () => {
+  const fixture = await desktop();
+  assert.equal(fixture.loaded.length, 1);
+  const url = new URL(fixture.loaded[0]);
+  assert.equal(url.protocol, 'file:');
+  assert.match(url.href, /first-run\.html$/);
+});
+
+test('the first-run page URL survives a checkout path with a fragment and a percent sign', () => {
+  const { FIRST_RUN_URL } = require('../src/window.js');
+  const parsed = new URL(FIRST_RUN_URL);
+  assert.equal(parsed.protocol, 'file:');
+  assert.equal(parsed.hash, '', 'a folder name with # must not become a fragment');
+  assert.match(decodeURIComponent(parsed.pathname), /first-run\.html$/);
 });
 
 test('the native folder dialog hands the Windows path to the UI unchanged', async () => {
-  const fixture = desktop();
+  const fixture = await desktop();
   const page = preload(() => fixture.pick());
   assert.equal(await page.bridge.pickFolder(), String.raw`D:\Client Work\fixture`);
   assert.equal(fixture.dialogs.length, 1);
@@ -137,12 +161,12 @@ test('the native folder dialog hands the Windows path to the UI unchanged', asyn
 });
 
 test('a UNC folder comes back unchanged and cancelling returns null', async () => {
-  assert.equal(await desktop({ selected: { canceled: false, filePaths: [String.raw`\\server\share\app`] } }).pick(), String.raw`\\server\share\app`);
-  assert.equal(await desktop({ selected: { canceled: true, filePaths: [] } }).pick(), null);
+  assert.equal(await (await desktop({ selected: { canceled: false, filePaths: [String.raw`\\server\share\app`] } })).pick(), String.raw`\\server\share\app`);
+  assert.equal(await (await desktop({ selected: { canceled: true, filePaths: [] } })).pick(), null);
 });
 
 test('the picker refuses a different window, a subframe, or another origin before opening', async () => {
-  const fixture = desktop();
+  const fixture = await desktop();
   await assert.rejects(fixture.pick({ ...fixture.event, sender: {} }));
   await assert.rejects(fixture.pick({ ...fixture.event, senderFrame: { url: `${ORIGIN}/team` } }));
   fixture.contents.mainFrame.url = 'https://example.com/';
@@ -168,7 +192,6 @@ test('the window may navigate only to the current dynamic origin', () => {
 });
 
 test('only the engine this app forked is trusted, not any 200', () => {
-  // The daemon's real /healthz shape: no host identity, only its own pid.
   const body = JSON.stringify({
     status: 'ok', pid: 42, eventLoop: { healthy: true }, routeTimings: {}, slowOperations: { healthy: true },
     bind: { mode: 'explicit', hosts: ['127.0.0.1'], tailscaleDetected: false },
@@ -209,10 +232,6 @@ test('preload hands over the anti-forgery token and adds no title bar, footer or
   const page = preload();
   assert.equal(page.storage.get('multi-agent.desktop.csrf'), 'fixture-session-handoff');
   assert.equal(await page.bridge.status(), page.status);
-  const engineStatus = await page.bridge.engineStatus();
-  assert.equal(engineStatus.running, true);
-  assert.equal(engineStatus.pid, 4321);
-  assert.equal(engineStatus.exit, null);
   page.loaded();
   assert.equal(page.document.documentElement.dataset.desktop, 'true');
   const received = [];
@@ -228,34 +247,30 @@ test('preload hands over the anti-forgery token and adds no title bar, footer or
 test('preload exposes only the native reconnect action, never the cookie', async () => {
   const page = preload();
   assert.equal(typeof page.bridge.reconnect, 'function');
+  assert.equal(typeof page.bridge.reconnectEngine, 'function');
   assert.equal(await page.bridge.reconnect(), page.status);
   assert.equal(page.bridge.cookie, undefined);
+  assert.equal(page.bridge.run, undefined, 'no generic channel builder is exposed');
 });
 
 test('the engine host adds no listener on the daemon port, so its own answers reach the parent', () => {
-  // The daemon owns `parentPort`: it posts readiness and answers mint/dependency requests there,
-  // and the Electron main process listens on that same channel. A listener in engine-host.js
-  // would consume those answers first, which is exactly how a first-run dependency probe once
-  // reported every client as missing while the resolver answered correctly.
-  const text = fs.readFileSync(path.resolve(__dirname, '../src/engine-host.js'), 'utf8');
+  const text = fs.readFileSync(path.join(SRC, 'engine-host.js'), 'utf8');
   assert.equal(/parentPort\.on\(/.test(text), false, 'engine-host.js must not listen on the daemon port');
   assert.match(text, /mod\.startServer\(0\)/, 'the daemon still binds an OS-assigned port');
 });
 
 test('the desktop source carries no WSL path and no fixed daemon port', () => {
-  const source = path.resolve(__dirname, '../src');
-  for (const file of fs.readdirSync(source)) {
-    const text = fs.readFileSync(path.join(source, file), 'utf8');
+  for (const file of fs.readdirSync(SRC)) {
+    const text = fs.readFileSync(path.join(SRC, file), 'utf8');
     assert.equal(/wsl/i.test(text), false, `${file} must not mention WSL`);
     assert.equal(/\b7433\b/.test(text), false, `${file} must not carry a fixed daemon port`);
   }
-  assert.equal(fs.existsSync(path.join(source, 'wsl.js')), false, 'wsl.js is deleted');
+  assert.equal(fs.existsSync(path.join(SRC, 'wsl.js')), false, 'wsl.js is deleted');
 });
 
 test('the desktop never starts a process by name, so no wsl.exe can be spawned', () => {
-  const source = path.resolve(__dirname, '../src');
-  for (const file of fs.readdirSync(source)) {
-    const text = fs.readFileSync(path.join(source, file), 'utf8');
+  for (const file of fs.readdirSync(SRC)) {
+    const text = fs.readFileSync(path.join(SRC, file), 'utf8');
     assert.equal(/node:child_process/.test(text), false, `${file} must not spawn a child process directly`);
     assert.equal(/spawn\s*\(/.test(text), false, `${file} must not spawn a child process directly`);
   }
