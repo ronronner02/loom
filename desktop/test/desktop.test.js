@@ -9,6 +9,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 const originRules = require('../src/origin.js');
@@ -144,11 +145,14 @@ test('the window first shows the first-run page as a file URL', async () => {
 });
 
 test('the first-run page URL survives a checkout path with a fragment and a percent sign', () => {
-  const { FIRST_RUN_URL } = require('../src/window.js');
-  const parsed = new URL(FIRST_RUN_URL);
+  const checkout = fs.mkdtempSync(path.join(os.tmpdir(), 'client #1 100% done-'));
+  fs.copyFileSync(path.join(SRC, 'window.js'), path.join(checkout, 'window.js'));
+  const { load } = desktopContext({ electron: {}, externals: { './origin.js': originRules } });
+  const parsed = new URL(load(path.join(checkout, 'window.js')).FIRST_RUN_URL);
+  fs.rmSync(checkout, { recursive: true, force: true });
   assert.equal(parsed.protocol, 'file:');
   assert.equal(parsed.hash, '', 'a folder name with # must not become a fragment');
-  assert.match(decodeURIComponent(parsed.pathname), /first-run\.html$/);
+  assert.match(decodeURIComponent(parsed.pathname), /client #1 100% done-[^/]+\/first-run\.html$/);
 });
 
 test('the native folder dialog hands the Windows path to the UI unchanged', async () => {
