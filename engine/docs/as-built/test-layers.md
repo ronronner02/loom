@@ -482,7 +482,6 @@ Before you start, two honest constraints:
 | context | `plugin` | list/show/used-by/validate a fixture plugin. A missing resource is not the same as a valid empty selection. |
 | context | `skill` | Resolve and audit a fixture skill, then inspect the projection the consumer actually gets. |
 | context | `mode` | set/effective/cite/unset at nested scopes. Precedence holds, and the inherited value returns after unset. |
-| context | `startup-proof` | Submit a proof from a real stub identity. Check the stored attribution and the duplicate behaviour. |
 | permissions | `policy` | Apply and read an explicit permission selection using a provider-shaped fixture. It survives a restore, and the default is unchanged. |
 | accounts | `auth` | Synthetic auth files in scratch: save, list, validate, switch. No provider contact, no real credentials. |
 | accounts | `provider` | Synthetic account, binding and signal state. The precheck refuses where it should, and a switch keeps seat history. |

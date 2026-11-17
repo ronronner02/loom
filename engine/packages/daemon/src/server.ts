@@ -10,7 +10,6 @@ import type { SessionRegistry } from "./domain/session-registry.js";
 import type { DaemonLifecycleStore } from "./domain/daemon-lifecycle-store.js";
 import type { EventBus } from "./domain/event-bus.js";
 import { teamEventsRoutes } from "./routes/events.js";
-import type { TranscriptStore } from "./domain/transcript-store.js";
 import type { AgentActivityStore } from "./domain/agent-activity-store.js";
 import { jsonBodyErrorHandler, trackJsonBodyParseErrors } from "./middleware/json-body-error.js";
 import type { ChatRepository } from "./domain/chat-repository.js";
@@ -92,7 +91,6 @@ export interface AppDeps {
   /** Retained route dependencies are composed by startup; the old seat/terminal launch services are gone. */
   runtimeAdapters?: Record<string, import("./domain/runtime-adapter.js").RuntimeAdapter>;
   startupOrchestrator?: import("./domain/startup-orchestrator.js").StartupOrchestrator;
-  transcriptStore?: TranscriptStore;
   chatRepo?: ChatRepository;
   slowOpRecorder?: SlowOperationInstrumentation;
   requestPhaseObserver?: import("./domain/request-phase-observer.js").RequestPhaseObserver;
@@ -144,7 +142,6 @@ export interface AppDeps {
   selfNameDiscovery?: () => Promise<string[]>;
   /** Test hook: one call per /api browser-boundary decision. */
   browserBoundaryObserver?: BrowserBoundaryOptions["onDecision"];
-  contextUsageStore?: import("./domain/context-usage-store.js").ContextUsageStore;
   /**
    * GHOST-STAGE (e/Class-B) — the canonical OccupantInvalidator, constructed once in startup and
    * injected so SeatHandoverService.commit()'s re-key call actually FIRES (dev-driver's fold added
@@ -299,7 +296,6 @@ export function createApp(deps: AppDeps): Hono {
     c.set("sessionRegistry" as never, deps.sessionRegistry);
     c.set("eventBus" as never, deps.eventBus);
     c.set("runtimeAdapters" as never, deps.runtimeAdapters ?? {});
-    c.set("transcriptStore" as never, deps.transcriptStore);
     c.set("chatRepo" as never, deps.chatRepo);
     c.set("mailboxDelivery" as never, mailboxDelivery);
     c.set("queueRepo" as never, deps.queueRepo);
@@ -310,7 +306,6 @@ export function createApp(deps: AppDeps): Hono {
     c.set("watchdogHistoryLog" as never, deps.watchdogHistoryLog);
     c.set("workflowRuntime" as never, deps.workflowRuntime);
     c.set("settingsStore" as never, deps.settingsStore);
-    c.set("contextUsageStore" as never, deps.contextUsageStore);
     c.set("occupantInvalidator" as never, deps.occupantInvalidator);
     c.set("agentActivityStore" as never, deps.agentActivityStore);
     c.set("db" as never, deps.rigRepo.db);

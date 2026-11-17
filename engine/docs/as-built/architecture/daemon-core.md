@@ -214,10 +214,6 @@ injectWebSocket }` (`startup.ts:2506`). In source order, it:
 9. Calls `createAppWithWebSocket(deps)` (`startup.ts:2504`) to mount the full
    route tree.
 
-Node inventory is a set of functions (`getNodeInventory` and friends in
-`domain/node-inventory.ts`), imported where needed rather than constructed at
-startup.
-
 The daemon entrypoint `packages/daemon/src/index.ts:306` calls
 `createDaemon({ dbPath, bearerToken, terminalBearerToken, … })`.
 
