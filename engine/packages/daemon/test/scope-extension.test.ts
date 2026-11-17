@@ -20,12 +20,13 @@ const policyInput = vi.hoisted(() => ({ paths: 5, extensions: 5, registries: ["r
 vi.mock("node:fs", async original => {
   const fs = await original<typeof import("node:fs")>();
   return { ...fs, readFileSync: (...args: Parameters<typeof fs.readFileSync>) => {
-    if (args[0] === "/etc/multi-agent/egress.json") {
-      if (policyInput.registries === null) throw new Error("Egress policy unavailable");
-      return JSON.stringify({ schema: "multi-agent-egress/v1", allow: policyInput.registries });
-    }
     const bytes = fs.readFileSync(...args);
-    if (args[0] instanceof URL && args[0].pathname.endsWith("/config/governance/low-risk-dev-dependencies.json")) {
+    if (!(args[0] instanceof URL)) return bytes;
+    if (args[0].pathname.endsWith("/config/governance/npm-registries.json")) {
+      if (policyInput.registries === null) throw new Error("Registry policy unavailable");
+      return JSON.stringify({ registries: policyInput.registries });
+    }
+    if (args[0].pathname.endsWith("/config/governance/low-risk-dev-dependencies.json")) {
       return JSON.stringify({ ...JSON.parse(String(bytes)), maxPathsPerRequest: policyInput.paths, maxApprovedExtensionsPerTask: policyInput.extensions });
     }
     return bytes;
@@ -285,7 +286,7 @@ describe("task-local scope extensions at candidate staging", () => {
     expect(() => packet()).toThrow(/extension-cap/);
   });
 
-  it("uses the installed registry allowlist and fails closed when it is missing", () => {
+  it("uses the configured registry allowlist and fails closed when it is unavailable", () => {
     writeDependencies();
     policyInput.registries = null;
     expect(() => packet()).toThrow(/plan-change-required/);
@@ -311,7 +312,7 @@ describe("task-local scope extensions at candidate staging", () => {
     ["src/other.ts", "other-task-scope"], ["outside.txt", "outside-write-paths"],
     ["docs/plans/new.md", "protected-path"], ["src/contracts/new.ts", "protected-path"],
     ["src/migrations/001.ts", "protected-path"], ["src/.env", "protected-path"],
-    ["engine/config/isolation/policy.json", "protected-path"], ["engine/packages/daemon/src/domain/queue-repository.ts", "protected-path"],
+    ["engine/config/governance/npm-registries.json", "protected-path"], ["engine/packages/daemon/src/domain/queue-repository.ts", "protected-path"],
   ])("rejects %s with the failing rule", (path, rule) => {
     const root = candidate().root;
     mkdirSync(dirname(join(root, path)), { recursive: true }); writeFileSync(join(root, path), "changed");

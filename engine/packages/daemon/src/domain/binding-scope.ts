@@ -7,7 +7,7 @@ const credentialPatterns: RegExp[] = JSON.parse(readFileSync(
 export const credentialExcluded = (path: string): boolean => credentialPatterns.some(pattern => pattern.test(path));
 
 export const protectedPath = (path: string) =>
-  /^(docs\/(?:plans|tasks)|engine\/config\/(?:isolation|governance))(\/|$)/.test(path)
+  /^(docs\/(?:plans|tasks)|engine\/config\/governance)(\/|$)/.test(path)
   || /(^|\/)(contracts|migrations|\.github|\.circleci|\.buildkite|\.husky)(\/|$)/.test(path)
   || /(^|\/)(?:all-migrations\.ts|npm-shrinkwrap\.json|pnpm-lock\.ya?ml|yarn\.lock|bun\.lockb?)$/.test(path)
   || /(^|\/)(?:Cargo\.(?:toml|lock)|pyproject\.toml|(?:poetry|uv)\.lock|requirements[^/]*\.txt|go\.(?:mod|sum)|Gemfile(?:\.lock)?|composer\.(?:json|lock)|pom\.xml|build\.gradle(?:\.kts)?|pnpm-workspace\.ya?ml|\.yarnrc\.ya?ml)$/.test(path)

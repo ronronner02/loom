@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { createTestApp } from "./helpers/test-app.js";
-import { attemptsFromManagedWorkerEvidence, createSystemHealthReader, readSystemHealth, readSystemHealthBounded,
+import { createSystemHealthReader, readSystemHealth, readSystemHealthBounded,
   SYSTEM_HEALTH_TOTAL_TIMEOUT_MS } from "../src/domain/system-health.js";
 
 const ok = (evidenceRef: string) => ({ state: "ok" as const, evidenceRef });
@@ -63,16 +63,6 @@ describe("KTD26 system health", () => {
     expect(health.overall).toBe("unknown");
     expect(health.latestAttempts).toEqual({});
   });
-  it("preserves a stopped state in the managed evidence projection", () => {
-    const health = attemptsFromManagedWorkerEvidence(() => new Date("2026-10-23T00:00:00.000Z"), {
-      observedAt: "2026-10-23T00:00:00.000Z",
-      attempts: [{ attemptId: "stopped", runId: "run", worker: "ma-worker1", client: "codex",
-        state: "stopped", provider: "signed_in", policyRevision: 1, policyFingerprint: "policy",
-        clientVersion: "locked", clientLockDigest: "lock", networkMode: "filtered-proxy",
-        networkProfileFingerprint: "network", evidenceRef: "preflight" }],
-    });
-    expect(health.stopped.state).toBe("stopped");
-  });
   it("returns unknown when an aggregate reader supplies a malformed result", async () => {
     const health = await readSystemHealthBounded(() => null as never);
     expect(health.overall).toBe("unknown");
@@ -124,7 +114,6 @@ describe("KTD26 system health", () => {
     // The level is a fact the process decided, so a client reads it from the daemon rather than
     // from a config file the daemon may have overridden at startup.
     expect((await readSystemHealth({ ...sources, isolation: "none" })).runtime).toEqual({ isolation: "none" });
-    expect((await readSystemHealth({ ...sources, isolation: "hardened" })).runtime).toEqual({ isolation: "hardened" });
     // A host that composes no runtime block says nothing rather than naming a default.
     expect((await readSystemHealth(sources)).runtime).toBeUndefined();
     expect((await readSystemHealthBounded(undefined)).runtime).toBeUndefined();

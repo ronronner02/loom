@@ -1,6 +1,6 @@
 import nodePath from "node:path";
 import { createHash } from "node:crypto";
-import { launchManagedHarness, checkManagedReady, type WorkerLauncher } from "./worker-launch.js";
+import { launchManagedHarness, checkManagedReady, type WorkerLauncher } from "./worker-launcher.js";
 import type {
   RuntimeAdapter, NodeBinding, ResolvedStartupFile,
   InstalledResource, StartupDeliveryResult, ReadinessResult,

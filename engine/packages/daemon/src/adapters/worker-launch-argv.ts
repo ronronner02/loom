@@ -1,5 +1,5 @@
 import { agentTurnOutputPaths } from "../domain/agent-turn.js";
-import type { WorkerClient } from "./worker-launch.js";
+import type { WorkerClient } from "./worker-launcher.js";
 
 /**
  * U3 — the frozen worker launch argv, one row per client, posture and continuation.

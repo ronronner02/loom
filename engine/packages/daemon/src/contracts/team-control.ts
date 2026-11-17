@@ -17,19 +17,11 @@ export interface TeamSystemHealth {
   schema: "multi-agent-system-health/v1"; protocolVersion: typeof TEAM_SYSTEM_HEALTH_VERSION; checkedAt: string; timeoutMs: number;
   overall: TeamHealthState; lights: Record<TeamHealthLightName, TeamHealthLight>; latestAttempts: Record<string, TeamAttemptHealth>;
   /**
-   * The runtime facts a read-only client cannot infer from its own page. `isolation` is the
-   * level this process resolved at startup, reported by the process that decided it. A host
-   * that composes no runtime block leaves it absent, and a reader shows "unknown" rather
-   * than guessing a level it never verified.
+   * The runtime facts a read-only client cannot infer from its own page. `isolation` reports
+   * how the workers this process launches run. A host that composes no runtime block leaves
+   * it absent, and a reader shows "unknown" rather than guessing a fact it never verified.
    */
-  runtime?: { isolation: "none" | "hardened" | null };
-}
-export interface ManagedWorkerHealthEvidence {
-  observedAt: string;
-  attempts: Array<{ attemptId: string; runId: string; worker: string; client: "claude-code" | "codex";
-    state: "preflight" | "starting" | "running" | "stopped" | "unknown"; provider: "signed_in" | "signed_out" | "unknown";
-    policyRevision: number; policyFingerprint: string; clientVersion: string; clientLockDigest: string;
-    networkMode: "isolated-allowlist" | "filtered-proxy" | "host-shared" | "unknown"; networkProfileFingerprint: string; evidenceRef: string; }>;
+  runtime?: { isolation: "none" | null };
 }
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 export type JsonObject = { [key: string]: JsonValue };
@@ -186,12 +178,12 @@ export interface UsageEvidence {
 export interface NativeAttemptIdentity {
   nativeSessionId: string;
   /**
-   * The tmux server and pane a hardened launch ran in.
+   * The tmux server and pane a native turn ran in, when one recorded a pane.
    *
-   * U3 — a managed turn is now a direct child process, so the native launch path records no
-   * pane at all: the process pair below is the whole identity, and cancellation and recovery
-   * are aimed at it. The two fields stay required-but-nullable rather than removed because the
-   * hardened launcher still records them and every reader already tolerates their absence.
+   * A managed turn is a direct child process, so the native launch path records no pane at
+   * all: the process pair below is the whole identity, and cancellation and recovery are
+   * aimed at it. The two fields stay required-but-nullable rather than removed because a
+   * stored row from a pane-era launch must still read back.
    */
   tmuxServer: string | null;
   paneId: string | null;
@@ -915,9 +907,9 @@ export function parseUsage(value: unknown): UsageEvidence {
 
 export function parseAttemptIdentity(value: unknown): NativeAttemptIdentity {
   const v = object(value, "attemptIdentity");
-  // U3 — a native turn runs as a direct child process and records no pane. A hardened launch
-  // still records both, and a stored row from either path must read back, so the pair is either
-  // absent together or present together rather than one without the other.
+  // A native turn runs as a direct child process and records no pane. A stored row from a
+  // pane-era launch records both, and one from either path must read back, so the pair is
+  // either absent together or present together rather than one without the other.
   const paneId = v.paneId === null || v.paneId === undefined ? null : text(v.paneId, "paneId");
   if (paneId !== null && !/^%[0-9]+$/.test(paneId)) throw new TeamContractError("paneId");
   const tmuxServer = v.tmuxServer === null || v.tmuxServer === undefined ? null : absolutePath(v.tmuxServer, "tmuxServer");

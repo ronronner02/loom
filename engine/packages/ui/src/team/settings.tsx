@@ -94,7 +94,7 @@ function GithubAccount() {
   </section>;
 }
 
-function Sessions({ isolation, address }: { isolation: "none" | "hardened" | null; address: string }) {
+function Sessions({ address }: { address: string }) {
   const { t } = useTranslation();
   const { paired, revoke } = useOwnerSession();
   const cache = useQueryClient();
@@ -103,7 +103,6 @@ function Sessions({ isolation, address }: { isolation: "none" | "hardened" | nul
     <h2>{t("settings.thisBrowser")}</h2>
     <dl className="ui-facts">
       <div><dt>{t("settings.runtime.address")}</dt><dd><code>{address}</code></dd></div>
-      <div><dt>{t("settings.runtime.isolation")}</dt><dd>{isolation === null ? "—" : t(`settings.runtime.isolation.${isolation}`)}</dd></div>
     </dl>
     <p className="muted">{t("settings.revokeConsequence")}</p>
     <button className="btn btn-outline" disabled={busy || !paired} onClick={async () => {
@@ -116,10 +115,10 @@ function Sessions({ isolation, address }: { isolation: "none" | "hardened" | nul
 }
 
 /** Restored section navigation, limited to current owner preferences and read-only seats. */
-export function SettingsScreen({ language, onLanguage, appearance, isolation, address, seats, teamId }: {
+export function SettingsScreen({ language, onLanguage, appearance, address, seats, teamId }: {
   language: InterfaceI18n; onLanguage: (next: "en" | "zh-CN") => void;
   appearance: ReturnType<typeof useThemePreference>;
-  isolation: "none" | "hardened" | null; address: string; teamId?: string;
+  address: string; teamId?: string;
   seats: readonly (TeamSeatSummary & { index?: number | null; retired?: boolean })[];
 }) {
   const { t } = useTranslation();
@@ -143,7 +142,7 @@ export function SettingsScreen({ language, onLanguage, appearance, isolation, ad
             </label>;
           })}</div>
         </section>}
-        {section === "sessions" && <Sessions isolation={isolation} address={address} />}
+        {section === "sessions" && <Sessions address={address} />}
         {section === "agents" && <>
           {teamId && <div className="ui-subtabs" role="group" aria-label={t("settings.section.agents")}>
             <button type="button" aria-pressed={agentsTab === "models"} onClick={() => setAgentsTab("models")}>{t("settings.agentsTab.models")}</button>

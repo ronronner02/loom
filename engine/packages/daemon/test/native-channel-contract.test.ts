@@ -1,7 +1,4 @@
-import { buildManagedNativePolicy, verifyEffectiveNativePolicy } from "../src/integrations/framework/context-manifest.js";
-import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { createHash } from "node:crypto";
-import { parse as parseToml } from "smol-toml";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
@@ -9,7 +6,6 @@ import { ChatRepository } from "../src/domain/chat-repository.js";
 import { RigRepository } from "../src/domain/rig-repository.js";
 import {
   MailboxDelivery,
-  ManagedNativeChannelEvidence,
   adoptedNativeChannel,
   NATIVE_CHANNEL_ADOPTION,
   type MailboxPromptState,
@@ -84,82 +80,6 @@ describe("KTD19 mailbox delivery through a native channel", () => {
     expect(JSON.stringify(result.hookOutput)).not.toMatch(/"decision"|permissionDecision|"behavior"/);
     // Handing text to a boundary is not consumption.
     expect(chatRepo.getMailbox({ ...scope(), messageId: "mail-1" }).receipt).toBeNull();
-  });
-
-  it("opens a managed channel only from a verified launch and closes it when that attempt blocks", () => {
-    const evidence = new ManagedNativeChannelEvidence(), managed = new MailboxDelivery(chatRepo, () => promptState, evidence.read);
-    send("mail-1", "peer note");
-    expect(managed.deliverToNativeChannel(boundary())).toMatchObject({ status: "pending", reason: "channel_config_absent" });
-    evidence.verified("attempt-1", "worker@team", "claude-code", "2.1.296", "sha256:" + "a".repeat(64));
-    expect(evidence.read("worker@team")).toEqual({ client: "claude-code", clientVersion: "2.1.296",
-      installedChannelDigest: "sha256:" + "a".repeat(64), observedChannelDigest: "sha256:" + "a".repeat(64) });
-    expect(managed.deliverToNativeChannel(boundary())).toMatchObject({ status: "delivered", messageIds: ["mail-1"] });
-    // A block of another attempt leaves this seat's channel; the verified attempt's own block closes it.
-    evidence.blocked("attempt-other");
-    expect(evidence.read("worker@team")).not.toBeNull();
-    evidence.blocked("attempt-1");
-    expect(managed.deliverToNativeChannel(boundary(["mail-1"]))).toMatchObject({ status: "pending", reason: "channel_config_absent", receipts: [] });
-    // A resumed attempt replaces the seat's evidence, so the earlier attempt's later block cannot close it.
-    evidence.verified("attempt-1", "worker@team", "claude-code", "2.1.296", "sha256:" + "a".repeat(64));
-    evidence.verified("attempt-2", "worker@team", "claude-code", "2.1.296", "sha256:" + "a".repeat(64));
-    evidence.blocked("attempt-1");
-    expect(evidence.read("worker@team")).not.toBeNull();
-    // An unadopted build stays on polling even with verified evidence.
-    evidence.verified("attempt-3", "worker@team", "claude-code", "2.1.302", "sha256:" + "a".repeat(64));
-    // A verified native that exits without a blocked record closes its seat's channel at the next read.
-    let running = true;
-    const watched = new ManagedNativeChannelEvidence(native => running && native.processId === 4200);
-    watched.verified("attempt-4", "worker@team", "claude-code", "2.1.296", "sha256:" + "a".repeat(64), { processId: 4200, processStart: "77" });
-    expect(watched.read("worker@team")).not.toBeNull();
-    running = false;
-    expect(watched.read("worker@team")).toBeNull();
-    running = true;
-    expect(watched.read("worker@team")).toBeNull();
-    // A probe that cannot read process evidence also closes it.
-    const broken = new ManagedNativeChannelEvidence(() => { throw new Error("proc unavailable"); });
-    broken.verified("attempt-5", "worker@team", "claude-code", "2.1.296", "sha256:" + "a".repeat(64), { processId: 1, processStart: "1" });
-    expect(broken.read("worker@team")).toBeNull();
-    expect(managed.deliverToNativeChannel(boundary())).toMatchObject({ status: "pending", reason: "channel_not_adopted" });
-  });
-
-  describe("launch evidence guard", () => {
-    const digest = "sha256:" + "a".repeat(64);
-    const observed = (change: Record<string, unknown> = {}) => ({ phase: "observed" as const, attemptId: "attempt-1", deadline: 1, contextHash: digest,
-      session: { client: "claude-code", runId: "run-1" }, nativePolicy: { installedDigest: digest, observedDigest: "sha256:" + "b".repeat(64) },
-      clientLock: { digest, version: "2.1.296" }, ...change }) as any;
-    let evidence: ManagedNativeChannelEvidence, failing: boolean, openDuringRecord: unknown[];
-    const intents = new Map([["run-1/attempt-1", "worker@team"]]);
-    const guarded = () => evidence.guard({ record: vi.fn(async () => {
-      openDuringRecord.push(evidence.read("worker@team"));
-      if (failing) throw new Error("evidence store unavailable");
-    }) }, (runId, attemptId) => intents.get(runId + "/" + attemptId));
-    beforeEach(() => { evidence = new ManagedNativeChannelEvidence(); failing = false; openDuringRecord = []; });
-
-    it("opens the channel only after the verified receipt was recorded, for the seat its intent names", async () => {
-      await guarded().record(observed());
-      expect(openDuringRecord).toEqual([null]);
-      expect(evidence.read("worker@team")).toMatchObject({ client: "claude-code", clientVersion: "2.1.296", installedChannelDigest: digest });
-    });
-
-    it.each([
-      ["a failed record", () => { failing = true; }, observed()],
-      ["no governance intent", () => {}, observed({ attemptId: "attempt-unknown" })],
-      ["no native-policy evidence", () => {}, observed({ nativePolicy: undefined })],
-      ["a prepared event", () => {}, observed({ phase: "prepared" })],
-    ])("never opens the channel for %s", async (_name, arrange, event) => {
-      arrange();
-      await guarded().record(event).catch(() => {});
-      expect(evidence.read("worker@team")).toBeNull();
-    });
-
-    it("closes the channel before a block is recorded, even when recording the block fails", async () => {
-      const control = guarded();
-      await control.record(observed());
-      failing = true;
-      await expect(control.record({ phase: "blocked", attemptId: "attempt-1", deadline: 1, contextHash: digest } as any)).rejects.toThrow();
-      expect(openDuringRecord.at(-1)).toBeNull();
-      expect(evidence.read("worker@team")).toBeNull();
-    });
   });
 
   it("keeps a forged header inside the body of the message that carried it", () => {
@@ -283,72 +203,5 @@ describe("KTD19 mailbox delivery through a native channel", () => {
       ? JSON.stringify({ ...JSON.parse(installed), hooks: { ...JSON.parse(installed).hooks, Stop: [{ hooks: [{ type: "command", command: "x" }] }] } })
       : `${installed}\n[[hooks.Stop]]\n[[hooks.Stop.hooks]]\ntype = "command"\ncommand = "x"\n`;
     expect(live.deliverToNativeChannel(boundary(["mail-1"]))).toMatchObject({ status: "pending", reason: "channel_config_altered", receipts: [] });
-  });
-});
-
-describe("immutable managed native policy", () => {
-  const observation = (policy: Awaited<ReturnType<typeof buildManagedNativePolicy>>) => ({
-    files: policy.files.map(f => ({ path: f.workerPath, hash: f.hash })),
-    aliases: policy.aliases.map(alias => ({ path: alias.target, hash: policy.files.find(f => f.workerPath === alias.source)!.hash })),
-    inventory: { selectedSource: policy.selectedSource, managedDropIns: "absent" as const,
-      remotePolicy: "absent" as const, platformPolicy: "not-applicable" as const, nativeExceptions: "absent" as const },
-  });
-
-  it.each(["claude-code", "codex"] as const)("builds %s policy from the existing installer and binds every effective file", async client => {
-    const policy = await buildManagedNativePolicy(client, "/opt/multi-agent/toolchain");
-    expect(policy.files.every(f => f.workerPath.startsWith("/context/native/"))).toBe(true);
-    expect(policy.files.every(f => f.hash === "sha256:" + createHash("sha256").update(f.content).digest("hex"))).toBe(true);
-    expect(policy.files.find(f => f.workerPath.endsWith("managed-native-channel-relay.cjs"))!.content)
-      .toContain('const SOCKET = "/run/multi-agent/mailbox.sock"');
-    // The relay connects to the endpoint the bootstrap names (a Windows pipe there), and falls
-    // back to the sandbox's fixed socket only when the bootstrap names none.
-    expect(policy.files.find(f => f.workerPath.endsWith("managed-native-channel-relay.cjs"))!.content)
-      .toContain('const target = typeof bootstrap.endpoint === "string" ? bootstrap.endpoint : SOCKET;');
-    expect(Object.isFrozen(policy.files[0])).toBe(true);
-    if (client === "claude-code") {
-      expect(policy.selectedSource).toBe("/etc/claude-code/managed-settings.json");
-      const settings = JSON.parse(policy.files.find(f => f.workerPath.endsWith("managed-settings.json"))!.content);
-      expect(settings.allowManagedHooksOnly).toBe(true);
-      expect(settings.disableAllHooks).toBe(false);
-      expect(settings.hooks.PostToolUse).toHaveLength(1);
-    } else {
-      expect(policy.selectedSource).toBe("/etc/codex/requirements.toml");
-      const requirements = parseToml(policy.files.find(f => f.workerPath.endsWith("requirements.toml"))!.content);
-      expect(requirements).toEqual({ allow_managed_hooks_only: true, features: { hooks: true },
-        hooks: { managed_dir: "/context/native/codex/hooks" } });
-      const hooks = JSON.parse(policy.files.find(f => f.workerPath.endsWith("hooks.json"))!.content);
-      expect(hooks.hooks.PostToolUse).toHaveLength(1);
-      expect(Object.keys(hooks.hooks)).toEqual(["PostToolUse"]);
-    }
-    expect(verifyEffectiveNativePolicy(policy, observation(policy))).toMatch(/^sha256:[a-f0-9]{64}$/);
-  });
-
-  it.each(["claude-code", "codex"] as const)("rejects missing, changed, duplicated or extra %s effective bytes", async client => {
-    const policy = await buildManagedNativePolicy(client, "/opt/multi-agent/toolchain");
-    for (const kind of ["missing", "changed-handler", "duplicate", "extra", "alias"]) {
-      const observed = observation(policy);
-      if (kind === "missing") observed.files.pop();
-      if (kind === "changed-handler") observed.files.find(f => f.path.endsWith(".cjs"))!.hash = "sha256:" + "0".repeat(64);
-      if (kind === "duplicate") observed.files.push(observed.files[0]!);
-      if (kind === "extra") observed.files.push({ path: "/context/native/extra-hook.cjs", hash: "sha256:" + "1".repeat(64) });
-      if (kind === "alias") observed.aliases[0]!.hash = "sha256:" + "2".repeat(64);
-      expect(() => verifyEffectiveNativePolicy(policy, observed)).toThrow(/native policy/);
-    }
-  });
-
-  it.each(["selectedSource", "managedDropIns", "remotePolicy", "platformPolicy", "nativeExceptions"] as const)(
-    "blocks an altered or unobserved source-selection fact: %s", async field => {
-      const policy = await buildManagedNativePolicy("codex", "/opt/multi-agent/toolchain");
-      for (const value of [undefined, "unknown", "present", "/shadow/requirements.toml"]) {
-        const observed = observation(policy);
-        Object.assign(observed.inventory, { [field]: value });
-        expect(() => verifyEffectiveNativePolicy(policy, observed)).toThrow(/native policy/);
-      }
-    });
-
-  it("refuses a non-canonical or shell-interpreted toolchain path", async () => {
-    for (const root of ["relative", "/opt/../toolchain", "/opt/with space", '/opt/$HOME', "/opt/toolchain\n"]) {
-      await expect(buildManagedNativePolicy("codex", root)).rejects.toThrow(/toolchain/);
-    }
   });
 });

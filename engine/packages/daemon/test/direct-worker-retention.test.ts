@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DirectWorkerLauncher } from "../src/adapters/direct-worker-launch.js";
 import type { SupervisedTurn, SupervisorLaunch, SupervisorResult } from "../src/adapters/child-process-supervisor.js";
-import type { WorkerClient, WorkerLaunchInput } from "../src/adapters/worker-launch.js";
+import type { WorkerClient, WorkerLaunchInput } from "../src/adapters/worker-launcher.js";
 import type { WorkerEvent } from "../src/contracts/worker-events.js";
 import type { ContextManifest } from "../src/integrations/framework/context-manifest.js";
 import { writeAgentTurnPrompt } from "../src/domain/agent-turn.js";

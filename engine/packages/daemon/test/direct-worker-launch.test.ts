@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, w
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DirectWorkerLauncher } from "../src/adapters/direct-worker-launch.js";
-import type { WorkerLaunchInput } from "../src/adapters/worker-launch.js";
+import type { WorkerLaunchInput } from "../src/adapters/worker-launcher.js";
 import type { ContextManifest } from "../src/integrations/framework/context-manifest.js";
 import { agentTurnOutputPaths, writeAgentTurnPrompt } from "../src/domain/agent-turn.js";
 import { TEAM_CONTROL_VERSION } from "../src/contracts/team-control.js";

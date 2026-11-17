@@ -164,12 +164,12 @@ export class WorkerMailboxBridge {
   }
 
   /**
-   * T042 — the private bootstrap the privileged launcher binds into the attempt.
+   * T042 — the private bootstrap the attempt reads beside its mailbox socket.
    *
-   * The launcher will not mount a mailbox without it: `worker-launch.mjs` requires
-   * `bootstrap.json` beside the socket, mode 0600, at most 8192 bytes, carrying exactly
-   * these seven string fields, with the socket directory already proven control-owned and
-   * 0700. So the writer lives here, where that directory has just been checked.
+   * The reader requires `bootstrap.json` beside the socket, mode 0600, at most 8192 bytes,
+   * carrying exactly these seven string fields, with the socket directory already proven
+   * control-owned and 0700. So the writer lives here, where that directory has just been
+   * checked.
    *
    * `endpoint` is the transport-specific connect target: a socket path on POSIX, a pipe name
    * on Windows. A client connects to this value verbatim, so a worker on either host reaches
@@ -187,8 +187,8 @@ export class WorkerMailboxBridge {
     const token = this.workerToken();
     if (!token) throw new Error("mailbox_bootstrap_credential_unavailable");
     // A Windows worker connects to the pipe named here. The POSIX file keeps exactly the seven
-    // fields the privileged launcher requires (`worker-launch.mjs` refuses any other count), and
-    // its worker-visible endpoint is the sandbox's fixed mount target rather than a host path.
+    // fields the reader requires (any other count is refused), and its worker-visible endpoint
+    // is the fixed mount target rather than a host path.
     const body = JSON.stringify({ authorization: `Bearer ${token}`,
       ...(this.descriptor.transport === "pipe" ? { endpoint: this.descriptor.path } : {}),
       sessionId: this.binding.sessionId, runId: this.binding.runId, attemptId: this.binding.attemptId,
@@ -248,7 +248,7 @@ export class WorkerMailboxBridge {
    * The mailbox directory this endpoint's bootstrap lives in.
    *
    * POSIX keeps the original contract exactly: a canonical, control-owned, 0700 directory,
-   * which is what the privileged launcher walks and checks. Windows can prove only that the
+   * which is what every reader walks and checks. Windows can prove only that the
    * entry is a real directory and not a reparse point — a junction would redirect the bootstrap
    * somewhere else — because it has no uid/gid or permission bits to compare.
    */

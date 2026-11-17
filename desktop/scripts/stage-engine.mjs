@@ -171,6 +171,7 @@ function assertLayout() {
     'config/team/sections/scope.md',
     'config/governance/credential-exclusions.json',
     'config/governance/low-risk-dev-dependencies.json',
+    'config/governance/npm-registries.json',
     'node_modules/better-sqlite3/package.json',
     `node_modules/better-sqlite3/prebuilds/${NATIVE_PREBUILD}`,
     'node_modules/hono/package.json',

@@ -1,5 +1,5 @@
 import type {
-  ManagedWorkerHealthEvidence, TeamAttemptHealth, TeamHealthLight, TeamHealthLightName,
+  TeamAttemptHealth, TeamHealthLight, TeamHealthLightName,
   TeamHealthState, TeamSystemHealth,
 } from "../contracts/team-control.js";
 import { TEAM_HEALTH_LIGHTS, TEAM_SYSTEM_HEALTH_VERSION } from "../contracts/team-control.js";
@@ -23,12 +23,11 @@ export interface SystemHealthSources {
   clients?: SystemHealthProbe;
   latestAttempts?: SystemHealthAttemptsProbe;
   /**
-   * The `workers.isolation` level this process resolved at startup. It is a fact the daemon
-   * decided, not a probe: a reader asking the daemon what it runs under gets the level the
-   * launch chain is actually using. Absent leaves the runtime block out, which a client shows
-   * as unknown rather than as the setting's default.
+   * How the workers this process launches run. Workers are direct child processes of the
+   * daemon, so a reader that asks always gets `none`; absent leaves the runtime block out,
+   * which a client shows as unknown rather than as a guessed level.
    */
-  isolation?: "none" | "hardened";
+  isolation?: "none";
   now?: () => Date;
   timeoutMs?: number;
 }
@@ -93,15 +92,6 @@ async function runProbe(now: () => Date, name: TeamHealthLightName, probe: Syste
   if (result.kind === "error") return failedLight(now, "probe_failed");
   return result.value;
 }
-function attemptsFromEvidence(now: () => Date, evidence: ManagedWorkerHealthEvidence | null): Record<string, TeamAttemptHealth> {
-  if (!evidence) return {};
-  return Object.fromEntries(evidence.attempts.map(attempt => [attempt.attemptId, {
-    attemptId: attempt.attemptId, runId: attempt.runId, worker: attempt.worker, client: attempt.client,
-    state: attempt.state, reasonCode: null, resumeSafe: null,
-    checkedAt: evidence.observedAt || checkedAt(now), evidenceRef: attempt.evidenceRef,
-  }]));
-}
-
 /**
  * T033 — the health projection of an attempt, carrying the KTD20 decision the classifier
  * recorded with its stop.
@@ -164,9 +154,9 @@ function validHealth(value: unknown): value is TeamSystemHealth {
     || typeof result.checkedAt !== "string" || !Number.isFinite(Date.parse(result.checkedAt))
     || !Number.isFinite(result.timeoutMs) || result.timeoutMs <= 0 || result.timeoutMs > SYSTEM_HEALTH_PROBE_TIMEOUT_MS
     || !["ok", "degraded", "failed", "unknown"].includes(result.overall) || !result.lights || !validAttempts(result.latestAttempts)) return false;
-  // The runtime block is optional, and a present one must name a level the launch chain has.
+  // The runtime block is optional, and a present one must name the level the launch chain has.
   if (result.runtime !== undefined && (result.runtime === null || typeof result.runtime !== "object"
-    || !["none", "hardened"].includes(String(result.runtime.isolation)))) return false;
+    || result.runtime.isolation !== "none")) return false;
   if (!TEAM_HEALTH_LIGHTS.every(name => {
     const entry = result.lights[name];
     return !!entry && ["ok", "degraded", "failed", "unknown"].includes(entry.state)
@@ -190,7 +180,4 @@ export async function readSystemHealthBounded(
   }, limit);
   return result.kind === "value" ? result.value
     : unknownSystemHealth(now, SYSTEM_HEALTH_PROBE_TIMEOUT_MS, result.kind === "timeout" ? "health_timeout" : "health_reader_failed");
-}
-export function attemptsFromManagedWorkerEvidence(now: () => Date, evidence: ManagedWorkerHealthEvidence | null): Record<string, TeamAttemptHealth> {
-  return attemptsFromEvidence(now, evidence);
 }

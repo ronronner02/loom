@@ -7,9 +7,9 @@ These standards carry over to any project built from this codebase. They come fr
 - Order the work so each slice extends that path, and each slice ends in a command anyone can run to see it work.
 - Hardening, generalization and polish come after the path works. A slice that is "secure but unreachable" is not progress.
 
-## 2. Hardening is opt-in
-- Strong isolation, extra users, privileged helpers and host provisioning go behind one setting with a simple default (here: `workers.isolation: none | hardened`).
-- The default path must run on a clean machine without sudo.
+## 2. The default path needs no privileges
+- The product runs on a clean machine without sudo, extra users, privileged helpers or host provisioning.
+- A component that would need any of them is out of scope, not a setting to add.
 
 ## 3. Portable by default
 - No user- or machine-specific paths, hosts, proxies or credentials in code, scripts or CI. Use per-user config and state directories and environment variables.

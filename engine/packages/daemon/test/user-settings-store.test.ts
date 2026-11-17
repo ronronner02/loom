@@ -208,13 +208,20 @@ describe("SettingsStore (User Settings v0)", () => {
       "queue.wake_unconfirmed_window_minutes",
       "queue.wake_swap_grace_seconds",
       "queue.wake_human_rung",
-      // MVP — worker isolation level (none | hardened).
-      "workers.isolation",
       "team.leadClient",
       "team.maxSeats",
       "team.maxConcurrentAgents",
       "github.proxy",
     ]);
+  });
+
+  it("reads and ignores a stored workers.isolation from an older install", () => {
+    writeFileSync(configPath, JSON.stringify({ workers: { isolation: "hardened" } }, null, 2) + "\n");
+    const store = new SettingsStore(configPath);
+    expect(store.resolveOne("team.maxSeats").value).toBe(6);
+    store.set("daemon.port", "4998");
+    expect(store.resolveOne("daemon.port").value).toBe(4998);
+    expect(() => store.set("workers.isolation", "none")).toThrow(/Unknown config key/);
   });
 
   it("resolves context.root and refuses the removed key, file field, and env", () => {

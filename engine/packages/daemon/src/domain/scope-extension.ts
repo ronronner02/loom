@@ -88,10 +88,9 @@ function checkDependencies(changes: CandidateScopeEvidence["changes"], policy: S
   }
   let allow: string[];
   try {
-    const network = JSON.parse(readFileSync("/etc/multi-agent/egress.json", "utf8"));
-    if (network.schema !== "multi-agent-egress/v1" || !Array.isArray(network.allow)
-      || !network.allow.every((entry: unknown) => typeof entry === "string")) throw new Error();
-    allow = network.allow;
+    const policy = JSON.parse(readFileSync(new URL("../../../../config/governance/npm-registries.json", import.meta.url), "utf8")) as { registries?: unknown };
+    if (!Array.isArray(policy.registries) || !policy.registries.every((entry: unknown) => typeof entry === "string")) throw new Error();
+    allow = policy.registries as string[];
   } catch { return fail("registry-policy-unavailable"); }
   const reachable = new Set<string>();
   for (const entries of [oldEntries, newEntries]) {

@@ -137,7 +137,7 @@ describe("paired owner SSE and the shipped parser", () => {
 
   it("publishes provider activity from the daemon's composed native launch into the durable stream", async () => {
     const { createDaemon } = await import("../src/startup.js");
-    const daemon = await createDaemon({ managedMode: true, workersIsolation: "none", dbPath: ":memory:",
+    const daemon = await createDaemon({ managedMode: true, dbPath: ":memory:",
       teamControl: { credentials: { ownerToken } } });
     try {
       daemon.db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'Native event fixture')").run();
@@ -170,7 +170,7 @@ describe("paired owner SSE and the shipped parser", () => {
 
   it("persists at most one provider heartbeat per attempt in each 15-second interval", async () => {
     const { createDaemon } = await import("../src/startup.js");
-    const daemon = await createDaemon({ managedMode: true, workersIsolation: "none", dbPath: ":memory:",
+    const daemon = await createDaemon({ managedMode: true, dbPath: ":memory:",
       teamControl: { credentials: { ownerToken } } });
     try {
       daemon.db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'Heartbeat fixture')").run();

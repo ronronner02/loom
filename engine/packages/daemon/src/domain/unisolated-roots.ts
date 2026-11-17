@@ -6,16 +6,11 @@ import { mailboxEndpoint } from "./mailbox-endpoint.js";
 import { assertPrivateDirectory, isWindows, processOwnerIds } from "./platform.js";
 
 /**
- * MVP — the roots a managed worker uses when `workers.isolation: none`.
+ * The roots a managed worker uses.
  *
- * The hardened path reads `/etc/multi-agent/worker-policy.json` because a privileged
- * launcher validates the same bytes before it mounts them. Nothing validates anything
- * here: the daemon itself creates the candidate tree and starts the client as its own
- * user, so these roots live in the daemon's own state directory and no host provisioning
- * is involved.
- *
- * They are shaped like the policy's so the producer, the runtime and the launcher take
- * one object either way: `assignment_root/<worker>/<runId>-<taskId>` is the candidate,
+ * The daemon itself creates the candidate tree and starts the client as its own user, so
+ * these roots live in the daemon's own state directory and no host provisioning is
+ * involved: `assignment_root/<worker>/<runId>-<taskId>` is the candidate,
  * `context_root/<worker>/<runId>/<attemptId>` the projection, and the mailbox root sits
  * under the state home when its full socket path fits.
  */
@@ -37,8 +32,7 @@ export const UNISOLATED_WORKER = "local";
 
 /**
  * Policy revision 4: the last revision before the pinned native policy and the per-attempt
- * mailbox socket became mandatory. Both exist to keep a sandboxed worker from reaching the
- * host's own channel, and neither applies when the worker *is* the host user.
+ * mailbox socket became mandatory. Neither applies when the worker *is* the host user.
  */
 const UNISOLATED_POLICY_REVISION = 4;
 

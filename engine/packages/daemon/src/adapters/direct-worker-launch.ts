@@ -8,7 +8,7 @@ import { resolveExecutable } from "../domain/executable-resolver.js";
 import type { HarnessLaunchResult, ManagedAttempt, ManagedSessionReceipt, ReadinessResult } from "../domain/runtime-adapter.js";
 import { ChildProcessSupervisor, type SupervisedTurn, type SupervisorLaunch, type SupervisorResult } from "./child-process-supervisor.js";
 import { workerArgv } from "./worker-launch-argv.js";
-import type { WorkerClient, WorkerLauncher, WorkerLaunchInput } from "./worker-launch.js";
+import type { WorkerClient, WorkerLauncher, WorkerLaunchInput } from "./worker-launcher.js";
 
 /**
  * U3 — the unisolated managed launch, as a direct child process.
@@ -196,8 +196,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
    * The receipt for a turn that started.
    *
    * The identity is the process pair U1 captured at spawn, which is what recovery reconciles and
-   * cancellation aims at. `paneId`/`tmuxServer` are null: a direct child has no pane, and the
-   * fields stay in the contract for the hardened launcher that does.
+   * cancellation aims at. `paneId`/`tmuxServer` are null: a direct child has no pane.
    */
   private receipt(facts: DirectLaunchFacts, attempt: ManagedAttempt, client: WorkerClient, sessionId: string,
     identity: { processId: number; processStart: string }): ManagedSessionReceipt {

@@ -60,20 +60,19 @@ import { teamSectionsText } from "./domain/team-prompt-sections.js";
 import { recordWorkflowOutcome, workflowCapabilityRefusal } from "./domain/team-workflows.js";
 import { prepareFrameworkInvocation } from "./integrations/framework/invocation.js";
 import { frameworkInstructionSources } from "./integrations/framework/source.js";
-import { createSystemHealthReader, attemptsFromManagedWorkerEvidence, attemptsFromRecords, type SystemHealthProbeResult } from "./domain/system-health.js";
+import { createSystemHealthReader, attemptsFromRecords, type SystemHealthProbeResult } from "./domain/system-health.js";
 import { parseAttemptClassification } from "./domain/attempt-failure.js";
 import { TeamReadModel } from "./team-control-surface.js";
 import { canonicalJson } from "./contracts/team-control.js";
-import type { ManagedWorkerHealthEvidence, TeamSystemHealth } from "./contracts/team-control.js";
+import type { TeamSystemHealth } from "./contracts/team-control.js";
 import { workerEventNotification } from "./domain/worker-event-notification.js";
-import { ManagedNativeChannelEvidence } from "./domain/mailbox-delivery.js";
 import { DirectWorkerLauncher, type DirectLaunchFacts } from "./adapters/direct-worker-launch.js";
 import { readSupervisorExit } from "./adapters/child-process-supervisor.js";
-import type { WorkerClient } from "./adapters/worker-launch.js";
+import type { WorkerClient } from "./adapters/worker-launcher.js";
 import type { WorkerEvent } from "./contracts/worker-events.js";
 import { unisolatedWorkerRoots, type ManagedWorkerRoots } from "./domain/unisolated-roots.js";
 import { defaultWorktreeRoot } from "./domain/worktree-policy.js";
-import fs, { readFileSync as readFileSyncNamed } from "node:fs";
+import fs from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
 import { MULTI_AGENT_HOME } from "./data-paths.js";
@@ -98,9 +97,7 @@ interface DaemonOptions {
   bearerToken?: string | null;
   /** Overrides the `ui.enabled` setting (tests). */
   webUiEnabled?: boolean;
-  /** MVP: overrides the `workers.isolation` setting, which is otherwise read from config. */
-  workersIsolation?: "none" | "hardened";
-  /** MVP: the client command an unisolated launch starts (tests use the stub runner). */
+  /** The client command a managed launch starts (tests use the stub runner). */
   directLaunchCommand?: (facts: DirectLaunchFacts) => string[];
   /** U3: the real client executable an unisolated launch starts, when a test or an operator names it. */
   directLaunchExecutable?: (client: WorkerClient) => string | undefined;
@@ -156,14 +153,11 @@ export function collectAllowlistedProviderAuthEnv(
 }
 
 /**
- * MVP — the managed launch chain when `workers.isolation: none`.
+ * The managed launch chain.
  *
- * The chain is the same one the hardened path composes: the attempt is still produced by the
- * runtime, the mailbox still authenticates, and the seat still resolves to its own pane and
- * candidate. What changes is the launch itself — the client starts as this daemon's user
- * rather than through the privileged launcher — so the pieces that exist only to serve that
- * launcher (the sudo transport, the installed-policy preflight, the sandbox observation) are
- * not built at all.
+ * The attempt is produced by the runtime, the mailbox authenticates, and the seat resolves to
+ * its own candidate. The client itself starts as this daemon's user, as a direct child
+ * process.
  */
 function composeDirectLaunch(dependencies: {
   governance: PlanGovernance;
@@ -205,7 +199,7 @@ function composeDirectLaunch(dependencies: {
     ...(dependencies.lifecycle ? { lifecycle: dependencies.lifecycle } : {}),
     ...(dependencies.supervise ? { supervise: dependencies.supervise } : {}),
   });
-  return { launcher, endpoints, readHealthEvidence: undefined };
+  return { launcher, endpoints };
 }
 
 /**
@@ -241,9 +235,7 @@ function recordedManagedReceipt(dependencies: { db: Database.Database; governanc
  *
  * A seat is managed when its queue destination names it and the run is approved. That lookup —
  * not the daemon's mode — is the authority: a personal seat in a managed daemon resolves to no
- * task and keeps its personal launch, while an admitted assignment cannot reach the privileged
- * launcher without the attempt produced for it. The endpoint is registered before this returns,
- * which is the moment the launcher's `mailbox` seam becomes resolvable for the attempt.
+ * task and keeps its personal launch. The endpoint is registered before this returns.
  */
 function composeManagedAttemptAttachment(dependencies: {
   readMaxSeats?: () => number;
@@ -252,12 +244,8 @@ function composeManagedAttemptAttachment(dependencies: {
   endpoints: NonNullable<AppDeps["managedLaunch"]>["endpoints"];
   runtime: () => WorkflowRuntime | undefined;
   owners: () => { chat?: AppDeps["chatRepo"]; delivery?: AppDeps["mailboxDelivery"] };
-  /** The roots in force for this daemon: the installed policy, or the unisolated state tree. */
+  /** The roots in force for this daemon: the daemon's own state tree. */
   roots: () => ManagedWorkerRoots;
-  /** True when the worker is the daemon's own user, so identity comes from the process. */
-  currentUser: boolean;
-  /** True when no framework tree is installed, so the attempt binds no pinned entry. */
-  unisolated: boolean;
 }) {
   return async (input: import("./domain/startup-orchestrator.js").StartupInput):
     Promise<import("./domain/runtime-adapter.js").ManagedAttempt | undefined> => {
@@ -291,11 +279,9 @@ function composeManagedAttemptAttachment(dependencies: {
     if (!runtime) throw new Error("Managed launch runtime is unavailable");
     const roots = dependencies.roots();
     const worker = roots.worker;
-    // The unisolated worker is this daemon's own user, so its identity comes from the process
-    // rather than from an account provisioning created.
+    // The worker is this daemon's own user, so its identity comes from the process.
     const identity = new WorkerIdentities(() => ({ workerRoot: roots.workerRoot,
-      assignmentRoot: roots.assignmentRoot, identities: roots.workerIdentities }),
-    undefined, dependencies.currentUser).resolve(worker);
+      assignmentRoot: roots.assignmentRoot, identities: roots.workerIdentities })).resolve(worker);
     const run = dependencies.governance.getRun(row.runId);
     // The destination session names a seat on the run's own rig; a row that resolves to a
     // seat elsewhere would attach this attempt to a binding it never authorized.
@@ -337,11 +323,7 @@ function composeManagedAttemptAttachment(dependencies: {
       if (workflow && "status" in workflow) throw new Error(workflow.reason);
       const capabilityError = selected ? workflowCapabilityRefusal(selected.entrypoint) : null;
       if (capabilityError) throw new Error(capabilityError);
-      if (workflow?.readOnly && !dependencies.unisolated && assignment.role !== "reviewer") {
-        throw new Error("The hardened policy has no read-only candidate mount for this seat role.");
-      }
-      const frameworkFiles = frameworkInstructionSources(roots.frameworkRoot,
-        selected?.entrypoint ?? (dependencies.unisolated ? undefined : "using-spec-first"));
+      const frameworkFiles = frameworkInstructionSources(roots.frameworkRoot, selected?.entrypoint);
       // C3 — a lead activation carries its protocol, roster and run instructions, and nothing
       // else does. The roster is the rig's seats whose role the approval covers, and the
       // instructions are the daemon's own words about where the decomposition goes; both are
@@ -384,85 +366,28 @@ function composeManagedAttemptAttachment(dependencies: {
   };
 }
 
-/**
- * T039: the roots the workflow runtime isolates candidates with.
- *
- * All come from the installed worker policy — the same bytes the privileged
- * launcher validates — so a candidate is created exactly where the kernel will
- * mount it. Reading the same source is what keeps "created" and "mountable" from
- * drifting apart. An unreadable or incomplete policy is a configuration failure,
- * not a reason to launch without isolation.
- *
- * T048 adds `control_state_dir`: the snapshot lane has no git registry, so its
- * creation record is written under the control state directory, the one location the
- * plan keeps outside every worker-writable tree.
- */
-function managedWorkerRoots(): ManagedWorkerRoots {
-  const policy = JSON.parse(readFileSyncNamed("/etc/multi-agent/worker-policy.json", "utf8")) as
-    { paths?: Record<string, unknown>; worker_identities?: unknown; policy_revision?: unknown };
-  // Every root below is one the launcher validates, so each is read from the same bytes and
-  // held to the same standard: an absolute, already-resolved path.
-  const installed = (key: string): string | null => {
-    const value = policy.paths?.[key];
-    return typeof value === "string" && nodePath.isAbsolute(value) && nodePath.resolve(value) === value ? value : null;
-  };
-  const assignmentRoot = installed("assignment_root"), controlStateDir = installed("control_state_dir");
-  const workerRoot = installed("worker_root"), contextRoot = installed("context_root");
-  const mailboxRoot = installed("mailbox_root"), frameworkRoot = installed("framework_dir");
-  const toolchainDir = installed("toolchain_dir");
-  const workers = Array.isArray(policy.worker_identities) ? policy.worker_identities : [];
-  // The producer refuses a mailbox root that is not `<control_state_dir>/mailboxes`, so an
-  // inconsistent policy is a configuration failure here rather than a refused launch later.
-  if (!assignmentRoot || !controlStateDir || !workerRoot || !contextRoot || !mailboxRoot || !frameworkRoot || !toolchainDir
-    || !Number.isInteger(policy.policy_revision) || (policy.policy_revision as number) < 1
-    || !workers.length || typeof workers[0] !== "string"
-    || mailboxRoot !== nodePath.join(controlStateDir, "mailboxes")) throw new Error("managed_candidate_policy_unavailable");
-  return { assignmentRoot, controlStateDir, worker: workers[0], workerRoot, contextRoot, mailboxRoot,
-    policyRevision: policy.policy_revision as number, workerIdentities: workers as string[], frameworkRoot, toolchainDir };
-}
-
-/** One tree per task, under the policy's assignment root, addressed the way the launcher expects. */
+/** One tree per task, under the assignment root, addressed the way the producer expects. */
 function managedCandidateRoot(assignmentRoot: string, worker: string, runId: string, taskId: string): string {
   return nodePath.join(assignmentRoot, worker, `${runId}-${taskId}`);
 }
 
-/** Native managed health: no terminal control plane remains. */
-export function composeSystemHealthReader(dependencies: { db: Database.Database; queue: QueueRepository; evidence?: () => ManagedWorkerHealthEvidence }): () => Promise<TeamSystemHealth> {
-  return createSystemHealthReader({
-    isolation: "hardened",
-    database: () => ({ state: "ok", evidenceRef: "database:schema_version:" + String(dependencies.db.prepare("PRAGMA schema_version").pluck().get()) }),
-    queueMailbox: () => ({ state: "ok", evidenceRef: "queue:active:" + dependencies.queue.list({ activeOnly: true, compact: true }).length }),
-    controlTmux: async () => ({ state: "unknown", evidenceRef: "native:direct-child", reason: "terminal_control_removed" }),
-    workerBoundary: () => ({ state: "unknown", evidenceRef: "native:direct-child", reason: "hardened_boundary_deferred" }),
-    sandboxNetwork: () => ({ state: "unknown", evidenceRef: "native:direct-child", reason: "hardened_boundary_deferred" }),
-    clients: () => ({ state: "unknown", evidenceRef: "native:direct-child", reason: "hardened_boundary_deferred" }),
-    ...(dependencies.evidence ? { latestAttempts: () => attemptsFromManagedWorkerEvidence(() => new Date(), dependencies.evidence!()) } : {}),
-  });
-}
-
-export function composeUnisolatedHealthReader(dependencies: { db: Database.Database; queue: QueueRepository }): () => Promise<TeamSystemHealth> {
-  const unknown = () => ({ state: "unknown" as const, evidenceRef: "workers.isolation:none", reason: "workers_isolation_none" });
+/**
+ * Native managed health: no terminal control plane remains.
+ *
+ * Every worker is a direct child of this daemon, so the boundary, network and client-lock
+ * lights report that their subsystem does not exist rather than reading an installed
+ * policy nothing enforces.
+ */
+export function composeSystemHealthReader(dependencies: { db: Database.Database; queue: QueueRepository }): () => Promise<TeamSystemHealth> {
+  const absent = () => ({ state: "unknown" as const, evidenceRef: "native:direct-child", reason: "workers_run_unisolated" });
   return createSystemHealthReader({
     isolation: "none",
     database: () => ({ state: "ok", evidenceRef: "database:schema_version:" + String(dependencies.db.prepare("PRAGMA schema_version").pluck().get()) }),
     queueMailbox: () => ({ state: "ok", evidenceRef: "queue:active:" + dependencies.queue.list({ activeOnly: true, compact: true }).length }),
     controlTmux: async () => ({ state: "unknown", evidenceRef: "native:direct-child", reason: "terminal_control_removed" }),
-    workerBoundary: unknown, sandboxNetwork: unknown, clients: unknown,
+    workerBoundary: absent, sandboxNetwork: absent, clients: absent,
     latestAttempts: () => attemptsFromRecords(() => new Date(), (dependencies.db.prepare(`SELECT id, run_id AS runId, provider, state, failure_json AS failureJson FROM team_attempts ORDER BY updated_at DESC, id DESC LIMIT 100`).all() as Array<{ id: string; runId: string; provider: "claude" | "codex"; state: string; failureJson: string | null }>).map(row => ({ id: row.id, runId: row.runId, provider: row.provider, state: row.state, failure: storedFailure(row.failureJson) }))),
   });
-}
-
-/**
- * MVP — read `workers.isolation` once, at startup.
- *
- * The value decides whether anything in this process may read `/etc/multi-agent` or call
- * sudo, so it is resolved before the managed chain is composed and never re-read. An
- * unreadable setting is a configuration failure, not a reason to fall back: guessing
- * "none" would silently run an unisolated worker on a host that asked for a sandbox.
- */
-export function selectIsolation(override: DaemonOptions["workersIsolation"]): "none" | "hardened" {
-  const raw = override ?? new SettingsStore().resolveOne("workers.isolation").value;  if (raw !== "none" && raw !== "hardened") throw new Error(`workers.isolation must be "none" or "hardened", got "${String(raw)}"`);
-  return raw;
 }
 
 /** The recorded classification of an attempt, or null when it has none or the row is unusable. */
@@ -488,11 +413,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const db = openDatabase(dbPath);
   // KTD22: fixed before any service is built. Managed mode runs no legacy boot effect below.
   const managed = fixDaemonMode(db, opts?.managedMode === true) === "managed";
-  // MVP — how a managed worker runs: as this daemon's own user (`none`, the default), or
-  // through the provisioned sandbox (`hardened`). Fixed at startup like the daemon mode, so
-  // every launch in this process agrees about which one it is.
-  const isolation = managed ? selectIsolation(opts?.workersIsolation) : "none";
-  const unisolated = isolation === "none";
   // T053: the worker control credential owner, built before the managed launch chain is
   // composed because that chain captures the credentials object it authenticates with.
   // `reconcile` revokes every row a previous process left: the plaintext is never durable,
@@ -652,23 +572,16 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const launchPath = process.env.PATH ?? "";
   const startupSettings = new ContextPackSettingsStore().resolveConfig();
   // KTD22: one governance owner serves the app and the managed launch chain, which only managed attempts reach.
-  // MVP slice 2 — what a new run's binding is approved against. Under `hardened` that is the
-  // caller's own reader, unchanged. Under `workers.isolation: none` nothing is installed, so
-  // the daemon states the unisolated roots' revision instead of reading a policy file that
-  // does not exist on such a host; dispatch then refuses a binding built for any other mode.
+  // What a new run's binding is approved against. Nothing is installed beyond the daemon's own
+  // roots, so the daemon states their revision and a fingerprint naming that posture.
   const runPolicyCapability = teamControl.readPolicyCapability
-    ?? (unisolated ? () => unisolatedPolicyCapability(unisolatedWorkerRoots(MULTI_AGENT_HOME).policyRevision) : undefined);
+    ?? (() => unisolatedPolicyCapability(unisolatedWorkerRoots(MULTI_AGENT_HOME).policyRevision));
   // Governance checks each task against the same reader the start route approved the run with.
   const teamGovernance = new PlanGovernance(db, eventBus, queueRepoInstance, undefined, runPolicyCapability);
-  // MVP — the roots in force for this daemon. Under `hardened` they are the installed policy's,
-  // read at use so a re-provisioned host is picked up; under `none` they are the daemon's own
-  // state tree, so nothing in the launch path ever reads `/etc/multi-agent`.
-  const rootsNow = unisolated
-    ? (() => {
-        const roots = unisolatedWorkerRoots(MULTI_AGENT_HOME);
-        return () => roots;
-      })()
-    : managedWorkerRoots;
+  // The roots in force for this daemon: the daemon's own state tree, so nothing in the launch
+  // path ever reads an installed policy.
+  const roots = unisolatedWorkerRoots(MULTI_AGENT_HOME);
+  const rootsNow = () => roots;
   const lastWorkerHeartbeat = new Map<string, number>();
   const managedLaunch = managed ? composeDirectLaunch({ governance: teamGovernance, rigRepo,
         workflowRuntime: () => workflowRuntime,
@@ -697,29 +610,19 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   let managedAttempt: ((input: import("./domain/startup-orchestrator.js").StartupInput) =>
     Promise<import("./domain/runtime-adapter.js").ManagedAttempt | undefined>) | undefined;
   // T047-H1: the KTD26 reader, composed from the owners above, injected through the one teamControl options object.
-  // `evidence` is the control's own verified observation, so it exists only when the launch chain does. A caller that
-  // supplied its own reader keeps it: that is the injection seam the tests and any embedding host use.
+  // A caller that supplied its own reader keeps it: that is the injection seam the tests and
+  // any embedding host use.
   const teamControlOptions: NonNullable<AppDeps["teamControl"]> = { ...teamControl, readSystemHealth: teamControl.readSystemHealth
-    ?? (unisolated
-      // MVP — three of the six lights describe the hardened boundary. With `workers.isolation:
-      // none` that boundary genuinely does not exist, so each says so instead of reading an
-      // installed file nothing enforces. The other three are unchanged.
-      ? composeUnisolatedHealthReader({ db, queue: queueRepoInstance })
-      : composeSystemHealthReader({ db, queue: queueRepoInstance,
-          ...(managedLaunch ? { evidence: managedLaunch.readHealthEvidence } : {}) })),
-    // MVP slice 2 — the capability a start request approves its binding against.
-    ...(runPolicyCapability ? { readPolicyCapability: runPolicyCapability } : {}),
+    ?? composeSystemHealthReader({ db, queue: queueRepoInstance }),
+    // The capability a start request approves its binding against.
+    readPolicyCapability: runPolicyCapability,
     // U5 / KTD10 — where a planning run's plan worktree lives. The default is the short root
     // the worktree policy names (`%LOCALAPPDATA%\Multi-Agent\wt` on Windows, `~/.multi-agent/wt`
     // elsewhere), because Git for Windows refuses a worktree path above a measured ceiling. The
     // policy preflights every path against that ceiling, so a root that is too deep is refused
     // by name rather than failing inside Git.
     planWorktreeRoot: teamControl.planWorktreeRoot ?? defaultWorktreeRoot,
-    ...(unisolated && !teamControl.resolveBinding && runPolicyCapability ? { resolveBinding: run => {
-      const policy = runPolicyCapability();
-      if (!policy) throw new Error("Current policy capability is unavailable");
-      return refreshPlanBinding(run.binding, policy);
-    } } : {}) };
+    ...(!teamControl.resolveBinding ? { resolveBinding: run => refreshPlanBinding(run.binding, runPolicyCapability()!) } : {}) };
   // T053 — the seat capability a managed send must reuse. `createApp` builds the mailbox
   // owner when none is supplied, so this rides the deps slot rather than constructing it
   // twice: one owner, one seat table.
@@ -812,25 +715,17 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     | import("./domain/workflow-exception-escalation.js").EnsureStuckExceptionItem
     | undefined;
   if (queueRepoForWorkflow) {
-    // T039: in managed mode the runtime is the isolation owner, so it gets the roots
-    // the kernel mounts from. They come from the installed policy — the same bytes the
-    // privileged launcher validates — so a candidate is created exactly where the launcher
-    // will look for it. An unreadable policy throws rather than silently launching without
-    // isolation.
-    //
-    // T053: every callback below re-reads the policy at use instead of capturing it here. A
-    // host that re-provisions while the daemon runs would otherwise leave the producer writing
-    // into the old roots and the launcher validating new ones, which is the disagreement this
-    // composition exists to prevent.
+    // The runtime owns where a candidate is created. The roots are the daemon's own state
+    // tree, so nothing in the launch path ever reads an installed policy.
     const policyNow = managed ? rootsNow() : undefined;
     // T053: the producer's remaining inputs, from owners this composition already holds —
-    // the installed policy for identity and roots, the control database for the seat's
-    // capability, and the credential owner above for the token its endpoint authenticates with.
+    // the roots for identity and layout, the control database for the seat's capability,
+    // and the credential owner above for the token its endpoint authenticates with.
     const managedInputs = policyNow && workerControl ? {
       identities: new WorkerIdentities(() => {
         const policy = rootsNow();
         return { workerRoot: policy.workerRoot, assignmentRoot: policy.assignmentRoot, identities: policy.workerIdentities };
-      }, undefined, unisolated),
+      }),
       capabilities: seatCapabilities,
       credentials: workerControl,
     } : undefined;
@@ -844,9 +739,8 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
         candidateRoot: (runId: string, taskId: string, worker: string) =>
           managedCandidateRoot(rootsNow().assignmentRoot, worker, runId, taskId),
         candidateRecordsRoot: () => nodePath.join(rootsNow().controlStateDir, "candidates"),
-        // T053: where the producer writes what the launcher mounts, read from the same
-        // installed policy bytes at the moment of use; and the ownership facts it cannot
-        // derive itself.
+        // T053: where the producer writes the attempt's projection and mailbox, and the
+        // ownership facts it cannot derive itself.
         managedAttemptRoots: () => {
           const roots = rootsNow();
           return { contextRoot: roots.contextRoot, mailboxRoot: roots.mailboxRoot,
@@ -854,10 +748,10 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
             workerIdentities: roots.workerIdentities, frameworkRoot: roots.frameworkRoot,
             frameworkRevision: FRAMEWORK_PIN.revision, toolchainDir: roots.toolchainDir };
         },
-        // MVP — when the worker is the daemon's own user the projection's private-ownership
-        // checks prove nothing (there is one identity), so they are skipped by name rather
-        // than satisfied by construction.
-        ...(unisolated ? { sameIdentity: true } : {}),
+        // The worker is the daemon's own user, so the projection's private-ownership checks
+        // prove nothing (there is one identity) and are skipped by name rather than satisfied
+        // by construction.
+        sameIdentity: true,
         ...(managedInputs ? {
           managedAttemptInputs: {
             issueCredential: (runId: string, sessionId: string) => managedInputs.credentials.issue(runId, sessionId),
@@ -918,7 +812,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       db, governance: teamGovernance, endpoints: managedLaunch.endpoints,
       runtime: () => workflowRuntime,
       owners: () => ({ chat: deps.chatRepo, delivery: deps.mailboxDelivery }),
-      roots: rootsNow, currentUser: unisolated, unisolated,
+      roots: rootsNow,
     }) : undefined;
 
     // OPR.0.4.6.WF5 FR-2 class (b): the shared detection-time exception
@@ -1007,11 +901,9 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     log: (msg) => console.warn(msg),
   });
 
-  // MVP — what a new task starts. Under `workers.isolation: none` nothing else ever launches
-  // the agent a start request puts work on, so the start request dispatches it. Under hardened
-  // isolation an agent starts through the privileged launcher, and the start keeps its
-  // existing behaviour.
-  if (managed && unisolated) {
+  // What a new task starts. A start request dispatches the agent it puts work on, because
+  // nothing else ever launches a seat.
+  if (managed) {
     const { composeTaskDispatch } = await import("./domain/task-dispatch.js");
     // MVP — the run's live-session count and its limit, asked before a client starts. Both are
     // read from the run's own rows and binding, so the dispatcher cannot disagree with the
