@@ -38,7 +38,7 @@ export type TeamRunState = "pending" | "approved" | "cancel_requested" | "cancel
  */
 export type TeamRunPhase = "planning" | "delivery";
 export type AttemptState = "running" | "stopped" | "unknown";
-export type TeamOwnerCommand = "pause" | "resume" | "retry";
+export type TeamOwnerCommand = "resume" | "retry";
 
 /**
  * Short owner-facing labels for blockers and dispatch refusals. The labels are
