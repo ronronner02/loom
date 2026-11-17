@@ -5,7 +5,7 @@ import { leadRosterPath, parseLeadRoster, type LeadRosterEvidence } from "./lead
 import { ScopeExtensions } from "./scope-extension.js";
 import { PlanGovernance, hashBinding, hashBytes } from "./plan-governance.js";
 import { prepareTeamAssignment, LeadActivation, type AssignmentInput } from "./team-assignment.js";
-import { buildManagedNativePolicy, createContextManifest, recordedContextManifest, roleConfiguration, roleInstructionEntries, within,
+import { createContextManifest, recordedContextManifest, roleConfiguration, roleInstructionEntries, within,
   type ContextFile, type ContextInput, type ContextManifest, type ContextObservation } from "../integrations/framework/context-manifest.js";
 import { WorkerMailboxBridge } from "../adapters/worker-mailbox-bridge.js";
 import { MAILBOX_SOCKET_NAME } from "./mailbox-endpoint.js";
@@ -145,7 +145,7 @@ export interface WorkflowRuntimeDeps {
    * and hide an isolation bug. Supplied by startup; absent disables candidate
    * isolation, which the launch boundary then refuses.
    *
-   * The worker is a parameter because the privileged launcher requires the tree to
+   * The worker is a parameter because the assignment requires the tree to
    * live under `assignment_root/<that attempt's worker>`. Hardcoding one identity
    * would make every attempt projected onto another worker unlaunchable.
    */
@@ -161,9 +161,8 @@ export interface WorkflowRuntimeDeps {
    * T048: where a snapshot-lane candidate's control-owned creation record is written. The
    * snapshot lane has no git registry, so this record is the only proof that a directory at a
    * candidate path was created by this runtime; it must sit in the control state directory, which
-   * the worker sandbox neither mounts nor makes reachable. A function so a re-installed policy is
-   * read at use. Absent, the snapshot lane refuses to create or adopt a candidate rather than
-   * adopting a directory it cannot account for.
+   * only the daemon can reach. Absent, the snapshot lane refuses to create or adopt a candidate
+   * rather than adopting a directory it cannot account for.
    * Candidates also keep their starting base here for recovery after a restart.
    */
   candidateRecordsRoot?: () => string;
@@ -196,12 +195,12 @@ export interface WorkflowRuntimeDeps {
     toolchainDir: string;
   };
   /**
-   * MVP — the worker is the daemon's own user (`workers.isolation: none`).
+   * The worker is the daemon's own user.
    *
-   * The projection's private-ownership checks exist to prove a sandboxed worker cannot
-   * rewrite the instructions it reads. With one identity there is no such boundary, so
-   * those checks are skipped rather than made trivially true; everything else about the
-   * projection (bytes, hashes, canonical paths, the plan, the role charter) is unchanged.
+   * The projection's private-ownership checks exist to prove a separate worker cannot rewrite
+   * the instructions it reads. With one identity there is no such boundary, so those checks
+   * are skipped rather than made trivially true; everything else about the projection (bytes,
+   * hashes, canonical paths, the plan, the role charter) is unchanged.
    */
   sameIdentity?: boolean;
   /**
@@ -480,7 +479,9 @@ function readProjectedDescriptors(root: string, frameworkFiles: readonly { path:
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
       if (entry.isDirectory()) { walk(path); continue; }
-      const relative = path.slice(root.length + 1);
+      // The projected names are POSIX-relative on every host, so a Windows path separator
+      // must not hide a recorded entry from the rebuild.
+      const relative = path.slice(root.length + 1).replaceAll("\\", "/");
       const kind: ContextFile["kind"] | undefined = relative === "plan" ? "plan" : relative === "role" ? "role"
         : relative === "core" ? "core" : relative === "charter" ? "charter" : relative === "soul" ? "soul" : relative === "workflow" ? "workflow"
         : relative === "team" ? "team"
@@ -598,15 +599,14 @@ function ensureAttemptRoot(path: string, roots: { contextRoot: string; worker: s
 /**
  * The mailbox directory, which is control-private rather than worker-readable.
  *
- * The bridge and the privileged launcher both re-check this 0700, control-gid shape, so
+ * The bridge re-checks this 0700, control-gid shape, so
  * it is created to exactly that here instead of being loosened for the worker.
  */
 function ensureMailboxDirectory(path: string, roots: { mailboxRoot: string; worker: string; controlStateDir: string },
   sameIdentity = false): void {
-  // The launcher anchors its ancestry walk on `control_state_dir` and requires the
-  // mailbox root to sit directly under it, so an inconsistent roots object is refused
-  // here rather than discovered as a launch refusal later. An unisolated host has no such
-  // launcher, and keeps its mailbox root shallow so the socket path fits AF_UNIX.
+  // The mailbox root sits directly under `control_state_dir`, so an inconsistent roots
+  // object is refused here rather than discovered as a launch refusal later. The local
+  // mailbox root is kept shallow so its socket path fits AF_UNIX.
   if (!sameIdentity && roots.mailboxRoot !== join(roots.controlStateDir, "mailboxes")) {
     throw new Error("Managed mailbox root is not beneath the control state directory");
   }
@@ -1223,8 +1223,8 @@ export class WorkflowRuntime {
    *
    * Composes the three things the composed launch chain expects but nothing produced:
    * the KTD24 context projection under the policy's `context_root`, the per-attempt
-   * mailbox endpoint in the control-private `mailbox_root`, and the bootstrap the
-   * privileged launcher binds beside that socket. T047 attaches the result to a seat.
+   * mailbox endpoint in the control-private `mailbox_root`, and the bootstrap written
+   * beside that socket. T047 attaches the result to a seat.
    *
    * Order matters for the same reason it does in `admitForLaunch`. Admission is the
    * only thing that may say no, and it is asked first: a refused assignment must
@@ -1314,11 +1314,6 @@ export class WorkflowRuntime {
       throw new Error("Managed attempt worker identity is not configured");
     }
     const context = { ...input.context, workerUid, workerGroups };
-    // The pinned native policy is part of the projection from revision 5 on, and a
-    // provisioned host ships revision 5. It is built before admission so a host missing
-    // the pinned clients refuses without leaving a claimed candidate behind.
-    const nativePolicy = roots.policyRevision >= 5
-      ? await buildManagedNativePolicy(input.client, roots.toolchainDir) : undefined;
 
     const admitted = this.admitForLaunch(runId, { attemptId, worker, assignment: input.assignment,
       outputs: input.outputs, permissions: input.permissions,
@@ -1352,7 +1347,7 @@ export class WorkflowRuntime {
       const manifest = this.projectAttemptContext({ runId, root, worker, attemptId, roots, binding,
         role: input.role, client: input.client, assignment: input.assignment, outputs: [...input.outputs],
         permissions: [...input.permissions], context,
-        nativePolicy, workerGid, frameworkFiles: input.frameworkFiles, resume: resumed,
+        workerGid, frameworkFiles: input.frameworkFiles, resume: resumed,
         previousContextHash: input.previous?.attemptId === attemptId ? input.previous.contextHash : undefined });
 
       // An endpoint's path has to fit AF_UNIX's 108 bytes, and it is built from two UUIDs. A
@@ -1499,8 +1494,6 @@ export class WorkflowRuntime {
     assignment: AssignmentInput["assignment"]; outputs: string[]; permissions: string[];
     context: Omit<ContextInput, "root" | "projection" | "runId" | "files" | "binding" | "assignment"
       | "outputs" | "permissions" | "role" | "frameworkRoot" | "frameworkRevision" | "nativePolicy">;
-    /** The pinned native policy, present from policy revision 5 on. */
-    nativePolicy?: ContextInput["nativePolicy"];
     /** The pinned framework files this attempt loads, already resolved from the pin. */
     frameworkFiles: readonly { path: string; source: string }[];
     /** True when the projection root already exists: rebuild from its own recorded bytes. */
@@ -1557,26 +1550,9 @@ export class WorkflowRuntime {
       const recordedWorkflow = files.find(file => file.kind === "workflow");
       if (recordedWorkflow) context.workflow = JSON.parse(readFileSync(recordedWorkflow.path, "utf8")) as ContextInput["workflow"];
       else delete context.workflow;
-      // The native policy's expected paths and hashes come from the policy itself, so a
-      // resumed projection supplies the same descriptors the creating produce did.
-      for (const file of input.nativePolicy?.files ?? []) {
-        const path = resolve(root, relative("/context", file.workerPath));
-        files.push({ path, hash: file.hash, kind: "native-policy", readOnly: true });
-      }
     } else {
-      // The pinned native policy is projected like any other entry from revision 5 on:
-      // the manifest re-derives the expected paths and hashes from `nativePolicy` and
-      // refuses a projection that does not carry exactly those descriptors.
-      const nativeEntries = (input.nativePolicy?.files ?? []).map(file => {
-        const path = resolve(root, relative("/context", file.workerPath));
-        mkdirSync(dirname(path), { recursive: true, mode: 0o750 });
-        writeFileSync(path, file.content, { mode: 0o440 });
-        chmodSync(path, 0o440);
-        return { path, hash: file.hash, kind: "native-policy" as const, readOnly: true as const };
-      });
       files = [
         ...frameworkEntries(),
-        ...nativeEntries,
         write("plan", readFileSync(join(input.binding.repository.root, input.binding.planRef), "utf8"), "plan"),
         write("role", canonicalJson(roleConfiguration), "role"),
         ...roleInstructionEntries(role).map(([kind, content]) => write(kind, content, kind)),
@@ -1613,9 +1589,6 @@ export class WorkflowRuntime {
     files.sort((left, right) => left.path.localeCompare(right.path));
     const input_ = {
       ...context,
-      // Revision 5 and later requires the pinned native policy, and the manifest also
-      // checks that its files are actually projected, so the producer supplies both.
-      ...(input.nativePolicy ? { nativePolicy: input.nativePolicy } : {}),
       ...(this.sameIdentity ? { sameIdentity: true } : {}),
       runId: input.runId,
       role,

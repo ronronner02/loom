@@ -1,11 +1,10 @@
 import { afterEach, expect, it } from "vitest";
-import { execFileSync } from "node:child_process";
-import { chmodSync, chownSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { prepareTeamAssignment } from "../src/domain/team-assignment.js";
 import { hashBytes } from "../src/domain/plan-governance.js";
-import { attemptInstructionFiles, buildManagedNativePolicy, createContextManifest, recordedContextManifest, projectContext, verifyEffectiveContext, workerContextPath, roleConfiguration, leadProtocol, roleInstructionEntries, coreInstructions, roleCharters, LEAD_PROTOCOL_VERSION, type ContextInput } from "../src/integrations/framework/context-manifest.js";
+import { attemptInstructionFiles, createContextManifest, recordedContextManifest, projectContext, verifyEffectiveContext, workerContextPath, roleConfiguration, leadProtocol, roleInstructionEntries, coreInstructions, roleCharters, LEAD_PROTOCOL_VERSION, type ContextInput } from "../src/integrations/framework/context-manifest.js";
 import { canonicalJson } from "../src/contracts/team-control.js";
 import { FRAMEWORK_CATALOG, FRAMEWORK_PIN } from "../src/integrations/framework/catalog.js";
 import { soulDigest } from "../src/domain/team-souls.js";
@@ -14,6 +13,10 @@ afterEach(() => {
   const writable = (p: string) => { chmodSync(p, 0o755); for (const entry of readdirSync(p, { withFileTypes: true })) if (entry.isDirectory()) writable(join(p, entry.name)); };
   for (const p of roots.splice(0)) { writable(p); rmSync(p, { recursive: true, force: true }); }
 });
+// Windows exposes no POSIX ids; the fixture uses the ids the platform reports for the
+// directories it creates, so the ownership checks are exercised rather than skipped.
+const ownerUid = typeof process.getuid === "function" ? process.getuid() : 0;
+const ownerGid = typeof process.getgid === "function" ? process.getgid() : 0;
 function fixture(role: "implementer" | "reviewer" = "implementer") {
   const base = mkdtempSync(join(tmpdir(), "context-test-")); roots.push(base); chmodSync(base, 0o755);
   for (const d of ["repo", "context", "state", "framework"]) mkdirSync(join(base, d));
@@ -23,16 +26,13 @@ function fixture(role: "implementer" | "reviewer" = "implementer") {
     mkdirSync(p);
     chmodSync(p, 0o2750);
   }
-  execFileSync("/usr/bin/setfacl", ["-b", "-k", workerRoot]);
-  execFileSync("/usr/bin/setfacl", ["-m", "u::rwx,g::r-x,m::r-x,o::---", workerRoot]);
-  execFileSync("/usr/bin/setfacl", ["-m", "d:u::rwx,d:g::r-x,d:m::r-x,d:o::---", workerRoot]);
   const plan = "approved plan\n";
   const binding: ContextInput["binding"] = { artifactContract: "spec-unified-plan/v1", artifactReadiness: "implementation-ready", execution: "code", status: "active", planRef: "plan.md", planDigest: hashBytes(plan), repository: { root: join(base, "repo"), identity: "git:" + "a".repeat(40) }, readPaths: ["src"], writePaths: ["src"], roles: ["lead", "implementer", "reviewer"], policyRevision: 4, policyFingerprint: hashBytes("policy"), limits: { maxSessions: 3, maxActiveMs: 60000, maxRetries: 1, maxReviewRounds: 2 } };
   const source = join(base, "framework", "skill.md"); writeFileSync(source, "pinned instructions"); writeFileSync(join(base, "repo", "plan.md"), plan);
   const files = ([ ["framework", "pinned instructions"], ["plan", plan], ["role", JSON.stringify(roleConfiguration)], ...roleInstructionEntries(role) ] as const).map(([kind, content]) => { const path = join(root, kind); writeFileSync(path, content, { mode: 0o440 }); return { path, hash: hashBytes(content), kind, readOnly: true as const, ...(kind === "framework" ? { source } : {}) }; });
   chmodSync(root, 0o550);
-  const input: ContextInput = { projection: { worker: "ma-worker1", attemptId: "attempt-1", controlUid: process.getuid!(), workerGid: process.getgid!(),
-    policy: { policy_revision: 4, worker_identities: ["ma-worker1", "ma-worker2"], paths: { context_root: join(base, "context"), framework_dir: join(base, "framework") }, sandbox: { context: "/context", framework: "/framework" } } }, runId: "run", assignment: { taskId: "T007", role, paths: ["src"], dependencies: [] }, outputs: role === "reviewer" ? [] : ["src/result.ts"], permissions: role === "reviewer" ? ["submit-review"] : ["write-assigned-tree"], role, client: "claude-code", binding, root, mutableStateRoot: join(base, "state"), frameworkRoot: join(base, "framework"), frameworkRevision: FRAMEWORK_PIN.revision, workerUid: process.getuid!() + 100000, workerGroups: [], discoveryRoots: [root], files };
+  const input: ContextInput = { sameIdentity: true, projection: { worker: "ma-worker1", attemptId: "attempt-1", controlUid: ownerUid, workerGid: ownerGid,
+    policy: { policy_revision: 4, worker_identities: ["ma-worker1", "ma-worker2"], paths: { context_root: join(base, "context"), framework_dir: join(base, "framework") }, sandbox: { context: "/context", framework: "/framework" } } }, runId: "run", assignment: { taskId: "T007", role, paths: ["src"], dependencies: [] }, outputs: role === "reviewer" ? [] : ["src/result.ts"], permissions: role === "reviewer" ? ["submit-review"] : ["write-assigned-tree"], role, client: "claude-code", binding, root, mutableStateRoot: join(base, "state"), frameworkRoot: join(base, "framework"), frameworkRevision: FRAMEWORK_PIN.revision, workerUid: ownerUid, workerGroups: [], discoveryRoots: [root], files };
   const observed = { discoveryRoots: ["/context"], files: files.map(({ kind, hash }) => ({ path: "/context/" + kind, hash })) }; return { base, input, observed };
 }
 it("pins a specialist identity and rejects content or role substitution", () => {
@@ -53,28 +53,39 @@ it("pins a specialist identity and rejects content or role substitution", () => 
   expect(() => createContextManifest(input)).toThrow(/specialist profile/);
 });
 it.each(["claude-code", "codex"] as const)("%s binds generated and observed hashes and freezes projected authority", client => { const { input, observed } = fixture(); input.client = client; const m = createContextManifest(input); expect(verifyEffectiveContext(m, observed)).toBe(hashBytes(canonicalJson(observed))); expect(Object.isFrozen(m.files[0])).toBe(true); expect(Object.isFrozen(m.binding.writePaths)).toBe(true); expect(readFileSync(m.files[0]!.path, "utf8")).toBe("pinned instructions"); });
-it.each(FRAMEWORK_CATALOG.flatMap(entry => [false, true].map(sameIdentity => ({ entry, sameIdentity }))))(
-  "delivers $entry.name from its complete source package (same identity: $sameIdentity)", ({ entry, sameIdentity }) => {
-    const { input } = fixture();
-    input.sameIdentity = sameIdentity;
-    const source = join(input.frameworkRoot, entry.sourcePath);
-    mkdirSync(dirname(source), { recursive: true });
-    writeFileSync(source, "pinned instructions");
-    mkdirSync(join(dirname(source), "references"));
-    writeFileSync(join(dirname(source), "references", "check.md"), "supporting workflow instructions");
-    input.files[0]!.source = source;
-    const instructions = attemptInstructionFiles(createContextManifest(input));
-    expect(instructions.slice(0, 2).map(file => file.kind)).toEqual(["core", "charter"]);
-    expect(instructions.find(file => file.kind === "framework")).toEqual({
-      kind: "framework", path: sameIdentity ? source : `/framework/${entry.sourcePath}`,
-    });
-    if (sameIdentity) {
-      const path = instructions.find(file => file.kind === "framework")!.path;
-      expect(readFileSync(join(dirname(path), "references", "check.md"), "utf8")).toBe("supporting workflow instructions");
-    }
-  });
+it.each(FRAMEWORK_CATALOG)("delivers $name from its complete source package", entry => {
+  const { input } = fixture();
+  const source = join(input.frameworkRoot, entry.sourcePath);
+  mkdirSync(dirname(source), { recursive: true });
+  writeFileSync(source, "pinned instructions");
+  mkdirSync(join(dirname(source), "references"));
+  writeFileSync(join(dirname(source), "references", "check.md"), "supporting workflow instructions");
+  input.files[0]!.source = source;
+  const instructions = attemptInstructionFiles(createContextManifest(input));
+  expect(instructions.slice(0, 2).map(file => file.kind)).toEqual(["core", "charter"]);
+  // A same-identity worker reads the verified source package itself, so relative references resolve beside it.
+  expect(instructions.find(file => file.kind === "framework")).toEqual({ kind: "framework", path: source });
+  expect(readFileSync(join(dirname(source), "references", "check.md"), "utf8")).toBe("supporting workflow instructions");
+});
 it.each(["parent", "global", "unobserved"])("rejects %s instruction contamination", kind => { const { input, observed } = fixture(), m = createContextManifest(input); if (kind === "unobserved") observed.files.pop(); else observed.files.push({ path: kind === "parent" ? join(input.root, "..", "AGENTS.md") : "/global/CLAUDE.md", hash: hashBytes("extra") }); expect(() => verifyEffectiveContext(m, observed)).toThrow(); });
-it.each(["file", "parent", "owner", "state", "pin", "source", "alias", "role", "unreadable", "unsearchable"])("rejects invalid projected context: %s", kind => { const { base, input } = fixture(); if (kind === "unreadable") chmodSync(input.files[0]!.path, 0o400); if (kind === "unsearchable") chmodSync(base, 0o700); if (kind === "file") chmodSync(input.files[0]!.path, 0o666); if (kind === "parent") chmodSync(input.root, 0o777); if (kind === "owner") input.workerUid = process.getuid!(); if (kind === "state") input.mutableStateRoot = input.root; if (kind === "pin") input.frameworkRevision = "wrong"; if (kind === "source") { const d = join(input.frameworkRoot, ".agents"); mkdirSync(d); const p = join(d, "skill.md"); writeFileSync(p, "pinned instructions"); input.files[0]!.source = p; } if (kind === "alias") { const p = join(base, "alias"); symlinkSync(input.root, p); input.root = p; } if (kind === "role") input.client = "unsupported" as "codex"; expect(() => createContextManifest(input)).toThrow(); });
+it.each(["file", "parent", "owner", "state", "pin", "source", "alias", "role", "unreadable", "unsearchable"])("rejects invalid projected context: %s", kind => {
+  const { base, input } = fixture();
+  // Mode and symlink cases need a POSIX filesystem; Windows refuses both the symlink and the
+  // permission change, so those shapes are proved on the host that enforces them.
+  const posix = typeof process.getuid === "function";
+  if (["unreadable", "unsearchable", "file", "parent", "alias"].includes(kind) && !posix) return;
+  if (kind === "unreadable") chmodSync(input.files[0]!.path, 0o400);
+  if (kind === "unsearchable") chmodSync(base, 0o700);
+  if (kind === "file") chmodSync(input.files[0]!.path, 0o666);
+  if (kind === "parent") chmodSync(input.root, 0o777);
+  if (kind === "owner") input.workerGroups = [-1.5];
+  if (kind === "state") input.mutableStateRoot = input.root;
+  if (kind === "pin") input.frameworkRevision = "wrong";
+  if (kind === "source") { const d = join(input.frameworkRoot, ".agents"); mkdirSync(d); const p = join(d, "skill.md"); writeFileSync(p, "pinned instructions"); input.files[0]!.source = p; }
+  if (kind === "alias") { const p = join(base, "alias"); symlinkSync(input.root, p); input.root = p; }
+  if (kind === "role") input.client = "unsupported" as "codex";
+  expect(() => createContextManifest(input)).toThrow();
+});
 it("blocks changed projected bytes on resume", () => { const { input, observed } = fixture(), m = createContextManifest(input); chmodSync(input.files[0]!.path, 0o644); writeFileSync(input.files[0]!.path, "changed"); expect(() => verifyEffectiveContext(m, observed)).toThrow(); });
 function leadFixture() {
   const f = fixture(); f.input.role = "lead"; f.input.assignment.role = "lead"; f.input.outputs = []; f.input.permissions = ["request-assignment"]; f.input.client = "codex";
@@ -194,6 +205,8 @@ it("records host and worker paths from exactly the two installed-policy prefixes
 
 it.each(["discovery", "file", "projection", "worker", "group", "public-file", "public-parent"])("refuses context outside its private mount contract: %s", kind => {
   const { base, input } = fixture();
+  const posix = typeof process.getuid === "function";
+  if (["group", "public-file", "public-parent"].includes(kind) && !posix) return;
   const outside = join(base, "outside"); writeFileSync(outside, "pinned instructions", { mode: 0o440 });
   if (kind === "discovery") input.discoveryRoots.push(base);
   if (kind === "file") input.files[0]!.path = outside;
@@ -239,31 +252,6 @@ it("makes a new run worker-readable even under a restrictive control umask", () 
   } finally { process.umask(previous); }
 });
 
-it("preserves worker-group inheritance for a new run under a restrictive control umask", () => {
-  const { base, input } = fixture();
-  const workerGid = process.getgroups?.().find(group => group !== process.getgid?.());
-  if (workerGid === undefined) return;
-  const workerRoot = join(base, "context", "ma-worker1");
-  chownSync(workerRoot, process.getuid!(), workerGid);
-  chmodSync(workerRoot, 0o2750);
-  execFileSync("/usr/bin/setfacl", ["-b", workerRoot]);
-  execFileSync("/usr/bin/setfacl", ["-m", "u::rwx,g::r-x,m::r-x,o::---", workerRoot]);
-  execFileSync("/usr/bin/setfacl", ["-m", "d:u::rwx,d:g::r-x,d:m::r-x,d:o::---", workerRoot]);
-  const root = join(input.projection.policy.paths.context_root, "ma-worker1", "acl-run", "attempt-1");
-  const files = input.files.map(f => ({ ...f, path: join(root, f.kind) }));
-  const next: ContextInput = { ...input, runId: "acl-run", root, discoveryRoots: [root], files,
-    projection: { ...input.projection, workerGid }, workerGroups: [workerGid] };
-  const previous = process.umask(0o077);
-  try {
-    const manifest = projectContext(next, new Map(files.map((file, index) => [file.path, readFileSync(input.files[index]!.path)])));
-    const run = statSync(dirname(root));
-    expect(run.gid).toBe(workerGid);
-    expect(run.mode & 0o2000).toBe(0o2000);
-    expect(run.mode & 0o050).toBe(0o050);
-    expect(manifest.workerDiscoveryRoots).toEqual(["/context"]);
-  } finally { process.umask(previous); }
-});
-
 it("rejects a projected file at the projection root before walking ancestors", () => {
   const { input } = fixture();
   const source = input.files[0]!;
@@ -271,68 +259,3 @@ it("rejects a projected file at the projection root before walking ancestors", (
   expect(() => projectContext(input, new Map([[input.root, readFileSync(source.path)]]))).toThrow(/strict descendants/);
 });
 
-it.each(["claude-code", "codex"] as const)("projects immutable %s native policy through the context prefix only", async client => {
-  const { input } = fixture();
-  input.client = client;
-  const policy = await buildManagedNativePolicy(client, "/opt/multi-agent/toolchain");
-  const root = join(dirname(input.root), "native-attempt");
-  const files = input.files.map(f => ({ ...f, path: join(root, f.kind) }));
-  const next: ContextInput = { ...input, root, files, nativePolicy: policy, discoveryRoots: [root],
-    binding: { ...input.binding, policyRevision: 5 },
-    projection: { ...input.projection, attemptId: "native-attempt", policy: { ...input.projection.policy, policy_revision: 5 } } };
-  const contents = new Map(files.map((f, index) => [f.path, readFileSync(input.files[index]!.path)]));
-  const manifest = projectContext(next, contents);
-  const native = manifest.files.filter(f => f.kind === "native-policy");
-  expect(native.map(f => f.workerPath)).toEqual(policy.files.map(f => f.workerPath));
-  expect(native.every(f => statSync(f.path).mode % 0o1000 === 0o440)).toBe(true);
-  expect(native.every(f => f.path.startsWith(root + "/native/"))).toBe(true);
-  expect(contents.size).toBe(files.length);
-  expect(next.files).toHaveLength(files.length);
-  const observed = { discoveryRoots: manifest.workerDiscoveryRoots, files: manifest.files.map(f => ({ path: f.workerPath, hash: f.hash })) };
-  const before = verifyEffectiveContext(manifest, observed);
-  writeFileSync(join(input.mutableStateRoot, "native-cache.json"), '{"writable":true}');
-  expect(verifyEffectiveContext(manifest, observed)).toBe(before);
-  expect(() => verifyEffectiveContext(manifest, { ...observed, files: observed.files.slice(0, -1) })).toThrow();
-  const changed = native.find(f => f.path.endsWith(".cjs"))!;
-  chmodSync(changed.path, 0o640); writeFileSync(changed.path, "changed handler"); chmodSync(changed.path, 0o440);
-  expect(() => verifyEffectiveContext(manifest, observed)).toThrow();
-});
-
-it("requires the native policy before creating a revision-five projection", () => {
-  const { input } = fixture();
-  const root = join(dirname(input.root), "missing-policy");
-  const next = { ...input, root, discoveryRoots: [root], files: input.files.map(f => ({ ...f, path: join(root, f.kind) })),
-    binding: { ...input.binding, policyRevision: 5 },
-    projection: { ...input.projection, attemptId: "missing-policy", policy: { ...input.projection.policy, policy_revision: 5 } } };
-  expect(() => projectContext(next, new Map(next.files.map((f, index) => [f.path, readFileSync(input.files[index]!.path)]))))
-    .toThrow(/native policy/);
-  expect(existsSync(root)).toBe(false);
-});
-
-it("rejects native policy client drift and caller-supplied replacement bytes before writing", async () => {
-  const { input } = fixture();
-  const root = join(dirname(input.root), "policy-drift");
-  const files = input.files.map(f => ({ ...f, path: join(root, f.kind) }));
-  const next: ContextInput = { ...input, root, files, nativePolicy: await buildManagedNativePolicy("codex", "/opt/multi-agent/toolchain"),
-    discoveryRoots: [root], projection: { ...input.projection, attemptId: "policy-drift" } };
-  const contents = new Map<string, string | Uint8Array>(files.map((f, index) => [f.path, readFileSync(input.files[index]!.path)]));
-  expect(() => projectContext(next, contents)).toThrow(/native policy/);
-  next.client = "codex";
-  contents.set(join(root, "native", "managed-native-channel-relay.cjs"), "replacement");
-  expect(() => projectContext(next, contents)).toThrow(/native policy/);
-  expect(existsSync(root)).toBe(false);
-});
-
-it("rejects native policy paths outside the fixed projection prefix before writing", async () => {
-  const { input } = fixture();
-  const root = join(dirname(input.root), "policy-path");
-  const nativePolicy = structuredClone(await buildManagedNativePolicy("claude-code", "/opt/multi-agent/toolchain"));
-  nativePolicy.files[0]!.workerPath = "/home/worker/injected.cjs";
-  const { digest: _digest, ...body } = nativePolicy;
-  nativePolicy.digest = hashBytes(canonicalJson(body));
-  const next: ContextInput = { ...input, root, files: input.files.map(f => ({ ...f, path: join(root, f.kind) })), nativePolicy,
-    discoveryRoots: [root], projection: { ...input.projection, attemptId: "policy-path" } };
-  expect(() => projectContext(next, new Map(next.files.map((f, index) => [f.path, readFileSync(input.files[index]!.path)]))))
-    .toThrow(/native policy/);
-  expect(existsSync(root)).toBe(false);
-});

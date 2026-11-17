@@ -79,13 +79,11 @@ export function mailboxEndpoint(directory: string, generation: string, platform:
 }
 
 /**
- * The privileged launcher's mailbox fact: the socket file at the policy's `mailbox_root` for this
+ * The mailbox fact: the socket file at the worker's `mailbox_root` for this
  * worker, run and attempt, owned by the control user and pinned by dev/ino.
  *
  * A pipe endpoint can never satisfy it, and must not be compared as though a pipe path were a
- * socket path. That refusal is the Windows answer rather than a gap: the launcher mounts a Unix
- * socket and is composed only where the worker is a separate account under a sandbox, while a
- * Windows host launches through the direct unisolated path.
+ * socket path: a POSIX mailbox is a Unix socket, while a Windows host binds a named pipe.
  */
 export function admitsPosixMailboxEndpoint(endpoint: MailboxEndpoint | null | undefined,
   input: { mailboxRoot?: string; worker: string; runId: string; attemptId: string; controlUid: number; controlGid?: number }):

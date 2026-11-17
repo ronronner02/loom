@@ -71,12 +71,12 @@ export function bindingForGoal(input: { root: string; planRef: string; writePath
 }
 
 /**
- * The policy capability in force under `workers.isolation: none`.
+ * The policy capability this daemon states.
  *
- * Nothing is installed on such a host, so there is no client lock to verify and no sandbox
- * to fingerprint. What the daemon can still state truthfully is the revision its unisolated
- * roots carry, a fingerprint that names the isolation mode, and the clients it may start by
- * name — which is what a dispatch decision needs to know.
+ * Workers run as the daemon's own user, so there is no client lock to verify and no sandbox
+ * to fingerprint. What the daemon can still state truthfully is the revision its roots carry,
+ * a fingerprint naming that posture, and the clients it may start by name — which is what a
+ * dispatch decision needs to know.
  */
 export function unisolatedPolicyCapability(policyRevision: number): ProviderPolicyCapability {
   return { policyRevision, policyFingerprint: hashBytes("workers.isolation:none"), verifiedProviders: ["claude", "codex"] };

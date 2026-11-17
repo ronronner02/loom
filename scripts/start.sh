@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Start the daemon in managed mode using the owner token that ./setup.sh created.
-# Workers run as your own user (config `workers.isolation: none`), so no sudo is needed.
+# Workers run as your own user, so no sudo is needed.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

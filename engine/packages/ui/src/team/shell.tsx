@@ -686,7 +686,6 @@ function ProjectShell({ language, onLanguage, appearance }: {
             onLanguage={onLanguage}
             appearance={appearance}
             seats={read?.seats ?? team?.seats ?? []}
-            isolation={data.health.data?.runtime?.isolation ?? null}
             address={window.location.origin}
             teamId={team?.seats.some(seat => seat.role === "lead") ? team.id : undefined}
           />

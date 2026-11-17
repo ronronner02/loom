@@ -6,7 +6,7 @@ import type Database from "better-sqlite3";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
 import { managedModelRefusal, readTeamModelSettings, rosterModelRefusal, saveTeamModelSettings } from "../src/domain/team-model-policy.js";
-import type { WorkerLaunchInput } from "../src/adapters/worker-launch.js";
+import type { WorkerLaunchInput } from "../src/adapters/worker-launcher.js";
 
 const policy = { kind: "test", lead: { client: "codex", model: "chosen-lead" },
   allowedSubagents: [{ client: "claude-code", model: "allowed-worker" }] };

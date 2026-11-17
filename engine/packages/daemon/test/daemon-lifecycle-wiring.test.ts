@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { tmpdir } from "node:os";
-import type { WorkerLaunchInput } from "../src/adapters/worker-launch.js";
+import type { WorkerLaunchInput } from "../src/adapters/worker-launcher.js";
 import type { PlanBinding } from "../src/contracts/team-control.js";
 import { createDaemon } from "../src/startup.js";
 import { DaemonLifecycleStore } from "../src/domain/daemon-lifecycle-store.js";
@@ -23,7 +23,7 @@ describe("P7 wiring pin — startup recordBoot ran at boot", () => {
 describe("startup finalization admission wiring", () => {
   it("rechecks the real finalization table before resolving a launch tree", async () => {
     const daemon = await createDaemon({
-      dbPath: ":memory:", managedMode: true, workersIsolation: "none", webUiEnabled: false,
+      dbPath: ":memory:", managedMode: true, webUiEnabled: false,
       teamControl: { credentials: { ownerToken: "fixture-owner" } },
     });
     try {

@@ -112,8 +112,8 @@ describe("mailbox bridge per platform", () => {
     const bridge = bridgeFor("posix");
     await bridge.listen();
     expect(bridge.endpoint()).toMatchObject({ transport: "unix", path: join(directory, MAILBOX_SOCKET_NAME) });
-    // POSIX keeps the launcher's seven-field bootstrap: no extra key, because
-    // `worker-launch.mjs` refuses any bootstrap whose key count differs.
+    // POSIX keeps the seven-field bootstrap the launch bridge reads: no extra key, because
+    // the producer and the reader agree on that exact set.
     expect(Object.keys(bootstrap()).sort())
       .toEqual(["attemptId", "authorization", "capability", "generation", "runId", "sessionId", "taskId"]);
     await bridge.close();

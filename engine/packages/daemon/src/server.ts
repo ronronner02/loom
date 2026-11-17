@@ -15,7 +15,7 @@ import type { AgentActivityStore } from "./domain/agent-activity-store.js";
 import { jsonBodyErrorHandler, trackJsonBodyParseErrors } from "./middleware/json-body-error.js";
 import { getSelfHostId, getSelfHostIdSource } from "./domain/host-identity/fanout-contract.js";
 import type { ChatRepository } from "./domain/chat-repository.js";
-import { MailboxDelivery, createMailboxPromptStateReader, type ManagedNativeChannelEvidence, type NativeChannelStateReader } from "./domain/mailbox-delivery.js";
+import { MailboxDelivery, createMailboxPromptStateReader, type NativeChannelStateReader } from "./domain/mailbox-delivery.js";
 import { workspaceBrowseRoutes } from "./routes/workspace.js";
 import { projectFilesRoutes } from "./routes/project-files.js";
 import { createSlowOpRequestMiddleware, type SlowOperationInstrumentation } from "./domain/slow-op-recorder.js";
@@ -78,8 +78,7 @@ export interface AppDeps {
   readSeatMailboxCapability?: (runId: string, sessionId: string) => string | null;
   /** The managed launch chain injected into both fresh and both resume adapters (managed mode only). */
   managedLaunch?: {
-    launcher: import("./adapters/worker-launch.js").WorkerLauncher;
-    channel?: ManagedNativeChannelEvidence;
+    launcher: import("./adapters/worker-launcher.js").WorkerLauncher;
     /** Per-attempt mailbox endpoints; an unregistered attempt cannot launch. */
     endpoints: Map<string, Pick<import("./adapters/worker-mailbox-bridge.js").WorkerMailboxBridge, "binding" | "endpoint">>;
   };

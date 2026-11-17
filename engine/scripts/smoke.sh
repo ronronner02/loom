@@ -5,8 +5,7 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
-# daemon-mode.test.ts runs here now that `workers.isolation: none` is the default: its
-# managed boot no longer needs the provisioned /etc/multi-agent policy.
+# daemon-mode.test.ts runs here: its managed boot needs no host provisioning.
 npm run test -w packages/daemon -- \
   test/server.test.ts \
   test/source-brand.test.ts \
@@ -23,7 +22,6 @@ npm run test -w packages/daemon -- \
   test/display-names.test.ts \
   test/generated-titles.test.ts \
   test/team-workspace.test.ts \
-  test/team-candidate-launch.test.ts \
   test/scope-extension.test.ts \
   test/owner-session.test.ts \
   test/team-start.test.ts \

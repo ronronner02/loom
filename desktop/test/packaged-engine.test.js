@@ -102,6 +102,7 @@ test('the staged tree carries the files the daemon resolves from its own module 
     'config/team/sections/scope.md',
     'config/governance/credential-exclusions.json',
     'config/governance/low-risk-dev-dependencies.json',
+    'config/governance/npm-registries.json',
   ];
   for (const entry of required) assert.ok(fs.existsSync(path.join(ENGINE_ROOT, entry)), `resources/engine/${entry} ships`);
   if (!ghSkipReason) assert.ok(fs.existsSync(path.join(ENGINE_ROOT, 'plugins/github-cli/gh.exe')), 'resources/engine/plugins/github-cli/gh.exe ships');

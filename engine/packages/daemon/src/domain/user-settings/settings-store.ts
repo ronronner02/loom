@@ -198,10 +198,6 @@ export const SETTINGS_VALID_KEYS = [
   // Under explicit-only, an ask that needs a person must be addressed to the person;
   // without a human registry, explicit-only posts everything, as always does.
   "queue.wake_human_rung",
-  // MVP — whether a managed worker runs as the current user ("none", the default) or
-  // inside the provisioned sandbox ("hardened"). Read at daemon startup, so a change
-  // applies on the next restart. Lockstep with cli/src/config-store.ts VALID_KEYS.
-  "workers.isolation",
   "team.leadClient",
   "team.maxSeats",
   "team.maxConcurrentAgents",
@@ -289,7 +285,6 @@ const ENV_MAP: Partial<Record<SettingsValidKey, { primary: string }>> = {
   "queue.wake_unconfirmed_window_minutes": { primary: "MULTI_AGENT_QUEUE_WAKE_UNCONFIRMED_WINDOW_MINUTES" },
   "queue.wake_human_rung": { primary: "MULTI_AGENT_QUEUE_WAKE_HUMAN_RUNG" },
   "queue.wake_swap_grace_seconds": { primary: "MULTI_AGENT_QUEUE_WAKE_SWAP_GRACE_SECONDS" },
-  "workers.isolation": { primary: "MULTI_AGENT_WORKERS_ISOLATION" },
   "team.leadClient": { primary: "MULTI_AGENT_TEAM_LEAD_CLIENT" },
   "team.maxSeats": { primary: "MULTI_AGENT_TEAM_MAX_SEATS" },
   "team.maxConcurrentAgents": { primary: "MULTI_AGENT_TEAM_MAX_CONCURRENT_AGENTS" },
@@ -370,7 +365,6 @@ const KEY_TO_PATH: Record<SettingsValidKey, string[]> = {
   "queue.wake_unconfirmed_window_minutes": ["queue", "wakeUnconfirmedWindowMinutes"],
   "queue.wake_human_rung": ["queue", "wakeHumanRung"],
   "queue.wake_swap_grace_seconds": ["queue", "wakeSwapGraceSeconds"],
-  "workers.isolation": ["workers", "isolation"],
   "team.leadClient": ["team", "leadClient"],
   "team.maxSeats": ["team", "maxSeats"],
   "team.maxConcurrentAgents": ["team", "maxConcurrentAgents"],
@@ -403,6 +397,12 @@ function assertNoRemovedContextSetting(fileConfig: Record<string, unknown>): voi
       'Config file contains removed key "context.packs_root" (context.packsRoot); replace it with "context.root" (context.root).',
     );
   }
+  // `workers.isolation` selected between the direct launch and a provisioned sandbox. The
+  // sandbox is gone and every worker runs as this daemon's user, so an upgraded install that
+  // still carries the setting is read and ignored rather than refused: refusing would strand
+  // a working install on a key that has no other value left to choose.
+  const workers = getNestedValue(fileConfig, ["workers"]) as Record<string, unknown> | undefined;
+  if (workers && typeof workers === "object") delete workers.isolation;
 }
 
 // ── OPR.0.4.4.15 (guard G15-P1 fold, arch-endorsed) ─────────────────────────
@@ -635,7 +635,6 @@ function getDefaultValue(key: SettingsValidKey, workspaceRoot: string): string |
     case "queue.wake_unconfirmed_window_minutes": return 30;
     case "queue.wake_swap_grace_seconds": return 180;
     case "queue.wake_human_rung": return "always";
-    case "workers.isolation": return "none";
     case "team.leadClient": return "claude-code";
     case "team.maxSeats": return 6;
     case "team.maxConcurrentAgents": return 3;
@@ -674,12 +673,6 @@ function positiveIntegerConstraint(key: string) {
 function wakeHumanRungConstraint(raw: string): void {
   if (raw !== "always" && raw !== "explicit-only") {
     throw new Error(`Invalid value for queue.wake_human_rung: must be "always" or "explicit-only", got "${raw}"`);
-  }
-}
-
-function workersIsolationConstraint(raw: string): void {
-  if (raw !== "none" && raw !== "hardened") {
-    throw new Error(`Invalid value for workers.isolation: must be "none" or "hardened", got "${raw}"`);
   }
 }
 
@@ -833,7 +826,6 @@ const KEY_CONSTRAINTS: Partial<Record<SettingsValidKey, (raw: string, coerced: s
   "queue.wake_unconfirmed_window_minutes": positiveIntegerConstraint("queue.wake_unconfirmed_window_minutes"),
   "queue.wake_swap_grace_seconds": positiveIntegerConstraint("queue.wake_swap_grace_seconds"),
   "queue.wake_human_rung": wakeHumanRungConstraint,
-  "workers.isolation": workersIsolationConstraint,
   "team.maxSeats": positiveIntegerConstraint("team.maxSeats"),
   "team.maxConcurrentAgents": (raw, coerced) => {
     positiveIntegerConstraint("team.maxConcurrentAgents")(raw, coerced);

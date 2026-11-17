@@ -24,11 +24,10 @@ export interface TeamControlOptions {
    */
   readModel?: TeamReadModel;
   /**
-   * MVP — what starts the agent that has to do a new task.
+   * What starts the agent that has to do a new task.
    *
-   * Absent under hardened isolation, where an agent starts through the privileged launcher
-   * and a start request keeps its existing behaviour. Composed only when
-   * `workers.isolation: none`, where nothing else ever launches the seat.
+   * Nothing else ever launches a seat, so the start request dispatches it. Absent means the
+   * surface starts nothing, which is what an embedding host that launches its own seats wants.
    */
   dispatch?: (runId: string, taskId: string) => Promise<void>;
   /**

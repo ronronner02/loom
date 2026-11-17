@@ -29,8 +29,8 @@ import {
  * name. Both are owner-only and live on the team-control surface, so the managed-mode allowlist
  * and the owner credential apply unchanged.
  *
- * Nothing is launched here. Under `workers.isolation: none` the first start opens each seat's
- * terminal, exactly as it does for a rig the demo seeds created.
+ * Nothing is launched here. The first start opens each seat's terminal, exactly as it does for
+ * a rig the demo seeds created.
  */
 
 export function teamSetupRoutes(

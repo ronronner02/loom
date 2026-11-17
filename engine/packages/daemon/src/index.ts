@@ -320,8 +320,7 @@ export async function startServer(port?: number) {
         monitorsStarted = true;
         // MVP — observe the end of a direct-launched attempt. The sweep admits each launch
         // receipt's attempt and records it stopped when the process it named is gone; it never
-        // decides an outcome, which stays the owner's action. A managed daemon composes it too,
-        // because `workers.isolation: none` is the mode a managed daemon runs this path under.
+        // decides an outcome, which stays the owner's action.
         deps.attemptCompletion?.start();
         // P7 — lifecycle heartbeat (advances last-seen). A write failure logs and
         // continues (the render degrades to an older last-seen honestly); the

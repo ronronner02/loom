@@ -65,7 +65,7 @@ export interface AttemptCompletionDependencies {
   alive?: (identity: { processId: number; processStart: string }) => boolean | Promise<boolean>;
   /**
    * T033 — the exit evidence the seat's terminal recorded for a pane, read once when the sweep
-   * observes the process gone. Absent means this daemon cannot read it (a hardened launch, or
+   * observes the process gone. Absent means this daemon cannot read it (no pane is recorded, or
    * a test), and the attempt is then classified from the evidence it does have.
    */
   paneExit?: (paneId: string) => Promise<{ dead: boolean; code: number | null } | null>;
@@ -93,8 +93,8 @@ export interface AttemptCompletionDependencies {
   /**
    * MVP — start the run's next pending task now that this attempt's seat and slot are free.
    *
-   * Absent means nothing dispatches on a freed slot, which is what every pre-MVP caller
-   * (a test, or a daemon under hardened isolation) wants.
+   * Absent means nothing dispatches on a freed slot, which is what a caller without a
+   * dispatcher (a test) wants.
    */
   dispatchPending?: (runId: string) => Promise<void>;
   /** Persist native-turn documents before the stop write, while an interrupted capture can still be swept. */

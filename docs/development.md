@@ -57,7 +57,6 @@ Run these from the repository root. They are this project's own checks:
 
 | Command | Purpose |
 | --- | --- |
-| `node --test engine/test/worker-isolation-preflight.test.mjs` | Offline launcher checks. Set `MA_PREFLIGHT=1` for the host preflight (`docs/operations.md`). |
 
 ### Baseline Result (2026-10-13)
 

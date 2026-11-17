@@ -71,7 +71,7 @@ describe("the managed attempt a seat launches from", () => {
     queue = new QueueRepository(db, bus, { now: () => new Date("2026-10-23T00:00:00.000Z") } as never);
     runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue,
       candidateRoot: (runId, taskId, worker) => candidateDir(worker, runId, taskId),
-      assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1",
+      assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1", sameIdentity: true,
       managedAttemptRoots: () => ({ contextRoot, mailboxRoot, controlStateDir,
         policyRevision: binding.policyRevision, workerIdentities: ["ma-worker1", "ma-worker2"],
         frameworkRoot, frameworkRevision: FRAMEWORK_PIN.revision, toolchainDir }) });
@@ -97,7 +97,9 @@ describe("the managed attempt a seat launches from", () => {
     // authenticates with it. A constant here would make every request 401.
     readCredentials: () => ({ ownerToken: "owner-fixture",
       workers: [{ token: "worker-fixture-token", sessionId: "implementer-session", runId: "run-1" }] }),
-    context: { frameworkRoot, frameworkRevision: FRAMEWORK_PIN.revision, workerUid: 60000, workerGroups: [],
+    context: { frameworkRoot, frameworkRevision: FRAMEWORK_PIN.revision,
+      // The worker is the daemon's own user, so its uid and groups come from this process.
+      workerUid: typeof process.getuid === "function" ? process.getuid() : -1, workerGroups: [],
       discoveryRoots: [], mutableStateRoot: join(directory, "state") },
     frameworkFiles: frameworkFiles(),
     ...overrides,
@@ -112,24 +114,20 @@ describe("the managed attempt a seat launches from", () => {
     controlStateDir = join(directory, "control");
     mailboxRoot = join(controlStateDir, "mailboxes");
     frameworkRoot = join(directory, "framework");
-    // The pinned toolchain the native policy is built against; only its shape is read.
     toolchainDir = join(directory, "toolchain");
-    // The control's own directories, then the roots it provisions for the worker.
+    // The daemon's own directories and the roots it creates for its worker.
     for (const path of [join(assignmentRoot, "ma-worker1"), frameworkRoot, controlStateDir,
       mailboxRoot, join(directory, "state"), toolchainDir]) mkdirSync(path, { recursive: true, mode: 0o700 });
-    // The context root is root-owned 0755 on a provisioned host, not control 0700.
+    // The context root is shared rather than control-private, as the worker reads it.
     mkdirSync(contextRoot, { recursive: true, mode: 0o755 });
     chmodSync(contextRoot, 0o755);
-    // The worker's own group on a provisioned host is the group of `<context_root>/<worker>`,
-    // which `provision-host.sh` installs setgid, so a directory created beneath it inherits
-    // that group rather than the daemon's. The anchor's group is read back rather than
-    // assumed, so the fixture cannot silently make the two ownership rules agree.
+    // `<context_root>/<worker>` is setgid, so a directory created beneath it inherits that
+    // group. The anchor's group is read back rather than assumed.
     const anchors = [join(contextRoot, "ma-worker1"), join(mailboxRoot, "ma-worker1")];
     for (const anchor of anchors) mkdirSync(anchor, { recursive: true });
     chmodSync(join(contextRoot, "ma-worker1"), 0o2750);
     chmodSync(join(mailboxRoot, "ma-worker1"), 0o700);
-    // The pinned framework tree is control-owned and worker-readable through the worker
-    // group, exactly as provisioning installs it.
+    // The pinned framework tree is control-owned and worker-readable through its group.
     chmodSync(frameworkRoot, 0o2750);
     // The pinned framework bytes, written once per test so a resumed attempt is compared
     // against exactly what it recorded.
@@ -144,9 +142,7 @@ describe("the managed attempt a seat launches from", () => {
       planRef: "plan.md", planDigest: hashBytes("approved plan\n"),
       repository: { root: repo, identity: "git:" + "a".repeat(40) },
       readPaths: ["src"], writePaths: ["src"], roles: ["lead", "implementer", "reviewer"],
-      // Revision 5 is what a provisioned host ships and the launcher refuses anything below
-      // it, so exercising any other revision would test a configuration production cannot
-      // have. It also means the projection must carry the pinned native policy.
+      // Revision 5 is what the producer states for the roots in force.
       policyRevision: 5, policyFingerprint: hashBytes("policy"),
       limits: { maxSessions: 3, maxActiveMs: 600_000, maxRetries: 1, maxReviewRounds: 2 },
     };
@@ -185,11 +181,9 @@ describe("the managed attempt a seat launches from", () => {
     expect(kinds).toContain("charter");
     expect(produced.attempt.context.instructionVersions.core).not.toBe("");
     expect(produced.attempt.context.instructionVersions.charter).not.toBe("");
-    // The root carries the worker's group, which is what a setgid anchor produces; a
-    // control-gid check here would throw on a real host. It is sealed to 0550 once its
-    // entries exist, because the manifest refuses a root its owner could still write to.
-    expect(lstatSync(root).gid).toBe(workerGid);
-    expect(lstatSync(root).mode & 0o7777).toBe(0o550);
+    // The root is sealed to 0550 once its entries exist, because the manifest refuses a
+    // root its owner could still write to.
+    if (typeof process.getuid === "function") expect(lstatSync(root).mode & 0o7777).toBe(0o550);
     await runtime.retireManagedAttempt("attempt-1");
   }, 30_000);
 
@@ -207,7 +201,7 @@ describe("the managed attempt a seat launches from", () => {
     chmodSync(root, 0o550);
     const restarted = new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue,
       candidateRoot: (runId, taskId, worker) => candidateDir(worker, runId, taskId),
-      assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1",
+      assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1", sameIdentity: true,
       managedAttemptRoots: () => ({ contextRoot, mailboxRoot, controlStateDir,
         policyRevision: binding.policyRevision, workerIdentities: ["ma-worker1", "ma-worker2"],
         frameworkRoot, frameworkRevision: FRAMEWORK_PIN.revision, toolchainDir }) });
@@ -215,7 +209,9 @@ describe("the managed attempt a seat launches from", () => {
       .rejects.toThrow(/role charter|core instructions/);
   }, 30_000);
 
-  it("listens on a private endpoint and writes the bootstrap the launcher binds", async () => {
+  // A POSIX mailbox is an AF_UNIX socket; Windows binds a named pipe, which these cases
+  // do not exercise.
+  it.skipIf(typeof process.getuid !== "function")("listens on a private endpoint and writes the bootstrap the launcher binds", async () => {
     const produced = await runtime.produceManagedAttempt("run-1", produceInput());
     const socket = join(mailboxDir("attempt-1"), "mailbox.sock");
     const bootstrap = join(mailboxDir("attempt-1"), "bootstrap.json");
@@ -233,7 +229,7 @@ describe("the managed attempt a seat launches from", () => {
     expect(existsSync(bootstrap)).toBe(false);
   }, 30_000);
 
-  it("admits an actual request on the produced endpoint rather than only existing", async () => {
+  it.skipIf(typeof process.getuid !== "function")("admits an actual request on the produced endpoint rather than only existing", async () => {
     // "Listening" has to mean admission, not a socket file. The request carries the
     // bootstrap's own authorization, so this fails if that value is not a credential
     // the endpoint accepts — which is exactly the defect a socket-existence check hides.
@@ -303,7 +299,7 @@ describe("the managed attempt a seat launches from", () => {
     // A second runtime over the same database is the state a restarted daemon has.
     runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue,
       candidateRoot: (runId, taskId, worker) => candidateDir(worker, runId, taskId),
-      assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1",
+      assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1", sameIdentity: true,
       managedAttemptRoots: () => ({ contextRoot, mailboxRoot, controlStateDir,
         policyRevision: binding.policyRevision, workerIdentities: ["ma-worker1", "ma-worker2"],
         frameworkRoot, frameworkRevision: FRAMEWORK_PIN.revision, toolchainDir }) });
@@ -332,7 +328,7 @@ describe("the managed attempt a seat launches from", () => {
       await runtime.retireManagedAttempt("attempt-1");
       runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue,
         candidateRoot: (runId, taskId, worker) => candidateDir(worker, runId, taskId),
-        assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1",
+        assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1", sameIdentity: true,
         managedAttemptRoots: () => ({ contextRoot, mailboxRoot, controlStateDir,
           policyRevision: binding.policyRevision, workerIdentities: ["ma-worker1", "ma-worker2"],
           frameworkRoot, frameworkRevision: FRAMEWORK_PIN.revision, toolchainDir }) });
@@ -401,25 +397,23 @@ describe("the managed attempt a seat launches from", () => {
     expect(runtime.managedAttemptFor("attempt-1")).toBeUndefined();
   }, 30_000);
 
-  it("refuses a mailbox root that is not beneath the control state directory", async () => {
+  it.skipIf(typeof process.getuid !== "function")("refuses a mailbox root that is not beneath the control state directory", async () => {
     runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue,
       candidateRoot: (runId, taskId, worker) => candidateDir(worker, runId, taskId),
-      assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1",
+      assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1", sameIdentity: true,
       managedAttemptRoots: () => ({ contextRoot, mailboxRoot: join(directory, "elsewhere-mailboxes"), controlStateDir,
         policyRevision: binding.policyRevision, workerIdentities: ["ma-worker1", "ma-worker2"],
         frameworkRoot, frameworkRevision: FRAMEWORK_PIN.revision, toolchainDir }) });
-    // Assert the reason, not just that something threw: without toolchainDir this case
-    // would pass on the native-policy builder's own argument error instead.
+    // Assert the reason, not just that something threw.
     await expect(runtime.produceManagedAttempt("run-1", produceInput()))
       .rejects.toThrow(/mailbox root is not beneath the control state directory/);
     expect(existsSync(join(directory, "elsewhere-mailboxes"))).toBe(false);
   }, 30_000);
 
-  it("seals the whole projection, not just its root, because the launcher re-checks every directory", async () => {
-    // The launcher refuses any directory below the worker root that its owner can still
-    // write, so sealing only the attempt root leaves `framework/` and `native/` writable
-    // and the launch is refused as an unverified context source. This is asserted on
-    // every directory in the tree, not just the root.
+  it.skipIf(typeof process.getuid !== "function")("seals the whole projection, not just its root, because the manifest refuses a writable directory", async () => {
+    // Sealing only the attempt root would leave `framework/` writable, and the manifest
+    // refuses a projection any of whose directories its owner can still write. This is
+    // asserted on every directory in the tree, not just the root.
     const produced = await runtime.produceManagedAttempt("run-1", produceInput());
     const root = produced.attempt.context.root;
     const writable: string[] = [];
@@ -431,9 +425,8 @@ describe("the managed attempt a seat launches from", () => {
     };
     walk(root);
     expect(writable).toEqual([]);
-    // The subdirectories exist, so this is not vacuous.
+    // The subdirectory exists, so this is not vacuous.
     expect(existsSync(join(root, "framework"))).toBe(true);
-    expect(existsSync(join(root, "native"))).toBe(true);
     await runtime.retireManagedAttempt("attempt-1");
   }, 30_000);
 
@@ -445,7 +438,7 @@ describe("the managed attempt a seat launches from", () => {
     await runtime.retireManagedAttempt("attempt-1");
     const restarted = new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue,
       candidateRoot: (runId, taskId, worker) => candidateDir(worker, runId, taskId),
-      assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1",
+      assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1", sameIdentity: true,
       managedAttemptRoots: () => ({ contextRoot, mailboxRoot, controlStateDir,
         policyRevision: binding.policyRevision, workerIdentities: ["ma-worker1", "ma-worker2"],
         frameworkRoot, frameworkRevision: FRAMEWORK_PIN.revision, toolchainDir }) });

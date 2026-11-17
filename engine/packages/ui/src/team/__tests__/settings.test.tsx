@@ -35,7 +35,7 @@ async function show(locale: "en" | "zh-CN" = "en", gated = false, teamId?: strin
   const language = await createInterfaceI18n({ language: locale });
   const settings = <SettingsScreen language={language} onLanguage={onLanguage}
       appearance={{ preference: "dark", theme: "dark", setPreference }}
-      isolation="none" address="http://127.0.0.1:7433" seats={seats} teamId={teamId} />;
+      address="http://127.0.0.1:7433" seats={seats} teamId={teamId} />;
   return render(<QueryClientProvider client={cache}><I18nextProvider i18n={language.instance}>
     {gated ? <GithubGate frame={content => content}>{settings}</GithubGate> : settings}
   </I18nextProvider></QueryClientProvider>);

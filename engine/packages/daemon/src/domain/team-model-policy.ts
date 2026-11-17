@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import { object, text, TeamContractError, type TeamAttempt } from "../contracts/team-control.js";
-import type { WorkerLaunchInput } from "../adapters/worker-launch.js";
+import type { WorkerLaunchInput } from "../adapters/worker-launcher.js";
 import type { TeamClient } from "./team-setup.js";
 import { SessionRegistry } from "./session-registry.js";
 

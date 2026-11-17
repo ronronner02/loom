@@ -26,7 +26,7 @@ These rules apply to every agent working in this repository. The owner reset the
   - agents run as direct child processes, with no tmux and no WSL;
   - the Multi-Agent legacy and the TUI are deleted, and the product is renamed Multi-Agent;
   - a thin `multi-agent` CLI remains.
-- **Deferred:** hardened isolation, macOS support, release publication and code signing. T038 is cancelled with the WSL path.
+- **Deferred:** macOS support, release publication and code signing.
 - A unit is done when its focused tests, typecheck and smoke pass, and its Windows verification ran wherever the unit calls for one. Don't harden, generalize or polish a unit while the next one doesn't yet work end to end.
 
 ### Environment
@@ -73,7 +73,7 @@ Stop and report instead of looping when:
 
 ### Review
 - The orchestrating session reviews every PR: it reads the diff, runs the slice's demo and checks smoke CI. Implementers do not dispatch their own reviewers.
-- A change to credential handling, `engine/packages/daemon/src/domain/team-workspace.ts` (the reader of worker-written files) or the hardened isolation path also gets one independent, report-only reviewer. It runs one round, plus one confirmation of any P0/P1 fix. Give every reviewer `engine/config/team/roles/reviewer.md` and `engine/config/team/core.md`; `docs/operations.md` "Reaching reviewers" says how to call one.
+- A change to credential handling or `engine/packages/daemon/src/domain/team-workspace.ts` (the reader of worker-written files) also gets one independent, report-only reviewer. It runs one round, plus one confirmation of any P0/P1 fix. Give every reviewer `engine/config/team/roles/reviewer.md` and `engine/config/team/core.md`; `docs/operations.md` "Reaching reviewers" says how to call one.
 - A finding that only asks for more hardening, with no reachable scenario in current code, is recorded as a P3 residual and not implemented.
 
 ### Done and delivery
