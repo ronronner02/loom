@@ -19,8 +19,10 @@ export function useAttemptStatus(runId: string, attempt: Pick<TeamAttemptView, "
   const [now, setNow] = useState(Date.now);
   const deadline = attempt ? (facts?.startedAt ?? Date.parse(attempt.createdAt)) + WORKER_TURN_START_WINDOW_MS : 0;
   useEffect(() => {
-    setNow(Date.now());
+    // Only a running attempt with no earlier fact depends on the deadline; any other transition
+    // gets a render from the state it already has, so the clock is set where it is used.
     if (!attempt || attempt.state !== "running" || facts?.acknowledged || facts?.providerEvent || providerEvent || !Number.isFinite(deadline)) return;
+    setNow(Date.now());
     const timer = setTimeout(() => setNow(Date.now()), Math.max(0, deadline - Date.now()));
     return () => clearTimeout(timer);
   }, [attempt?.attemptId, attempt?.state, deadline, facts?.acknowledged, facts?.providerEvent, providerEvent]);

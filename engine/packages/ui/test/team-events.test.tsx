@@ -277,6 +277,38 @@ describe("shared owner event stream", () => {
     const calls = fetcher.mock.calls.filter(([path]) => path.endsWith("/events/stream"));
     expect(new Headers(calls[1]![1]?.headers).get("Last-Event-ID")).toBe("1");
   });
+  it("reports a deterministic replay failure instead of retrying silently", async () => {
+    vi.useFakeTimers();
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ protocolVersion: "2.0", events: [] })));
+    vi.stubGlobal("fetch", fetcher);
+    const view = renderHook(() => useTeamEvents(RUN_ID, read()), { wrapper }); await flush();
+    expect(view.result.current.data?.lastError).toMatchObject({ message: "Invalid team replay", retryable: false });
+    expect(view.result.current.data?.connection).toBe("reconnecting");
+  });
+  it("reports a failed stream handshake as retryable", async () => {
+    vi.useFakeTimers();
+    const fetcher = vi.fn(async (path: string) => path.includes("/replay?")
+      ? new Response(JSON.stringify({ protocolVersion: "1.0", runId: RUN_ID, events: [], window: { retainedFrom: 1, latestSeq: 1 }, gap: false }))
+      : new Response(JSON.stringify({ code: "unavailable" }), { status: 503 }));
+    vi.stubGlobal("fetch", fetcher);
+    const view = renderHook(() => useTeamEvents(RUN_ID, read()), { wrapper }); await flush();
+    expect(view.result.current.data?.lastError).toMatchObject({ message: "unavailable", retryable: true });
+  });
+  it("clears the visible failure once a frame arrives", async () => {
+    vi.useFakeTimers();
+    const first = channel(), second = channel();
+    let calls = 0;
+    const fetcher = vi.fn(async (path: string) => path.includes("/replay?")
+      ? new Response(JSON.stringify({ protocolVersion: "1.0", runId: RUN_ID, events: [], window: { retainedFrom: 1, latestSeq: 1 }, gap: false }))
+      : ++calls === 1 ? new Response(JSON.stringify({ code: "unavailable" }), { status: 503 }) : second.response());
+    vi.stubGlobal("fetch", fetcher);
+    const view = renderHook(() => useTeamEvents(RUN_ID, read()), { wrapper }); await flush();
+    expect(view.result.current.data?.lastError).toBeTruthy();
+    await flush(500);
+    second.send(wire(event(2))); await flush();
+    expect(view.result.current.data?.lastError).toBeNull();
+    first.close();
+  });
   it("caps reconnect delay and cancels the pending retry on abort", async () => {
     vi.useFakeTimers();
     let current = state();
