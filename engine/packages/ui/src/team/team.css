@@ -32,6 +32,19 @@
   --ui-ai-bubble: #f2efe9;
   --ui-overlay: rgb(28 27 26 / .28);
   --ui-shadow: rgb(28 27 26 / .08);
+  /* Flow canvas colors. A 2D canvas cannot read `var(...)` when no computed style exists, so the
+   * renderer reads these and falls back to its own FALLBACK_COLORS table. */
+  --flow-paper: #f5efe6;
+  --flow-paper-edge: #d6cbbd;
+  --flow-keycap: #e4dacb;
+  --flow-paw: #fae7d4;
+  --flow-paw-edge: #d9bca0;
+  --flow-letter: #fffdf7;
+  --flow-desk: #111827;
+  --flow-spark: #fbbf24;
+  --flow-sheen: #ffffff;
+  --flow-glow: #0064d4;
+  --flow-shadow: rgba(17, 17, 18, .14);
 }
 
 .team-shell[data-ui-theme="dark"] {
@@ -65,6 +78,18 @@
   --ui-ai-bubble: #242320;
   --ui-overlay: rgb(0 0 0 / .55);
   --ui-shadow: rgb(0 0 0 / .32);
+  /* The dark canvas keeps the same warm paper family, one step darker and less glowing. */
+  --flow-paper: #2e2823;
+  --flow-paper-edge: #4a413a;
+  --flow-keycap: #3a332c;
+  --flow-paw: #40362e;
+  --flow-paw-edge: #5b4d42;
+  --flow-letter: #363028;
+  --flow-desk: #0a0b0d;
+  --flow-spark: #d9a743;
+  --flow-sheen: #f2f0eb;
+  --flow-glow: #d9734a;
+  --flow-shadow: rgba(0, 0, 0, .38);
 }
 
 .team-shell {
@@ -142,9 +167,7 @@ body:has(.team-shell) > #root { height: 100%; }
 .team-shell .btn[disabled]:active { transform: none; }
 
 .team-shell .mono { font-family: var(--font-mono); font-size: 12px; }
-.team-shell .nw { white-space: nowrap; }
 .team-shell .muted { color: var(--muted); }
-.team-shell .faint { color: var(--faint); }
 
 /* --- chat --------------------------------------------------------------- */
 .team-shell .chat { display: flex; flex-direction: column; height: 100%; min-height: 0; }
@@ -184,10 +207,6 @@ body:has(.team-shell) > #root { height: 100%; }
 .team-shell .plate-waiting { border-color: var(--ui-warn-border); }
 .team-shell .plate-title { font-family: var(--font-display); font-size: 18px; line-height: 1.4; font-weight: 600; color: var(--ink); margin: 0; }
 .team-shell .plate-meta { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.team-shell .plate-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
-.team-shell .plate-list li { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: baseline; font-size: 14px; color: var(--ink-2); }
-.team-shell .plate-list .n { font-family: var(--font-mono); font-size: 12px; color: var(--faint); }
-.team-shell .plate-list .st { font-size: 12px; color: var(--faint); }
 .team-shell .plate-foot { display: flex; align-items: center; gap: var(--sp-2); }
 .team-shell .plate-foot .btn-primary { min-height: 38px; }
 /* a plate that has been decided keeps its place in the record and shows the outcome instead of the action */
@@ -264,7 +283,6 @@ body:has(.team-shell) > #root { height: 100%; }
 }
 .team-shell .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-5); border-bottom: 1px solid var(--line-soft); }
 .team-shell .sheet-body { flex: 1 1 auto; overflow-y: auto; padding: var(--sp-5); display: grid; gap: var(--sp-5); align-content: start; }
-.team-shell .sheet-foot { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--line-soft); }
 .team-shell .field { display: grid; gap: 6px; }
 .team-shell .field > label { font-size: 12px; color: var(--muted); }
 .team-shell .input {
@@ -295,6 +313,17 @@ body:has(.team-shell) > #root { height: 100%; }
 .team-shell .cl[data-kind="add"] .mark, .team-shell .cl[data-kind="add"] .src { color: var(--add-ink); }
 .team-shell .cl[data-kind="remove"] { background: var(--remove-bg); }
 .team-shell .cl[data-kind="remove"] .mark, .team-shell .cl[data-kind="remove"] .src { color: var(--remove-ink); }
+/* --- typography helpers the shell uses instead of inline style props ------------ */
+.team-shell .ui-alert-inline { color: var(--ui-error); font-size: 13px; }
+.team-shell .ui-count-line { margin: 0; font-size: 13px; }
+.team-shell .ui-context-status { margin-top: 2px; font-size: 12px; color: var(--ui-muted); }
+.team-shell .ui-turn-body { white-space: pre-line; overflow-wrap: anywhere; }
+.team-shell .ui-pre-line { white-space: pre-line; }
+.team-shell .ui-plan-pre {
+  margin: 0; max-height: 260px; overflow: auto;
+  white-space: pre-wrap; overflow-wrap: anywhere; font: inherit;
+}
+
 /* --- motion ------------------------------------------------------------- */
 @keyframes plate-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes sheet-in { from { transform: translateX(16px); opacity: .6; } to { transform: none; opacity: 1; } }
@@ -306,11 +335,7 @@ body:has(.team-shell) > #root { height: 100%; }
 
 @media (max-width: 767px) {
   .team-shell body { font-size: 15px; }
-  .team-shell .topbar { padding: 0 var(--sp-4); gap: var(--sp-2); }
-  .team-shell .topbar-right { gap: 0; }
   .team-shell .lang button { padding: 13px 8px; }
-  .team-shell .more { width: 44px; height: 44px; }
-  .team-shell .run-name { font-size: 14px; }
 
   .team-shell .turn-body { max-width: none; line-height: 1.7; }
   .team-shell .chat-log { gap: 16px; padding-top: 12px; }
@@ -364,11 +389,6 @@ body:has(.team-shell) > #root { height: 100%; }
 }
 .team-shell .ui-brand { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; font-weight: 600; }
 .team-shell .ui-brand-icon { width: 34px; height: 34px; border-radius: var(--r-sm); display: block; object-fit: cover; }
-.team-shell .ui-monogram {
-  display: grid; place-items: center; width: 32px; height: 32px;
-  border: 1px solid var(--ui-divider); border-radius: var(--r-sm);
-  background: var(--ui-surface); color: var(--ui-accent); font-weight: 700; font-size: 14px;
-}
 .team-shell .ui-rail-search {
   display: grid; place-items: center; width: 44px; height: 36px;
   border-radius: var(--r-sm); color: var(--ui-muted);
@@ -420,14 +440,6 @@ body:has(.team-shell) > #root { height: 100%; }
   display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
   background: var(--ui-accent-soft); border: 1px solid var(--ui-divider); overflow: hidden; flex-shrink: 0;
 }
-.team-shell .ui-search {
-  display: flex; align-items: center; gap: 8px; margin-left: auto;
-  width: min(260px, 32vw); padding: 0 10px; height: 34px;
-  border: 1px solid var(--ui-divider); border-radius: var(--r-pill); background: var(--ui-surface);
-}
-.team-shell .ui-search svg { width: 15px; height: 15px; color: var(--ui-muted); flex-shrink: 0; }
-.team-shell .ui-search:focus-within { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
-.team-shell .ui-search kbd { color: var(--ui-muted); font: 11px/1 var(--ui-sans); white-space: nowrap; border: 1px solid var(--ui-divider); border-radius: 4px; padding: 2px 5px; }
 .team-shell .ui-top-meta { display: flex; flex-shrink: 0; align-items: center; gap: var(--sp-2); color: var(--ui-muted); font-size: 13px; margin-left: auto; }
 .team-shell .ui-status { display: flex; align-items: center; gap: 6px; }
 .team-shell .ui-bell { position: relative; display: grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; padding: 6px; border-radius: var(--r-pill); background: var(--ui-surface); border: 1px solid var(--ui-divider); color: var(--ui-muted); }
@@ -577,7 +589,6 @@ body:has(.team-shell) > #root { height: 100%; }
 .team-shell .ui-menu-close { margin-left: auto; }
 @media (max-width: 1199px) {
   .team-shell .ui-run-name, .team-shell .ui-topstrip .ui-status { display: none; }
-  .team-shell .ui-search { flex-basis: 208px; }
   .team-shell .ui-context-panel {
     position: fixed; inset: var(--ui-topstrip) 0 0 auto; z-index: 42;
     box-shadow: -8px 0 24px var(--ui-shadow);
@@ -593,8 +604,6 @@ body:has(.team-shell) > #root { height: 100%; }
   .team-shell .ui-breadcrumb > span:first-child { display: none; }
   .team-shell .ui-breadcrumb > span[aria-hidden] { display: none; }
   .team-shell .ui-runselect { display: none; }
-  .team-shell .ui-search { flex: 0 0 32px; width: 32px; padding: 0; justify-content: center; }
-  .team-shell .ui-search span, .team-shell .ui-search kbd { display: none; }
   .team-shell .ui-chat-main { padding: 0 var(--sp-4); }
   .team-shell .ui-context-panel { width: 100%; border-left: 0; }
   .team-shell .ui-footer { display: none; }
@@ -731,7 +740,6 @@ html[data-desktop="true"] .team-shell .ui-entry-header :is(button, a, input, sel
 .team-shell .ui-project-open strong { font-size: 16px; font-weight: 600; }
 .team-shell .ui-project-run { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 16px 0; text-align: left; border-top: 1px solid var(--ui-divider-soft); overflow-wrap: anywhere; }
 .team-shell .ui-project-card > .btn { justify-self: start; }
-.team-shell .ui-new-project { margin-top: 8px; }
 .team-shell .ui-integration-history li { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 8px 0; }
 .team-shell .ui-integration-history button { text-align: left; color: var(--ui-accent); }
 .team-shell .ui-integration-history code { overflow-wrap: anywhere; }
@@ -1105,7 +1113,6 @@ html[data-desktop="true"] .team-shell .ui-entry-header :is(button, a, input, sel
 .team-shell .ui-chat-panel .ui-text-preview:not([data-expanded="true"]) .ui-text-preview-body { -webkit-line-clamp: 2; }
 .team-shell .ui-panel-heading > div:first-child { max-height: 36dvh; overflow: auto; }
 .team-shell .ui-breadcrumb .ui-runselect { min-width: 0; flex-shrink: 1; }
-.team-shell .ui-topstrip .ui-search { min-width: 32px; }
 .team-shell :is(.ui-history-open strong, .ui-project-open strong, .ui-project-run > span:first-child, .ui-active-list strong, .ui-task-card > strong) {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
 }

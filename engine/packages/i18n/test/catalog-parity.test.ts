@@ -57,11 +57,11 @@ describe("shared catalog contract", () => {
     const catalogs: CatalogFixture = { "zh-CN": { ...CATALOGS["zh-CN"] }, en: { ...CATALOGS.en } };
     delete catalogs["zh-CN"]["status.queue.done"];
     catalogs.en["status.queue.failed"] = "";
-    catalogs.en["task.progress"] = "{{finished}} / {{total}} completed";
+    catalogs.en["records.messageCount"] = "{{finished}} / {{total}} completed";
     Object.assign(catalogs.en, { "unpaired.key": "Only one language" });
     expect(parityIssues(catalogs)).toEqual(expect.arrayContaining([
       "zh-CN:status.queue.done:missing", "en:status.queue.failed:missing",
-      "en:task.progress:interpolation", "zh-CN:unpaired.key:missing",
+      "en:records.messageCount:interpolation", "zh-CN:unpaired.key:missing",
     ]));
   });
 
@@ -69,16 +69,16 @@ describe("shared catalog contract", () => {
     const client = await createInterfaceI18n();
     expect(DEFAULT_LANGUAGE).toBe("zh-CN");
     expect(client.language).toBe("zh-CN");
-    expect(client.t("task.progress", { completed: 2, total: 3 })).toBe("已完成 2 / 3");
+    expect(client.t("records.taskCount", { count: 3 })).toBe("3 个执行任务");
     await client.changeLanguage("en");
     expect(client.language).toBe("en");
-    expect(client.t("task.progress", { completed: 2, total: 3 })).toBe("2 / 3 completed");
+    expect(client.t("records.taskCount", { count: 3 })).toBe("3 execution tasks");
   });
 
   it("treats interpolated text as data without translating or escaping it", async () => {
     const client = await createInterfaceI18n({ language: "en" });
     const actor = "$t(language.en) <b>A&B</b> {{total}} 中文";
-    expect(client.t("approval.requestedBy", { actor })).toBe(`Requested by ${actor}`);
+    expect(client.t("projects.createConsequence", { name: actor })).toBe(`Create a private GitHub repository named ${actor} and upload the included files from this folder.`);
     expect(actor).toBe("$t(language.en) <b>A&B</b> {{total}} 中文");
   });
 
@@ -122,9 +122,9 @@ describe("shared catalog contract", () => {
       // @ts-expect-error Unknown messages are not part of the shared catalog.
       client.t("not.a.message");
       // @ts-expect-error Interpolated messages require their declared values.
-      client.t("task.progress");
+      client.t("records.messageCount");
       // @ts-expect-error Parameter names must match both catalogs.
-      client.t("task.progress", { finished: 2, total: 3 });
+      client.t("records.messageCount", { finished: 2, total: 3 });
       // @ts-expect-error Plain messages take no interpolation object.
       client.t("status.queue.done", { count: 1 });
       // @ts-expect-error The underlying binding also uses the shared key type.

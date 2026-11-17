@@ -28,7 +28,7 @@
   overflow: hidden;
   border: 1px solid var(--ui-divider);
   border-radius: var(--ui-radius);
-  background: radial-gradient(circle at 50% 35%, rgba(0, 100, 212, 0.04), transparent 68%), var(--ui-surface);
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--flow-glow) 4%, transparent), transparent 68%), var(--ui-surface);
   box-shadow: none;
 }
 
@@ -84,7 +84,7 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 6px 12px rgba(17, 17, 18, 0.14));
+  filter: drop-shadow(0 6px 12px var(--flow-shadow));
   user-select: none;
 }
 
@@ -267,6 +267,20 @@
 
 .flow-view[data-render-mode="static"] .flow-node-avatar-wrap { transform: none !important; }
 .flow-view[data-render-mode="static"] .flow-static-note { position: static; margin-top: 12px; }
+
+.flow-status {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  color: var(--ui-muted);
+  font-size: 13px;
+}
+
+.flow-status[role="alert"] {
+  color: var(--ui-error);
+}
 
 .flow-selection {
   margin: 0;
