@@ -3,8 +3,10 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TeamOwnerRead } from "@multi-agent/daemon/team-control";
 import { namedSeat, workspaceTabLabel } from "../display.js";
-import { attemptForSeat, SeatHeading, taskForSeat, WorkspaceView } from "./workspace-view.js";
+import { SeatHeading, WorkspaceView } from "./workspace-view.js";
+import { attemptForSeat, taskForSeat } from "./workspace-model.js";
 import { WorkspaceFocus } from "./workspace-focus.js";
+import { TabGroup } from "../tab-group.js";
 
 export function WorkspaceScreen({ read, selectedTaskId }: { read?: TeamOwnerRead; selectedTaskId: string }) {
   const { t } = useTranslation();
@@ -18,10 +20,8 @@ export function WorkspaceScreen({ read, selectedTaskId }: { read?: TeamOwnerRead
   return <main className="ui-screen ui-workspace">
     <header className="ui-page-head">
       <div><h1>{t("nav.workspace")}</h1><div className="ui-subtitle"><TextPreview text={read?.run.displayName ?? t("value.unavailable")} /></div></div>
-      <div className="ui-layout-switch" role="group" aria-label={t("workspace.layout")}>
-        {(["grid", "split", "focus"] as const).map(name => <button key={name} aria-pressed={layout === name} onClick={() => setLayout(name)}>
-          {workspaceTabLabel(name, t)}</button>)}
-      </div>
+      <TabGroup label={t("workspace.layout")} className="ui-layout-switch" value={layout} onChange={setLayout}
+        items={(["grid", "split", "focus"] as const).map(name => ({ id: name, label: workspaceTabLabel(name, t) }))} />
     </header>
     {layout === "grid" ? <WorkspaceView read={read} selected={seat?.seat ?? ""} onSelect={setSelected} />
       : !read || !seat ? <p className="ui-muted">{t("workspace.noTask")}</p>

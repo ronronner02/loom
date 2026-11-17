@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 
 /**
- * U13 — the team's intake policy and the project inbox.
+ * The team's intake policy and the project inbox.
  *
  * The shapes mirror the team-control contract: `revision` 0 means the policy was never saved,
  * the mode defaults to `observe`, and `repository` is null when the project has no GitHub origin.

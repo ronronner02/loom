@@ -5,6 +5,7 @@ import type { ProjectDocumentKind, ProjectDocumentStage, ProjectDocumentWorkflow
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 import { usePendingAction } from "../hooks/usePendingAction.js";
 import { confirmDocument, selectDocumentStage, type ChatState } from "./clients.js";
+import { TabGroup } from "./tab-group.js";
 
 const kinds = ["brainstorm", "requirements", "plan"] as const;
 const stages = ["exploration", "requirements", "plan"] as const;
@@ -106,15 +107,18 @@ export function DocumentsScreen({ read, chat, onDiscuss, onChanged, failed = fal
         </details>}
       </section>
       <div className="ui-document-layout">
-        <aside className="plate ui-document-list" aria-label={t("documents.list")}>{kinds.map(key => {
-          const latest = current(state, key);
-          return <button key={key} className="ui-document-kind" aria-pressed={kind === key}
-            onClick={() => { setKind(key); setVersion(null); setComparison(""); setError(null); }}>
-            <strong>{t(`documents.kind.${key}`)}</strong><span className="muted">{latest
-              ? `v${latest.version} · ${t(state.confirmed[key] === latest.id ? "documents.confirmed" : "documents.draft")}`
-              : t(key === "brainstorm" ? "documents.optional" : "documents.notCreated")}</span>
-          </button>;
-        })}</aside>
+        <aside className="plate ui-document-list" aria-label={t("documents.list")}>
+          <TabGroup<ProjectDocumentKind> label={t("documents.list")} className="ui-document-kinds" value={kind}
+            onChange={next => { setKind(next); setVersion(null); setComparison(""); setError(null); }}
+            items={kinds.map(key => {
+              const latest = current(state, key);
+              return { id: key, label: <>
+                <strong>{t(`documents.kind.${key}`)}</strong><span className="muted">{latest
+                  ? `v${latest.version} · ${t(state.confirmed[key] === latest.id ? "documents.confirmed" : "documents.draft")}`
+                  : t(key === "brainstorm" ? "documents.optional" : "documents.notCreated")}</span>
+              </> };
+            })} />
+        </aside>
         <section className="plate ui-document-reader" aria-label={t(`documents.kind.${kind}`)}>
           {!selected ? <p className="muted">{t(kind === "brainstorm" ? "documents.emptyBrainstorm" : "documents.emptyRequired")}</p> : <>
             <div className="ui-document-toolbar">

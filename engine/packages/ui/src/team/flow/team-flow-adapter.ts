@@ -18,7 +18,7 @@ function entityId(event: TeamReplayEvent): string {
 }
 
 /** Convert the nullable, redacted replay contract into the renderer's stable event shape. */
-export function adaptTeamReplayEvent(event: TeamReplayEvent, fallbackRunId = ""): FlowEvent {
+function adaptTeamReplayEvent(event: TeamReplayEvent, fallbackRunId = ""): FlowEvent {
   return {
     type: event.type,
     eventId: `replay:${event.seq}`,

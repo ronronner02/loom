@@ -45,7 +45,6 @@
   "web.loading": "加载中",
   "web.error": "读取失败",
   "web.notFound": "未找到运行",
-  "web.stale": "快照已过期",
   "web.disconnected": "守护进程连接中断",
   "web.pair": "配对浏览器",
   "web.pairCode": "一次性配对码",

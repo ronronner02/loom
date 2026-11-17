@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { parseProtocolVersion, type TeamOwnerRead, type TeamSystemHealth } from "../../../daemon/dist/contracts/team-control.js";
 import { OwnerReadError, useOwnerSession } from "./useOwnerSession.js";
-import { useTeamEvents } from "./useTeamEvents.js";
 
+/** The selected run's snapshot and the daemon's health, which the shell chrome reads. */
 export function useTeamRun(runId: string) {
   const { paired, request } = useOwnerSession();
   const read = useQuery({
@@ -18,6 +18,5 @@ export function useTeamRun(runId: string) {
     queryKey: ["team", "health"], enabled: paired, retry: false, refetchInterval: 10_000,
     queryFn: async ({ signal }) => (await request<{ health: TeamSystemHealth }>("/health", { signal })).health,
   });
-  const events = useTeamEvents(runId, read.data);
-  return { read, health, events };
+  return { read, health };
 }

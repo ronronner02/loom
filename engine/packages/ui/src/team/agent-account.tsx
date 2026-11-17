@@ -8,7 +8,7 @@ interface AgentStatus { signedIn: boolean; login: string | null; host: string; s
 interface LoginState { state: "idle" | "pending" | "done" | "failed"; code?: string; url?: string }
 const statusKey = ["github", "agent", "status"], loginKey = ["github", "agent", "login"];
 
-/** Plan R16 — the team's own GitHub account, signed in apart from the owner's. */
+/** The team's own GitHub account, signed in apart from the owner's. */
 export function AgentAccount() {
   const { t } = useTranslation(), { paired, request } = useOwnerSession(), cache = useQueryClient();
   const status = useQuery({ queryKey: statusKey, enabled: paired, retry: false,

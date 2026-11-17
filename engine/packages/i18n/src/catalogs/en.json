@@ -45,7 +45,6 @@
   "web.loading": "Loading",
   "web.error": "Read failed",
   "web.notFound": "Run not found",
-  "web.stale": "Stale snapshot",
   "web.disconnected": "Daemon unreachable",
   "web.pair": "Pair browser",
   "web.pairCode": "One-time pairing code",

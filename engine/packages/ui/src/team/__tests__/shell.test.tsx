@@ -27,8 +27,8 @@ async function show(locale: "en" | "zh-CN" = "en") {
     const [contextOpen, setContextOpen] = useState(false);
     const appearance = useThemePreference();
     return <ShellFrame language={language} section={section} appearance={appearance}
-      project="Status board" runName="Add the status filter" coordinator="shell.active"
-      connection="shell.connected" branch="team/add-status-filter" notifications={2} canChat
+      chrome={{ project: "Status board", runName: "Add the status filter", coordinator: "shell.active",
+        connection: "shell.connected", branch: "team/add-status-filter", notifications: 2, canChat: true }}
       contextOpen={contextOpen}
       onToggleContext={() => { onToggleContext(); setContextOpen(open => !open); }}
       onOpenSettings={onOpenSettings}
