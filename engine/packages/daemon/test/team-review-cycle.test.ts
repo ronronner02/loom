@@ -401,7 +401,7 @@ describe("review bound to the exact candidate", () => {
       expect(record.prior).toEqual([{ id: "adv", status: "CLOSED", evidence: "advisory, resolved" }]);
     });
 
-    it.each(["/home/leo/src/multi-agent/src/changed.ts", "src/../src/changed.ts", "src/changed.ts#L42", "src/changed.ts:12:3"])(
+    it.each(["/workspace/src/changed.ts", "src/../src/changed.ts", "src/changed.ts#L42", "src/changed.ts:12:3"])(
       "counts a finding at %s, a path the delta set cannot place", file => {
         issue(candidate("a"));
         review();

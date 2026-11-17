@@ -430,7 +430,11 @@ export class ContextPackLibraryService {
       );
     }
     const abs = join(packEntry.sourcePath, relPath);
-    if (!abs.startsWith(packEntry.sourcePath + "/") && abs !== packEntry.sourcePath) {
+    // Compare in POSIX form: `join` produces backslashes on Windows, which never match the
+    // forward-slash reference the traversal check is written against.
+    const normalized = abs.replaceAll("\\", "/");
+    const packRoot = packEntry.sourcePath.replaceAll("\\", "/");
+    if (!normalized.startsWith(packRoot + "/") && normalized !== packRoot) {
       throw new ContextPackError(
         "file_outside_pack",
         `resolved path '${abs}' falls outside pack '${packEntry.sourcePath}'`,

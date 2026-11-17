@@ -1224,7 +1224,7 @@ describe('offline: sandbox command construction', () => {
   test('never exposes control state, Windows mounts, interop sockets or other workers', () => {
     const { args } = buildSandboxCommand(policy, resolvedFor('implementer'));
     const joined = args.join('\n');
-    for (const forbidden of ['/var/lib/multi-agent/control', '/mnt', '/run/WSL', '/home/leo', '/var/lib/multi-agent/workers/ma-worker2', '/init']) {
+    for (const forbidden of ['/var/lib/multi-agent/control', '/mnt', '/run/WSL', '/home/operator', '/var/lib/multi-agent/workers/ma-worker2', '/init']) {
       assert.ok(!joined.split('\n').some((a) => a === forbidden || a.startsWith(`${forbidden}/`)), `exposes ${forbidden}`);
     }
   });
