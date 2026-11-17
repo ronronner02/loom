@@ -26,6 +26,10 @@ export function resolveVendorForNode(node: Pick<FlowNode, "model">): VendorId | 
 export function resolveAvatarState(nodeState: FlowNodeState, isMessaging = false): AvatarState {
   if (isMessaging) return "messaging";
   switch (nodeState) {
+    // A failed worker must not wear the calm "waiting" pose: the state pill and dot carry the
+    // error, and the character stays neutral rather than contradicting them.
+    case "error":
+      return "master";
     case "working":
     case "started":
     case "acknowledged":
@@ -33,7 +37,6 @@ export function resolveAvatarState(nodeState: FlowNodeState, isMessaging = false
     case "waiting":
     case "ambiguous":
     case "no-response":
-    case "error":
       return "waiting";
     case "complete":
       return "milestone";
