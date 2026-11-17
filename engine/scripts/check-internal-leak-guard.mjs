@@ -3,6 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   buildInternalLeakMessage,
   scanInternalLeaks,
@@ -94,7 +95,10 @@ function selectFiles(options) {
     if (options.filesManifest) {
       return readFilesManifest(options.filesManifest).map((path) => {
         const absolutePath = resolve(options.tree, path);
-        if (absolutePath !== options.tree && !absolutePath.startsWith(`${options.tree}/`)) {
+        // Manifest paths are POSIX; the resolved prefix is native, so normalize before comparing.
+        const normalized = absolutePath.replaceAll("\\", "/");
+        const treeRoot = options.tree.replaceAll("\\", "/");
+        if (normalized !== treeRoot && !normalized.startsWith(`${treeRoot}/`)) {
           throw new Error(`Artifact path escapes scan tree: ${path}`);
         }
         if (!existsSync(absolutePath)) throw new Error(`Artifact file not found under scan tree: ${path}`);
@@ -241,7 +245,9 @@ function splitNul(bytes) {
     .sort();
 }
 
-if (import.meta.url === `file://${resolve(process.argv[1])}`) {
+// pathToFileURL, not string interpolation: `file://${argv[1]}` never matches a Windows path, so
+// the leak scan was skipped on the primary development OS and in every Git Bash release build.
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
     process.exitCode = main();
   } catch (error) {

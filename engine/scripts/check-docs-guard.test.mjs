@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL, fileURLToPath } from "node:url";
 import { buildDocsGuardMessage, findBlockedDocsPaths, listTrackedDocsPaths } from "./check-docs-guard.mjs";
 
 test("findBlockedDocsPaths allows durable docs folders and rejects other docs paths", () => {
@@ -87,11 +90,36 @@ test("the real check-docs-guard.mjs exits 0 against the actual repository", () =
   assert.equal(result.trim(), "");
 });
 
+// The entry guard is not a formality: `import.meta.url` and process.argv[1] only compare equal
+// through pathToFileURL, and a plain `file://${argv[1]}` interpolation made the script exit 0
+// without running on Windows. This proves the CLI actually reaches main() by giving it a tree
+// whose only tracked doc is blocked.
+test("the CLI entry runs the guard when executed directly", () => {
+  const repo = mkdtempSync(join(tmpdir(), "multi-agent-docs-guard-entry-"));
+  try {
+    mkdirSync(join(repo, "docs/plans"), { recursive: true });
+    writeFileSync(join(repo, "docs/plans/example.md"), "fixture\n");
+    execFileSync("git", ["init", "--quiet", repo]);
+    execFileSync("git", ["add", "--", "docs"], { cwd: repo });
+    const script = new URL("./check-docs-guard.mjs", import.meta.url);
+    const result = execFileSync(process.execPath, [fileURLToPath(script)], {
+      cwd: repo, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+    });
+    assert.fail(`the guard exited 0 on a blocked tree: ${result}`);
+  } catch (error) {
+    assert.equal(error.status, 1, error.stderr);
+    assert.match(error.stderr, /docs\/plans\/example\.md/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+// The unusual-filename reader is a POSIX contract: a Windows file name cannot carry `\n` or a
+// tab at all, so the fixture is skipped there rather than narrowed into a weaker assertion.
+const windowsFilenameLimits = process.platform === "win32" ? "POSIX file names only" : false;
+
 // Git quotes non-ASCII, tabs and newlines in its default line-based output.
-test("the real tracked-path reader preserves unusual documentation filenames", async () => {
-  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import("node:fs");
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
+test("the real tracked-path reader preserves unusual documentation filenames", { skip: windowsFilenameLimits }, () => {
   const repo = mkdtempSync(join(tmpdir(), "multi-agent-docs-guard-"));
   try {
     const paths = ["docs/notes\nextra.md", "docs/équipe.md", "docs/reference/topic\tname.md"];
