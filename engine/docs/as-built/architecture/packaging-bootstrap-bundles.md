@@ -33,8 +33,7 @@ claim.
 
 The same script:
 
-- Generates shipped context packs through `scripts/generate-context-packs.mjs`.
-- Copies daemon output, assets, specs, context packs, policies and `docs/reference/`.
+- Copies daemon output, assets, specs, policies and `docs/reference/`.
 - Checks the specs staging input with `scripts/check-internal-leak-guard.mjs` and writes
   the staged substance-root inventory into the package.
 - Copies the web UI and TUI outputs.
@@ -66,7 +65,7 @@ skills can instead produce warnings, which are also written into the provenance 
 Inspect the builder's collection helpers when changing these distinctions.
 
 Both route branches can consume a source-root `bundle.yaml` to carry declared skills,
-plugins, workflow specs, context packs, agent images and preconditions into staging before
+plugins, workflow specs, agent images and preconditions into staging before
 computing integrity. Manifest types, validation and serialization are in
 `packages/daemon/src/domain/bundle-types.ts`. Provenance and compatibility are metadata;
 provenance is not an author signature.

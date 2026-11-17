@@ -44,7 +44,7 @@ For each release:
    ```json
    {
      "surfaces": [{
-       "path": "packages/daemon/context-packs-src/example/guide.md",
+       "path": "packages/daemon/assets/guidance/example.md",
        "sha256": "<sha256 of the reviewed bytes>",
        "verdict": "ship",
        "reason": "Generic product guidance.",

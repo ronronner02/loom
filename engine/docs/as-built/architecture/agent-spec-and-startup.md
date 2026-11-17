@@ -95,8 +95,7 @@ The spec parse/validate/resolve pipeline (`agent-manifest.ts`,
 `startup-validation.ts`, `projection-planner.ts`) was imported by nothing the
 daemon evaluates and has been removed with `startup.ts`'s stale imports. The
 spec YAML under `packages/daemon/specs` is still shipped and is still read by
-the packaging scripts (`generate-context-packs.mjs`,
-`check-first-run-references.mjs`); nothing in the daemon parses it at run
+`check-first-run-references.mjs`; nothing in the daemon parses it at run
 time.
 
 ## 4. Startup orchestration (the spec-startup contract)

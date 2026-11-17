@@ -69,7 +69,6 @@ test("build-package emits the substance roots from the staging branches that act
   assert.match(buildScript, /SUBSTANCE_SURFACE_ROOTS=\(\)/);
   assert.match(buildScript, /cp -r "\$DAEMON_DIR\/assets"[\s\S]*SUBSTANCE_SURFACE_ROOTS\+=\("daemon\/assets"\)/);
   assert.match(buildScript, /cp -r "\$DAEMON_DIR\/specs"[\s\S]*SUBSTANCE_SURFACE_ROOTS\+=\("daemon\/specs"\)/);
-  assert.match(buildScript, /cp -r "\$DAEMON_DIR\/context-packs"[\s\S]*SUBSTANCE_SURFACE_ROOTS\+=\("daemon\/context-packs"\)/);
   assert.match(buildScript, /substance-surfaces\.json/);
 });
 

@@ -23,22 +23,13 @@ launch sessions; the whole layer is not a read-only catalog.
 
 ## Context packs
 
-The daemon serves no context-pack surface. `startup.ts` neither configures pack roots nor
-mounts `contextPacksRoutes()`, the library service, the bundle assembler and the situation
-profile composer are gone, and the thin CLI has no `context` command. What remains in
-`packages/daemon/src/domain/context-packs/` is the manifest parser and the read-only pieces
-it needs: `manifest-parser.ts` (manifest shape, atom metadata, named profiles, supported
-file suffixes and their ref-safety rules), `context-pack-types.ts`, `ref-safety.ts`,
-`profile-source-resolver.ts`, `profile-composer.ts` and `seat-recap-store.ts`.
-
-Those remaining modules are reached only by the packaging script, not by the running
-daemon. `engine/scripts/generate-context-packs.mjs` imports the compiled
-`manifest-parser.ts` from `dist` to validate the packs it generates under
-`packages/daemon/context-packs-src/`; it does not use the composer, the resolver or the
-recap store, which stay only because the parser's tests and the profile tests use them.
-
-The shipped pack data remains: `context-packs-src/` holds the authored packs and the build
-script mirrors `specs/agents` skills into pack form. No daemon code reads those packs.
+The context-pack feature is gone. The daemon mounts no `contextPacksRoutes()`, `startup.ts`
+configures no pack roots, the CLI has no `context` command, and the library service, bundle
+assembler, situation profile composer, manifest parser and recap store were removed with it.
+`packages/daemon/context-packs-src/`, `scripts/generate-context-packs.mjs` and the gitignored
+`packages/daemon/context-packs/` output are removed too, and `build-package.sh` no longer stages
+a pack root. Shipped skills still ship as skills: `packages/daemon/specs/agents` and the skill
+mirror are unchanged.
 
 ## Agent images and forks
 

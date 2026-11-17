@@ -21,7 +21,7 @@ the right skills and context.
 
 | Directory | Package | What it is | How it ships |
 |---|---|---|---|
-| `packages/daemon` | `@multi-agent/daemon` (private) | The daemon: HTTP routes, domain services, SQLite migrations, runtime adapters, built-in specs, skills, plugins, static context-pack sources | Copied into `@multi-agent/cli` |
+| `packages/daemon` | `@multi-agent/daemon` (private) | The daemon: HTTP routes, domain services, SQLite migrations, runtime adapters, built-in specs, skills, plugins | Copied into `@multi-agent/cli` |
 | `packages/cli` | `@multi-agent/cli` | The `rig` command, the MCP server, daemon start and stop | The only published package |
 | `packages/ui` | `@multi-agent/ui` (private) | The React Web UI, including the team dashboard at `/team` | Built files copied into `@multi-agent/cli` and served by the daemon |
 | `packages/test-system` | none (not an npm workspace) | The stub-agent scenario library, the CI scenario harness, live-model eval cases | Not shipped |
@@ -29,7 +29,7 @@ the right skills and context.
 **What bundles what.** `packages/cli/package.json` publishes `LICENSE`, `dist`, `daemon`, `ui`
 and `scripts`. `scripts/build-package.sh` (the CLI's `prepublishOnly`) builds the daemon, UI and
 CLI, then assembles them inside `packages/cli/`: the daemon's `dist`, `assets`, `specs` and
-`policies`, the generated context packs and a copy of `docs/reference/` go under `daemon/`; the UI
+`policies`, and a copy of `docs/reference/` go under `daemon/`; the UI
 build goes to `ui/dist`. So `docs/reference/` ships to every user; `docs/as-built/` and this file
 do not.
 
@@ -77,7 +77,7 @@ and fails the build on a specifier with no `exports` entry. To share new daemon 
   `queue-repository.ts`, `session-registry.ts`), orchestration (`startup-orchestrator.ts`,
   `node-launcher.ts`, `rigspec-instantiator.ts`), message delivery (`session-transport.ts`,
   `seat-delivery-guard.ts`) and events (`event-bus.ts`). Larger areas have their own
-  subdirectories, such as `gateway/`, `provider/`, `policies/`, `scope/`, `context-packs/` and
+  subdirectories, such as `gateway/`, `provider/`, `policies/`, `scope/` and
   `mission-control/`.
 - **`adapters/`.** The outside world. `tmux.ts` wraps tmux. The six `RuntimeAdapter`
   implementations (OMP's extends Pi's) launch each runtime and project skills and files into it. `cmux.ts` and
@@ -207,22 +207,9 @@ and `canonical`, 17 only in `plugin`, and 2 in all three.
 - **To fix a skill:** edit every edge that carries it, run
   `node scripts/regen-edge-digests.mjs`, then run `npm run mirror-skills:check`.
 - **To add a skill:** update the product policy and generated layout together.
-- Every shipped skill also becomes a context pack at package time (next recipe).
-
-### A context pack
-
-- **Static packs** are hand-written: a directory under `packages/daemon/context-packs-src/<name>/`
-  with a `manifest.yaml` and its files. Keep `version: "0"` in the manifest; the generator stamps
-  the package version. A pack file may be a symlink to a file under `docs/reference/`, so a
-  reference document has one source (for example `help/help.md` points to
-  `docs/reference/help.md`). Any other symlink fails the build. There are 5 static packs at this
-  commit.
-- **Generated packs** go to `packages/daemon/context-packs/`, which is gitignored and never edited
-  by hand. `scripts/generate-context-packs.mjs` builds it at package time from every shipped skill
-  and every static pack.
-- `npm run generate-context-packs:check` (part of `npm test`) validates every pack through the
-  daemon's own manifest parser, so build the daemon first. It also runs the leak scan over the
-  static sources, including the `docs/reference/` files they link to.
+- There is no context-pack step. The pack generator, the hand-written pack sources and the
+  daemon's pack library were removed with the `/api/context-packs` surface and the `context`
+  commands; a shipped skill now ships only as a skill.
 - The daemon serves the shipped packs through `multi-agent context get`; `startup.ts` registers the bundled
   directory as its built-in root.
 
@@ -264,7 +251,7 @@ and no model cost.
 ## Guards you will meet
 
 `npm test` runs `test:repo` (builds the daemon, runs `node --test scripts/*.test.mjs`, the docs
-guard, `mirror-skills --check` and `generate-context-packs --check`) and then the daemon and CLI
+guard and `mirror-skills --check`) and then the daemon and CLI
 suites. `npm run test:ui` runs the web UI suite separately. `npm run lint` typechecks all three
 packages.
 
@@ -276,13 +263,13 @@ packages.
   frontmatter.
 - **Internal-leak guard** (`scripts/internal-leak-scanner.mjs`, with rules in
   `scripts/internal-tokens.generated.json`). It refuses maintainer-internal names and paths in
-  content that ships. It runs in `generate-context-packs.mjs` (static pack sources, on every
-  `npm test`), in the full skill mirror apply (each public skill), in `scripts/build-package.sh`
+  content that ships. It runs in the full skill mirror apply (each public skill), in
+  `scripts/build-package.sh`
   (the daemon `specs/` tree before it is copied into the package), and in the release-time
   substance gate (`scripts/check-substance-gate.mjs`, `npm run gate:substance`) over the packed
   CLI. No workflow runs it over a pull request's whole diff.
-- **Generated files.** Do not hand-edit `scripts/*.generated.json` or anything under
-  `packages/daemon/context-packs/`. The skill-edge digests are the one generated file a contributor
+- **Generated files.** Do not hand-edit `scripts/*.generated.json`. The skill-edge digests are
+  the one generated file a contributor
   refreshes, with `node scripts/regen-edge-digests.mjs` (see "A shipped skill").
   The internal-token rules support optional `allowed_context_lines` for reviewed generic
   examples: the complete line must match exactly, including indentation and case. Unlike
