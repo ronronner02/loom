@@ -98,6 +98,15 @@ function buildMenu() {
   ]);
 }
 
+/**
+ * The first-run page's Reconnect action. While a start or stop is in flight this joins it and
+ * returns the projected status, so the page never sees a stale phase.
+ */
+async function reconnectEngine() {
+  await lifecycle.reconnect();
+  return publicState();
+}
+
 if (!app.requestSingleInstanceLock()) {
   // A second launch hands focus to the window that already exists, which owns the one engine.
   app.quit();
@@ -130,15 +139,6 @@ if (!app.requestSingleInstanceLock()) {
 
   // Closing the last window quits the app, which triggers before-quit above.
   app.on('window-all-closed', () => app.quit());
-}
-
-/**
- * The first-run page's Reconnect action. While a start or stop is in flight this joins it and
- * returns the projected status, so the page never sees a stale phase.
- */
-async function reconnectEngine() {
-  await lifecycle.reconnect();
-  return publicState();
 }
 
 // The preload's synchronous token hand-off compares against this module's own page URL.

@@ -12,7 +12,7 @@ const { isAllowedNavigation } = require('./origin.js');
  * @param {object} opts
  * @param {() => object|null} opts.getWindow – this app's window, or null
  * @param {() => string|null} opts.getOrigin – the origin the engine currently owns
- * @param {() => string|null} opts.getCsrfToken – the token the window is mid-handoff on
+ * @param {() => string|null} opts.getCsrfToken – the token the preload is about to read
  * @param {() => Promise<string|null>} opts.pairOwnerSession – mint and exchange a new session
  */
 function createIpcModule({ getWindow, getOrigin, getCsrfToken, pairOwnerSession }) {
