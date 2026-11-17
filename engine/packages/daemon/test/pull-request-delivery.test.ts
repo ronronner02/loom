@@ -75,6 +75,46 @@ describe("pull request delivery", () => {
     expect(readPullRequest(db, "run")!.headSha).not.toBe(record.headSha);
   });
 
+  it("delivers later commits after the owner closed the pull request, instead of stalling the run", async () => {
+    const service = delivery();
+    await service.sweep();
+    const closed = readPullRequest(db, "run")!;
+    // The owner closed the pull request: the poll records that state, and the run stays approved.
+    db.prepare("UPDATE team_pull_requests SET state = 'closed' WHERE run_id = 'run'").run();
+    calls = [];
+    await service.sweep();
+    // No new commit yet, so there is nothing to deliver, and nothing is opened in the meantime.
+    expect(calls).toEqual([]);
+    expect(readPullRequest(db, "run")).toMatchObject({ number: closed.number, state: "closed" });
+    // A follow-up task lands a commit: it is pushed, and the closed pull request is not reused.
+    git(repo, "checkout", "-q", "team/dark-mode"); commit("Follow-up after close"); git(repo, "checkout", "-q", "main");
+    await service.sweep();
+    expect(calls).toEqual(["access owner-login/app", "push team/dark-mode", "find", "create owner-login/app team/dark-mode->main Dark mode"]);
+    const delivered = readPullRequest(db, "run")!;
+    expect(delivered).toMatchObject({ state: "open", number: 7 });
+    expect(delivered.headSha).not.toBe(closed.headSha);
+  });
+
+  it("keeps an existing open pull request for later commits and never opens a second one", async () => {
+    let opened: { number: number; url: string; state: string } | null = null;
+    const tracking: AgentHost = { ...agent,
+      findPullRequest: async () => { calls.push("find"); return opened; },
+      createPullRequest: async (identity, branch, base, title) => {
+        calls.push(`create ${identity} ${branch}->${base} ${title}`);
+        opened = { number: 7, url: `https://github.com/${identity}/pull/7`, state: "open" };
+        return opened;
+      } };
+    const service = composePullRequestDelivery({ db, agent: tracking, owner, log: () => undefined, now: () => new Date(clock),
+      governance: { getRun: () => ({ id: "run", displayName: "Dark mode", phase: "delivery", binding: {} }) } as unknown as PlanGovernance,
+      integration: { status: () => status, merge: () => { throw new Error("local merge not expected"); } } as unknown as Integration });
+    await service.sweep();
+    calls = [];
+    git(repo, "checkout", "-q", "team/dark-mode"); commit("Reviewed follow-up"); git(repo, "checkout", "-q", "main");
+    await service.sweep();
+    expect(calls).toEqual(["access owner-login/app", "push team/dark-mode"]);
+    expect(readPullRequest(db, "run")).toMatchObject({ number: 7, state: "open" });
+  });
+
   it("keeps the local merge when tasks are open, the origin is not GitHub, or the agent is missing or the owner", async () => {
     status = { ...status, tasksDone: false };
     await delivery().sweep();

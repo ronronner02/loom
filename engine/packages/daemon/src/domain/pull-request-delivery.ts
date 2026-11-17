@@ -84,15 +84,24 @@ export function composePullRequestDelivery(deps: PullRequestDeliveryDeps) {
     const identity = githubIdentity(git(status.repository, ["remote", "get-url", "origin"]) ?? "");
     if (!head || !identity) return null;
     const existing = readPullRequest(deps.db, runId);
-    if (existing && existing.state !== "open") return existing;
-    if (existing && existing.headSha === head) return existing;
+    // A merged pull request is the run's delivery; there is nothing left to push. An unchanged
+    // head has nothing to deliver in any state: a closed one waits for the next commit.
+    if (existing && (existing.state === "merged" || existing.headSha === head)) return existing;
     const [agent, owner] = await Promise.all([deps.agent.status(), deps.owner.status()]);
     // The agent never acts as the owner: a missing or same account keeps the local merge.
     if (!agent.signedIn || !agent.login || (owner.signedIn && owner.login === agent.login)) return null;
     const access = await deps.agent.repositoryAccess(identity);
     if (!access.push) throw new Error("github_agent_no_access");
     await deps.agent.pushBranch(status.repository, status.branch);
-    let pull = existing ? { number: existing.number, url: existing.url } : await deps.agent.findPullRequest(identity, status.branch);
+    // Closing a pull request is the owner's decision about that pull request, not about the
+    // run: new commits still get delivered. An open (or reopened) one is updated in place;
+    // a closed one is the delivery the owner ended, so a fresh one is opened below.
+    let pull: { number: number; url: string } | null = existing?.state === "open"
+      ? { number: existing.number, url: existing.url } : null;
+    if (!pull) {
+      const found = await deps.agent.findPullRequest(identity, status.branch);
+      pull = found?.state === "open" ? found : null;
+    }
     if (!pull) {
       const body = ["This is by an automated agent, not a human.", "",
         `Delivers the team run "${run.displayName ?? runId}".`, "",
