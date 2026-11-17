@@ -16,7 +16,7 @@
 
 import type { FlowIntent, FlowMapping, FlowNode, FlowNodeState } from "./flow-events.js";
 
-export const FLOW_BEAM_TIMINGS = {
+const FLOW_BEAM_TIMINGS = {
   packMs: 360,
   travelMs: 720,
   unpackMs: 620,
@@ -33,7 +33,16 @@ export type FlowColorToken =
   | "--ui-error"
   | "--ui-text"
   | "--ui-muted"
-  | "--ui-divider";
+  | "--ui-divider"
+  | "--flow-paper"
+  | "--flow-paper-edge"
+  | "--flow-keycap"
+  | "--flow-paw"
+  | "--flow-paw-edge"
+  | "--flow-letter"
+  | "--flow-desk"
+  | "--flow-spark"
+  | "--flow-sheen";
 
 export interface FlowRendererColors {
   accent: string;
@@ -44,6 +53,15 @@ export interface FlowRendererColors {
   text: string;
   muted: string;
   divider: string;
+  paper: string;
+  paperEdge: string;
+  keycap: string;
+  paw: string;
+  pawEdge: string;
+  letter: string;
+  desk: string;
+  spark: string;
+  sheen: string;
 }
 
 export interface FlowRendererOptions {
@@ -100,28 +118,42 @@ const TOKEN_NAMES: Record<keyof FlowRendererColors, FlowColorToken> = {
   text: "--ui-text",
   muted: "--ui-muted",
   divider: "--ui-divider",
+  paper: "--flow-paper",
+  paperEdge: "--flow-paper-edge",
+  keycap: "--flow-keycap",
+  paw: "--flow-paw",
+  pawEdge: "--flow-paw-edge",
+  letter: "--flow-letter",
+  desk: "--flow-desk",
+  spark: "--flow-spark",
+  sheen: "--flow-sheen",
 };
 
-/** Pattern-only density formula inspired by openspawn PR 155; no openspawn code is copied. */
-export function edgeWidthForCount(count: number): number {
-  return Math.min(1.25 + Math.log(Math.max(0, count) + 1) * 0.8, 5.5);
-}
-
-/** Pattern-only particle tiers inspired by openspawn PR 155. */
-export function particleTierForCount(count: number): 0 | 1 | 2 | 3 {
-  if (count <= 0) return 0;
-  if (count < 5) return 1;
-  if (count < 20) return 2;
-  return 3;
-}
-
-/** Pattern-only heat thresholds inspired by openspawn PR 155. */
-export function heatLevelForActivity(count: number): "idle" | "cool" | "warm" | "hot" {
-  if (count >= 24) return "hot";
-  if (count >= 8) return "warm";
-  if (count > 0) return "cool";
-  return "idle";
-}
+/**
+ * The canvas's last resort. A 2D context cannot resolve `var(--token)` and jsdom reports no
+ * computed style, so a token that did not resolve here uses this table instead. It is the only
+ * place a raw color may appear in the team surface; the design-token test allow-lists exactly
+ * this block and fails on any other literal.
+ */
+const FALLBACK_COLORS: Record<keyof FlowRendererColors, string> = {
+  accent: "#0064d4", // FALLBACK_COLORS
+  accentPress: "#0064d4", // FALLBACK_COLORS
+  ok: "#21955a", // FALLBACK_COLORS
+  warn: "#d97706", // FALLBACK_COLORS
+  error: "#b12d2a", // FALLBACK_COLORS
+  text: "#1c1b1a", // FALLBACK_COLORS
+  muted: "#6b7280", // FALLBACK_COLORS
+  divider: "#e8e2d9", // FALLBACK_COLORS
+  paper: "#f5efe6", // FALLBACK_COLORS
+  paperEdge: "#d6cbbd", // FALLBACK_COLORS
+  keycap: "#e4dacb", // FALLBACK_COLORS
+  paw: "#fae7d4", // FALLBACK_COLORS
+  pawEdge: "#d9bca0", // FALLBACK_COLORS
+  letter: "#fffdf7", // FALLBACK_COLORS
+  desk: "#111827", // FALLBACK_COLORS
+  spark: "#fbbf24", // FALLBACK_COLORS
+  sheen: "#ffffff", // FALLBACK_COLORS
+};
 
 function hashStr(value: string): number {
   let h = 2166136261;
@@ -272,15 +304,15 @@ function resolveColor(value: string, fallback: string): string {
 
 function nodeColor(node: FlowNode, colors: FlowRendererColors): string {
   switch (node.state) {
-    case "error": return resolveColor(colors.error, "#b12d2a");
+    case "error": return resolveColor(colors.error, FALLBACK_COLORS.error);
     case "waiting":
     case "ambiguous":
-    case "no-response": return resolveColor(colors.warn, "#d97706");
-    case "complete": return resolveColor(colors.ok, "#21955a");
+    case "no-response": return resolveColor(colors.warn, FALLBACK_COLORS.warn);
+    case "complete": return resolveColor(colors.ok, FALLBACK_COLORS.ok);
     case "started":
     case "acknowledged":
-    case "working": return resolveColor(colors.accentPress, "#0064d4");
-    default: return node.role === "lead" ? resolveColor(colors.accent, "#0064d4") : resolveColor(colors.muted, "#6b7280");
+    case "working": return resolveColor(colors.accentPress, FALLBACK_COLORS.accentPress);
+    default: return node.role === "lead" ? resolveColor(colors.accent, FALLBACK_COLORS.accent) : resolveColor(colors.muted, FALLBACK_COLORS.muted);
   }
 }
 
@@ -706,10 +738,10 @@ export class FlowRenderer {
 
       const color =
         beam.intent.kind === "review"
-          ? resolveColor(this.colors.warn, "#d97706")
+          ? resolveColor(this.colors.warn, FALLBACK_COLORS.warn)
           : beam.intent.kind === "integration"
-            ? resolveColor(this.colors.ok, "#21955a")
-            : resolveColor(this.colors.accent, "#0064d4");
+            ? resolveColor(this.colors.ok, FALLBACK_COLORS.ok)
+            : resolveColor(this.colors.accent, FALLBACK_COLORS.accent);
 
       if (beam.phase === "pack") {
         this.drawPackEnvelope(ctx, source, target, beam.phaseT, color);
@@ -730,7 +762,7 @@ export class FlowRenderer {
 
     ctx.save();
     ctx.globalAlpha = p.phase === "despawning" ? 0.08 : 0.16;
-    ctx.fillStyle = "#111827";
+    ctx.fillStyle = resolveColor(this.colors.desk, FALLBACK_COLORS.desk);
     if (typeof ctx.ellipse === "function") {
       ctx.beginPath();
       ctx.ellipse(p.pos.x, p.pos.y + 34, isWalking ? 22 : 26, 6.5, 0, 0, Math.PI * 2);
@@ -779,7 +811,7 @@ export class FlowRenderer {
     ctx.setLineDash([4, 5]);
     ctx.beginPath();
     ctx.arc(0, 0, radius * 0.68, 0, Math.PI * 2);
-    ctx.strokeStyle = "#ffffff";
+    ctx.strokeStyle = resolveColor(this.colors.sheen, FALLBACK_COLORS.sheen);
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.restore();
@@ -794,7 +826,7 @@ export class FlowRenderer {
       const sx = pos.x + Math.cos(a) * radius * 0.72;
       const sy = pos.y + 24 - lift;
       ctx.globalAlpha = (1 - lift / 68) * intensity * 0.9;
-      ctx.fillStyle = i % 2 === 0 ? color : "#fbbf24";
+      ctx.fillStyle = i % 2 === 0 ? color : resolveColor(this.colors.spark, FALLBACK_COLORS.spark);
       ctx.beginPath();
       ctx.arc(sx, sy, 2.4, 0, Math.PI * 2);
       ctx.fill();
@@ -818,8 +850,8 @@ export class FlowRenderer {
 
     // Mini glowing desk/keyboard base
     ctx.translate?.(cx, cy);
-    ctx.fillStyle = "#f5efe6";
-    ctx.strokeStyle = "#d6cbbd";
+    ctx.fillStyle = resolveColor(this.colors.paper, FALLBACK_COLORS.paper);
+    ctx.strokeStyle = resolveColor(this.colors.paperEdge, FALLBACK_COLORS.paperEdge);
     ctx.lineWidth = 1.4;
     drawRoundRectPath(ctx, -24, -4, 48, 15, 5);
     ctx.fill();
@@ -829,7 +861,7 @@ export class FlowRenderer {
     for (let k = -3; k <= 3; k++) {
       const isLeftSide = k < 0;
       const depress = isLeftSide ? leftTap * 1.8 : rightTap * 1.8;
-      ctx.fillStyle = (isLeftSide && leftTap > 0.65) || (!isLeftSide && rightTap > 0.65) ? color : "#e4dacb";
+      ctx.fillStyle = (isLeftSide && leftTap > 0.65) || (!isLeftSide && rightTap > 0.65) ? color : resolveColor(this.colors.keycap, FALLBACK_COLORS.keycap);
       drawRoundRectPath(ctx, k * 5.8 - 2, -1 + depress, 4.4, 4.2, 1.2);
       ctx.fill();
     }
@@ -846,8 +878,8 @@ export class FlowRenderer {
     const drawPaw = (px: number, py: number, tap: number) => {
       const y = py + tap * 5.5;
       ctx.save();
-      ctx.fillStyle = "#fae7d4";
-      ctx.strokeStyle = "#d9bca0";
+      ctx.fillStyle = resolveColor(this.colors.paw, FALLBACK_COLORS.paw);
+      ctx.strokeStyle = resolveColor(this.colors.pawEdge, FALLBACK_COLORS.pawEdge);
       ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.arc(px, y, 6.2, 0, Math.PI * 2);
@@ -886,7 +918,7 @@ export class FlowRenderer {
     ctx.scale?.(0.85 + 0.25 * easeOut(t), 0.85 + 0.25 * easeOut(t));
 
     // Envelope body
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = resolveColor(this.colors.sheen, FALLBACK_COLORS.sheen);
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.6;
     ctx.shadowBlur = 10;
@@ -964,7 +996,7 @@ export class FlowRenderer {
 
     // Popping letter card
     const letterLift = openT * 12;
-    ctx.fillStyle = "#fffdf7";
+    ctx.fillStyle = resolveColor(this.colors.letter, FALLBACK_COLORS.letter);
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.2;
     drawRoundRectPath(ctx, -10, -8 - letterLift, 20, 14, 2);
@@ -983,7 +1015,7 @@ export class FlowRenderer {
 
     // Envelope pocket
     ctx.globalAlpha = fadeOut;
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = resolveColor(this.colors.sheen, FALLBACK_COLORS.sheen);
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.6;
     drawRoundRectPath(ctx, -14, -6, 28, 16, 3);
@@ -1002,7 +1034,7 @@ export class FlowRenderer {
     for (let i = 0; i < 4; i++) {
       const a = -Math.PI * 0.85 + (i * Math.PI * 0.55);
       const r = 16 + openT * 18;
-      ctx.fillStyle = i % 2 === 0 ? color : "#fbbf24";
+      ctx.fillStyle = i % 2 === 0 ? color : resolveColor(this.colors.spark, FALLBACK_COLORS.spark);
       ctx.beginPath();
       ctx.arc(Math.cos(a) * r, -10 + Math.sin(a) * r * 0.7, 2.2 * fadeOut, 0, Math.PI * 2);
       ctx.fill();
@@ -1035,7 +1067,7 @@ export class FlowRenderer {
     ctx.lineTo(tailFold.x, tailFold.y);
     ctx.lineTo(rightWing.x, rightWing.y);
     ctx.closePath();
-    ctx.fillStyle = "#FFFFFF";
+    ctx.fillStyle = resolveColor(this.colors.sheen, FALLBACK_COLORS.sheen);
     ctx.fill();
     ctx.strokeStyle = accentColor;
     ctx.lineWidth = 1.6;
@@ -1065,7 +1097,7 @@ export class FlowRenderer {
     ctx.globalAlpha = 0.65 * (1 - eased);
     ctx.beginPath();
     ctx.arc(source.x, source.y, radius, 0, Math.PI * 2);
-    ctx.strokeStyle = resolveColor(this.colors.accent, "#0064d4");
+    ctx.strokeStyle = resolveColor(this.colors.accent, FALLBACK_COLORS.accent);
     ctx.lineWidth = 2.2 * (1 - eased * 0.5);
     ctx.stroke();
     ctx.restore();
@@ -1079,13 +1111,10 @@ export class FlowRenderer {
     ctx.globalAlpha = (1 - t) * Math.min(1, 0.5 + count / 10);
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-    ctx.strokeStyle = resolveColor(this.colors.accentPress, "#0064d4");
+    ctx.strokeStyle = resolveColor(this.colors.accentPress, FALLBACK_COLORS.accentPress);
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.restore();
   }
 }
 
-export function rendererColors(canvas: HTMLCanvasElement | null): FlowRendererColors {
-  return Object.fromEntries(Object.entries(TOKEN_NAMES).map(([key, token]) => [key, readToken(canvas, token)])) as unknown as FlowRendererColors;
-}

@@ -383,5 +383,3 @@ export function mapTeamEvents(events: readonly FlowEvent[], options: FlowMapping
   return { nodes: [...nodes.values()], intents, particles, staticIntents, events: materializedEvents };
 }
 
-export const mapFlowEvents = mapTeamEvents;
-export const FLOW_DEFAULTS = { coalesceWindowMs: DEFAULT_COALESCE_WINDOW_MS, maxParticles: DEFAULT_MAX_PARTICLES } as const;

@@ -88,17 +88,35 @@ describe("command-center design tokens", () => {
     }
   });
 
-  it("keeps raw hex colors in CSS token definitions, never in team components or selector rules", () => {
+  it("keeps raw hex colors in CSS token definitions and the renderer's one documented fallback table", () => {
+    // A canvas cannot resolve `var(--token)` in jsdom or before the shell mounts, so the
+    // renderer owns exactly one last-resort table. Every line of it is marked with this tag;
+    // any other raw color in the team surface is a token violation.
+    const FALLBACK_TAG = "// FALLBACK_COLORS";
     const violations = sourceFiles(team).flatMap(file => readFileSync(file, "utf8").split("\n")
-      .flatMap((line, index) => /#[0-9a-f]{3,8}\b/i.test(line) && !(file.endsWith(".css") && /^\s*--[\w-]+:/.test(line))
+      .flatMap((line, index) => /#[0-9a-f]{3,8}\b/i.test(line)
+        && !(file.endsWith(".css") && /^\s*--[\w-]+:/.test(line))
+        && !line.includes(FALLBACK_TAG)
         ? [`${file.slice(team.length + 1)}:${index + 1}`] : []));
     expect(violations).toEqual([]);
+    const fallback = readFileSync(join(team, "flow", "flow-renderer.ts"), "utf8").split("\n")
+      .filter(line => line.includes(FALLBACK_TAG));
+    expect(fallback).toHaveLength(17);
   });
 
   it("defines the same semantic tokens in both themes", () => {
     const dark = palette("dark");
     expect(dark.length).toBeGreaterThan(20);
     expect(palette("light")).toEqual(dark);
+  });
+
+  it("gives the flow canvas a distinct color in each theme", () => {
+    const values = (theme: string) => new Map([...(css.match(new RegExp(`\\.team-shell\\[data-ui-theme="${theme}"\\]\\s*\\{([^}]+)\\}`))?.[1] ?? "")
+      .matchAll(/(--flow-[\w-]+)\s*:\s*([^;]+);/g)].map(match => [match[1]!, match[2]!.trim()]));
+    const light = values("light"), dark = values("dark");
+    expect(light.size).toBeGreaterThanOrEqual(8);
+    expect([...light.keys()].sort()).toEqual([...dark.keys()].sort());
+    for (const [name, value] of light) expect(dark.get(name), name).not.toBe(value);
   });
 
   it("documents every semantic color token in the shared design document", () => {

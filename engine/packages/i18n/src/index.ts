@@ -36,19 +36,15 @@ export const MESSAGE_PARAMETERS = {
   "records.messageCount": ["count"],
   "records.taskCount": ["count"],
   "records.resultCount": ["count"],
-  "task.progress": ["completed", "total"],
-  "approval.requestedBy": ["actor"],
-  "session.attempt": ["number"],
   // Slice A's progress and board counters. They interpolate in both catalogs, so they belong
   // here; a key that is not declared is one a caller can mistype without the type noticing.
   "overview.verified": ["verified", "total"],
-  "shell.snapshotAge": ["seconds"],
   "shell.notificationsCount": ["count"],
+  "shell.streamError": ["message"],
   "tasks.count": ["count"],
   "tasks.criteriaOf": ["verified", "total"],
   // C2's review-round line: a blocking finding count, so it is declared here like every
   // other key that interpolates.
-  "reviews.blockingFindings": ["count"],
   "reviews.roundLabel": ["round"],
   "reviews.chatContext": ["task"],
   "analytics.partial": ["measured", "total"],
@@ -69,19 +65,12 @@ export const MESSAGE_PARAMETERS = {
   "tasks.followUpOf": ["name"],
   // MVP — the completion panel names the review task a completion created and the task a
   // review reopened, so both carry the task id they name.
-  "completion.reviewCreated": ["taskId"],
-  "completion.reworkOpened": ["taskId"],
   // T017 — a stop the daemon could not observe says how many attempts are still alive.
   "workspace.stopUnresolved": ["count"],
   // U10 — the team surface names and times. A review is named by the task it reviews and its
   // round; the line counts what is left; the merge plate names the branch it moves.
   "team.reviewName": ["of"],
   "team.reviewNameRound": ["round", "of"],
-  "team.line.waitingOn": ["count"],
-  "team.merge.title": ["branch"],
-  "team.merge.ready": ["count"],
-  "team.merge.consequence": ["branch", "commits", "from"],
-  "team.plan.approved": ["time"],
   "team.plan.work": ["count"],
   "team.task.attemptN": ["round"],
   "team.task.roundN": ["round"],
@@ -94,7 +83,6 @@ export const MESSAGE_PARAMETERS = {
   "team.resume.minutes": ["count"],
   "team.resume.retries": ["count"],
   "team.resume.rounds": ["count"],
-  "team.merge.openTasks": ["count"],
   // Plan R17 — a GitHub project's run is merged as its numbered pull request.
   "team.merge.pullRequest": ["number"],
   "team.pullRequest.link": ["number"],
@@ -160,6 +148,13 @@ export const STATUS_LABEL_KEYS = {
   },
 } as const satisfies Record<string, Record<string, MessageKey>>;
 export type StatusDomain = keyof typeof STATUS_LABEL_KEYS;
+
+/** The single lookup over the status table, for callers that already hold a translator. */
+export function statusLabelKey(domain: StatusDomain, code: string): MessageKey | undefined {
+  if (!Object.hasOwn(STATUS_LABEL_KEYS, domain)) return undefined;
+  const labels: Readonly<Record<string, MessageKey>> = STATUS_LABEL_KEYS[domain];
+  return Object.hasOwn(labels, code) ? labels[code] : undefined;
+}
 
 /** U8 — stable keys for daemon blockers and dispatch refusals. */
 export const TEAM_REASON_LABEL_KEYS = {
@@ -239,9 +234,7 @@ export async function createInterfaceI18n(options: {
       return instance.t(key, values[0] ?? {}) as string;
     },
     statusLabel(domain, code) {
-      if (!Object.hasOwn(STATUS_LABEL_KEYS, domain)) return code;
-      const labels: Readonly<Record<string, MessageKey>> = STATUS_LABEL_KEYS[domain];
-      const key = Object.hasOwn(labels, code) ? labels[code] : undefined;
+      const key = statusLabelKey(domain, code);
       return key ? instance.t(key, { defaultValue: code }) as string : code;
     },
     changeLanguage(language) {

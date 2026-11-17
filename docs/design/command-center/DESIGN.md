@@ -38,6 +38,26 @@ Light (`#FAF8F5`) and Dark (`#171615`) share the exact same semantic token vocab
 | `--ui-overlay` | `rgb(0 0 0 / .55)` | `rgb(28 27 26 / .28)` |
 | `--ui-shadow` | `rgb(0 0 0 / .32)` | `rgb(28 27 26 / .08)` |
 
+### Flow canvas tokens
+
+The 2D Flow canvas cannot resolve `var()` when no computed style exists, so it reads these
+tokens through `getComputedStyle` and falls back to one documented table in
+`flow-renderer.ts` (`FALLBACK_COLORS`) when they are unavailable.
+
+| Token | Dark | Light |
+| --- | --- | --- |
+| `--flow-paper` | `#2e2823` | `#f5efe6` |
+| `--flow-paper-edge` | `#4a413a` | `#d6cbbd` |
+| `--flow-keycap` | `#3a332c` | `#e4dacb` |
+| `--flow-paw` | `#40362e` | `#fae7d4` |
+| `--flow-paw-edge` | `#5b4d42` | `#d9bca0` |
+| `--flow-letter` | `#363028` | `#fffdf7` |
+| `--flow-desk` | `#0a0b0d` | `#111827` |
+| `--flow-spark` | `#d9a743` | `#fbbf24` |
+| `--flow-sheen` | `#f2f0eb` | `#ffffff` |
+| `--flow-glow` | `#d9734a` | `#0064d4` |
+| `--flow-shadow` | `rgba(0, 0, 0, .38)` | `rgba(17, 17, 18, .14)` |
+
 The `--paper`, `--surface`, `--ink`, `--line`, `--accent`, attention, error and diff variables used by the retained screens alias the corresponding semantic tokens in `team.css`.
 
 ## Type, spacing and layout
