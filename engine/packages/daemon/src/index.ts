@@ -224,6 +224,11 @@ export async function startServer(port?: number) {
       + "which mints one over its parent channel.");
   }
   const p = port ?? parseInt(process.env.MULTI_AGENT_PORT ?? "7433", 10);
+  // A value that cannot be bound is a configuration error, and it is named here rather than left
+  // to `serve()`'s raw ERR_SOCKET_BAD_PORT. Same rule the CLI applies to `--port`.
+  if (!Number.isInteger(p) || p < 0 || p > 65_535) {
+    throw new Error(`MULTI_AGENT_PORT must be an integer in [0, 65535], got "${process.env.MULTI_AGENT_PORT ?? p}"`);
+  }
   // D15 — anchor the default db under MULTI_AGENT_HOME, never a bare CWD-relative
   // filename (which could open the shared fleet db). Explicit MULTI_AGENT_DB wins.
   const dbPath = resolveDaemonDbPath(process.env.MULTI_AGENT_DB, MULTI_AGENT_HOME);
