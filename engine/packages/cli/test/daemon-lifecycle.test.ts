@@ -10,19 +10,17 @@ import {
   startDaemon,
   stopDaemon,
   getDaemonStatus,
-  readLogs,
-  tailLogs,
   getDaemonPath,
   resolveDaemonPath,
   buildDaemonEnv,
-  daemonNotRunningError,
-  printDaemonNotRunning,
   STATE_FILE,
-  LOG_FILE,
   MULTI_AGENT_DIR,
   type LifecycleDeps,
   type DaemonState,
 } from "../src/daemon-lifecycle.js";
+
+/** The daemon log path is internal to the lifecycle module; the start/stop tests only need the file. */
+const LOG_PATH = path.join(path.dirname(STATE_FILE), "daemon.log");
 
 afterEach(() => vi.useRealTimers());
 
@@ -190,7 +188,7 @@ describe("Daemon Lifecycle", () => {
     const deps = mockDeps({
       fetch: vi.fn().mockRejectedValue(new Error("refused")),
       fileSize: vi.fn(() => 1_000_000),
-      readFile: vi.fn((p: string) => { if (p === LOG_FILE) throw new Error("whole log read"); return null; }),
+      readFile: vi.fn((p: string) => { if (p === LOG_PATH) throw new Error("whole log read"); return null; }),
       readFileFrom: vi.fn(() => "Error: listen EADDRINUSE\n"),
       spawn: vi.fn(() => {
         setTimeout(() => { child.exitCode = 1; child.emit("exit", 1, null); }, 1);
@@ -200,8 +198,8 @@ describe("Daemon Lifecycle", () => {
     const pending = startDaemon({}, deps).catch((error) => error as Error);
     await vi.runAllTimersAsync();
     expect((await pending).message).toContain("EADDRINUSE");
-    expect(deps.fileSize).toHaveBeenCalledWith(LOG_FILE);
-    expect(deps.readFileFrom).toHaveBeenCalledWith(LOG_FILE, 1_000_000);
+    expect(deps.fileSize).toHaveBeenCalledWith(LOG_PATH);
+    expect(deps.readFileFrom).toHaveBeenCalledWith(LOG_PATH, 1_000_000);
   });
 
   it("start: a bind failure after a hanging initial probe reports the occupied port without publishing state", async () => {
@@ -210,7 +208,7 @@ describe("Daemon Lifecycle", () => {
     const child = Object.assign(new EventEmitter(), { pid: 12345, exitCode: null as number | null, signalCode: null, unref: vi.fn() });
     const deps = mockDeps({
       fetch: vi.fn(neverFetch),
-      readFile: vi.fn((p: string) => p === LOG_FILE ? log : null),
+      readFile: vi.fn((p: string) => p === LOG_PATH ? log : null),
       spawn: vi.fn(() => {
         setTimeout(() => {
           log += "Error: listen EADDRINUSE: address already in use 127.0.0.1:7433\n";
@@ -236,7 +234,7 @@ describe("Daemon Lifecycle", () => {
     const child = Object.assign(new EventEmitter(), { pid: 12345, exitCode: null as number | null, signalCode: null, unref: vi.fn() });
     const deps = mockDeps({
       fetch: vi.fn().mockRejectedValue(new Error("refused")),
-      readFile: vi.fn((p: string) => p === LOG_FILE ? "Old error: EADDRINUSE\n" : null),
+      readFile: vi.fn((p: string) => p === LOG_PATH ? "Old error: EADDRINUSE\n" : null),
       spawn: vi.fn(() => {
         setTimeout(() => { child.exitCode = 1; child.emit("exit", 1, null); }, 1);
         return child as unknown as ChildProcess;
@@ -248,7 +246,7 @@ describe("Daemon Lifecycle", () => {
 
     expect(error.message).toMatch(/exited before startup completed/);
     expect(error.message).not.toContain("EADDRINUSE");
-    expect(error.message).toContain(LOG_FILE);
+    expect(error.message).toContain(LOG_PATH);
   });
 
   it("start: a real held loopback port prevents spawning after the no-state timeout", async () => {
@@ -520,30 +518,6 @@ describe("Daemon Lifecycle", () => {
     expect(path1).toContain("daemon");
   });
 
-  // Test 12: logs reads daemon.log content
-  it("readLogs: returns daemon.log content when file exists", () => {
-    const deps = mockDeps({
-      exists: vi.fn((p: string) => p === LOG_FILE),
-      readFile: vi.fn((p: string) => {
-        if (p === LOG_FILE) return "line1\nline2\n";
-        return null;
-      }),
-    });
-
-    const content = readLogs(deps);
-    expect(content).toBe("line1\nline2\n");
-  });
-
-  // Test 13: logs no log file -> returns null
-  it("readLogs: no log file -> returns null", () => {
-    const deps = mockDeps({
-      exists: vi.fn(() => false),
-    });
-
-    const content = readLogs(deps);
-    expect(content).toBeNull();
-  });
-
   it("daemonCommand stop surfaces missing-state recovery error instead of claiming success", async () => {
     const { daemonCommand } = await import("../src/commands/daemon.js");
     const { Command } = await import("commander");
@@ -695,24 +669,6 @@ describe("Daemon Lifecycle", () => {
     await startDaemon({ port: 7433 }, deps);
 
     expect(deps.mkdirp).toHaveBeenCalledWith(MULTI_AGENT_DIR);
-  });
-
-  // Test 16: logs --follow passes follow flag to tailLogs
-  it("tailLogs: called with follow=true invokes follow behavior", () => {
-    const spawnFn = vi.fn(() => ({ pid: 1, unref: vi.fn(), on: vi.fn() }) as unknown as ChildProcess);
-    const deps = mockDeps({
-      exists: vi.fn((p: string) => p === LOG_FILE),
-      spawn: spawnFn,
-    });
-
-    tailLogs(deps, { follow: true });
-
-    // Should spawn tail -f on the log file
-    expect(spawnFn).toHaveBeenCalledOnce();
-    const [cmd, args] = spawnFn.mock.calls[0]!;
-    expect(cmd).toBe("tail");
-    expect(args).toContain("-f");
-    expect(args).toContain(LOG_FILE);
   });
 
   // Test 17: pid alive + healthz failure -> running with healthy=false, daemon.json preserved
@@ -948,7 +904,7 @@ describe("Daemon Lifecycle", () => {
     const deps = mockDeps({
       fetch: vi.fn(async () => { throw new Error("connection refused"); }),
       readFile: vi.fn((p: string) => {
-        if (p === LOG_FILE) {
+        if (p === LOG_PATH) {
           return [
             "Error: The module '/tmp/better_sqlite3.node'",
             "was compiled against a different Node.js version using",
@@ -978,7 +934,7 @@ describe("Daemon Lifecycle", () => {
     const deps = mockDeps({
       fetch: vi.fn(async () => { throw new Error("connection refused"); }),
       readFile: vi.fn((p: string) => {
-        if (p === LOG_FILE) {
+        if (p === LOG_PATH) {
           return [
             "Booting daemon...",
             "Error: SQLite schema migration failed: disk full",
@@ -1339,7 +1295,7 @@ describe("buildDaemonEnv", () => {
     });
   });
 
-  // Slice 22 founder-walk-vm-populated-env forward-fix #1: the slice
+  // The per-process state-isolation contract: the slice
   // intentionally drops a `--multi-agent-home` CLI flag in favor of using
   // the process-env-pattern (each `rig` invocation gets its own
   // MULTI_AGENT_HOME via the shell). The slice's "fully isolated state"
@@ -1347,12 +1303,11 @@ describe("buildDaemonEnv", () => {
   // time — specifically that getMultiAgentHome() returns the current
   // env value (not a hardcoded default) and that getStatePath
   // threads it into derived paths. The module-level constants
-  // (MULTI_AGENT_DIR / STATE_FILE / LOG_FILE) are a single snapshot of
+  // (MULTI_AGENT_DIR / STATE_FILE) are a single snapshot of
   // these functions at load.
   //
-  // These regression tests prove the function contract with distinct-
-  // value discriminators per banked feedback_poc_regression_must_discriminate.
-  describe("slice 22: MULTI_AGENT_HOME env contract for per-process state isolation", () => {
+  // These regression tests prove the function contract with distinct value discriminators.
+  describe("MULTI_AGENT_HOME env contract for per-process state isolation", () => {
     it("getMultiAgentHome respects process.env.MULTI_AGENT_HOME (distinct values yield distinct paths)", async () => {
       const { getMultiAgentHome } = await import("@multi-agent/daemon/data-paths");
       const saved = process.env["MULTI_AGENT_HOME"];
@@ -1406,21 +1361,21 @@ describe("buildDaemonEnv", () => {
       }
     });
 
-    // FF2 regression test (per qitem-20260511115845-ee9a4775): the
+    // The regression test below proves the prior tests only verify
     // prior 3 tests verify the data-paths function contract but
     // do NOT prove daemon-lifecycle's module-level MULTI_AGENT_DIR /
-    // STATE_FILE / LOG_FILE constants pick up MULTI_AGENT_HOME at import
+    // STATE_FILE constant picks up MULTI_AGENT_HOME at import
     // time. Future code could hardcode "~/.multi-agent" in
-    // daemon-lifecycle.ts:66-69 and the prior tests would still pass.
+    // the module's constants would still look right and the prior tests would pass.
     //
     // This test imports daemon-lifecycle FRESH twice via
     // vi.resetModules + dynamic import, with distinct MULTI_AGENT_HOME
     // values per import. Discriminator-distinct paths (per banked
-    // feedback_poc_regression_must_discriminate) prove each module
+    // discriminators) prove each module
     // load reflects the env that was set at that moment. Will fail
     // if a future contributor hardcodes a literal path or otherwise
     // bypasses data-paths helpers at module level.
-    it("daemon-lifecycle module-level constants reflect MULTI_AGENT_HOME at import time (slice 22 FF2)", async () => {
+    it("daemon-lifecycle module-level constants reflect MULTI_AGENT_HOME at import time ", async () => {
       const saved = process.env["MULTI_AGENT_HOME"];
       try {
         // First import — MULTI_AGENT_HOME = blank-slate value
@@ -1441,14 +1396,10 @@ describe("buildDaemonEnv", () => {
         expect(populated.MULTI_AGENT_DIR).toBe("/Users/example/.multi-agent-vm-populated-fresh");
         expect(blank.MULTI_AGENT_DIR).not.toBe(populated.MULTI_AGENT_DIR);
 
-        // STATE_FILE / LOG_FILE — derived as path.join(MULTI_AGENT_DIR, "daemon.{json,log}")
+        // STATE_FILE — derived as path.join(MULTI_AGENT_DIR, "daemon.json")
         expect(blank.STATE_FILE).toBe("/Users/example/.multi-agent-vm-blank-fresh/daemon.json");
         expect(populated.STATE_FILE).toBe("/Users/example/.multi-agent-vm-populated-fresh/daemon.json");
         expect(blank.STATE_FILE).not.toBe(populated.STATE_FILE);
-
-        expect(blank.LOG_FILE).toBe("/Users/example/.multi-agent-vm-blank-fresh/daemon.log");
-        expect(populated.LOG_FILE).toBe("/Users/example/.multi-agent-vm-populated-fresh/daemon.log");
-        expect(blank.LOG_FILE).not.toBe(populated.LOG_FILE);
       } finally {
         if (saved === undefined) delete process.env["MULTI_AGENT_HOME"];
         else process.env["MULTI_AGENT_HOME"] = saved;
@@ -1466,55 +1417,7 @@ describe("buildDaemonEnv", () => {
   });
 });
 
-// OPR.0.3.3.04.2 (AC-4): the ONE shared daemon-not-running honest error used by
-// the daemon-dependent journey verbs (bootstrap/discover/workspace/workflow).
-describe("daemonNotRunningError / printDaemonNotRunning (AC-4 shared honest error)", () => {
-  it("daemonNotRunningError is the 3-part fact/consequence/action shape pointing to daemon start", () => {
-    const err = daemonNotRunningError();
-    expect(err.fact).toContain("Daemon not running");
-    expect(err.consequence).toContain("needs a running daemon");
-    expect(err.action).toBe("Run 'multi-agent daemon start'.");
-    expect(err.action).toContain("multi-agent daemon start");
-  });
-
-  it("printDaemonNotRunning (human) emits all three parts on stderr and sets exit code 1", () => {
-    const lines: string[] = [];
-    const origErr = console.error;
-    const origExit = process.exitCode;
-    console.error = (...a: unknown[]) => { lines.push(a.join(" ")); };
-    process.exitCode = undefined;
-    try {
-      printDaemonNotRunning();
-    } finally {
-      console.error = origErr;
-    }
-    const exit = process.exitCode;
-    process.exitCode = origExit;
-    const out = lines.join("\n");
-    expect(out).toContain("Daemon not running");
-    expect(out).toContain("needs a running daemon");
-    expect(out).toContain("multi-agent daemon start");
-    expect(exit).toBe(1);
-  });
-
-  it("printDaemonNotRunning({ json: true }) emits the { error: { fact, consequence, action } } envelope", () => {
-    const lines: string[] = [];
-    const origLog = console.log;
-    const origExit = process.exitCode;
-    console.log = (...a: unknown[]) => { lines.push(a.join(" ")); };
-    process.exitCode = undefined;
-    try {
-      printDaemonNotRunning({ json: true });
-    } finally {
-      console.log = origLog;
-    }
-    process.exitCode = origExit;
-    const parsed = JSON.parse(lines.join("")) as { error: { fact: string; consequence: string; action: string } };
-    expect(parsed.error.fact).toContain("Daemon not running");
-    expect(parsed.error.consequence).toContain("needs a running daemon");
-    expect(parsed.error.action).toBe("Run 'multi-agent daemon start'.");
-  });
-
+describe("daemon status honesty: a slow-but-answering probe is never reported stopped", () => {
   // ===================================================================
   // SLICE-05 item-4 (D4) — daemon-status false-negative RED.
   // getDaemonStatus' stateless (no daemon.json) branch returns "stopped" on ANY

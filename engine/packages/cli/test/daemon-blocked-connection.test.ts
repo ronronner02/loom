@@ -1,24 +1,18 @@
-// OPR.0.6.5.5 / #275 — "my rig command can't reach the daemon": BLOCKED is not DOWN.
+// "My command can't reach the daemon": BLOCKED is not DOWN.
 //
 // A connection this machine refused to make (EPERM/EACCES: a sandbox or security policy) used to
 // render exactly like a daemon that is down, telling a sandboxed Codex seat to start a daemon that is
 // already running. Contract pinned here:
 //  (1) the client keeps the OS cause code on DaemonConnectionError;
-//  (2) the transport renderer and the precheck guard share one blocked-connection guidance: the
-//      daemon may still be running, never "start it", and with Codex's network-disabled sandbox the
-//      cause is named and the offline help guide routed to (no access setting is prescribed);
-//  (3) ECONNREFUSED keeps today's down guidance, and #495's unknown-write wording is kept;
+//  (2) a blocked connection never reads as "start the daemon": the daemon may still be running, and
+//      with Codex's network-disabled sandbox the cause is named and the offline help guide routed to
+//      (no access setting is prescribed);
+//  (3) ECONNREFUSED keeps today's down guidance, and the unknown-write wording is kept;
 //  (4) --json carries the cause code.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DaemonClient, DaemonConnectionError } from "../src/client.js";
 import { renderDaemonTransportError } from "../src/cli-error.js";
-import {
-  daemonStatusGuard,
-  getDaemonStatus,
-  statusGuardMessage,
-  type DaemonStatus,
-  type LifecycleDeps,
-} from "../src/daemon-lifecycle.js";
+import { getDaemonStatus, type LifecycleDeps } from "../src/daemon-lifecycle.js";
 import { resolveOfflineHelpPath } from "../src/daemon-reachability.js";
 import { createProcessLiveness, signalProbe } from "../src/commands/daemon.js";
 
@@ -117,7 +111,7 @@ describe("transport render: blocked is not down", () => {
     vi.stubEnv("CODEX_SANDBOX_NETWORK_DISABLED", "1");
     const { err } = render(await connectionError("EPERM"));
     expect(err).toMatch(/Codex sandbox/);
-    expect(err).toMatch(/#275/);
+    expect(err).toMatch(/help\.md/);
     expect(err).toMatch(/cannot change its own sandbox/);
     expect(err).toContain("The agent is waiting for permission or can't reach the daemon");
     expect(err).toMatch(/docs\/reference\/help\.md/);
@@ -157,7 +151,7 @@ describe("transport render: blocked is not down", () => {
   });
 });
 
-describe("status probe keeps the cause; the precheck guard agrees with the transport render", () => {
+describe("status probe keeps the cause", () => {
   it("records EPERM on every probe path, and never calls a blocked probe 'stopped'", async () => {
     process.env.MULTI_AGENT_URL = URL;
     try {
@@ -181,42 +175,6 @@ describe("status probe keeps the cause; the precheck guard agrees with the trans
     expect(alive.state).toBe("running");
     expect(alive.healthy).toBe(false);
     expect(alive.probeErrorCode).toBe("EPERM");
-  });
-
-  it("the guard renders blocked guidance for an EPERM probe and carries causeCode in JSON", () => {
-    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    try {
-      expect(daemonStatusGuard({ state: "unverified", probeErrorCode: "EPERM" } as DaemonStatus)).toBe(false);
-      const human = errSpy.mock.calls.map((c) => c.join(" ")).join("\n");
-      expect(human).toMatch(/blocked the connection \(EPERM\)/);
-      expect(human).not.toMatch(DOWN_ADVICE);
-
-      daemonStatusGuard({ state: "running", healthy: false, probeErrorCode: "EPERM" } as DaemonStatus, { json: true });
-      const parsed = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0]));
-      expect(parsed.error.causeCode).toBe("EPERM");
-      expect(process.exitCode).toBe(1);
-    } finally {
-      errSpy.mockRestore();
-      logSpy.mockRestore();
-    }
-  });
-
-  it("the guard and the transport render give the same blocked guidance (both entry points agree)", async () => {
-    vi.stubEnv("CODEX_SANDBOX_NETWORK_DISABLED", "1");
-    const guard = statusGuardMessage({ state: "unverified", probeErrorCode: "EPERM" } as DaemonStatus);
-    const transport = JSON.parse(render(await connectionError("EPERM"), true).out).error;
-    expect(guard.action).toBe(transport.action);
-    const shared = transport.consequence.replace(/^The command was not delivered\. /, "");
-    expect(guard.consequence.endsWith(shared)).toBe(true);
-    expect(guard.action).toMatch(/#275|help\.md/);
-  });
-
-  it("without a blocked code the guard keeps today's language", () => {
-    expect(statusGuardMessage({ state: "unverified" } as DaemonStatus).fact).toMatch(/did not respond/i);
-    expect(statusGuardMessage({ state: "unverified", probeErrorCode: "ETIMEDOUT" } as DaemonStatus).action)
-      .toBe("Re-check with 'multi-agent daemon status'. If it is confirmed stopped, run 'multi-agent daemon start'.");
-    expect(statusGuardMessage({ state: "stopped" } as DaemonStatus).fact).toMatch(/not running/i);
   });
 });
 
@@ -272,7 +230,7 @@ describe("sandboxed liveness: EPERM on kill(pid, 0) is not a dead daemon", () =>
     expect(signalProbe(1, throwing("ESRCH"))).toBe("missing");
   });
 
-  it("unknown liveness plus a blocked probe is unverified with EPERM, never stale, and the guard says blocked", async () => {
+  it("unknown liveness plus a blocked probe is unverified with EPERM, never stale", async () => {
     const status = await getDaemonStatus(withState({
       isProcessAlive: () => false,
       processLiveness: sandboxLiveness,
@@ -281,20 +239,15 @@ describe("sandboxed liveness: EPERM on kill(pid, 0) is not a dead daemon", () =>
     expect(status.state).not.toBe("stale");
     expect(status.state).toBe("unverified");
     expect(status.probeErrorCode).toBe("EPERM");
-    const guard = statusGuardMessage(status);
-    expect(`${guard.fact} ${guard.consequence} ${guard.action}`).toMatch(/blocked/);
-    expect(`${guard.fact} ${guard.consequence} ${guard.action}`).not.toMatch(DOWN_ADVICE);
-    expect(guard.fact).not.toMatch(/not running/i);
   });
 
-  it("unknown liveness plus a refused probe is still a stopped daemon with down advice", async () => {
+  it("unknown liveness plus a refused probe is still a stopped daemon", async () => {
     const status = await getDaemonStatus(withState({
       isProcessAlive: () => false,
       processLiveness: sandboxLiveness,
       fetch: probeFailing("ECONNREFUSED"),
     }));
     expect(status.state).toBe("stopped");
-    expect(statusGuardMessage(status).fact).toMatch(/not running/i);
   });
 
   it("unknown liveness plus a healthy probe is running", async () => {

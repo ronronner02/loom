@@ -108,12 +108,12 @@ describe("ConfigStore", () => {
   });
 
   // Test 7
-  it("resolve() with malformed config.json throws with fix/reset guidance", () => {
+  it("resolve() with malformed config.json throws with fix-it guidance", () => {
     const configPath = join(tmpDir, "config.json");
     writeFileSync(configPath, "not valid json{{{");
     const store = new ConfigStore(configPath);
     expect(() => store.resolve()).toThrow(/malformed/i);
-    expect(() => store.resolve()).toThrow(/reset/i);
+    expect(() => store.resolve()).toThrow(/delete the file/i);
   });
 });
 
@@ -201,18 +201,6 @@ describe("getDaemonStatus host preservation", () => {
       if (savedUrl !== undefined) process.env["MULTI_AGENT_URL"] = savedUrl;
       else delete process.env["MULTI_AGENT_URL"];
     }
-  });
-});
-
-describe("getDaemonUrl", () => {
-  it("constructs URL from status host and port", async () => {
-    const { getDaemonUrl } = await import("../src/daemon-lifecycle.js");
-    expect(getDaemonUrl({ state: "running", port: 8080, host: "192.168.1.5" })).toBe("http://192.168.1.5:8080");
-  });
-
-  it("defaults to 127.0.0.1 when host is undefined", async () => {
-    const { getDaemonUrl } = await import("../src/daemon-lifecycle.js");
-    expect(getDaemonUrl({ state: "running", port: 7433 })).toBe("http://127.0.0.1:7433");
   });
 });
 

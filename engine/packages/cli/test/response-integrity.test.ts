@@ -32,7 +32,6 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   return {
     ...actual,
     getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
   };
 });
 

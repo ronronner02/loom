@@ -36,9 +36,6 @@ export function isDirectRun(argv1 = process.argv[1], moduleUrl = import.meta.url
   }
 }
 
-// Slice 15 — the shared CLI error/exit path (re-exported for bin-wrapper + tests).
-export { runProgram, wantsJsonOutput } from "./cli-error.js";
-
 // Only parse when executed directly (not imported for testing)
 if (isDirectRun()) {
   const { runProgram: runProgramDirect } = await import("./cli-error.js");

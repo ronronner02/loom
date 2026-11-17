@@ -1,42 +1,17 @@
-// Slice 15 (OPR.0.4.7.15) — the ONE shared CLI error/exit path.
+// The ONE shared CLI error/exit path.
 //
 // Commander's default is to print a plain-text usage/validation error to stderr
 // and exit — so a `--json` (or `-o json`) consumer parsing stdout gets nothing
 // parseable and cannot tell success from failure. This wraps parse so that:
 //   - validation/usage errors (missing required option, unknown option, an
-//     InvalidArgumentError from a custom option parser — e.g. bad --limit / -o)
-//     become a machine-readable JSON error object on stdout WITH a nonzero exit
-//     when the invocation asked for JSON; otherwise the normal plain-text
-//     stderr behavior is preserved;
+//     InvalidArgumentError from a custom option parser) become a machine-readable
+//     JSON error object on stdout WITH a nonzero exit when the invocation asked for
+//     JSON; otherwise the normal plain-text stderr behavior is preserved;
 //   - `--help`/`--version` (Commander "clean" exits, exitCode 0) pass through.
 // One class-fix at the entry, not per-command patches.
 import type { Command } from "commander";
-import { InvalidArgumentError } from "commander";
 import { DaemonConnectionError, DaemonResponseError, DaemonTimeoutError } from "./client.js";
 import { blockedConnectionGuidance, isBlockedConnectionCode } from "./daemon-reachability.js";
-
-/**
- * Commander option parser — a positive integer (>= 1). Rejects negative, zero,
- * and non-numeric values (finding 4). Throws InvalidArgumentError, which the
- * shared error path (below) renders as a JSON error under `--json`.
- */
-export function positiveIntArg(value: string): number {
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 1) {
-    throw new InvalidArgumentError(`must be a positive integer (>= 1); got '${value}'`);
-  }
-  return n;
-}
-
-/** Commander option parser factory — the value must be one of `allowed` (finding 3). */
-export function enumArg(allowed: readonly string[]): (value: string) => string {
-  return (value: string): string => {
-    if (!allowed.includes(value)) {
-      throw new InvalidArgumentError(`must be one of: ${allowed.join(", ")}; got '${value}'`);
-    }
-    return value;
-  };
-}
 
 /** True when the invocation requested machine output (`--json` or `-o/--output/--format json`). */
 export function wantsJsonOutput(argv: readonly string[]): boolean {
@@ -57,7 +32,7 @@ interface CommanderLikeError {
 }
 
 /** Commander's non-error terminations (help/version) — exit cleanly, no error object. */
-export function isCleanCommanderExit(err: unknown): boolean {
+function isCleanCommanderExit(err: unknown): boolean {
   const e = err as CommanderLikeError;
   return (
     e?.code === "commander.helpDisplayed" ||
@@ -67,14 +42,14 @@ export function isCleanCommanderExit(err: unknown): boolean {
   );
 }
 
-export function formatCliError(err: unknown): { ok: false; error: { code: string; message: string } } {
+function formatCliError(err: unknown): { ok: false; error: { code: string; message: string } } {
   const e = err as CommanderLikeError;
   const message = (e?.message ?? String(err)).replace(/^error:\s*/i, "").trim();
   return { ok: false, error: { code: e?.code ?? "cli_error", message } };
 }
 
 /** Recursively give every command exitOverride so parse errors throw instead of exiting. */
-export function applyExitOverride(program: Command): void {
+function applyExitOverride(program: Command): void {
   const walk = (cmd: Command) => {
     cmd.exitOverride();
     for (const sub of cmd.commands) walk(sub);
@@ -122,7 +97,7 @@ export function renderDaemonTransportError(
     const delivery = unknownWrite
       ? "The command's outcome is UNKNOWN — no usable response confirmed whether the write was applied."
       : "The command was not delivered.";
-    // #275: a connection this machine blocked (EPERM/EACCES) is not a stopped daemon.
+    // A connection this machine blocked (EPERM/EACCES) is not a stopped daemon.
     const blocked = isBlockedConnectionCode(e.causeCode) ? blockedConnectionGuidance(e.causeCode) : undefined;
     parts = {
       fact: e.message,
