@@ -121,24 +121,12 @@ skills; it is seeded when missing.
 recap is kept byte-for-byte under `recap-superseded/`. A recap that isn't addressable Markdown
 is refused; the other content checks are advisory.
 
-`packages/daemon/src/domain/skill-catalog.ts` resolves a seat's skill loadout from the
-catalog at `skills.root` (`catalog.yaml`, schema `openrig.skill-catalog/v1`) and the system,
-topology and project selections. It projects skills into `<cwd>/.claude/skills` or
-`<cwd>/.agents/skills` and tracks what it owns in
-`<cwd>/.openrig/skill-loadouts/<runtime>.json`. Each projection reports `current`, `missing`,
-`shadowed`, `stale` or `conflicting`. `rig skill loadout --runtime <runtime>` inspects the
-composed projection and reconciles it only with `--apply`; `rig skill audit` is a separate
-read-only provenance and freshness audit. Launch applies the selected loadout per seat.
-
-For a Claude Code or Codex seat, the profile resolver also adds each selected plugin's skills to
-that loadout (`packages/daemon/src/domain/profile-resolver.ts:309–330`, with
-`resolvePluginSkills()` at `skill-catalog.ts:460`). Neither runtime reads skills from the plugin
-folder projected into the working directory. The skills are projected under their plain names,
-and a skill the profile already selects keeps its source. A kept plugin copy (an edited or
-user-owned one, or OpenRig's own copy whose plugin source changed or moved after the loadout
-was resolved, `skill-catalog.ts:1060–1068`) gives a `plugin_skill_kept` warning, and an unreadable one gives
-`plugin_skill_skipped`. If plugin skills can't be projected at all, the seat starts without them
-and gets a `plugin_skills_not_projected` warning (`rigspec-instantiator.ts:2045`).
+The skill-catalog loadout engine (`skill-catalog.ts`, `skill-discovery.ts` and the
+profile resolver that fed them) was never constructed by the running daemon and
+has been removed. The `catalog.yaml` (`openrig.skill-catalog/v1`) and plugin
+skill trees this section describes remain as shipped data: the plugin skills are
+copied by the packaging scripts and mirrored into `skills/_canonical`, and the
+managed launch reads no loadout state.
 
 ## Agent images and forks
 
@@ -151,10 +139,9 @@ marks protection from ordinary deletion/pruning.
 
 Capture and consumption depend on live identity as well as library files:
 
-- `packages/daemon/src/domain/agent-images/resume-token-discovery.ts`:
-  `discoverResumeToken()` reads session/node/binding state. It supports Claude Code and
-  Codex. Claude prefers matching context-usage identity; Codex prefers the persisted resume
-  token, then an external-CLI binding. Absent native identity remains absent.
+- `packages/daemon/src/domain/agent-images/resume-token-discovery.ts`: removed. The
+  module was imported by nothing; a seat's native resume token comes from the
+  launch's own `managed.attempt.receipt`.
 - `packages/daemon/src/domain/agent-images/snapshot-capturer.ts`:
   `SnapshotCapturer.capture()` refuses unsupported or missing native identity, writes
   an image manifest/files and rescans. It records the source working directory when known.

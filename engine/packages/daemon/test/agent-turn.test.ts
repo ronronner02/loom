@@ -336,12 +336,12 @@ describe("what a continuation is told", () => {
         { kind: "plan", path: join(root, "plan.md"), workerPath: "/context/plan", hash: "sha256:" + "e".repeat(64), readOnly: true },
       ] } as ContextManifest;
     const orchestrator = new StartupOrchestrator({ db, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db) });
-    const adapter = { project: async () => ({ failed: [] }), deliverStartup: async () => ({ failed: [] }) } as unknown as RuntimeAdapter;
+    const adapter = { deliverStartup: async () => ({ failed: [] }) } as unknown as RuntimeAdapter;
     const started = await orchestrator.startNode({ rigId: "rig", nodeId: "lead-node", sessionId: "s-lead-node",
       binding: { id: "direct:lead-node", nodeId: "lead-node", attachmentType: "external_cli", tmuxSession: "lead@rig", tmuxWindow: null,
         tmuxPane: null, cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd: root,
         managedAttempt: { attemptId: "lead-attempt-1", deadline: Date.now() + 60_000, context } },
-      adapter, plan: { runtime: "claude-code", cwd: root, entries: [], startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [] },
+      adapter,
       resolvedStartupFiles: [], startupActions: [], isRestore: false, sessionName: "lead@rig", runId: "run", taskId: "task-1",
       skipHarnessLaunch: true });
     expect(started.ok, JSON.stringify(started)).toBe(true);
@@ -368,14 +368,14 @@ describe("what a continuation is told", () => {
     const context = { ...manifest("lead-attempt-1"),
       assignment: { taskId: "task-1", role: "lead", paths: ["src"], dependencies: [] } } as ContextManifest;
     const receipt = { attemptId: "lead-attempt-1", runId: "run", client: "codex", identity: { nativeSessionId: null, paneId: null } };
-    const adapter = { project: async () => ({ failed: [] }), deliverStartup: async () => ({ failed: [] }),
+    const adapter = { deliverStartup: async () => ({ failed: [] }),
       launchHarness: async () => ({ ok: true, managedSession: receipt }), checkReady: async () => ({ ready: true }) } as unknown as RuntimeAdapter;
     const orchestrator = new StartupOrchestrator({ db, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db) });
     const started = await orchestrator.startNode({ rigId: "rig", nodeId: "lead-node", sessionId: "s-lead-node",
       binding: { id: "direct:lead-node", nodeId: "lead-node", attachmentType: "external_cli", tmuxSession: "lead@rig", tmuxWindow: null,
         tmuxPane: null, cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd: root, model: "gpt-6.1-sol",
         managedAttempt: { attemptId: "lead-attempt-1", deadline: Date.now() + 60_000, context } },
-      adapter, plan: { runtime: "codex", cwd: root, entries: [], startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [] },
+      adapter,
       resolvedStartupFiles: [], startupActions: [], isRestore: false, sessionName: "lead@rig", runId: "run", taskId: "task-1" });
     expect(started.ok, JSON.stringify(started)).toBe(true);
     const events = db.prepare("SELECT payload FROM events WHERE type = 'managed.attempt.receipt'").all() as { payload: string }[];
@@ -387,12 +387,12 @@ describe("what a continuation is told", () => {
   async function launchedPrompt(nodeId: string, seat: string, assignment: ContextManifest["assignment"], attemptId: string): Promise<string> {
     const context = { ...manifest(attemptId), assignment } as ContextManifest;
     const orchestrator = new StartupOrchestrator({ db, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db) });
-    const adapter = { project: async () => ({ failed: [] }), deliverStartup: async () => ({ failed: [] }) } as unknown as RuntimeAdapter;
+    const adapter = { deliverStartup: async () => ({ failed: [] }) } as unknown as RuntimeAdapter;
     const started = await orchestrator.startNode({ rigId: "rig", nodeId, sessionId: `s-${nodeId}`,
       binding: { id: `direct:${nodeId}`, nodeId, attachmentType: "external_cli", tmuxSession: seat, tmuxWindow: null,
         tmuxPane: null, cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd: root,
         managedAttempt: { attemptId, deadline: Date.now() + 60_000, context } },
-      adapter, plan: { runtime: "claude-code", cwd: root, entries: [], startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [] },
+      adapter,
       resolvedStartupFiles: [], startupActions: [], isRestore: false, sessionName: seat, runId: "run", taskId: assignment.taskId,
       skipHarnessLaunch: true });
     expect(started.ok, JSON.stringify(started)).toBe(true);

@@ -104,20 +104,14 @@ Hono, `git grep -l 'from "hono' -- packages/daemon/src/adapters | wc -l`).
 ### Launch posture
 
 A seat's launch posture is `floor`, `auto` or `full_bypass`. It comes from the
-member's or rig's `permission_policy`: `builtinLaunchPosture()`
-(`packages/daemon/src/domain/permission-policy/policy-ref.ts:165`) maps
-`builtin:yolo` to `full_bypass`, `builtin:auto` to `auto`, and every other
-built-in (`locked`, `standard`, `open`) to `floor`.
-`resolvePermissionPolicyAttachment()` (`:172`) resolves the attachment, and
-`rigspec-instantiator.ts` binds the result: the member attachment
+member's or rig's `permission_policy`, resolved and bound onto the binding as
+`launchPosture` by `rigspec-instantiator.ts`: the member attachment
 (`resolveMemberPolicyAttachment`, `:1922`), then the persisted node or rig
-attachment (`:2007`), then the floor, set on the binding as `launchPosture`
-(`:2159`). `NativePermissionStore.apply()`
-(`native-permission-store.ts:238`) then overlays a seat's explicit
-`rig seat set-permissions` choice, or the kernel operational or team default
-described below. `bundle-behaviour.ts` is the read-only
-preview of the same mapping for an unopened bundle (see
-`packaging-bootstrap-bundles.md`).
+attachment (`:2007`), then the floor (`:2159`). The policy helpers that read
+it at launch (`permission-policy/policy-ref.ts` and
+`native-permission-store.ts`) were never constructed on the current path and
+have been removed. `bundle-behaviour.ts` is the read-only preview of the same
+mapping for an unopened bundle (see `packaging-bootstrap-bundles.md`).
 
 `packages/daemon/src/adapters/yolo-mode.ts` turns the posture into flags:
 
@@ -153,22 +147,17 @@ and resume launches (`codex-runtime-adapter.ts:378`, `codex-resume.ts:103`).
 ### ClaudeCodeAdapter (`claude-code-adapter.ts:55`)
 
 - `readonly runtime = "claude-code"` (`:56`).
-- **Projects** to `.claude/` targets: guidance managed blocks →
-  `<cwd>/CLAUDE.md` by default (`:194`, `:501`; default at
-  `domain/managed-blocks.ts:17`, and the rig may select `CLAUDE.local.md`
-  instead with `managed_blocks: { claude-code: <file> }`,
-  `managed-blocks.ts:15`); `skill_install` → `<cwd>/.claude/skills/<name>/`
-  (`:200`, `:582`); subagents → `.claude/agents`, plugins →
-  `.claude/plugins/<id>` (only plugins that apply to Claude), runtime
-  resources → `.claude/extensions/<id>` (`:584–586`); settings fragments
-  merged into `.claude/settings.local.json` (`:594`) and MCP fragments into
-  `<cwd>/.mcp.json` (`:597`).
+- **Installed resources**: `listInstalled()` reports the skills under
+  `<cwd>/.claude/skills`. The adapter no longer projects resources: the live
+  managed launch writes no user client configuration, and the projection
+  contract (`project()` and its plan) was reached only by an always-empty plan
+  and has been removed.
 - **Launches**: fresh = `claude <posture> --session-id <generatedId> --name
   <name>` (`:329`); resume = `claude <posture> --resume <token> --name <name>`
   (`:328`); fork = `claude <posture> --resume <parentId> --fork-session
   --session-id <generatedId> --name <seat>`, which needs Claude Code 2.0.73 or
-  later. `<posture>` is the flag above plus any non-interruptive,
-  kernel operational or team default argument. Each command may carry a `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1`
+  later. `<posture>` is the flag above (`yolo-mode.ts`), built from the binding's
+  `launchPosture` and `permissionMode`. Each command may carry a `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1`
   env prefix (`yolo-mode.ts:101–103`; on by default, off with
   `OPENRIG_CLAUDE_DISABLE_ALTERNATE_SCREEN=0`), a `--model <model>` argument
   (`:275`) and `--effort <effort>` (`:277`). A fresh launch and a fork both
@@ -351,11 +340,10 @@ module.
 - **Rule 5** — restore picks a node's adapter by that node's own runtime: the
   saved startup context's runtime, else the node's (`restore-orchestrator.ts:1115–1116`),
   used to choose the replay adapter (`:1138`).
-- **Rule 13** — the readiness loop is `StartupOrchestrator.waitForReady`
-  (`startup-orchestrator.ts:562`; 1 s doubling to a 16 s cap), which calls each
-  adapter's `checkReady` (§2). The timeout comes from the
-  `runtime.readiness_timeout_seconds` setting (default 30, range 1–600,
-  `domain/readiness-timeout.ts:3`).
+- **Rule 13** — readiness is a single `checkReady` call per launch
+  (`startup-orchestrator.ts:87`) against the adapter's own contract (§2); the
+  loop, cap and `runtime.readiness_timeout_seconds` setting described in
+  earlier revisions belonged to the pane-era orchestrator and are gone.
 - **Rule 14** — the probe's `attention_required` (§3) reaches the restore
   result through `HarnessLaunchResult.recovery` and `evidence` (§1), which
   become `RestoreNodeResult.status` (`types.ts:457`, `:475`) and
@@ -376,6 +364,5 @@ module.
   snapshot/restore (resume vs rebuild vs fresh).
 - `architecture-rules-and-event-system.md` — the full architecture rule list.
 - Source roots: `packages/daemon/src/domain/runtime-adapter.ts`,
-  `packages/daemon/src/adapters/{claude-code-adapter,codex-runtime-adapter,pi-runtime-adapter,omp-runtime-adapter,stub-runtime-adapter,terminal-adapter,yolo-mode,non-interruptive,kernel-authority}.ts`,
-  `packages/daemon/src/domain/{native-resume-probe,resume-metadata-refresher,codex-thread-id,claude-managed-launch,codex-network-default,native-permission-store}.ts`,
-  `packages/daemon/src/domain/permission-policy/policy-ref.ts`.
+  `packages/daemon/src/adapters/{claude-code-adapter,codex-runtime-adapter,yolo-mode}.ts`,
+  `packages/daemon/src/domain/{native-resume-probe,codex-thread-id,codex-network-default}.ts`.

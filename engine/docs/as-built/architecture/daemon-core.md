@@ -141,8 +141,7 @@ in `003_events.ts`, `snapshots` (serialized rig state) in `004_snapshots.ts`, an
 
 Migrations `041`–`092` and `094`–`097` continue in the same directory; list them with
 `git ls-files packages/daemon/src/db/migrations`. `095_rig_non_interruptive.ts` adds
-`rigs.non_interruptive` (0 or 1, default 0), the saved per-rig choice behind
-`rig up --non-interruptive`; `096_rig_install_root.ts` adds `rigs.install_root`, the rig's
+`rigs.non_interruptive` (0 or 1, default 0), the saved per-rig choice; `096_rig_install_root.ts` adds `rigs.install_root`, the rig's
 bundle materialization folder (`rig-repository.ts:169`). The newest, `097_thread_part_map.ts`,
 adds `thread_part_map`, which maps each message OpenRig posts into an ask's Slack thread to
 that ask and its seat.

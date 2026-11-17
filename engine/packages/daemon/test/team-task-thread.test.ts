@@ -52,12 +52,12 @@ describe("task threads", () => {
       outputs: [], permissions: [], role: "implementer", client: "claude-code", root: "/context", mutableStateRoot: stateRoot,
       files: [], projection: { attemptId } } as unknown as ContextManifest;
     const orchestrator = new StartupOrchestrator({ db, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db) });
-    const adapter = { project: async () => ({ failed: [] }), deliverStartup: async () => ({ failed: [] }) } as unknown as RuntimeAdapter;
+    const adapter = { deliverStartup: async () => ({ failed: [] }) } as unknown as RuntimeAdapter;
     const started = await orchestrator.startNode({ rigId: "rig", nodeId: "a-node", sessionId: "s-a-node",
       binding: { id: "direct:a-node", nodeId: "a-node", attachmentType: "external_cli", tmuxSession: "a@rig", tmuxWindow: null,
         tmuxPane: null, cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd: root,
         managedAttempt: { attemptId, deadline: Date.now() + 60_000, context: manifest } },
-      adapter, plan: { runtime: "claude-code", cwd: root, entries: [], startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [] },
+      adapter,
       resolvedStartupFiles: [], startupActions: [], isRestore: false, sessionName: "a@rig", runId: "run", taskId, skipHarnessLaunch: true });
     expect(started.ok, JSON.stringify(started)).toBe(true);
     return readFileSync(agentTurnPromptPath(manifest), "utf8");

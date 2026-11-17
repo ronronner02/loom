@@ -79,7 +79,6 @@ export function composeTaskDispatch(deps: TaskDispatchDependencies): TaskDispatc
       if (unsafe) deps.sessions.clearResumeToken(session.id);
       const previous = deps.sessions.db.prepare(`SELECT json_extract(e.payload, '$.receipt.identity.nativeSessionId') AS token FROM events e JOIN team_attempts a ON a.id = json_extract(e.payload, '$.receipt.attemptId') JOIN team_queue_authority q ON q.qitem_id = a.qitem_id WHERE e.type = 'managed.attempt.receipt' AND q.run_id = ? AND q.task_id = ? AND a.state = 'stopped' AND json_extract(e.payload, '$.sessionName') = ? AND json_extract(e.payload, '$.receipt.client') = ? ORDER BY e.seq DESC LIMIT 1`).get(runId, taskId, row.seat, adapter.runtime) as { token: string | null } | undefined;
       const started = await deps.startupOrchestrator.startNode({ rigId: context.rigId, nodeId: node.id, sessionId: session.id, binding, adapter,
-        plan: { runtime: adapter.runtime, cwd: node.cwd, entries: [], startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [] },
         resolvedStartupFiles: [], startupActions: [], isRestore: false, sessionName: row.seat, runId, taskId,
         ...(!unsafe && previous?.token ? { continueSessionId: previous.token } : {}) });
       if (started.ok) { failures.delete(key); return; }

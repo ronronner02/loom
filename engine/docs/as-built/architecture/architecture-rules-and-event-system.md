@@ -33,12 +33,10 @@ see `agent-spec-and-startup.md` for their flow detail; they are restated here as
 system-level invariants.
 
 1. No runtime Hono in `domain/` and `adapters/`. `adapters/` has none; `domain/`
-   has type-only Hono imports (`import type`) in **4** files
+   has type-only Hono imports (`import type`) in **3** files
    (`git grep -l 'from "hono' -- packages/daemon/src/domain packages/daemon/src/adapters | wc -l`).
 2. Routes depend on the domain; the domain does not depend on routes at
-   runtime. **1** type-only import crosses back:
-   `domain/project-classifier.ts:1` imports `IdentityProvenance` from
-   `routes/require-sender-identity.js`
+   runtime. **0** imports cross back
    (`git grep -lE 'from "(\.\./)+routes/' -- packages/daemon/src/domain packages/daemon/src/adapters | wc -l`).
 3. Shared DB-handle invariants are enforced at construction time.
 4. The reboot is engine-first: domain services land before public-surface
@@ -110,8 +108,9 @@ system-level invariants.
 ### Startup action constraints
 
 - No shell startup actions.
-- Action types are `slash_command`, `send_text` and `startup_proof` only
-  (`startup-validation.ts:7`).
+- Startup entries are files; the pane-era action types (`slash_command`,
+  `send_text`, `startup_proof`) and their validator are gone with the
+  `startup-validation.ts` module.
 - Non-idempotent actions must not apply on restore.
 - Retrying failed startup is handled as restore.
 
@@ -138,11 +137,11 @@ comments:
   picker or approval prompt refuses a send; a busy or unknown seat gets the
   message with an advisory warning (`session-transport.ts:1427`–`1433`). The
   audited `--dangerously-interact` override is the only way past an open prompt.
-- **Non-interruptive mode is per-launch flags only.** It never changes
-  permissions or native settings files, applies only to full-bypass Claude Code
-  and Codex seats, and is saved per rig, off by default
-  (`adapters/non-interruptive.ts:9`–`26`; `rigs.non_interruptive`, migration
-  `095`). A rig spec can author it as `non_interruptive` (`rigspec-schema.ts:179`).
+- **No launch mutates a user's client configuration.** The direct-worker
+  launch writes only the turn's own prompt and output tree; the pane-era
+  non-interruptive and permission-settings writers are gone. `rigs.non_interruptive`
+  (migration `095`) and `rigspec-schema.ts:179` still record the authored
+  choice, but nothing on the launch path applies it.
 - **Inside a notify envelope, events are delivered from the log.** Within
   `withNotifyEnvelope` (`event-bus.ts:106`–`112`), every event persisted through
   the event bus must be registered before the callback returns; after commit
@@ -156,8 +155,8 @@ comments:
 The daemon's event surface is the single `RigEvent` discriminated union.
 
 `RigEvent` is declared at `packages/daemon/src/domain/types.ts:108`
-(`export type RigEvent =`) and runs through `types.ts:313`. It has **98 union
-members** declaring **99** `type` literals: one member (`types.ts:109`) carries
+(`export type RigEvent =`) and runs through `types.ts:315`. It has **94 union
+members** declaring **96** `type` literals: one member (`types.ts:109`) carries
 both `proof.judged` and `proof.sources_changed`.
 
 - Members:
@@ -165,10 +164,11 @@ both `proof.judged` and `proof.sources_changed`.
 - Type literals:
   `sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"[a-z_]+(\.[a-z_]+)+"' | sort -u | wc -l`
 
-**96** of the 99 literals appear as a `type: "<x>"` literal somewhere in
+**92** of the 96 literals appear as a `type: "<x>"` literal somewhere in
 `packages/daemon/src` outside `types.ts` (mostly in `domain/` and `routes/`;
-`seat.model_divergence` is built in `startup.ts`). **3** are declared but never
-constructed: `session.status_changed`, `continuity.sync`, and `continuity.degraded`
+`seat.model_divergence` is built in `startup.ts`). **4** are declared but never
+constructed: `session.status_changed`, `continuity.sync`, `continuity.degraded`
+and `proof.sources_changed`
 (per #490, `qitem.closure_overdue` is produced by `QueueRepository.recordClosureOverdue`
 when swept by `queue-stuck-sweep`, and `mission_control.view_refreshed` was retired).
 List them with:

@@ -174,10 +174,9 @@ Restore behavior, each point checked in `restore-orchestrator.ts`:
   and token (`launchedSessionMatchesSnapshotResume`,
   `restore-orchestrator.ts:1390`); a reported `fresh` continuity without that
   proof rolls back to `awaiting-decision` (`:1228–1245`).
-- Saves a `rig up --non-interruptive` or `--no-non-interruptive` choice on
-  the rig only after the live-session check and pre-restore validation pass
-  (`:301`); see [adapters-and-runtimes.md](adapters-and-runtimes.md) for the
-  launch flags.
+- Saves the rig's authored `non_interruptive` choice on the rig only after the
+  live-session check and pre-restore validation pass (`:301`); the current
+  launch path does not apply it.
 
 `launchNodeSubset` (`:392`) and `launchSingleNode` restore chosen seats rather
 than the whole rig; unlike a full restore, a failed tmux probe there proceeds
@@ -186,10 +185,11 @@ with a `liveness_probe_unknown` warning (`:517`).
 **Restore-honesty rules** (texts in `architecture-rules-and-event-system.md`;
 cited here by number with the code that carries them):
 
-- Rule 7 — `RESTORE_POLICY_LEVEL`
-  (`packages/daemon/src/domain/profile-resolver.ts:106`) orders the three
-  policies, and `resolveRestorePolicy` (`profile-resolver.ts:589`) rejects a
-  profile or member value that broadens it.
+- Rule 7 — the three restore-policy levels are recorded per seat
+  (`restore_policy` on nodes and bindings), and a member or profile value that
+  broadens the rig's level is refused when the binding is built.
+  `resolveRestorePolicy` lived in the removed `profile-resolver.ts`;
+  `rig-repository.ts` carries the persisted value.
 - Rule 14 — the outcome set is `RestoreNodeResult.status` (`types.ts:475`,
   §1); `rebuilt` is set only when a checkpoint is written
   (`restore-orchestrator.ts:1097`).
@@ -280,7 +280,8 @@ cited here by number with the code that carries them):
   source delivers a daemon-built restore packet (`buildRestorePacket`,
   `seat-handover-service.ts:1151`), which is separate from the CLI
   `rig restore-packet` below. The rebuild source primes from the seat's
-  durable chain (`buildRebuildPrimingChain`, `rebuild-priming-chain.ts:22`).
+  durable chain (the rebuild priming chain, `rebuild-priming-chain.ts`, has
+  been removed with the pane-era restore path).
 
 ## 5. Daemon-side restore-check and CLI restore-packet
 
