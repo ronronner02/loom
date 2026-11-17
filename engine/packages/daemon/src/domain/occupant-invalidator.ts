@@ -5,11 +5,11 @@
 // file imports THIS definition (one shape, no twin).
 //
 // Two invalidation classes (see the (e) enumeration/contract artifact):
-//   Class-A (in-mem compaction maps 1a-1f + the name-keyed context sidecar 2a): hard-delete by name.
+//   Class-A (in-mem compaction maps): hard-delete by name.
 //     Safe by TIMING — invoked INSIDE commit() BEFORE the successor accumulates any name-keyed state,
 //     so a name-scoped delete clears exactly the retiree's entries. (The name does NOT isolate the
 //     retiree from the successor — they share it — the timing does.)
-//   Class-B (durable queue_items / watchdog_jobs, seat-ROLE-bearing): a name-scoped drop would
+//   Class-B (durable queue_items, seat-ROLE-bearing): a name-scoped drop would
 //     NEUTRALIZE THE SUCCESSOR'S OWN legitimate role items, so it MUST gen-scope. That requires the
 //     occupant-generation identity (atom-B). Until `retiringGeneration` is supplied, Class-B is a LOUD
 //     no-op — NEVER a name-scoped drop.
@@ -25,14 +25,9 @@ export interface OccupantInvalidator {
 /** Deps the default invalidator composes — structural so tests inject fakes. */
 export interface OccupantInvalidatorDeps {
   enforcer: { invalidateOccupant(sessionName: string): void };
-  /** (e/Class-B) durable watchdog_jobs store — armed jobs registered by the retiring generation are
-   *  stopped at swap (a stale wake into the successor's context is the ghost). Optional: absent ⇒ the
-   *  watchdog branch is skipped (never a name-scoped fallback). */
-  watchdog?: { dropArmedByRegisteringGeneration(generationUuid: string, keepJobIds?: readonly string[]): number };
-  /** (e/Class-B) durable queue_items store — in-progress items claimed by the retiring generation are
-   *  RELEASED to pending (never dropped: the role work is durable, the successor re-claims). Its current
-   *  park timers (blocked rows' wakes) are role work too, so the watchdog drop keeps them. Optional. */
-  queue?: { releaseClaimsByGeneration(generationUuid: string): number; currentParkTimerIds?(): string[] };
+  /** Durable queue_items store — in-progress items claimed by the retiring generation are
+   *  RELEASED to pending (never dropped: the role work is durable, the successor re-claims). Optional. */
+  queue?: { releaseClaimsByGeneration(generationUuid: string): number };
   log?: (msg: string) => void;
 }
 
@@ -54,26 +49,13 @@ export class DefaultOccupantInvalidator implements OccupantInvalidator {
     // successor; a name-scoped drop would neutralize the successor's own live role items).
     if (retiringGeneration === undefined) {
       log(
-        `[occupant-invalidator] Class-B (queue_items/watchdog_jobs) invalidation for "${retiringSessionName}" ` +
+        `[occupant-invalidator] Class-B (queue_items) invalidation for "${retiringSessionName}" ` +
           `PENDING atom-B: no occupant-generation supplied, so NOT name-scoping (that would neutralize the ` +
           `successor's own legitimate role items). No-op until the generation identity lands.`,
       );
       return;
     }
-    // atom-B present → Class-B gen-scoped invalidation.
-    // Watchdog (3b): stop every ARMED job registered by the retiring generation — a stale wake firing
-    // into the successor's context is the specimen; the successor re-arms its own. Gen-scoped so the
-    // successor's OWN armed jobs (same name, live gen) are untouched. A blocked row's current park timer
-    // is kept: it wakes the seat that owns the row, and nothing re-arms it if it stops.
-    const keepJobIds = this.deps.queue?.currentParkTimerIds?.() ?? [];
-    const stopped = this.deps.watchdog?.dropArmedByRegisteringGeneration(retiringGeneration, keepJobIds) ?? 0;
-    if (stopped > 0) {
-      log(
-        `[occupant-invalidator] Class-B: stopped ${stopped} armed watchdog job(s) registered by retired ` +
-          `generation ${retiringGeneration} (seat "${retiringSessionName}") — successor re-arms its own.`,
-      );
-    }
-    // Queue_items (3a): RELEASE (never drop) every in-progress item CLAIMED by the retiring generation
+    // Queue_items: RELEASE (never drop) every in-progress item CLAIMED by the retiring generation
     // back to pending — the role work is durable and the successor re-claims it; only the retiree's
     // stale claim is the ghost. Gen-scoped via the claimant generation (the successor's own claims,
     // under the reused name but its live gen, are untouched).

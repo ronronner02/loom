@@ -10,25 +10,11 @@ import { resolveClientDependencies } from "./domain/executable-resolver.js";
 import { endRunningWorkerTrees } from "./domain/process-termination.js";
 import { resolveBindPlan } from "./domain/bind-plan.js";
 import type { TeamControlCredentials } from "./middleware/auth-bearer-token.js";
-import { runQueueRetentionSweep, RETENTION_DEFAULTS } from "./domain/queue-retention.js";
-import {
-  createStuckSweepStatus,
-  resolveStuckSweepIntervalSeconds,
-  runStuckSweep,
-} from "./domain/queue-stuck-sweep.js";
-import {
-  createWakeLadderStatus,
-  makePromptStateReader,
-  resolveWakeRetryIntervalSeconds,
-  runWakeLadderTick,
-  WakeLadderScheduler,
-} from "./domain/queue-wake-ladder.js";
 import {
   assertBindAuthInvariant,
   detectTailscaleInterface,
 } from "./middleware/auth-bearer-token.js";
 import type { SlowOperationInstrumentation } from "./domain/slow-op-recorder.js";
-import type { ProviderService } from "./domain/provider/provider-service.js";
 import { SettingsStore } from "./domain/user-settings/settings-store.js";
 import {
   ensureMultiAgentInstance,
@@ -91,113 +77,6 @@ export async function drainSlowOpRecorderOnShutdown(
     return 1;
   }
   return 0;
-}
-
-/** OPR.0.4.6.FS-1 W2 — start the queue-retention maintenance sweep (arch D3): a
- *  boot sweep + a daily tick that archives aged terminal `queue_transitions`
- *  (never-delete) and prunes `watchdog_history`, both in bounded batches with
- *  event-loop yields. Reads the `retention.*` settings (baked defaults via
- *  RETENTION_DEFAULTS). Fire-and-forget with error logging — a sweep failure must
- *  never crash the daemon. Returns the daily interval handle (cleared on
- *  shutdown), or null when disabled. */
-export function startQueueRetentionScheduler(deps: {
-  rigRepo: { db: import("better-sqlite3").Database };
-  settingsStore?: { resolveOne(key: string): { value: unknown } };
-}): ReturnType<typeof setInterval> | null {
-  const store = deps.settingsStore;
-  const enabled = store ? store.resolveOne("retention.enabled").value === true : true;
-  if (!enabled) return null;
-  const db = deps.rigRepo.db;
-  const num = (key: string, fallback: number): number => {
-    const v = store ? store.resolveOne(key).value : fallback;
-    return typeof v === "number" ? v : fallback;
-  };
-  const runOnce = (): void => {
-    void runQueueRetentionSweep(db, {
-      nowIso: new Date().toISOString(),
-      transitionsRetentionDays: num("retention.transitions_days", RETENTION_DEFAULTS.transitionsRetentionDays),
-      watchdogRetentionDays: num("retention.watchdog_days", RETENTION_DEFAULTS.watchdogRetentionDays),
-      watchdogKeepPerJob: num("retention.watchdog_keep_per_job", RETENTION_DEFAULTS.watchdogKeepPerJob),
-      usageSamplesRetentionDays: num("retention.usage_samples_days", RETENTION_DEFAULTS.usageSamplesRetentionDays),
-      batchSize: num("retention.batch_size", RETENTION_DEFAULTS.batchSize),
-    }).catch((err: unknown) => {
-      console.error(`[queue-retention] sweep error: ${err instanceof Error ? err.message : String(err)}`);
-    });
-  };
-  runOnce(); // boot sweep (fire-and-forget)
-  const DAILY_MS = 24 * 60 * 60 * 1000;
-  return setInterval(runOnce, DAILY_MS);
-}
-
-/** S02 (OPR.0.5.5.2) — start the STANDING STUCK SWEEP: both halves of "is anything
- *  silently stuck" (claimed-never-closed; sender-believed-delivered-never-woken) plus the
- *  unclaimed-obligation net and the dangling-closure custody class, on the config-keyed
- *  cadence (`queue.stuck_sweep_interval_seconds`). Findings route as durable rows to the
- *  owning seats; a clean sweep records only the healthz heartbeat; a failing sweep is loud
- *  on that surface and the log, never a silent skip. Boot sweep + interval, retention
- *  pattern. Returns the interval handle (cleared on shutdown), or null when the queue
- *  repository is absent (direct-construction harnesses). */
-export function startStuckSweepScheduler(deps: {
-  rigRepo: { db: import("better-sqlite3").Database };
-  queueRepo?: import("./domain/queue-repository.js").QueueRepository;
-  stuckSweepStatus?: import("./domain/queue-stuck-sweep.js").StuckSweepStatus;
-}): ReturnType<typeof setInterval> | null {
-  const queueRepo = deps.queueRepo;
-  if (!queueRepo) return null;
-  const status = createStuckSweepStatus();
-  deps.stuckSweepStatus = status; // healthz reads this snapshot
-  const db = deps.rigRepo.db;
-  const runOnce = (): void => {
-    // runStuckSweep never throws (failure is recorded loudly on the status surface);
-    // the catch is the never-crash-the-daemon belt for the promise chain itself.
-    void runStuckSweep({ db, queueRepo, status }).catch((err: unknown) => {
-      console.error(`[stuck-sweep] scheduler error: ${err instanceof Error ? err.message : String(err)}`);
-    });
-  };
-  runOnce(); // boot sweep (fire-and-forget)
-  return setInterval(runOnce, resolveStuckSweepIntervalSeconds() * 1000);
-}
-
-/** S01 (OPR.0.5.5.1) — start the WAKE-OR-ESCALATE ladder: batons whose wake failed retry
- *  on the config-keyed cadence up to the cap, then escalate through recorded rungs
- *  (destination's orchestrator — aggregated per destination — then the operator surface).
- *  Ladder state derives entirely from the row's transitions, so a daemon restart resumes
- *  every ladder at its exact position with no recovery step. Returns the scheduler
- *  (stopped on shutdown), or null when the queue repository is absent. */
-export function startWakeLadderScheduler(deps: {
-  rigRepo: { db: import("better-sqlite3").Database };
-  queueRepo?: import("./domain/queue-repository.js").QueueRepository;
-  wakeLadderStatus?: import("./domain/queue-wake-ladder.js").WakeLadderStatus;
-  providerService?: Pick<ProviderService, "getReadModel">;
-  usageLimitJitterSeconds?: number;
-  agentActivityStore?: Pick<import("./domain/agent-activity-store.js").AgentActivityStore, "getLatestForNode">;
-}): WakeLadderScheduler | null {
-  const queueRepo = deps.queueRepo;
-  if (!queueRepo) return null;
-  const status = createWakeLadderStatus();
-  deps.wakeLadderStatus = status; // healthz reads this snapshot
-  const db = deps.rigRepo.db;
-  const scheduler = new WakeLadderScheduler({
-    runTick: () => runWakeLadderTick({
-      db,
-      queueRepo,
-      status,
-      readPromptState: makePromptStateReader({
-        db,
-        getSeatState: () => null,
-        getLatestHook: (sessionName) => deps.agentActivityStore?.getLatestForNode({ sessionName }),
-      }),
-      ...(deps.providerService
-        ? { getProviderReadModel: () => deps.providerService!.getReadModel() }
-        : {}),
-      ...(deps.usageLimitJitterSeconds !== undefined
-        ? { usageLimitJitterSeconds: deps.usageLimitJitterSeconds }
-        : {}),
-    }),
-    tickIntervalMs: resolveWakeRetryIntervalSeconds() * 1000,
-  });
-  scheduler.start();
-  return scheduler;
 }
 
 export async function startServer(port?: number) {

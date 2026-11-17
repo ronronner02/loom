@@ -179,43 +179,29 @@ observer (`:497`), JSON body-parse error tracking, which turns a malformed body 
 recording, the browser boundary on `/api/*` (`:647`, Host and Origin checks; see
 `OPENRIG_ALLOWED_HOSTS` and `OPENRIG_ALLOWED_ORIGINS`), and host read-through.
 
-`createAppWithWebSocket(deps)` (`server.ts:893`) sets `enableNodeWebSocket` and
-calls `createApp`; the terminal WebSocket is registered only when the web UI is
-also enabled (`server.ts:756`). Otherwise only its bearer-auth handler is
-registered (`registerTerminalAuthOnly`, `:762`).
-
 ## 4. Startup sequence (`createDaemon`)
 
-`createDaemon(opts?)` is `packages/daemon/src/startup.ts:287` (async, returns
-`DaemonResult`). It returns `{ app, db, deps, contextMonitor, eventLoopMonitor,
-injectWebSocket }` (`startup.ts:2506`). In source order, it:
+`createDaemon(opts?)` is `packages/daemon/src/startup.ts` (async, returns
+`DaemonResult`). It returns `{ app, db, deps, eventLoopMonitor }`. In source order, it:
 
-1. Opens SQLite and applies all 96 migrations (`migrate(db, ALL_MIGRATIONS)`,
-   `startup.ts:298`).
-2. Constructs the coordination stores early: `StreamStore` (`:330`),
-   `QueueRepository` (`:428`) and `OutboxHandler` (`:443`).
-3. Constructs `TranscriptStore` (`:555`) and the rig environment services
-   `ComposeServicesAdapter` and `ServiceOrchestrator` (`:644`–`645`).
-4. Constructs `StartupOrchestrator` (`:776`) and the runtime adapters:
-   `ClaudeCodeAdapter` (`:778`), `CodexRuntimeAdapter` (`:779`),
-   `PiRuntimeAdapter` (`:782`), `OmpRuntimeAdapter` (`:783`) and
-   `StubRuntimeAdapter` (`:788`); the terminal adapter is created inline in the
-   runtime adapter maps (`:989`, `:1259`).
-5. Constructs `PodRigInstantiator` (`:985`), `PodBundleSourceResolver` (`:1014`)
-   and `BootstrapOrchestrator` (`:1016`).
-6. Constructs `ContextUsageStore` (`:1095`), `ResumeMetadataRefresher`
-   (`:1129`), `SpecReviewService` (`:1154`) and `WhoamiService` (`:1157`).
-7. Builds `AppDeps` (`const deps: AppDeps`, `:778`). `ChatRepository` (`:786`)
-   is constructed inside that object literal, beside the queue repository
-   (`queueRepoInstance`) that serves `/api/queue`.
-8. Constructs `ContextMonitor` (`:2407`), then assigns later fields onto `deps`
-   (among them the terminal service, the request-phase observer and the gateway
-   subsystem).
-9. Calls `createAppWithWebSocket(deps)` (`startup.ts:2504`) to mount the full
-   route tree.
+1. Opens SQLite, applies the schema and reconciles the daemon's own instance state.
+2. Constructs the stores the app serves: `DaemonLifecycleStore`, the `EventBus`, the
+   `StreamStore`, the `QueueRepository`, the `ChatRepository` and the
+   `AgentActivityStore`.
+3. Constructs the runtime adapters — `ClaudeCodeAdapter` and `CodexRuntimeAdapter` — over the
+   one direct-launch worker launcher, and the `StartupOrchestrator` that dispatches through
+   them.
+4. Composes the `WorkflowRuntime` (the candidate-tree owner), the integration branch, the
+   managed-attempt attachment and the `OccupantInvalidator`.
+5. Composes the dispatch chain: `composeTaskDispatch`, `composePendingDispatch`,
+   `composeAttemptCompletion`, `composeLeadManager`, `composeTaskThreads`,
+   `composeCancellation`, and the `injectWebSocket` seam.
+6. Calls `createApp(deps)` and returns the app, the database, the deps object and the
+   event-loop monitor.
 
-The daemon entrypoint `packages/daemon/src/index.ts:306` calls
-`createDaemon({ dbPath, bearerToken, terminalBearerToken, … })`.
+The daemon entrypoint `packages/daemon/src/index.ts` calls
+`createDaemon({ dbPath, bearerToken, … })`, starts the attempt-completion sweep and the
+lifecycle heartbeat once the first bind succeeds, and stops them on shutdown.
 
 ## 5. Test files
 

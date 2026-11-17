@@ -95,48 +95,8 @@ describe("QueueRepository human-route enforcement wiring (FR-4/FR-5)", () => {
     expect(item.evidenceRef).toBe("missions/x/PROOF.md");
   });
 
-  it("handoff to a human seat requires the NEW item's own fields (never inherited)", async () => {
-    const src = await repo.create({
-      ...ordinary,
-      summary: "source summary",
-      evidenceRef: "proof/source.md",
-    });
-    // Source HAS both fields; the handoff omits them → still rejected.
-    await expect(
-      repo.handoff({ qitemId: src.qitemId, fromSession: "b@rig", toSession: "human-review@kernel", nudge: false })
-    ).rejects.toMatchObject({ code: "human_route_fields_required" });
-    // Providing them on the handoff itself succeeds.
-    const result = await repo.handoff({
-      qitemId: src.qitemId,
-      fromSession: "b@rig",
-      toSession: "human-review@kernel",
-      summary: "Please ratify",
-      evidenceRef: "proof/final.md",
-      nudge: false,
-    });
-    expect(result.created.summary).toBe("Please ratify");
-    expect(result.created.evidenceRef).toBe("proof/final.md");
-  });
 
-  it("handoff inheriting human-gate TIER from the source also triggers enforcement", async () => {
-    const src = await repo.create({
-      ...ordinary,
-      tier: "human-gate",
-      summary: "s",
-      evidenceRef: "e.md",
-    });
-    // No tier override on the handoff → new item inherits human-gate → enforcement.
-    await expect(
-      repo.handoff({ qitemId: src.qitemId, fromSession: "b@rig", toSession: "c@rig", nudge: false })
-    ).rejects.toMatchObject({ code: "human_route_fields_required" });
-  });
 
-  it("handoffAndComplete to a human seat is enforced identically", async () => {
-    const src = await repo.create(ordinary);
-    await expect(
-      repo.handoffAndComplete({ qitemId: src.qitemId, fromSession: "b@rig", toSession: "human@kernel", nudge: false })
-    ).rejects.toMatchObject({ code: "human_route_fields_required" });
-  });
 
   // ——— BR-1 zero-friction negatives (the guard's verification targets) ———
 
@@ -147,17 +107,9 @@ describe("QueueRepository human-route enforcement wiring (FR-4/FR-5)", () => {
     expect(item.evidenceRef).toBeNull();
   });
 
-  it("NEGATIVE: ordinary handoff without the fields is accepted; no new rejection path", async () => {
-    const src = await repo.create(ordinary);
-    const result = await repo.handoff({ qitemId: src.qitemId, fromSession: "b@rig", toSession: "c@rig", nudge: false });
-    expect(result.created.state).toBe("pending");
-    expect(result.created.summary).toBeNull();
-    expect(result.created.evidenceRef).toBeNull();
-  });
 
   it("NEGATIVE: ordinary update/close paths gain no new requirement (closure contract unchanged)", async () => {
     const item = await repo.create(ordinary);
-    repo.claim({ qitemId: item.qitemId, destinationSession: "b@rig" });
     const done = repo.update({
       qitemId: item.qitemId,
       actorSession: "b@rig",
@@ -194,7 +146,6 @@ describe("FR-6 park-on-human (leg-1) — enforcement + persistence + attention",
       body: "build the thing",
       nudge: false,
     });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "driver@rig" });
     return item;
   }
 
@@ -243,7 +194,6 @@ describe("FR-6 park-on-human (leg-1) — enforcement + persistence + attention",
       evidenceRef: "proof/carried.md",
       nudge: false,
     });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "driver@rig" });
     const parked = repo.update({
       qitemId: item.qitemId,
       actorSession: "driver@rig",

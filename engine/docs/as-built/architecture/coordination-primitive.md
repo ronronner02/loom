@@ -52,26 +52,18 @@ Five host-scoped tables back the primitive, one per migration `023`–`027` in
   `handed_off_to`/`handed_off_from`, nudge/heartbeat columns.
 - **`queue_transitions`** (`025_queue_transitions.ts`) — L3 append-only
   transition log; authoritative audit trail for state evolution. Domain code
-  never updates its rows. The one delete is the retention runner, which moves
-  every transition of a terminal item whose last transition is older than the
-  retention window into `queue_transitions_archive`
-  (`054_queue_transitions_archive.ts`), insert and delete in one transaction
-  (`packages/daemon/src/domain/queue-retention.ts:203`). Only `done` and
-  `handed-off` items are archived; the default window is 30 days, and items
-  still on a live workflow frontier are skipped (`queue-retention.ts:69`–`75`,
-  `:158`–`171`).
+  never updates its rows. The retention runner that archived aged transitions
+  was deleted with the watchdog runtime, so nothing deletes from this table.
 - **`inbox_entries`** (`026_inbox_entries.ts`) — mailbox-style asynchronous
   deposit; idempotent on `inbox_id`. State: `pending | absorbed | denied`
   (`INBOX_STATES`). No daemon code writes it today: the `InboxHandler` that
   did was constructed but never called, and has been removed.
 - **`outbox_entries`** (`027_outbox_entries.ts`) — sender-side record;
-  symmetric to inbox; idempotent on `outbox_id`. Delivery state (**7** values,
-  `OUTBOX_DELIVERY_STATES` at `outbox-handler.ts:28`;
-  `grep '^export const OUTBOX_DELIVERY_STATES' packages/daemon/src/domain/outbox-handler.ts | grep -o '"[a-z]*"' | wc -l`):
-  `pending | sending | delivered | failed | indeterminate | retained |
-  retired`.
+  symmetric to inbox; idempotent on `outbox_id`. No daemon code writes it
+  today: the `OutboxHandler` was the durable wake-intent store, and it went
+  with the wake runtime.
 
-These five are migrations `023`–`027` of the daemon's **96**
+These five are migrations `023`–`027` of the daemon's schema
 (`git ls-files packages/daemon/src/db/migrations | wc -l`), applied in the
 order of `ALL_MIGRATIONS` (`packages/daemon/src/db/all-migrations.ts:107`).
 Later migrations add columns to these tables; `daemon-core.md` covers the
@@ -79,61 +71,30 @@ migration set.
 
 ## 2. The six host-scoped services
 
-Five host-scoped domain services in `packages/daemon/src/domain/` implement the
-layer (**5** files:
-`ls packages/daemon/src/domain/{stream-store,queue-repository,queue-transition-log,hot-potato-enforcer,outbox-handler}.ts | wc -l`).
-Routes import these; services are Hono-free:
+Host-scoped domain services in `packages/daemon/src/domain/` implement the
+layer. Routes import these; services are Hono-free:
 
 - **`stream-store.ts`** — L1 stream: idempotent emit (on `stream_item_id`),
   chronological list with cursor pagination plus source, destination, exact-tag,
   and inclusive time-window filters, soft archive. `direction=latest` applies
   every filter before taking the newest bounded page, then returns that page
   chronologically.
-- **`queue-repository.ts`** — L3 queue: create (`:1391`), claim/unclaim
-  (`:2186`, `:2271`), update (general state mutator with hot-potato
-  strict-rejection on `done`, `:2334`), transactional handoff (close source as
-  `handed-off` plus create new owned qitem in a single transaction, `:1656`;
-  `handoffAndComplete`, `:1833`, closes the source as `done` instead),
-  pod-fallback rerouting (`routeToFallback`, `:3678`), overdue lookup
-  (`findOverdue`, `:3378`), nudge-result tracking (`recordNudgeAttempt`,
-  `:3663`). Nothing in the daemon writes the `last_heartbeat` column
-  (`queue-pickup.ts:16`). Cross-rig validation hook exposed as `validateRig`
-  constructor option (`queue-repository.ts:717`).
+- **`queue-repository.ts`** — L3 queue: create (and `createWithinTransaction`,
+  which a close-plus-successor writer composes inside its own transaction),
+  update (general state mutator with hot-potato strict-rejection on `done`),
+  read (`getById`, `list`), the append-only transition log, and the
+  generation-scoped claim release the seat-handover path uses. Cross-rig
+  validation hook exposed as the `validateRig` constructor option.
 - **`queue-transition-log.ts`** — append-only state-transition log; used by
   `queue-repository.ts`, exposed as the read-only property
   `QueueRepository.transitionLog` (`queue-repository.ts:666`).
 - **`hot-potato-enforcer.ts`** — pure validator for the load-bearing API
   contract (see §3).
-- **`outbox-handler.ts`** — sender-side outbox: idempotent record (`:130`),
-  delivery-state marks (`markDelivered` `:239`, `markFailed` `:256`,
-  `markIndeterminate` `:280`), list (`listForSender` `:339`). It also holds the
-  queue's durable wake intents (ids prefixed `wake-intent-`, `:15`) and the
-  messages the seat delivery guard retains (`retain` `:181`, `retire` `:217`),
-  so it is not audit-only. Emits no event-bus events.
 
-Create, handoff and handoff-and-complete return the committed row without
-waiting for terminal delivery. Each stages a deterministic
-`wake-intent-<qitem>` outbox row in its transaction and delivers it after
-commit (`queue-repository.ts:1412`–`1424`, `:1475`–`1483`). The returned
-`lastNudgeResult` is therefore normally null; `rig queue show <id>` reads the
-wake result later. If create cannot retain the intent, the task is still saved
-and the row records `failed:wake not retained: <reason>`. Startup reconciles
-and drains intents left pending by a crash once (`startup.ts:2361`–`2362`).
-`maybeNudge` remains only as the path for a repository with no outbox.
-
-The standing detector in `queue-stuck-sweep.ts` creates findings through the
-queue repository, with `evidenceRef: rig queue show <source-qitem-id>`
-(`queue-stuck-sweep.ts:605`) pointing to the underlying durable work row. This
-satisfies the existing human-route evidence contract without changing
-destination resolution: a finding goes to the destination's orchestrator when
-one is derivable, otherwise to the destination itself, and that seat may be
-dead. Repeated detections refresh the existing finding; when the source
-condition resolves, the sweep closes its own finding (`:612`–`637`). The sweep
-reports six finding kinds (`:50`). Its custody check covers closures that name
-a successor qitem or a seat (`closure_reason = handed_off_to`) in the last 24
-hours; a seat target is satisfied by a local successor carrying this row's
-lineage, and any target by a `custody-verified: <target> …` note on the closed
-row (`:168`–`244`, `:519`–`554`).
+Create returns the committed row. The wake ladder, the outbox that staged its intents and the
+standing stuck sweep that detected strands were all deleted with the watchdog runtime, so a
+row's `last_nudge_*` columns keep whatever an earlier daemon recorded and nothing new writes
+them.
 
 ## 3. The hot-potato closure contract (where queue closure is enforced)
 
@@ -261,8 +222,7 @@ message-passing closure (never 2PC).**
   `closure_target=<successor qitem id>@<host>` (`routes/queue.ts:351`); a
   source already closed with the older `member@rig@<host>` target keeps it,
   and a re-drive matches against it (`:352`–`356`). `closure_target` is OPAQUE
-  audit metadata, never parsed for routing; the standing stuck sweep reads it
-  only to check successor custody (`queue-stuck-sweep.ts:519`–`554`). The
+  audit metadata, never parsed for routing. The
   host-qualified key appears only in the `closure_target` column on
   `queue_items` and its verbatim mirror on `queue_transitions`: the minted
   cross-host close note names the 2-part `toSession` only
@@ -297,12 +257,8 @@ Coordination events emitted by these services: `stream.emitted`
 (`StreamStore.emit`, declared at `types.ts:245`); `queue.created` /
 `queue.handed_off` / `queue.claimed` / `queue.unclaimed` / `queue.updated` /
 `qitem.fallback_routed` / `qitem.closure_overdue` (QueueRepository).
-`qitem.closure_overdue` (`types.ts:254`) is
-emitted by `QueueRepository.recordClosureOverdue` when swept by `queue-stuck-sweep`
-and passed through the queue watch filter (**2** files contain its literal:
-`git grep -l -F 'type: "qitem.closure_overdue"' -- packages/daemon/src | wc -l`).
-The `stream|queue|qitem` families declare **8** event types (`stream` 1
-+ `queue` 5 + `qitem` 2;
+The `stream|queue|qitem` families declare the coordination event types
+(`stream` 1 + `queue` 5 + `qitem` 2;
 `sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"(stream|queue|qitem)\.[a-z_]+"' | sort -u | wc -l`).
 
 Two SSE surfaces stream coordination events (**2**:
@@ -349,8 +305,7 @@ outbox and stream rows (migrations `067`, `082`).
 ## See also
 
 - `daemon-core.md` — daemon wiring, the migration set, route surface.
-- `workflow-runtime.md` — the workflow runtime that projects on closure.
+- `workflow-runtime.md` — the spec types and the successor rule.
 - `mission-control.md` — queue observability over `queue_items`.
 - Source roots: `packages/daemon/src/domain/{stream-store,queue-repository,
-  queue-transition-log,hot-potato-enforcer,outbox-handler}.ts`,
-  `packages/daemon/src/routes/{stream,queue}.ts`.
+  queue-transition-log,hot-potato-enforcer}.ts`.

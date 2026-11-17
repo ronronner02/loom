@@ -244,22 +244,6 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
       "output.compact",
       // Slice 01 (OPR.0.7.0.1) — Codex usage windows switch.
       "provider.usage_windows",
-      // OPR.0.4.6.FS-1 W2 — queue-retention maintenance knobs.
-      "retention.enabled",
-      "retention.transitions_days",
-      "retention.watchdog_days",
-      "retention.watchdog_keep_per_job",
-      "retention.batch_size",
-      "queue.pickup_stall_threshold_minutes",
-      // S02 — standing-stuck-sweep cadence + unclaimed-obligation age.
-      "queue.stuck_sweep_interval_seconds",
-      "queue.stuck_sweep_unclaimed_age_minutes",
-      // S01 — wake-or-escalate ladder knobs.
-      "queue.wake_retry_interval_seconds",
-      "queue.wake_retry_cap",
-      "queue.wake_unconfirmed_window_minutes",
-      "queue.wake_swap_grace_seconds",
-      "queue.wake_human_rung",
       "team.leadClient",
       "team.maxSeats",
       "team.maxConcurrentAgents",
@@ -337,13 +321,6 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     });
   });
 
-  it("S04 founder default exposes a 3-minute pickup stall threshold", () => {
-    const setting = new ConfigStore(configPath).resolveWithSource(
-      "queue.pickup_stall_threshold_minutes" as never,
-    );
-    expect(setting).toMatchObject({ value: 3, source: "default", defaultValue: 3 });
-  });
-
   it("configures the launch readiness window with strict bounds and env precedence", () => {
     const store = new ConfigStore(configPath);
     expect(store.resolveWithSource("runtime.readiness_timeout_seconds")).toMatchObject({ value: 30, source: "default" });
@@ -392,58 +369,6 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     store.reset("health.context_pressure.warning_percent");
     store.reset("health.context_pressure.critical_percent");
     expect(store.resolve().health.contextPressure).toEqual({ warningPercent: 95, criticalPercent: 99 });
-  });
-
-  it("S01 wake ladder exposes retry cadence, cap, unconfirmed window, and swap grace defaults", () => {
-    const store = new ConfigStore(configPath);
-    expect(store.resolveWithSource("queue.wake_retry_interval_seconds" as never)).toMatchObject({
-      value: 300,
-      source: "default",
-      defaultValue: 300,
-    });
-    expect(store.resolveWithSource("queue.wake_retry_cap" as never)).toMatchObject({
-      value: 3,
-      source: "default",
-      defaultValue: 3,
-    });
-    expect(store.resolveWithSource("queue.wake_unconfirmed_window_minutes" as never)).toMatchObject({
-      value: 30,
-      source: "default",
-      defaultValue: 30,
-    });
-    expect(store.resolveWithSource("queue.wake_swap_grace_seconds" as never)).toMatchObject({
-      value: 180,
-      source: "default",
-      defaultValue: 180,
-    });
-  });
-
-  it("S02 standing stuck sweep exposes its cadence and unclaimed-age defaults", () => {
-    const store = new ConfigStore(configPath);
-    expect(store.resolveWithSource("queue.stuck_sweep_interval_seconds" as never)).toMatchObject({
-      value: 300,
-      source: "default",
-      defaultValue: 300,
-    });
-    expect(store.resolveWithSource("queue.stuck_sweep_unclaimed_age_minutes" as never)).toMatchObject({
-      value: 60,
-      source: "default",
-      defaultValue: 60,
-    });
-  });
-
-  it("queue integer settings reject partial and fractional strings", () => {
-    const store = new ConfigStore(configPath);
-    for (const key of [
-      "queue.pickup_stall_threshold_minutes",
-      "queue.stuck_sweep_interval_seconds",
-      "queue.stuck_sweep_unclaimed_age_minutes",
-    ]) {
-      for (const raw of ["3junk", "60.5"]) {
-        expect(() => store.set(key, raw), `${key} must reject ${raw}`)
-          .toThrow(/positive integer/i);
-      }
-    }
   });
 
   it("W2c idle-gate-qitem cadence resolves env over file", () => {

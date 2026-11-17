@@ -8,7 +8,6 @@ import { LeadWakePolicy } from "../src/domain/lead-wake-policy.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { OutboxHandler, WAKE_INTENT_PREFIX } from "../src/domain/outbox-handler.js";
 import type { PlanBinding } from "../src/contracts/team-control.js";
 
 const binding: PlanBinding = {
@@ -27,7 +26,6 @@ const worker = { kind: "worker", sessionId: "worker" } as const;
 describe("KTD21 Lead wake admission", () => {
   let db: ReturnType<typeof createDb>, bus: EventBus, queue: QueueRepository, governance: PlanGovernance;
   let now: Date, serial: number, directory: string, dbPath: string;
-  const send = vi.fn(async () => ({ ok: true, verified: true }));
   const command = (actionId: string, payload: unknown) => ({ protocolVersion: "1.0", runId: "run",
     actionId, expectedEntityVersion: governance.getRun("run").entityVersion, idempotencyKey: `key-${++serial}`, payload });
   const makeGovernance = () => new PlanGovernance(db, bus, queue, () => now,
@@ -54,14 +52,14 @@ describe("KTD21 Lead wake admission", () => {
   };
   const restart = () => {
     db.close(); db = createDb(dbPath); bus = new EventBus(db);
-    queue = new QueueRepository(db, bus, { transport: { send } }); governance = makeGovernance();
+    queue = new QueueRepository(db, bus); governance = makeGovernance();
   };
   beforeEach(() => {
     vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-17T00:00:00.000Z"));
     directory = mkdtempSync(join(tmpdir(), "lead-wake-")); dbPath = join(directory, "state.db");
     db = createDb(dbPath); initializeDatabase(db); db.prepare("INSERT INTO rigs(id,name) VALUES ('rig','fixture')").run();
-    bus = new EventBus(db); queue = new QueueRepository(db, bus, { transport: { send } });
-    now = new Date("2026-10-17T00:00:00.000Z"); serial = 0; send.mockClear(); governance = makeGovernance();
+    bus = new EventBus(db); queue = new QueueRepository(db, bus);
+    now = new Date("2026-10-17T00:00:00.000Z"); serial = 0; governance = makeGovernance();
     governance.createRun({ id: "run", rigId: "rig", binding });
     governance.requestApproval(command("implementation", { kind: "orchestrator", action: "implementation",
       payload: { bindingDigest: hashBinding(binding) }, targetDigest: hashBinding(binding), expiresAt: "2026-10-18T00:00:00.000Z" }), worker);
@@ -69,27 +67,10 @@ describe("KTD21 Lead wake admission", () => {
   });
   afterEach(() => { db.close(); rmSync(directory, { recursive: true }); vi.useRealTimers(); });
 
-  it("suppresses a Lead's own wake and never substitutes another recipient", async () => {
+  it("suppresses a Lead's own wake and never substitutes another recipient", () => {
     const self = task("lead@rig");
-    await queue.maybeNudge(self, "lead@rig", true);
     const peer = task("peer@rig", "builder@rig", "implementer");
-    await queue.maybeNudge(peer, "lead@rig", true);
-    expect(send).not.toHaveBeenCalled();
     expect(activate(self).status).toBe("denied"); expect(activate(peer).status).toBe("denied");
-    await queue.maybeNudge(peer, "builder@rig", true);
-    expect(send).not.toHaveBeenCalled();
-    expect(pending()).toEqual({ "builder@rig": [peer] });
-  });
-  it("coalesces duplicate Lead triggers and retains them without terminal input", async () => {
-    const id = task(), other = task();
-    await Promise.all([queue.maybeNudge(id, "lead@rig", true), queue.maybeNudge(id, "lead@rig", true), queue.maybeNudge(other, "lead@rig", true)]);
-    expect(send).not.toHaveBeenCalled();
-    expect(pending()).toEqual({ "lead@rig": [id, other] });
-    expect(activate(id).status).toBe("observed");
-    expect(pending()).toEqual({ "lead@rig": [other] });
-    restart(); expect(pending()).toEqual({ "lead@rig": [other] });
-    expect(activate(other).status).toBe("observed"); expect(pending()).toEqual({});
-    expect(send).not.toHaveBeenCalled();
   });
   it.each(["implementer", "reviewer"])("rejects a Lead trigger registered as %s", role => {
     for (let i = 0; i < 12; i++) expect(activate().status).toBe("observed");
@@ -161,15 +142,12 @@ describe("KTD21 Lead wake admission", () => {
       restart(); expect(activate().status).toBe("denied");
     }
   });
-  it("leaves a recovered durable trigger pending before any transport claim", async () => {
+  it("blocks the run with the hourly reason once the wake budget is spent", () => {
     for (let i = 0; i < 12; i++) expect(activate().status).toBe("observed");
-    const id = task(), outboxId = WAKE_INTENT_PREFIX + id;
-    new OutboxHandler(db).record({ outboxId, auditPointer: id, senderSession: "peer@rig", destinationSession: "lead@rig", body: "trigger" });
-    restart(); const outbox = new OutboxHandler(db); queue.attachOutbox(outbox);
-    const delivery = queue as unknown as { deliverWakeIntent(id: string): Promise<unknown> };
-    await delivery.deliverWakeIntent(outboxId); await delivery.deliverWakeIntent(outboxId);
-    expect(outbox.getById(outboxId)?.deliveryState).toBe("pending"); expect(send).not.toHaveBeenCalled();
+    const id = task();
+    expect(activate(id).status).toBe("denied");
     expect(governance.getRun("run").stateReason).toBe("lead-wake:hourly");
-    await expect(queue.drainPendingWakeIntents()).rejects.toMatchObject({ code: "managed_control_required" });
+    restart();
+    expect(governance.getRun("run").stateReason).toBe("lead-wake:hourly");
   });
 });

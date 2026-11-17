@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
-import { latestHookMovedOn, type AgentActivityStore } from "./agent-activity-store.js";
-import { makePromptStateReader } from "./queue-wake-ladder.js";
+import { latestHookMovedOn, latestHookWaitsOnPerson, type AgentActivityStore } from "./agent-activity-store.js";
+import type { ArbitratedSeatState } from "./activity-taxonomy.js";
 import type {
   ChatRepository,
   MailboxConsumptionReceipt,
@@ -172,13 +172,50 @@ export function mailboxSessionState(value: string | undefined): MailboxSessionSt
 }
 
 /**
- * Reads the recipient seat's prompt state through the wake ladder's reader,
- * anchored at daemon start, so both block on the same evidence. Delivery is
- * stricter about "clear": the seat oracle's clear is not time-bounded and
- * carries no occupant generation, so it also needs this occupant's latest
- * hook to be fresh, generation-valid, observed since the daemon started and
- * not dated in the future. Anything else reads "unknown", which callers
- * treat as not admitted.
+ * The production prompt read for a refused destination: the activity oracle answers first;
+ * when it has no evidence, the same retained runtime hook the send gate refused on answers.
+ * A generation-valid hook observed after the refusal that means work started or the turn
+ * ended answers "clear", as does the oracle's clear; anything else stays "unknown".
+ */
+function classifyPromptAfterRefusal(
+  state: Pick<ArbitratedSeatState, "activity" | "needsInput" | "needsInputEvidence"> | null | undefined,
+  refusedAt: string,
+): "blocked" | "clear" | "unknown" {
+  if (!state || state.activity === "unknown") return "unknown";
+  if (state.needsInput.count > 0) return "blocked";
+  const evidence = state.needsInputEvidence;
+  if (!evidence) return "unknown";
+  return Date.parse(evidence.observedAt) > Date.parse(refusedAt) ? "clear" : "unknown";
+}
+
+/** The durable session→node binding: the latest sessions row for the canonical name. */
+function resolveSessionNodeId(db: Database.Database, session: string): string | null {
+  const row = db
+    .prepare("SELECT node_id FROM sessions WHERE session_name = ? ORDER BY id DESC LIMIT 1")
+    .get(session) as { node_id: string } | undefined;
+  return row?.node_id ?? null;
+}
+
+function makePromptStateReader(deps: {
+  db: Database.Database;
+  getLatestHook?: (sessionName: string) => ReturnType<AgentActivityStore["getLatestForNode"]> | undefined;
+}): (destination: string, refusedAt: string) => "blocked" | "clear" | "unknown" {
+  return (destination, refusedAt) => {
+    const nodeId = resolveSessionNodeId(deps.db, destination);
+    if (!nodeId) return "unknown";
+    const node = deps.db.prepare("SELECT runtime FROM nodes WHERE id = ?").get(nodeId) as { runtime: string | null } | undefined;
+    const hook = deps.getLatestHook?.(destination) ?? null, runtime = node?.runtime ?? null;
+    if (latestHookWaitsOnPerson(hook, runtime)) return "blocked";
+    return latestHookMovedOn(hook, refusedAt, runtime) ? "clear" : "unknown";
+  };
+}
+
+/**
+ * Reads the recipient seat's prompt state, anchored at daemon start, so every caller blocks
+ * on the same evidence. Delivery is stricter about "clear": the seat oracle's clear is not
+ * time-bounded and carries no occupant generation, so it also needs this occupant's latest
+ * hook to be fresh, generation-valid, observed since the daemon started and not dated in the
+ * future. Anything else reads "unknown", which callers treat as not admitted.
  */
 export function createMailboxPromptStateReader(deps: MailboxPromptStateDeps): MailboxPromptStateReader {
   const now = deps.now ?? (() => new Date());

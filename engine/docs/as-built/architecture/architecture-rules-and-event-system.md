@@ -167,7 +167,7 @@ both `proof.judged` and `proof.sources_changed`.
 constructed: `session.status_changed`, `continuity.sync`, `continuity.degraded`
 and `proof.sources_changed`
 (per #490, `qitem.closure_overdue` is produced by `QueueRepository.recordClosureOverdue`
-when swept by `queue-stuck-sweep`, and `mission_control.view_refreshed` was retired).
+and `mission_control.view_refreshed` was retired).
 List them with:
 
 `for t in $(sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"[a-z_]+(\.[a-z_]+)+"' | tr -d '"'); do git grep -q -F "type: \"$t\"" -- packages/daemon/src ':!packages/daemon/src/domain/types.ts' || echo "$t"; done`

@@ -18,9 +18,6 @@ import { workspaceBrowseRoutes } from "./routes/workspace.js";
 import { projectFilesRoutes } from "./routes/project-files.js";
 import { createSlowOpRequestMiddleware, type SlowOperationInstrumentation } from "./domain/slow-op-recorder.js";
 import { QueueRepository } from "./domain/queue-repository.js";
-import type { OutboxHandler } from "./domain/outbox-handler.js";
-import type { WatchdogJobsRepository } from "./domain/watchdog-jobs-repository.js";
-import type { WatchdogHistoryLog } from "./domain/watchdog-history-log.js";
 import type { WorkflowRuntime } from "./domain/workflow-runtime.js";
 import { createRouteTimingMiddleware } from "./domain/route-timing-recorder.js";
 import { browserBoundary, type BrowserBoundaryOptions } from "./middleware/browser-boundary.js";
@@ -95,17 +92,8 @@ export interface AppDeps {
   slowOpRecorder?: SlowOperationInstrumentation;
   requestPhaseObserver?: import("./domain/request-phase-observer.js").RequestPhaseObserver;
   queueRepo?: QueueRepository;
-  /** S02 — the standing stuck sweep's observable heartbeat (ADDITIVE on healthz;
-   *  absent = legacy body). Set by the index.ts scheduler when the loop starts. */
-  stuckSweepStatus?: import("./domain/queue-stuck-sweep.js").StuckSweepStatus;
-  /** S01 — the wake-or-escalate ladder's heartbeat + open-escalations count (ADDITIVE on
-   *  healthz; absent = legacy body). Part of the operator rung's stated delivery floor. */
-  wakeLadderStatus?: import("./domain/queue-wake-ladder.js").WakeLadderStatus;
-  outboxHandler?: OutboxHandler;
   shadowCapture?: import("./domain/shadow-capture.js").ShadowCapture;
   shadowCaptureError?: string;
-  watchdogJobsRepo?: WatchdogJobsRepository;
-  watchdogHistoryLog?: WatchdogHistoryLog;
   workflowRuntime?: WorkflowRuntime;
   /**
    * MVP — the owner of "an attempt ended". A direct launch records a receipt and nothing closed
@@ -120,14 +108,6 @@ export interface AppDeps {
    * than answering as if nothing had landed.
    */
   integration?: import("./domain/integration-branch.js").Integration;
-  /**
-   * Absolute path to the daemon's bundled built-in workflow-specs
-   * directory. Used by `GET /api/workflow/specs` to
-   * compute the per-row `isBuiltIn` flag (source_path under this dir
-   * → built-in; otherwise → operator-authored). Optional: when unset,
-   * the route returns isBuiltIn=false for every spec (graceful — the
-   * surface still works, just without the indicator).
-   */
   /** User Settings v0 — daemon-side settings store (env > file > default). */
   settingsStore?: import("./domain/user-settings/settings-store.js").SettingsStore;
   /**
@@ -299,11 +279,8 @@ export function createApp(deps: AppDeps): Hono {
     c.set("chatRepo" as never, deps.chatRepo);
     c.set("mailboxDelivery" as never, mailboxDelivery);
     c.set("queueRepo" as never, deps.queueRepo);
-    c.set("outboxHandler" as never, deps.outboxHandler);
     c.set("shadowCapture" as never, deps.shadowCapture);
     c.set("shadowCaptureError" as never, deps.shadowCaptureError);
-    c.set("watchdogJobsRepo" as never, deps.watchdogJobsRepo);
-    c.set("watchdogHistoryLog" as never, deps.watchdogHistoryLog);
     c.set("workflowRuntime" as never, deps.workflowRuntime);
     c.set("settingsStore" as never, deps.settingsStore);
     c.set("occupantInvalidator" as never, deps.occupantInvalidator);
@@ -515,13 +492,6 @@ export function createApp(deps: AppDeps): Hono {
     // adoption gates derive the REQUIRED listener set from this and then prove each
     // host by probing it — binding evidence, never config echo.
     const bind = deps.bindPlan ? { bind: deps.bindPlan } : {};
-    // S02 — quiet is cheap but observable: the standing stuck sweep's heartbeat rides
-    // healthz (ADDITIVE; absent = legacy body), so a clean sweep needs no row and a
-    // failing sweep is loud without one.
-    const stuckSweep = deps.stuckSweepStatus ? { stuckSweep: deps.stuckSweepStatus.snapshot() } : {};
-    // S01 — the wake ladder's heartbeat is half of the operator rung's honest delivery
-    // floor (escalation view + daemon-health); same additive contract.
-    const wakeLadder = deps.wakeLadderStatus ? { wakeLadder: deps.wakeLadderStatus.snapshot() } : {};
     // The running attempt count backs the Electron desktop close confirmation, and production
     // always wires the monitor, so both bodies below carry it. The query is cheap: the
     // running-state index on team_attempts is a narrow lookup.
@@ -532,7 +502,7 @@ export function createApp(deps: AppDeps): Hono {
     } catch { runningAttempts = undefined; }
     const attemptCount = runningAttempts !== undefined ? { runningAttempts } : {};
     if (!monitor) {
-      return c.json({ status: "ok", pid: process.pid, ...stamp, ...slowOperations, ...bind, ...stuckSweep, ...wakeLadder, ...attemptCount });
+      return c.json({ status: "ok", pid: process.pid, ...stamp, ...slowOperations, ...bind, ...attemptCount });
     }
     const eventLoop = monitor.snapshot();
     return c.json({
@@ -543,8 +513,6 @@ export function createApp(deps: AppDeps): Hono {
       routeTimings: deps.routeTimingRecorder?.snapshot() ?? {},
       ...slowOperations,
       ...bind,
-      ...stuckSweep,
-      ...wakeLadder,
       ...attemptCount,
     });
   });

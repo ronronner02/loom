@@ -19,7 +19,7 @@
     }
   },
   "scripts": {
-    "build": "tsc && node scripts/copy-workflow-specs.mjs",
+    "build": "tsc",
     "gen:control-plane-json": "node scripts/gen-control-plane-json.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -34,28 +34,6 @@ describe("GHOST-STAGE (e) DefaultOccupantInvalidator", () => {
     expect(enforcer.invalidateOccupant).toHaveBeenCalledTimes(1);
   });
 
-  it("Class-B: with retiringGeneration, stops the retiring generation's armed watchdog jobs (gen-scoped)", () => {
-    const dropArmedByRegisteringGeneration = vi.fn(() => 2);
-    const logs: string[] = [];
-    new DefaultOccupantInvalidator({
-      enforcer: { invalidateOccupant: () => {} },
-      watchdog: { dropArmedByRegisteringGeneration },
-      log: (m) => logs.push(m),
-    }).invalidateRetiringOccupant({ retiringSessionName: "seat@rig", successorSessionName: "seat@rig", retiringGeneration: "gen-retired" });
-    // No queue dep wired, so no park timers are kept.
-    expect(dropArmedByRegisteringGeneration).toHaveBeenCalledWith("gen-retired", []);
-    expect(logs.some((l) => /stopped 2 armed watchdog/.test(l))).toBe(true);
-  });
-
-  it("Class-B: retiringGeneration but no watchdog dep wired → skipped, never throws", () => {
-    const inv = new DefaultOccupantInvalidator({
-      enforcer: { invalidateOccupant: () => {} },
-    });
-    expect(() =>
-      inv.invalidateRetiringOccupant({ retiringSessionName: "s@r", successorSessionName: "s@r", retiringGeneration: "gen-x" }),
-    ).not.toThrow();
-  });
-
   it("Class-B: with retiringGeneration, RELEASES the retiring generation's claimed queue items (gen-scoped)", () => {
     const releaseClaimsByGeneration = vi.fn(() => 3);
     const logs: string[] = [];
