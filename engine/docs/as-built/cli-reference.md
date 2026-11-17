@@ -900,13 +900,6 @@ unchanged.
 |---|---|---|
 | `rig handover <seat>` | — | `--source <source>`<br>`--reason <reason>`<br>`--operator <address>`<br>`--dry-run`<br>`--json` |
 
-### startup-proof
-
-| Invocation | Aliases | Declared options |
-|---|---|---|
-| `rig startup-proof` | — | — |
-| `rig startup-proof submit` | — | `--challenge-id <id>` **required**<br>`--answer <answer>` **required**<br>`--json` |
-
 ### scope
 
 | Invocation | Aliases | Declared options |

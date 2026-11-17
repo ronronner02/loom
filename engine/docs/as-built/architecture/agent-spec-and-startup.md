@@ -7,7 +7,7 @@ domains: [engineering-advisor, operating-advisor]
 applies-when: |
   Need to know the canonical AgentSpec/RigSpec/pod-aware reboot types, how
   profile resolution and additive startup layering work, the StartupOrchestrator
-  pre-launch-vs-interactive delivery split, or how whoami/materialize/bind/adopt
+  pre-launch-vs-interactive delivery split, or how materialize/bind/adopt
   resolve and preserve identity.
 siblings: [daemon-core.md, adapters-and-runtimes.md, lifecycle-snapshot-restore.md, packaging-bootstrap-bundles.md]
 prerequisite-reads: [../README.md, daemon-core.md]
@@ -141,28 +141,11 @@ without pressing anything. Text still staged gets one guarded Enter-only retry
 unverified or staged result is a warning, never a startup failure, and is
 reported in a `submission` block on `node.startup_ready` and on the result.
 
-**Startup proof.** A seat can be `ready` without being oriented.
-`resolveStartupProof` (`startup-resolver.ts:81`) selects the last applicable
-authored `startup_proof` action; the default is none. For a fresh launch on a
-non-terminal runtime in `authenticated` mode, the orchestrator issues a
-challenge after readiness (`issueStartupChallenge`, `startup-proof.ts:90`),
-recorded as `node.startup_challenged` with a hash of the resolved startup files.
-The expected answer is derived from the challenge and that hash
-(`computeExpectedAnswer`, `:53`) and is never stored. The challenge text is
-appended to the identity prompt, or sent on its own when there is no identity
-action (`startup-orchestrator.ts:487`). On Claude, a short proof instruction
-line (`STARTUP_PROOF_INSTRUCTION_LINE`, `startup-proof.ts:63`) is sent only
-after the startup prompt was confirmed submitted (`sendProofInstruction`,
-`startup-orchestrator.ts:760`). The seat answers with
-`rig startup-proof submit --challenge-id … --answer …`
-(`packages/cli/src/commands/startup-proof.ts:99`), which posts to the activity
-hook route (`routes/activity.ts:239`); `verifyStartupProof`
-(`startup-proof.ts:133`) records `node.startup_proof_verified` or
-`node.startup_proof_rejected`. Orientation status is derived from those events
-(`startup-proof.ts:239`), never from `startup_status`. Other fresh launches (no
-proof selected, or a terminal runtime) record `node.startup_proof_skipped`
-(`startup-orchestrator.ts:374`); resume, fork and rebuild keep the existing proof
-history.
+**Startup proof.** A seat can be `ready` without being oriented. The orientation
+status (`verified` / `missing` / `rejected` / `n-a`) was derived from the
+`node.startup_proof_*` events, and the daemon no longer derives it: the seat
+screens, the inventory projection and the `whoami` diagnostic that read it are
+gone. The events themselves stay in the append-only log for replay.
 
 **Fresh context pending and `rig seat continue`.** When a fresh launch stops at
 a native prompt before its context is delivered, `fail()` (`:592`) marks the
@@ -237,18 +220,13 @@ helper powers local `rig spec validate` without contacting the daemon
 (`packages/cli/src/commands/rig.ts:204–207`); it selects the pod-aware or legacy
 validator and distinguishes YAML parse failures from validator exceptions.
 
-## 6. Identity: whoami, materialize, bind, adopt
+## 6. Identity: materialize, bind, adopt
 
-**Whoami resolution** — the daemon owns the truth surface through
-`/api/whoami` (`routes/whoami.ts`); tmux metadata is an adopted-session
-anchor, not sovereign truth. `whoami-service.ts:8` declares
-`resolvedBy: "node_id" | "session_name"`. The route requires `nodeId` or
-`sessionName` (`routes/whoami.ts:19`–`23`). The CLI resolves identity
-(`packages/cli/src/commands/whoami.ts:142`–`148`) in this order: explicit
-`--node-id` → explicit `--session` → env vars (`OPENRIG_NODE_ID` /
-`OPENRIG_SESSION_NAME`, or the legacy `RIGGED_NODE_ID` /
-`RIGGED_SESSION_NAME`, `whoami.ts:158`) → tmux metadata → raw tmux
-session-name fallback.
+**Whoami resolution** — the daemon no longer serves a whoami read. The
+`whoami-service`, its route and the CLI verb that printed identity all went
+with the inventory projection; a seat's identity is its registered session
+row (`sessions.session_name`), which the mailbox and dispatch paths read
+directly.
 
 - Managed sessions prefer projected `OPENRIG_NODE_ID` /
   `OPENRIG_SESSION_NAME`, set when the tmux session is created
@@ -261,9 +239,7 @@ session-name fallback.
   `@rigged_logical_id` (`claim-service.ts:182`–`186`), called from `bind`,
   `reconcileSession` and `createAndBindToPod`;
   `RigLifecycleService.unclaimSession` clears the same five keys
-  (`rig-lifecycle-service.ts:209`–`213`); and `rig whoami` reads
-  `@rigged_node_id` and `@rigged_session_name`
-  (`packages/cli/src/commands/whoami.ts:173`, `:179`). MCP tool names use a
+  (`rig-lifecycle-service.ts:209`–`213`). MCP tool names use a
   different prefix, `rig_*` (`packages/cli/src/mcp-server.ts`).
 
 **Materialize / bind / adopt**: `POST /api/rigs/import/materialize`
@@ -305,5 +281,5 @@ topology roster a snapshot records (see `lifecycle-snapshot-restore.md`).
 - `architecture-rules-and-event-system.md` — the cross-cutting architecture
   rules.
 - Source roots: `packages/daemon/src/domain/{rigspec-schema,
-  startup-orchestrator,whoami-service,claim-service}.ts`,
-  `packages/daemon/src/routes/{rigspec,whoami}.ts`.
+  startup-orchestrator,claim-service}.ts` and
+  `packages/daemon/src/routes/rigspec.ts`.

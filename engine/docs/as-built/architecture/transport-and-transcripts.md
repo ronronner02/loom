@@ -59,10 +59,6 @@ All under `packages/daemon/src/domain/`:
   with session resolution, send-readiness classification (interactive-prompt
   and mid-work detection), honest error reporting, and list/pod/rig/global
   targeting.
-- `transcript-store.ts` — transcript file management: path convention, ANSI
-  stripping for tail and grep reads, boundary markers, `readTail`, `readFull`, `grep`.
-  Filesystem-backed, NOT SQLite. The capture that writes the files is
-  `transcript-rotation.ts` (§4).
 - `history-query.ts` — transcript + chat search. Prefers `rg`, falls back to
   `grep -E`, surfaces which backend was used: `history-query.ts:8`
   `backend: "rg" | "grep" | "none"`; `:252` runs
@@ -224,20 +220,14 @@ remote daemon's ordinary local routes; the cross-host logic is in the CLI.
    or the matching `transcripts.*` settings. This bounded capture replaced the
    earlier `tmux pipe-pane` stream (`transcript-rotation.ts:3`), so the file
    holds a trailing window, not the whole session.
-3. `TranscriptStore` owns path convention, ANSI stripping for `readTail` and
-   `grep`, boundary
-   markers, `readTail`, `readFull`, `grep`. `readFull` returns the raw bytes
-   (`transcript-store.ts:378`); the `/full` route redacts them. The transcript
-   routes check capture health first and can start capture lazily for a seat
-   that has none.
-4. `rig transcript <session> --tail N / --grep "pattern"` provides
+3. `rig transcript <session> --tail N / --grep "pattern"` provides
    agent-facing access.
-5. On restore: a `--- SESSION BOUNDARY: … ---` marker is written before
+4. On restore: a `--- SESSION BOUNDARY: … ---` marker is written before
    re-launch (`restore-orchestrator.ts:900`); each rotation tick keeps each
    distinct boundary line once, as a header above the fresh capture
    (`transcript-rotation.ts:254`–`257`). (Restore-side detail in
    `lifecycle-snapshot-restore.md`.)
-6. `rig ask` gathers rig summary plus transcript excerpts, chat excerpts,
+5. `rig ask` gathers rig summary plus transcript excerpts, chat excerpts,
    insufficiency state, and guidance.
 
 Architecture rule 19, as the code implements it: transcripts are a bounded
@@ -303,7 +293,7 @@ The intentional limits in this layer (numbered as in
   daemon-forward twin of §3b's one-sided CLI-direct verbs).
 - `../cli-reference.md` — each verb's registered `--host <id>` option; run
   `rig <verb> --help` for its cross-host behaviour.
-- Source roots: `packages/daemon/src/domain/{session-transport,transcript-store,transcript-rotation,history-query,ask-service,chat-repository}.ts`,
+- Source roots: `packages/daemon/src/domain/{session-transport,transcript-rotation,history-query,ask-service,chat-repository}.ts`,
   `packages/daemon/src/routes/{transport,transcripts,ask,chat}.ts`,
   `packages/cli/src/mcp-server.ts`,
   `packages/cli/src/{remote-host-ops,cross-host-target,cross-host-executor,ask-wake}.ts`.

@@ -56,10 +56,7 @@ system-level invariants.
 11. Startup status is explicit session state: `pending`, `ready`,
     `attention_required`, `failed` (`types.ts:102`).
 12. Session recency depends on monotonic ULIDs: `session-registry.ts` uses
-    `monotonicFactory()`. Restore does not pick the newest session by max
-    ULID; it resolves the active occupant recorded in the snapshot
-    (`resolveActiveSnapshotSession`, `active-occupant.ts:74`, called at
-    `restore-orchestrator.ts:774` and `:971`).
+    `monotonicFactory()`.
 13. Readiness checking is a retry loop with exponential backoff and
     configurable timeout, using adapter-specific probes (Claude TUI
     indicator, Codex ready message, terminal immediate).

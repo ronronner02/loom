@@ -5,8 +5,6 @@ import { RigRepository } from "../../src/domain/rig-repository.js";
 import { SessionRegistry } from "../../src/domain/session-registry.js";
 import { EventBus } from "../../src/domain/event-bus.js";
 import { QueueRepository } from "../../src/domain/queue-repository.js";
-import { TranscriptStore } from "../../src/domain/transcript-store.js";
-import { ContextUsageStore } from "../../src/domain/context-usage-store.js";
 import { AgentActivityStore } from "../../src/domain/agent-activity-store.js";
 import { createApp } from "../../src/server.js";
 import type { RuntimeAdapter } from "../../src/domain/runtime-adapter.js";
@@ -33,8 +31,6 @@ export function createTestApp(
   const sessionRegistry = new SessionRegistry(db);
   const eventBus = new EventBus(db);
   const queueRepo = new QueueRepository(db, eventBus);
-  const transcriptStore = new TranscriptStore("/tmp/multi-agent-test-transcripts");
-  const contextUsageStore = new ContextUsageStore(db, { stateDir: "/tmp/multi-agent-test" });
   const agentActivityStore = new AgentActivityStore({
     db,
     eventBus,
@@ -47,8 +43,6 @@ export function createTestApp(
     sessionRegistry,
     eventBus,
     queueRepo,
-    transcriptStore,
-    contextUsageStore,
     agentActivityStore,
     eventLoopMonitor: opts?.eventLoopMonitor,
     routeTimingRecorder: opts?.routeTimingRecorder,
@@ -63,8 +57,6 @@ export function createTestApp(
     sessionRegistry,
     eventBus,
     queueRepo,
-    transcriptStore,
-    contextUsageStore,
     agentActivityStore,
   };
 }

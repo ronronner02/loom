@@ -7,36 +7,31 @@ import { DefaultOccupantInvalidator } from "../src/domain/occupant-invalidator.j
 // NO generation it stays a LOUD no-op (a name-scoped drop would neutralize the successor's own items).
 
 describe("GHOST-STAGE (e) DefaultOccupantInvalidator", () => {
-  it("Class-A: hard-deletes the RETIRING occupant's enforcer state + context sidecar (by name)", () => {
+  it("Class-A: hard-deletes the RETIRING occupant's enforcer state (by name)", () => {
     const enforcer = { invalidateOccupant: vi.fn() };
-    const contextUsage = { invalidateOccupantSidecar: vi.fn() };
-    const inv = new DefaultOccupantInvalidator({ enforcer, contextUsage });
+    const inv = new DefaultOccupantInvalidator({ enforcer });
 
     // Under a cutover the successor reuses the name — retiring === successor. Class-A keys on RETIRING.
     inv.invalidateRetiringOccupant({ retiringSessionName: "seat@rig", successorSessionName: "seat@rig" });
 
     expect(enforcer.invalidateOccupant).toHaveBeenCalledWith("seat@rig");
-    expect(contextUsage.invalidateOccupantSidecar).toHaveBeenCalledWith("seat@rig");
   });
 
   it("Class-B: with NO retiringGeneration, logs a LOUD atom-B-pending marker and NEVER name-scopes", () => {
     const logs: string[] = [];
     const inv = new DefaultOccupantInvalidator({
       enforcer: { invalidateOccupant: () => {} },
-      contextUsage: { invalidateOccupantSidecar: () => {} },
       log: (m) => logs.push(m),
     });
     inv.invalidateRetiringOccupant({ retiringSessionName: "seat@rig", successorSessionName: "seat@rig" });
     expect(logs.some((l) => /PENDING atom-B/.test(l) && /NOT name-scoping/.test(l))).toBe(true);
   });
 
-  it("Class-A always runs even when Class-B is pending (the in-mem/sidecar ghost is closed now)", () => {
+  it("Class-A always runs even when Class-B is pending (the in-mem ghost is closed now)", () => {
     const enforcer = { invalidateOccupant: vi.fn() };
-    const contextUsage = { invalidateOccupantSidecar: vi.fn() };
-    new DefaultOccupantInvalidator({ enforcer, contextUsage })
+    new DefaultOccupantInvalidator({ enforcer })
       .invalidateRetiringOccupant({ retiringSessionName: "s@r", successorSessionName: "s@r" });
     expect(enforcer.invalidateOccupant).toHaveBeenCalledTimes(1);
-    expect(contextUsage.invalidateOccupantSidecar).toHaveBeenCalledTimes(1);
   });
 
   it("Class-B: with retiringGeneration, stops the retiring generation's armed watchdog jobs (gen-scoped)", () => {
@@ -44,7 +39,6 @@ describe("GHOST-STAGE (e) DefaultOccupantInvalidator", () => {
     const logs: string[] = [];
     new DefaultOccupantInvalidator({
       enforcer: { invalidateOccupant: () => {} },
-      contextUsage: { invalidateOccupantSidecar: () => {} },
       watchdog: { dropArmedByRegisteringGeneration },
       log: (m) => logs.push(m),
     }).invalidateRetiringOccupant({ retiringSessionName: "seat@rig", successorSessionName: "seat@rig", retiringGeneration: "gen-retired" });
@@ -56,7 +50,6 @@ describe("GHOST-STAGE (e) DefaultOccupantInvalidator", () => {
   it("Class-B: retiringGeneration but no watchdog dep wired → skipped, never throws", () => {
     const inv = new DefaultOccupantInvalidator({
       enforcer: { invalidateOccupant: () => {} },
-      contextUsage: { invalidateOccupantSidecar: () => {} },
     });
     expect(() =>
       inv.invalidateRetiringOccupant({ retiringSessionName: "s@r", successorSessionName: "s@r", retiringGeneration: "gen-x" }),
@@ -68,7 +61,6 @@ describe("GHOST-STAGE (e) DefaultOccupantInvalidator", () => {
     const logs: string[] = [];
     new DefaultOccupantInvalidator({
       enforcer: { invalidateOccupant: () => {} },
-      contextUsage: { invalidateOccupantSidecar: () => {} },
       queue: { releaseClaimsByGeneration },
       log: (m) => logs.push(m),
     }).invalidateRetiringOccupant({ retiringSessionName: "seat@rig", successorSessionName: "seat@rig", retiringGeneration: "gen-retired" });

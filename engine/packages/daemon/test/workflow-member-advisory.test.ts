@@ -471,16 +471,16 @@ describe("FAC-3 C2: FR-5 member-exists instantiate advisory", () => {
 
   // ---------- advisory-never-throw (VM-caught, run-1) ----------
 
-  it("advisory-never-throw: an inventory query failure skips silently — instantiate NEVER fails", async () => {
+  it("advisory-never-throw: a seat query failure skips silently — instantiate NEVER fails", async () => {
     const { createDb } = await import("../src/db/connection.js");
     const minimalDb = createDb();
     initializeDatabase(minimalDb);
-    minimalDb.exec("DROP TABLE bindings");
+    minimalDb.exec("DROP TABLE sessions");
     minimalDb.prepare(`INSERT INTO rigs (id, name) VALUES ('r-min', 'acme-build')`).run();
     const minimalBus = new EventBus(minimalDb);
     const minimalRepo = new QueueRepository(minimalDb, minimalBus, { validateRig: () => true });
     const minimalRuntime = new WorkflowRuntime({ db: minimalDb, eventBus: minimalBus, queueRepo: minimalRepo });
-    // Prove the injected inventory fault is reached before exercising the advisory rail.
+    // Prove the injected seat-read fault is reached before exercising the advisory rail.
     expect(() => rigMemberExists(minimalDb, "acme-build", "dev-typo1@acme-build")).toThrow();
     const result = await minimalRuntime.instantiate({
       specPath: writeSpec("never-throw.yaml", TYPO_SPEC),

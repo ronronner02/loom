@@ -87,7 +87,7 @@ All under `packages/daemon/src/domain/`:
 
 - `checkpoint-store.ts` — checkpoint persistence with pod/continuity context.
 - `snapshot-capture.ts` — captures pods, continuity state, startup replay
-  context, the latest env receipt, the active-occupant maps and the intended
+  context, the latest env receipt and the intended
   topology roster. `captureSnapshot` (`:60`) derives the occupant maps
   (`:73–79`), resolves the roster (`:81–90`), then reads `pods` (`:96`),
   `continuity_state` (`:100`) and `node_startup_context` (`:106`) rows per rig
@@ -109,8 +109,6 @@ All under `packages/daemon/src/domain/`:
 - `rehydrate-eligibility.ts` — `snapshotMatchesCurrentOccupants` (`:20`) and
   `assessCurrentStateRehydrateEligibility` (`:69`), shared by `routes/up.ts`
   and `routes/restore-check.ts`.
-- `active-occupant.ts` — the shared rule for which snapshot session row is a
-  node's occupant (`resolveActiveSnapshotSession`, `:73`).
 
 ## 3. Restore flow and restore honesty
 
@@ -130,10 +128,7 @@ Restore behavior, each point checked in `restore-orchestrator.ts`:
   `historical_not_in_intended_roster` (`:27`); the result carries
   `intendedRoster` and `excludedNodes` (`types.ts:440–441`).
 - Resolves each node's occupant from the snapshot's recorded active-occupant
-  maps, not by picking the newest session row
-  (`resolveActiveSnapshotSession`, `active-occupant.ts:74`, called at
-  `restore-orchestrator.ts:774` and `:971`). An ambiguous occupant fails the
-  node loudly (`activeOccupantAmbiguityError`, `active-occupant.ts:97`).
+  maps, not by picking the newest session row.
 - Consults live `continuity_state`; preserves state when a node is already
   `restoring` (`:777–791` — `SELECT status FROM continuity_state …` at
   `:780`; if `status === "restoring"` the node is skipped with a warning and
@@ -394,6 +389,6 @@ via runtime parsers + redaction (`packages/cli/src/restore-packet/`).
 - Source roots: `packages/daemon/src/domain/{restore-orchestrator,
   restore-preconditions,restore-topology,restore-attempt-receipt,
   rehydrate-eligibility,snapshot-capture,snapshot-repository,checkpoint-store,
-  active-occupant,restore-check-service}.ts`,
+  restore-check-service}.ts`,
   `packages/daemon/src/routes/{restore-check,up,snapshots}.ts`,
   `packages/cli/src/commands/{restore-packet,restore-check,restore}.ts`.

@@ -1,5 +1,3 @@
-import type Database from "better-sqlite3";
-import type { NodeInventoryEntry } from "./types.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { CaptureObserver, type Observation } from "./capture-observer.js";
@@ -96,18 +94,4 @@ export function configureShadowCapture(raw: string | undefined): {capture?: Shad
     }
     return {capture: new ShadowCapture(Object.freeze({...c}))};
   } catch (error) { return {error: error instanceof Error ? error.message : "invalid shadow configuration"}; }
-}
-
-/** Inventory has its own probe path. Resolve labels synchronously before that probe awaits. */
-export function inventoryCaptureOptions(db: Database.Database, capture?: ShadowCapture) {
-  if (!capture) return {};
-  return { captureObserver: capture.observer, observationBinding: (entry: NodeInventoryEntry) => {
-    try {
-      const row = db.prepare(`SELECT b.tmux_pane AS pane, o.generation_uuid AS occupant
-        FROM bindings b LEFT JOIN occupant_tenures o ON o.node_id=b.node_id
-        AND o.generation_ordinal=(SELECT MAX(generation_ordinal) FROM occupant_tenures WHERE node_id=b.node_id)
-        WHERE b.node_id=? AND b.tmux_session=? LIMIT 2`).all(entry.nodeId, entry.canonicalSessionName) as {pane: string | null; occupant: string | null}[];
-      return {nodeId: entry.nodeId, pane: row.length === 1 ? row[0]!.pane : null, occupant: row.length === 1 ? row[0]!.occupant : null};
-    } catch { return {nodeId: entry.nodeId, pane: null, occupant: null}; }
-  }};
 }

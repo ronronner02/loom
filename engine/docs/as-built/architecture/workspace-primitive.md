@@ -6,8 +6,8 @@ topics: [specification-and-bundles, observability]
 domains: [engineering-advisor, operating-advisor]
 applies-when: |
   Need to know how a rig declares a typed workspace (workspaceRoot / repos /
-  defaultRepo / knowledgeRoot), how that block is persisted and resolved into
-  whoami / node-inventory, how per-item target_repo scope is validated, or how
+  defaultRepo / knowledgeRoot), how that block is persisted, how per-item
+  target_repo scope is validated, or how
   the file-backed missions/slices tree is indexed and projected into the
   Project UI.
 siblings: [content-surfaces.md, daemon-core.md, ../ui/project-and-for-you.md]
@@ -21,7 +21,7 @@ last-updated: 2026-10-08
 The **workspace primitive** is the typed declaration that lets a rig name
 *where its work lives* — a workspace root, a set of named repos with kinds, an
 optional default repo, and an optional knowledge root — and have that surface
-through `whoami` / node-inventory and gate per-item repo scope. Alongside it, a
+through the persisted spec and gate per-item repo scope. Alongside it, a
 **file-backed missions/slices tree** is indexed read-only and projected into
 the Project UI's mission / slice surfaces.
 
@@ -58,7 +58,7 @@ Workspace initialization no longer seeds a getting-started mission (§3).
 ## 1. The typed workspace declaration — 0.3.0
 
 `RigSpec.workspace` is an **optional** typed block. Rigs without it stay valid;
-`whoami` / node-inventory return a null workspace block in that case.
+nothing projects a workspace block for them.
 
 > Source: `domain/types.ts:1163–1170` (`WorkspaceSpec`), `:1153–1159`
 > (`WorkspaceRepoSpec`), `:1188` (`RigSpec.workspace?`).
@@ -121,48 +121,12 @@ normalizes the block and writes it only when it differs from the stored one.
 
 ### 1.2 Runtime resolution — workspace-resolver
 
-`resolveWorkspaceContext({ spec, cwd, envOverride })` (consumed by
-`whoami-service`) returns the `WhoamiWorkspaceBlock` or `null` when no spec.
-`activeRepo` resolution: a non-blank `envOverride` wins **verbatim** — even an
-unknown repo name is honored, because operators set `OPENRIG_TARGET_REPO`
-consciously (the comment at `workspace-resolver.ts:35–36`); otherwise `defaultRepo` is used **only
-if it names a declared repo**. `knowledgeKind` is `"knowledge"` when
-`knowledgeRoot` is declared, else `null`. The resolver accepts `cwd` but does
-not use it (`workspace-resolver.ts:31`), so `rig whoami` reports the env
-override or the declared `defaultRepo`, never the repo containing the seat's
-working directory; node-inventory's per-node `activeRepo` (below) is the one
-that follows cwd.
-
-> Source: `domain/workspace/workspace-resolver.ts:26–52` (resolver; null
-> without a spec `:32`; env override `:39–40`; declared `defaultRepo`
-> `:41–42`; `knowledgeKind` `:50`).
-
-`whoami-service` reads the persisted spec and resolves with the query's
-`targetRepoOverride`, falling back to the daemon's own
-`process.env["OPENRIG_TARGET_REPO"]`. `rig whoami` forwards the caller's
-`OPENRIG_TARGET_REPO` as `?targetRepo=`, which the route passes on as
-`targetRepoOverride`.
-
-> Source: `domain/whoami-service.ts:333–338` (`getRigWorkspace` +
-> `resolveWorkspaceContext`, env fallback `:337`); `whoami` returns
-> `workspace` in its payload `:350`; `routes/whoami.ts:29`;
-> `packages/cli/src/commands/whoami.ts:281–282`.
-
-`resolveNodeWorkspace({ spec, cwd })` (consumed by `node-inventory`) derives a
-per-node `NodeWorkspaceInfo` by picking the **longest declared repo path that
-contains** the node's `cwd`. When no repo contains it, `kind` falls back to
-`knowledge` if cwd is under `knowledgeRoot`; `activeRepo` then falls back to
-the rig's `defaultRepo` (taking that repo's kind if `kind` is still unset).
-Containment uses a `path.relative` boundary check (not a string `startsWith`)
-so `/foo/bar` does not match `/foo/bar-other`. Node-inventory reads
-`workspace_json` with its own queries rather than through `RigRepository`.
-
-> Source: `domain/workspace/workspace-resolver.ts:57–95` (longest match
-> `:67–73`; knowledge fallback `:77–79`; default-repo fallback `:82–88`),
-> `isInside` `:97–103`; `domain/node-inventory.ts:705`
-> (`workspace: resolveNodeWorkspace(...)`), readers `:790–799`
-> (`readRigWorkspaceJson`) and `:716–726` (`readAllRigWorkspaceJson`,
-> batched); `NodeWorkspaceInfo` `domain/types.ts:795–799`.
+The resolver (`domain/workspace/workspace-resolver.ts`) was the read half of the
+workspace block: `resolveWorkspaceContext` produced the `whoami` payload's
+workspace block and `resolveNodeWorkspace` produced the inventory's per-node
+`activeRepo`/`kind`. Both callers went with the inventory projection, so the
+module is gone. The declaration itself is still persisted and still validated
+(item 1.3's `target_repo` gate and the rig workspace scaffold use it).
 
 ### 1.3 Per-item repo scope — migration 039 + queue validation
 
@@ -569,15 +533,11 @@ through the `/project*` destinations; it does not call `/api/projects`
 
 ## 6. Cross-cutting properties
 
-- **Optional + valid-without:** rigs without a `workspace` block stay valid;
-  whoami / node-inventory return null and queue target-repo validation fails
-  open (`workspace-resolver.ts:32`, `:62`; `rig-repository.ts:185`, `:193`;
-  `routes/queue.ts:112`).
+- **Optional + valid-without:** rigs without a `workspace` block stay valid
+  and queue target-repo validation fails open (`rig-repository.ts:185`, `:193`).
 - **Defensive column access:** `RigRepository` probes for `workspace_json`
-  (`rig-repository.ts:185`, `:193`), node-inventory's own reads fall back to
-  null on error (`node-inventory.ts:724`, `:796–798`), and the queue
-  repository detects `target_repo` (`queue-repository.ts:758`), so partial
-  test fixtures don't crash. Migrations 038/039 ship separately so a fixture
+  (`rig-repository.ts:185`, `:193`), and the queue repository detects
+  `target_repo`, so partial test fixtures don't crash. Migrations 038/039 ship separately so a fixture
   can apply only the half it needs (`038_workspace_primitive.ts:12–14`).
 - **Read-only projection, no new state for the tree:** SliceIndexer /
   SliceDetailProjector add NO migration / event type; only the workspace
@@ -590,15 +550,6 @@ through the `/project*` destinations; it does not call `/api/projects`
 
 ## Open items
 
-- `resolveWorkspaceContext` honors an `envOverride` **verbatim even when it
-  names no declared repo** (`workspace-resolver.ts:39–40`), whereas the queue
-  route **rejects** an unknown `target_repo` against the same `repos[]`
-  (`routes/queue.ts:114–120`). These two surfaces apply opposite policies to
-  an unknown repo name (whoami trusts the operator; queue validates). The
-  resolver's comment at `workspace-resolver.ts:35–36` states the verbatim behavior is intended, but
-  the comment line before it (`workspace-resolver.ts:34`) and `whoami-service.ts:331–332` describe
-  a repo-name check that the code does not perform. Stated as-is; the
-  divergence is not reconciled in source.
 - The `/api/projects` *classifier* and the `/project*` *workspace UI*
   (slices/missions) share the word "project" but are different subsystems.
   Both accept a workspace catalog project as `?project=<id>`

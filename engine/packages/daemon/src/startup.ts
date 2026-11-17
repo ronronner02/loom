@@ -18,7 +18,6 @@ import { prepareCodexTeamWorkspace } from "./domain/codex-team-workspace.js";
 // TODO: AS-T12 — migrate to pod-aware bundle source resolver
 import { DaemonLifecycleStore } from "./domain/daemon-lifecycle-store.js";
 import { randomUUID } from "node:crypto";
-import { TranscriptStore } from "./domain/transcript-store.js";
 import { AgentActivityStore } from "./domain/agent-activity-store.js";
 import { ChatRepository } from "./domain/chat-repository.js";
 import { StreamStore } from "./domain/stream-store.js";
@@ -661,9 +660,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     managedAttempt: input => managedAttempt?.(input) ?? Promise.resolve(undefined) });
   const claudeAdapter = new ClaudeCodeAdapter({ fsOps, ...workerLauncher });
   const codexAdapter = new CodexRuntimeAdapter({ fsOps, ...workerLauncher });
-  const { ContextUsageStore } = await import("./domain/context-usage-store.js");
-  const contextUsageStore = new ContextUsageStore(db, { stateDir: MULTI_AGENT_HOME, codexHome: configuredCodexHome,
-    resolveOccupantBootAt: (nodeId) => sessionRegistry.currentOccupantTenure(nodeId)?.bootAt ?? null });
   const agentActivityStore = new AgentActivityStore({ db, eventBus,
     resolveOccupantGeneration: (nodeId) => sessionRegistry.currentOccupantTenure(nodeId)?.generationUuid ?? null,
     isRegisteredOccupantGeneration: (nodeId, generation) => sessionRegistry.isOccupantGenerationRegistered(nodeId, generation) });
@@ -684,7 +680,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     watchdogJobsRepo: watchdogJobsRepoInstance,
     watchdogHistoryLog: watchdogHistoryLogInstance,
     agentActivityStore,
-    contextUsageStore,
   };
 
   // PL-004 Phase C — watchdog policy engine + scheduler. Wired here
@@ -829,7 +824,6 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const { DefaultOccupantInvalidator } = await import("./domain/occupant-invalidator.js");
   deps.occupantInvalidator = new DefaultOccupantInvalidator({
     enforcer: { invalidateOccupant: () => {} },
-    contextUsage: contextUsageStore,
     // (e/Class-B) watchdog store — armed jobs registered by the retiring generation stop at swap.
     watchdog: watchdogJobsRepoInstance,
     // (e/Class-B) queue store — in-progress items claimed by the retiring generation release to pending.
