@@ -3,7 +3,7 @@ import { Circle, CircleCheck, CircleX, MinusCircle } from "lucide-react";
 import type { AttemptActivity, TeamAttemptView, TeamOwnerRead, TeamReviewView, TeamSeatView, ToolActivityRecord } from "@multi-agent/daemon/team-control";
 import { useAttemptActivity } from "../../hooks/useAttemptActivity.js";
 import { useAttemptStatus } from "../../hooks/useAttemptStatus.js";
-import { clockTime, namedSeat, TASK_STAGE_LABELS, taskName } from "../display.js";
+import { callStatusLabel, clockTime, namedSeat, TASK_STAGE_LABELS, taskName } from "../display.js";
 import { observedTokens } from "../hooks.js";
 
 export function attemptForSeat(read: TeamOwnerRead | undefined, seat: TeamSeatView): TeamAttemptView | undefined {
@@ -31,7 +31,7 @@ export function ToolCallRow({ record }: { record: ToolActivityRecord }) {
   const status = record.status === "completed" ? "succeeded" : record.status;
   const Glyph = { running: Circle, succeeded: CircleCheck, failed: CircleX, aborted: MinusCircle }[status];
   return <li className="ui-tool-call" data-call={record.id} data-status={status}>
-    <Glyph role="img" aria-label={t(("workspace.call." + status) as "workspace.call.running")} />
+    <Glyph role="img" aria-label={callStatusLabel(status, t)} />
     <div><strong>{record.tool}</strong><p>{record.summary}</p></div><time dateTime={record.at}>{clockTime(record.at)}</time>
   </li>;
 }

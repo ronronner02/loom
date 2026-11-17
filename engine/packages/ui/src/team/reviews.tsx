@@ -2,7 +2,7 @@ import { TextPreview } from "./text-preview.js";
 import { useTranslation } from "react-i18next";
 import type { TeamOwnerRead, TeamReviewView } from "@multi-agent/daemon/team-control";
 import type { IntegrationState } from "./clients.js";
-import { taskName } from "./display.js";
+import { gateLabel, gateStateLabel, taskName } from "./display.js";
 import { TaskChanges } from "./workspace/workspace-focus.js";
 
 type GateState = "passed" | "waiting" | "unknown";
@@ -75,8 +75,8 @@ export function ReviewsScreen({ read, selectedTaskId, integration, onSelect, onA
         <section className="ui-card" aria-label={t("reviews.gates")}>
           <h2>{t("reviews.gates")}</h2>
           <ul className="ui-gates">{reviewGates(task, integration).map(gate => <li key={gate.key} data-gate={gate.key} data-state={gate.state}>
-            <span className="ui-dot" aria-hidden="true" /><span>{t(("reviews.gate." + gate.key) as "reviews.gate.evidence")}</span>
-            <span>{t(("reviews.gateState." + gate.state) as "reviews.gateState.passed")}</span>
+            <span className="ui-dot" aria-hidden="true" /><span>{gateLabel(gate.key, t)}</span>
+            <span>{gateStateLabel(gate.state, t)}</span>
           </li>)}</ul>
         </section>
       </aside>

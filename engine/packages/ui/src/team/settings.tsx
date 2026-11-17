@@ -94,7 +94,7 @@ function GithubAccount() {
   </section>;
 }
 
-function Sessions({ connection, isolation, address }: { connection: string; isolation: "none" | "hardened" | null; address: string }) {
+function Sessions({ isolation, address }: { isolation: "none" | "hardened" | null; address: string }) {
   const { t } = useTranslation();
   const { paired, revoke } = useOwnerSession();
   const cache = useQueryClient();
@@ -102,7 +102,6 @@ function Sessions({ connection, isolation, address }: { connection: string; isol
   return <section className="plate ui-settings-panel" aria-label={t("settings.sessions")}>
     <h2>{t("settings.thisBrowser")}</h2>
     <dl className="ui-facts">
-      <div><dt>{t("settings.runtime.connection")}</dt><dd>{t(connection as "shell.connected")}</dd></div>
       <div><dt>{t("settings.runtime.address")}</dt><dd><code>{address}</code></dd></div>
       <div><dt>{t("settings.runtime.isolation")}</dt><dd>{isolation === null ? "—" : t(`settings.runtime.isolation.${isolation}`)}</dd></div>
     </dl>
@@ -117,10 +116,10 @@ function Sessions({ connection, isolation, address }: { connection: string; isol
 }
 
 /** Restored section navigation, limited to current owner preferences and read-only seats. */
-export function SettingsScreen({ language, onLanguage, appearance, connection, isolation, address, seats, teamId }: {
+export function SettingsScreen({ language, onLanguage, appearance, isolation, address, seats, teamId }: {
   language: InterfaceI18n; onLanguage: (next: "en" | "zh-CN") => void;
   appearance: ReturnType<typeof useThemePreference>;
-  connection: string; isolation: "none" | "hardened" | null; address: string; teamId?: string;
+  isolation: "none" | "hardened" | null; address: string; teamId?: string;
   seats: readonly (TeamSeatSummary & { index?: number | null; retired?: boolean })[];
 }) {
   const { t } = useTranslation();
@@ -144,7 +143,7 @@ export function SettingsScreen({ language, onLanguage, appearance, connection, i
             </label>;
           })}</div>
         </section>}
-        {section === "sessions" && <Sessions connection={connection} isolation={isolation} address={address} />}
+        {section === "sessions" && <Sessions isolation={isolation} address={address} />}
         {section === "agents" && <>
           {teamId && <div className="ui-subtabs" role="group" aria-label={t("settings.section.agents")}>
             <button type="button" aria-pressed={agentsTab === "models"} onClick={() => setAgentsTab("models")}>{t("settings.agentsTab.models")}</button>

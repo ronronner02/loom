@@ -38,7 +38,7 @@ export function DocumentStages({ read, chat, onChanged }: { read?: TeamOwnerRead
         if (!pending.begin()) return;
         setError(null);
         try { await selectDocumentStage(request, read.run.id, read.run.entityVersion, stage, undefined, responseLanguage); pending.complete(); onChanged?.(); }
-        catch (cause) { setError(cause instanceof Error ? cause.message : t("web.error")); pending.fail(); }
+        catch (cause) { setError(cause instanceof Error ? cause.message : t("action.failed")); pending.fail(); }
       }}>{t(!planning ? `documents.revise.${stage}` : `documents.stage.${stage}`)}</button>)}</div>
     {!planning && <p className="muted">{t("documents.revisionConsequence")}</p>}
     {state.pendingStage && <p role="status">{t("documents.pendingRevision")}</p>}
@@ -78,7 +78,7 @@ export function DocumentsScreen({ read, chat, onDiscuss, onChanged, failed = fal
         if (read && state && read.run.phase === "delivery") {
           setBusy(true); setError(null);
           try { await selectDocumentStage(request, read.run.id, read.run.entityVersion, kind === "brainstorm" ? "exploration" : kind, undefined, responseLanguage); onChanged?.(); }
-          catch (cause) { setError(cause instanceof Error ? cause.message : t("web.error")); return; }
+          catch (cause) { setError(cause instanceof Error ? cause.message : t("action.failed")); return; }
           finally { setBusy(false); }
         }
         onDiscuss(opener, selected ? [
@@ -143,7 +143,7 @@ export function DocumentsScreen({ read, chat, onDiscuss, onChanged, failed = fal
               if (!read || !confirming.begin()) return;
               setError(null);
               try { await confirmDocument(request, read.run.id, read.run.entityVersion, selected, undefined, responseLanguage); confirming.complete(); onChanged?.(); }
-              catch (cause) { setError(cause instanceof Error ? cause.message : t("web.error")); confirming.fail(); }
+              catch (cause) { setError(cause instanceof Error ? cause.message : t("action.failed")); confirming.fail(); }
             }}>{t("documents.confirmVersion", { version: selected.version })}</button></div>
             {kind === "plan" && !lineageReady && <p className="muted">{t("documents.stalePlan")}</p>}
             {error && <p role="alert">{error}</p>}

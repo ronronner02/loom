@@ -68,7 +68,7 @@ export function StartRunForm({ teams, presetTeamId, onStarted }: {
         </label>
       </div>}
       <WorkflowPicker value={workflow} onChange={setWorkflow} disabled={busy} />
-      {failure && <p role="alert" style={{ color: "var(--danger)", fontSize: 13 }}>{t("web.startRefused")}</p>}
+      {failure && <p role="alert" className="ui-alert-inline">{t("web.startRefused")}</p>}
       <div className="plate-foot">
         <button className="btn btn-primary" type="submit" disabled={busy || !goal.trim() || !session.paired}>{t(hasLead ? "planning.start" : "web.startTask")}</button>
       </div>

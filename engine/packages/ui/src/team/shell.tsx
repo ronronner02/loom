@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
 import { createInterfaceI18n, type InterfaceI18n, type MessageKey } from "@multi-agent/i18n";
@@ -119,18 +119,18 @@ export function Pairing() {
           </div>
         </form>
       </>}
-      {failed && <p role="alert" style={{ color: "var(--danger)", fontSize: 13 }}>{t(paired || canReconnect ? "web.sessionError" : "web.pairError")}</p>}
+      {failed && <p role="alert" className="ui-alert-inline">{t(paired || canReconnect ? "web.sessionError" : "web.pairError")}</p>}
     </section>
   </div>;
 }
 
 /** Muse-style slim left icon rail + centered main column + on-demand right context panel. */
 export function ShellFrame({ language, section, appearance, project, projectPicker, runName, runPicker, coordinator,
-  connection, branch, notifications, canChat, avatarState, contextOpen = false, onToggleContext, onOpenSettings,
+  connection, streamError, branch, notifications, canChat, avatarState, contextOpen = false, onToggleContext, onOpenSettings,
   onLanguage, hrefFor, onSelect, onOpenChat, onSearch, onCreateProject, action, contextPanel, children }: {
   language: InterfaceI18n; section: TeamDestination; appearance: ReturnType<typeof useThemePreference>;
   project: string; projectPicker?: ReactNode; runName: string; runPicker?: ReactNode; coordinator: MessageKey;
-  connection: MessageKey; branch: string; notifications: number; canChat: boolean; avatarState?: PomoAvatarState;
+  connection: MessageKey; streamError?: string; branch: string; notifications: number; canChat: boolean; avatarState?: PomoAvatarState;
   contextOpen?: boolean; onToggleContext?: () => void; onOpenSettings?: () => void;
   onLanguage: (next: "zh-CN" | "en") => void; hrefFor: (section: TeamSection) => string;
   onSelect: (section: TeamSection) => void; onOpenChat: (opener: HTMLButtonElement) => void;
@@ -274,8 +274,9 @@ export function ShellFrame({ language, section, appearance, project, projectPick
         </header>
         <div className="ui-workspace-body">
           <div className="ui-main">
-            {["web.stale", "web.disconnected", "web.error", "web.notFound"].includes(connection) &&
+            {["web.disconnected", "web.error", "web.notFound"].includes(connection) &&
               <p className="ui-snapshot-warning" role="alert">{t("shell.snapshotWarning")}</p>}
+            {streamError && <p className="ui-snapshot-warning" role="alert">{t("shell.streamError", { message: streamError })}</p>}
             {children}
           </div>
           {contextOpen && contextPanel && <aside className="ui-context-panel" aria-label={t("shell.contextPanel")}>
@@ -301,9 +302,9 @@ export function ShellFrame({ language, section, appearance, project, projectPick
         </nav>
         <footer className="ui-footer">
           <span><GitBranch aria-hidden="true" /><span>{branch || t("shell.noBranch")}</span></span>
-          <span>
+          <span title={t(connection)}>
             <span className="ui-dot" data-state={connection === "shell.connected" ? "ok" : "unknown"} aria-hidden="true" />
-            <span>{t("shell.runtimeConnection")}: {t(connection)}</span>
+            <span className="sr-only">{t(connection)}</span>
           </span>
         </footer>
       </div>
@@ -348,7 +349,6 @@ function ChatMainScreen({ read, runId, chat, connectionError, project, onStarted
     return <div className="ui-chat-main">
       <div className="ui-chat-welcome">
         <h1>{t("chat.welcomeTitle")}</h1>
-        <p>{t("chat.welcomeHint")}</p>
         <div className="ui-example-prompts">
           {examples.map(prompt => (
             <button key={prompt} type="button" className="ui-example-prompt" onClick={() => setDraft(prompt)}>
@@ -375,7 +375,6 @@ function ChatMainScreen({ read, runId, chat, connectionError, project, onStarted
       welcome={chat?.available && chat.messages.length === 0 && !chat.liveTurn ? (
         <div className="ui-chat-welcome">
           <h1>{read?.run.displayName || t("nav.chat")}</h1>
-          <p>{t("chat.welcomeHint")}</p>
         </div>
       ) : undefined}
       documentTools={chat?.documentWorkflow && <div className="ui-chat-documents">
@@ -433,15 +432,24 @@ function ProjectShell({ language, onLanguage, appearance }: {
   const paletteOpener = useRef<HTMLElement>(null);
 
   const read = data.read.data;
+  const eventStream = data.events.data;
   const error = data.read.error ?? data.events.error ?? data.health.error;
   const connection = !paired ? "web.pairRequired"
     : error instanceof OwnerReadError ? (error.status === 404 ? "web.notFound" : "web.error")
-      : error instanceof TypeError || data.events.data?.connection === "reconnecting" ? "web.disconnected" : error ? "web.error"
-        : (runId ? data.read.isPending : data.health.isPending) ? "web.loading" : "shell.connected";
+      : error instanceof TypeError || eventStream?.connection === "reconnecting" || eventStream?.connection === "denied" ? "web.disconnected"
+        : error ? "web.error"
+          : (runId ? data.read.isPending : data.health.isPending) ? "web.loading" : "shell.connected";
   const selectedTeamId = read?.run.rigId ?? runs.data?.find(entry => entry.id === runId)?.rigId ?? search.team;
   const flowVisible = section === "overview" && overviewTab === "flow";
   const modelSettings = useTeamModelSettings(selectedTeamId ?? "", flowVisible);
   const observedModels = useAttemptModels(read, flowVisible);
+  // The Flow canvas tears down and re-creates its render loop when these props change identity,
+  // so they are memoized on the read they derive from, not rebuilt on every shell render.
+  // `observedModels` is a fresh Map per render; key it by content so the memo holds with it.
+  const observedModelsKey = JSON.stringify([...observedModels].sort(([a], [b]) => a.localeCompare(b)));
+  const flowSeats = useMemo(() => mapTeamSeats(read?.seats ?? [], read?.attempts ?? [], modelSettings.data?.settings, observedModels),
+    [read?.seats, read?.attempts, modelSettings.data?.settings, observedModelsKey]);
+  const flowNodeStates = useMemo(() => mapTeamAttemptStates(read?.attempts ?? [], read?.seats), [read?.attempts, read?.seats]);
   const team = teams.data?.find(entry => entry.id === selectedTeamId);
   const teamName = team?.name ?? runs.data?.find(entry => entry.id === runId)?.rigName ?? "";
   const runName = read?.run.displayName ?? runs.data?.find(entry => entry.id === runId)?.displayName ?? "";
@@ -485,7 +493,7 @@ function ProjectShell({ language, onLanguage, appearance }: {
         </span>
         <div>
           <strong>{t("shell.coordinator")}</strong>
-          <div className="ui-status" style={{ fontSize: 12, color: "var(--ui-muted)", marginTop: 2 }}>
+          <div className="ui-status ui-context-status">
             <span className="ui-dot" data-state={["shell.active", "status.attempt.working", "status.attempt.started"].includes(coordinator) ? "ok" : "unknown"} aria-hidden="true" />
             <span>{t(coordinator)}</span>
           </div>
@@ -498,7 +506,7 @@ function ProjectShell({ language, onLanguage, appearance }: {
     <section className="ui-context-section">
       <h3>{t("shell.ownerDecisions")}</h3>
       {pendingDecisions.length === 0 && pendingQuestions.length === 0
-        ? <p className="ui-muted" style={{ margin: 0, fontSize: 13 }}>{t("tasks.empty")}</p>
+        ? null
         : <ul className="ui-fleet-list">
             {pendingDecisions.map((decision, idx) => (
               <li key={idx}>
@@ -517,7 +525,7 @@ function ProjectShell({ language, onLanguage, appearance }: {
     <section className="ui-context-section">
       <h3>{t("overview.fleet")}</h3>
       {activeSeats.length === 0
-        ? <p className="ui-muted" style={{ margin: 0, fontSize: 13 }}>{t("settings.noSeats")}</p>
+        ? null
         : <ul className="ui-fleet-list">
             {activeSeats.map(seat => (
               <li key={seat.seat}>
@@ -529,9 +537,7 @@ function ProjectShell({ language, onLanguage, appearance }: {
     </section>
     {read && <section className="ui-context-section">
       <h3>{t("nav.tasks")}</h3>
-      <p className="ui-muted" style={{ margin: 0, fontSize: 13 }}>
-        {t("tasks.count", { count: read.tasks.length })}
-      </p>
+      <p className="ui-muted ui-count-line">{t("tasks.count", { count: read.tasks.length })}</p>
       <button type="button" className="btn btn-outline" onClick={() => go("tasks")}>
         {t("nav.tasks")}
       </button>
@@ -583,7 +589,8 @@ function ProjectShell({ language, onLanguage, appearance }: {
       <button type="button" disabled={!runId} aria-pressed={!!runId && workspaceTab === "reviews"} onClick={() => setWorkspaceTab("reviews")}>{t("workspace.tabReviews")}</button>
     </div>
     {!runId || workspaceTab === "files"
-      ? selectedTeamId ? <ProjectFiles key={"files-" + selectedTeamId} projectId={selectedTeamId} /> : null
+      ? selectedTeamId ? <ProjectFiles key={"files-" + selectedTeamId} projectId={selectedTeamId} />
+        : <p className="ui-muted ui-workbench-empty">{t("shell.chooseProject")}</p>
       : workspaceTab === "work"
       ? <WorkspaceScreen key={"workspace-" + runId} read={read} selectedTaskId={taskId} />
       : workspaceTab === "inbox"
@@ -609,8 +616,10 @@ function ProjectShell({ language, onLanguage, appearance }: {
           onOpenChat={opener => { chatOpener.current = opener; setChatOpen(true); }} />
       : overviewTab === "flow"
         ? <FlowView key={runId} events={adaptTeamEvents(data.events.data?.events ?? [], runId)}
-            seats={mapTeamSeats(read?.seats ?? [], read?.attempts ?? [], modelSettings.data?.settings, observedModels)}
-            nodeStates={mapTeamAttemptStates(read?.attempts ?? [], read?.seats)} />
+            loading={data.read.isPending || (!!read && data.events.data === undefined)}
+            error={!!data.read.error}
+            seats={flowSeats}
+            nodeStates={flowNodeStates} />
         : <AnalyticsScreen teamId={selectedTeamId} seats={read?.seats} />}
   </div>;
 
@@ -622,6 +631,7 @@ function ProjectShell({ language, onLanguage, appearance }: {
     runName={runName ? runName + " · " + t(read?.run.phase === "planning" ? "planning.mode" : "execution.mode") : team ? t("records.projectHistory") : ""}
     coordinator={coordinator}
     connection={connection}
+    streamError={eventStream?.lastError?.message}
     branch={readableBranch(integration.data?.branch ?? "")}
     notifications={pendingDecisions.length + pendingQuestions.length}
     canChat={paired && (!!runId || !!team?.seats.some(seat => seat.role === "lead"))}
@@ -673,7 +683,6 @@ function ProjectShell({ language, onLanguage, appearance }: {
         <div className="ui-settings-modal-body">
           <SettingsScreen
             language={language}
-            connection={connection}
             onLanguage={onLanguage}
             appearance={appearance}
             seats={read?.seats ?? team?.seats ?? []}

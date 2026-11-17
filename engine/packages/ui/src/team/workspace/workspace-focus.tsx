@@ -6,6 +6,7 @@ import { useAttemptStatus } from "../../hooks/useAttemptStatus.js";
 import { isFinished, useTeamResult } from "../../hooks/useTeamResult.js";
 import { DiffView } from "../diff-view.js";
 import { TaskProgress } from "../task-progress.js";
+import { workspaceTabLabel } from "../display.js";
 import { ActivityFacts, attemptForSeat, SeatHeading, taskForSeat, ToolCalls } from "./workspace-view.js";
 
 export function TaskChanges({ runId, task }: { runId: string; task?: TeamReviewView }) {
@@ -34,7 +35,7 @@ export function WorkspaceFocus({ read, seat }: { read: TeamOwnerRead; seat: Team
     <ActivityFacts activity={activity.data} />
     <div className="ui-detail-tabs" role="group" aria-label={t("workspace.tabs")}>
       {(["execution", "changes", "output"] as const).map(name => <button key={name} aria-pressed={tab === name} onClick={() => setTab(name)}>
-        {t(("workspace." + name) as "workspace.execution")}</button>)}
+        {workspaceTabLabel(name, t)}</button>)}
     </div>
     <div className="ui-detail-content">
       {tab === "execution" && <ToolCalls activity={activity.data} error={activity.isError} />}
