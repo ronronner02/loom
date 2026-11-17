@@ -1,5 +1,4 @@
 import type Database from "better-sqlite3";
-import { randomBytes } from "node:crypto";
 import { monotonicFactory } from "ulid";
 
 const ulid = monotonicFactory();
@@ -62,7 +61,8 @@ export interface MailboxSendInput {
   body: string;
   replyTo?: string | null;
   attachment?: unknown | null;
-  capability?: string;
+  /** The recipient seat's own capability, minted by `worker-mailbox-capability.ts` and required. */
+  capability: string;
 }
 
 export interface MailboxScope {
@@ -134,7 +134,7 @@ export class ChatRepository {
   }
 
   sendMailbox(rigId: string, sender: string, input: MailboxSendInput): MailboxSendResult {
-    if (input.capability !== undefined && !MAILBOX_CAPABILITY_PATTERN.test(input.capability)) {
+    if (!MAILBOX_CAPABILITY_PATTERN.test(input.capability)) {
       throw new ChatRepositoryError(
         "invalid_mailbox_input",
         "capability must be mailbox: followed by 32 random bytes in base64url",
@@ -149,7 +149,7 @@ export class ChatRepository {
       runId: input.runId,
       replyTo: input.replyTo ?? null,
       attachment,
-      capability: input.capability ?? `mailbox:${randomBytes(32).toString("base64url")}`,
+      capability: input.capability,
       receipt: null,
     };
     const topic = encodeMailboxEnvelope(envelope);
@@ -174,7 +174,7 @@ export class ChatRepository {
           stored.taskId !== input.taskId ||
           stored.runId !== input.runId ||
           stored.replyTo !== (input.replyTo ?? null) ||
-          (input.capability !== undefined && stored.capability !== input.capability) ||
+          stored.capability !== input.capability ||
           stableJson(stored.attachment) !== stableJson(input.attachment ?? null)
         ) {
           throw new ChatRepositoryError(

@@ -2,19 +2,14 @@ import { randomBytes } from "node:crypto";
 import type Database from "better-sqlite3";
 
 /**
- * T053 — the per-seat mailbox capability.
+ * The per-seat mailbox capability, and the only place one is minted.
  *
- * `poll` matches messages on `capability`, and the mailbox bridge hands the recipient's own
- * value to its endpoint, so a value minted twice would leave the seat's mailbox permanently
- * unreadable. This is therefore the single minting site: a seat gets one `mailbox:{43}` for a
- * run, created with its task assignment and read back by every later sender.
- * `ChatRepository.sendMailbox` still mints when a caller supplies none, but a managed sender
- * names this value, which is what keeps the two ends agreeing.
- *
- * The tmux removal deleted this file and left the composition returning an empty string, which
- * the producer refuses with `Invalid mailbox capability` — so no managed attempt could be
- * produced at all. It is restored here because the value is a property of the seat's mailbox
- * and not of any transport.
+ * `poll` matches messages on `capability`, and the mailbox bridge hands the recipient's own value
+ * to its endpoint, so two values for one seat would leave that seat's mailbox permanently
+ * unreadable. A seat therefore has exactly one capability for a run: it is minted here, when the
+ * seat's task assignment is created, and every later sender reads that same value back. Nothing
+ * else mints — a send that names none is refused, because a message is not the place to establish
+ * a seat's mailbox identity.
  */
 export function ensureSeatMailboxCapability(db: Database.Database, runId: string, sessionId: string,
   now: Date = new Date()): string {
@@ -39,10 +34,7 @@ export class SeatMailboxCapabilities {
     return ensureSeatMailboxCapability(this.db, runId, sessionId, this.clock());
   }
 
-  /**
-   * The value already recorded for this seat, or null. A send uses this: it must never mint,
-   * because a message is not the place to establish a seat's mailbox identity.
-   */
+  /** The value already recorded for this seat, or null. A send uses this: it must never mint. */
   find(runId: string, sessionId: string): string | null {
     const row = this.db.prepare(
       "SELECT capability FROM team_seat_mailbox_capabilities WHERE run_id = ? AND session_id = ?")

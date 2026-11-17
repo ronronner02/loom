@@ -218,13 +218,9 @@ export class MailboxDelivery {
     private readonly readPromptState: MailboxPromptStateReader = () => "unknown",
     private readonly readChannelState: NativeChannelStateReader = () => null,
     /**
-     * T053 — the seat's own capability, for a send that names none.
-     *
-     * A managed seat's capability is persisted when its assignment is created, and its
-     * endpoint polls with exactly that value. Minting a fresh one here instead would store
-     * the message under a value the seat's poll never matches, so a caller that does not
-     * name a capability gets the seat's own. It returns null when the run recorded none —
-     * the send then mints as before, which is the legacy route's behaviour.
+     * The seat's own capability, read from `worker-mailbox-capability.ts`. A managed seat's
+     * capability is persisted when its assignment is created, and its endpoint polls with
+     * exactly that value, so a send that names none is stored under the same one.
      */
     private readonly readSeatCapability: ((runId: string, sessionId: string) => string | null) | undefined = undefined,
   ) {}
@@ -239,7 +235,13 @@ export class MailboxDelivery {
     const messageId = optionalText(input.messageId, "messageId");
     const replyTo = optionalText(input.replyTo, "replyTo") ?? null;
     const named = optionalText(input.capability, "capability");
-    const capability = named ?? this.readSeatCapability?.(runId, recipient) ?? undefined;
+    const capability = named ?? this.readSeatCapability?.(runId, recipient);
+    if (!capability) {
+      // Never invented here. A value minted at send time is one the recipient's poll was never
+      // scoped by, which writes a message nobody can read.
+      throw new MailboxDeliveryError("mailbox_capability_required",
+        `no mailbox capability is recorded for ${recipient} in this run; the seat's assignment mints one`);
+    }
 
     try {
       return this.chatRepo.sendMailbox(rigId, sender, {
