@@ -14,6 +14,8 @@ export const setupKey = ["team", "setup"] as const;
 const INSTALL_KEYS = { git: "setup.install.git", gh: "setup.install.gh", claude: "setup.install.claude", codex: "setup.install.codex" } as const;
 const TOOL_LABELS = { git: "Git", gh: "GitHub CLI", claude: "Claude Code", codex: "Codex" } as const;
 const SIGN_IN_KEYS = { "signed-in": "setup.signedIn", "signed-out": "setup.signedOut", unknown: "setup.unknown" } as const;
+/** The order the tools read in: the two every project needs, then the two clients. */
+const TOOL_ORDER = ["git", "gh", "claude", "codex"] as const;
 
 /** The setup read: tools, agent sign-in and the proxy, as the daemon just observed them. */
 export function useSetup(enabled = true) {
@@ -70,7 +72,7 @@ function Tools() {
       <button type="button" className="ui-icon-button" aria-label={t("setup.recheck")} title={t("setup.recheck")}
         disabled={setup.isFetching} onClick={() => void setup.refetch()}><RotateCw aria-hidden="true" /></button>
     </div>
-    <ul className="setup-rows">{setup.data.tools.map(row => <li key={row.client} data-ok={row.ok}>
+    <ul className="setup-rows">{[...setup.data.tools].sort((a, b) => TOOL_ORDER.indexOf(a.client) - TOOL_ORDER.indexOf(b.client)).map(row => <li key={row.client} data-ok={row.ok}>
       {row.ok ? <Check className="setup-mark" aria-hidden="true" /> : <X className="setup-mark" aria-hidden="true" />}
       <strong>{TOOL_LABELS[row.client]}</strong>
       {row.path
@@ -96,22 +98,8 @@ function SignIn() {
   </section>;
 }
 
-function Language({ language, onLanguage }: { language: "en" | "zh-CN"; onLanguage: (next: "en" | "zh-CN") => void }) {
-  const { t } = useTranslation();
-  return <section className="setup-block" aria-label={t("setup.language")}>
-    <h2 className="setup-block-title">{t("setup.language")}</h2>
-    <label className="field">{t("team.settings.language")}
-      <select className="input" value={language} onChange={event => onLanguage(event.target.value as "en" | "zh-CN")}>
-        <option value="en">English</option><option value="zh-CN">中文</option>
-      </select>
-    </label>
-  </section>;
-}
-
 /** First-run setup, before the GitHub sign-in it leads to. */
-export function SetupScreen({ language, onLanguage, onContinue }: {
-  language: "en" | "zh-CN"; onLanguage: (next: "en" | "zh-CN") => void; onContinue: () => void;
-}) {
+export function SetupScreen({ onContinue }: { onContinue: () => void }) {
   const { t } = useTranslation();
   const { request } = useOwnerSession();
   const cache = useQueryClient();
@@ -128,7 +116,6 @@ export function SetupScreen({ language, onLanguage, onContinue }: {
   return <div className="page page-narrow ui-setup">
     <section className="plate" aria-label={t("setup.title")}>
       <h1 className="display">{t("setup.title")}</h1>
-      <Language language={language} onLanguage={onLanguage} />
       <NetworkProxy />
       <Tools />
       <SignIn />
@@ -137,18 +124,4 @@ export function SetupScreen({ language, onLanguage, onContinue }: {
       {failed && <p role="alert">{t("setup.saveFailed")}</p>}
     </section>
   </div>;
-}
-
-/** The Settings section: the same state, reachable after setup is done. */
-export function SetupSection({ language, onLanguage }: {
-  language: "en" | "zh-CN"; onLanguage: (next: "en" | "zh-CN") => void;
-}) {
-  const { t } = useTranslation();
-  return <section className="plate ui-settings-panel" aria-label={t("setup.title")}>
-    <h2>{t("setup.title")}</h2>
-    <Language language={language} onLanguage={onLanguage} />
-    <NetworkProxy />
-    <Tools />
-    <SignIn />
-  </section>;
 }

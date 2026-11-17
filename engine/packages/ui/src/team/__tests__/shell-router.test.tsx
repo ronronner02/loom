@@ -81,7 +81,7 @@ beforeEach(() => {
       ...(extraRun ? [{ id: SECOND_RUN_ID, rigId: data.run.rigId, rigName: "Status board", displayName: "Second run", state: data.run.state }] : []),
     ] });
     if (path.endsWith("/health")) return response({ health: health() });
-    if (path === "/api/team-control/setup") return response({ tools: [
+    if (path === "/api/team-control/setup" || path.endsWith("/setup")) return response({ tools: [
       { client: "git", ok: true, path: "/fixture/git" }, { client: "gh", ok: true, path: "/fixture/gh" },
       { client: "claude", ok: true, path: "/fixture/claude" }, { client: "codex", ok: false, reason: "not-found" },
     ], signIn: [{ client: "claude", state: "signed-in", signIn: null }], proxy: "", complete: true });

@@ -99,7 +99,7 @@ export function TeamWorkspaceScreen({ language, onLanguage, appearance, onSetup 
 
   // Setup is its own screen, above the shell and the GitHub gate: it is the way back to the proxy
   // that a blocked sign-in needs.
-  if (setupOpen) return <SetupScreen language={language.language} onLanguage={onLanguage} onContinue={() => setSetupOpen(false)} />;
+  if (setupOpen) return <SetupScreen onContinue={() => setSetupOpen(false)} />;
   return <ShellFrame
     language={language}
     section={section}

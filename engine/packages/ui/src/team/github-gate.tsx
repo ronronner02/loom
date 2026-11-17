@@ -17,9 +17,11 @@ export function useGithubStatus() {
     queryFn: ({ signal }) => request<GithubStatus>("/github/status", { signal }) });
 }
 
-export function EntryFrame({ language, onLanguage, appearance, children }: {
+export function EntryFrame({ language, onLanguage, appearance, children, onSettings }: {
   language: InterfaceI18n; onLanguage: (next: "en" | "zh-CN") => void;
   appearance: ReturnType<typeof useThemePreference>; children: ReactNode;
+  /** Settings that do not need GitHub, reachable before sign-in. Absent while unpaired. */
+  onSettings?: () => void;
 }) {
   const { t } = useTranslation();
   return <div className="team-shell ui-entry" data-ui-theme={appearance.theme} lang={language.language}>
@@ -31,6 +33,7 @@ export function EntryFrame({ language, onLanguage, appearance, children }: {
         <label>{t("shell.appearance")}<select value={appearance.preference} onChange={event => appearance.setPreference(event.target.value as "dark" | "light" | "system")}>
           {TEAM_THEME_PREFERENCES.map(theme => <option key={theme} value={theme}>{t(`settings.theme.${theme}`)}</option>)}
         </select></label>
+        {onSettings && <button type="button" className="btn btn-quiet" onClick={onSettings}>{t("settings.title")}</button>}
       </div>
     </header>
     <main className="ui-entry-main">{children}</main>

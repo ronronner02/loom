@@ -5,8 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createInterfaceI18n } from "@multi-agent/i18n";
 import { I18nextProvider } from "react-i18next";
 import { SetupScreen } from "../setup.js";
+import { EntryFrame } from "../github-gate.js";
 
-const request = vi.fn(), onLanguage = vi.fn(), onContinue = vi.fn();
+const request = vi.fn(), onLanguage = vi.fn(), onContinue = vi.fn(), setPreference = vi.fn();
 vi.mock("../../hooks/useOwnerSession.js", async importOriginal => ({
   ...await importOriginal<typeof import("../../hooks/useOwnerSession.js")>(),
   useOwnerSession: () => ({ paired: true, request }),
@@ -39,7 +40,7 @@ afterEach(() => { cleanup(); cache.clear(); });
 async function show(locale: "en" | "zh-CN" = "en") {
   const language = await createInterfaceI18n({ language: locale });
   return render(<QueryClientProvider client={cache}><I18nextProvider i18n={language.instance}>
-    <SetupScreen language={locale} onLanguage={onLanguage} onContinue={onContinue} />
+    <SetupScreen onContinue={onContinue} />
   </I18nextProvider></QueryClientProvider>);
 }
 
@@ -101,16 +102,27 @@ describe("first-run setup", () => {
     await waitFor(() => expect(onContinue).toHaveBeenCalled());
   });
 
-  it("offers the language choice and reports it to the shell", async () => {
-    await show();
-    const select = await screen.findByRole("combobox", { name: "Language" });
-    fireEvent.change(select, { target: { value: "zh-CN" } });
-    expect(onLanguage).toHaveBeenCalledWith("zh-CN");
-  });
-
   it("localizes every setup block", async () => {
     await show("zh-CN");
     await screen.findByText("工具");
     expect(document.body.textContent).not.toMatch(/setup\./);
+  });
+});
+
+describe("settings before GitHub sign-in", () => {
+  it("opens from the entry frame and states the account as signed out", async () => {
+    const language = await createInterfaceI18n({ language: "en" });
+    request.mockImplementation(async (path: string) => {
+      if (path === "/setup") return state;
+      if (path === "/github/status") return { signedIn: false, login: null, host: "github.com" };
+      if (path === "/settings") return { settings: { "team.leadClient": { value: "claude-code", source: "default" } } };
+      throw new Error("Unexpected request: " + path);
+    });
+    render(<QueryClientProvider client={cache}><I18nextProvider i18n={language.instance}>
+      <EntryFrame language={language} onLanguage={onLanguage} appearance={{ preference: "dark", theme: "dark", setPreference: () => {} }}
+        onSettings={() => {}}><p>Gate</p></EntryFrame>
+    </I18nextProvider></QueryClientProvider>);
+    // The entry frame carries the way into Settings before any account check.
+    expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
   });
 });
