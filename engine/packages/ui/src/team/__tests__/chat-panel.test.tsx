@@ -355,7 +355,7 @@ describe("persistent lead chat", () => {
       options: null, answeredBy: null, createdAt: "2026-11-08T00:00:00.000Z" }] });
     fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
     const message = screen.getByText(body);
-    expect(message.style.overflowWrap).toBe("anywhere");
+    expect(message.classList.contains("ui-turn-body")).toBe(true);
     expect(message.textContent).toBe(body);
   });
 
@@ -494,6 +494,17 @@ describe("persistent lead chat", () => {
     await waitFor(() => expect(request).toHaveBeenCalledTimes(1));
     expect(request.mock.calls[0]![0]).toBe(`/runs/${RUN_ID}/documents/stage`);
     expect(JSON.parse(request.mock.calls[0]![1].body).payload).toEqual({ responseLanguage: "en", stage: "requirements", ownerMessage: "整理需求" });
+  });
+
+  it("keeps ordinary chat sendable while the plan is still being discussed", async () => {
+    await show(planningRead(), documentChat(false));
+    fireEvent.click(screen.getByRole("button", { name: "Coordinator" }));
+    const field = screen.getByRole("textbox", { name: "Message" });
+    fireEvent.change(field, { target: { value: "Please keep the utility module small" } });
+    expect((screen.getByRole("button", { name: "Send" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(field.closest("form")!.querySelectorAll(".composer-confirmation").length).toBe(0);
+    fireEvent.change(field, { target: { value: "approve the current plan" } });
+    expect(field.closest("form")!.querySelectorAll(".composer-confirmation").length).toBe(1);
   });
 
   it("does not request a plan from conversation before confirming requirements", async () => {

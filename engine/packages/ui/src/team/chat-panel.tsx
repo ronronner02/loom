@@ -16,6 +16,7 @@ import { useAttemptStatus } from "../hooks/useAttemptStatus.js";
 import { usePendingAction } from "../hooks/usePendingAction.js";
 import { ToolCalls } from "./workspace/workspace-view.js";
 import { clockTime } from "./display.js";
+import { isSendReady, messageIntent, type ConfirmationIntent, type StageIntent } from "./composer-model.js";
 
 type OwnerDecision = { kind: "plan" } | { kind: "resume" } | { kind: "message"; message: ChatMessage };
 
@@ -79,7 +80,7 @@ export function ChatPanel({ open, onOpenChange, opener, read, runId, chat, conne
         <Dialog.Close className="ui-icon-button" aria-label={t("shell.closeChat")}><X aria-hidden="true" /></Dialog.Close>
       </header>
       {!runId && project ? <section className="chat" aria-label={t("team.chat.message")}>
-        <div className="chat-log"><p className="muted">{t("planning.beforeExecution")}</p></div>
+        <div className="chat-log" />
         <Composer runId="" entityVersion={0} body={draft} onBodyChange={setDraft} projectId={project.id} attachments={attachments} onAttachmentsChange={setAttachments} onStarted={onStarted} />
       </section> : <LeadConversation read={read} runId={runId} chat={chat} connectionError={connectionError} draft={draft} onDraftChange={setDraft} onChanged={onChanged} attachments={attachments} onAttachmentsChange={setAttachments}
         documentTools={chat?.documentWorkflow && <div className="ui-chat-documents"><DocumentStages read={read} chat={chat} onChanged={onChanged} /></div>} />}
@@ -116,7 +117,7 @@ export function LeadConversation({ read, runId, chat, connectionError, draft, on
         <summary>{t("chat.activity", { count: chat.activity.length })}</summary>
         {chat.activity.map(entry => <div key={entry.id} className="turn">
           <div className="turn-who">{t("role.lead")}<time className="ui-muted" dateTime={entry.createdAt}>{clockTime(entry.createdAt)}</time></div>
-          <p className="turn-body" style={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}>{entry.body}</p>
+          <p className="turn-body ui-turn-body">{entry.body}</p>
         </div>)}
       </details>}
       {chat?.liveTurn && <LiveOutput key={chat.liveTurn.attemptId} runId={runId} turn={chat.liveTurn}
@@ -165,7 +166,7 @@ function Turn({ message }: { message: ChatMessage }) {
   const owner = message.sender === "owner";
   return <div className={owner ? "turn turn-owner" : "turn"}>
     <div className="turn-who">{owner ? t("team.chat.you") : t("role.lead")}</div>
-    <p className="turn-body" style={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}>{message.body}</p>
+    <p className="turn-body ui-turn-body">{message.body}</p>
     {!!message.attachments?.length && <ul className="ui-chat-attachments" aria-label={t("chat.attachments")}>
       {message.attachments.map(attachment => <li key={attachment.id}><Paperclip aria-hidden="true" /><span>{attachment.name}</span></li>)}
     </ul>}
@@ -194,8 +195,8 @@ function DecisionPlate({ message, runId, entityVersion, onChanged }: { message: 
   };
   return <div className="plate plate-waiting" role="group" aria-label={t("team.chat.message")}>
     <h2 className="plate-title">{question}</h2>
-    {context.length > 0 && <p className="plate-meta" style={{ whiteSpace: "pre-line" }}>{context.join("\n\n")}</p>}
-    {failed && <p role="alert" style={{ color: "var(--danger)", fontSize: 13 }}>{t("web.error")}</p>}
+    {context.length > 0 && <p className="plate-meta ui-pre-line">{context.join("\n\n")}</p>}
+    {failed !== null && <p role="alert" className="ui-alert-inline">{failed || t("action.failed")}</p>}
     <div className="options">
       {(message.options ?? []).map(option => <button key={option} className="option" disabled={busy} onClick={() => void answer(option)}>
         {option}
@@ -203,28 +204,6 @@ function DecisionPlate({ message, runId, entityVersion, onChanged }: { message: 
       </button>)}
     </div>
   </div>;
-}
-
-/** Exact affirmative phrases are shortcuts to owner controls, not permission inferred by a model. */
-function confirmationIntent(body: string): "brainstorm" | "requirements" | "plan" | "execute" | null {
-  const value = body.trim().toLowerCase().replace(/[。.!！]+$/u, "").trim();
-  if (/^(确认|同意|批准)(当前|这版|这份)?(需求|需求文档|prd)$/.test(value)
-    || /^(confirm|approve)( the)?( current)? (requirements|prd)( document)?$/.test(value)) return "requirements";
-  if (/^(确认|同意|批准)(当前|这版|这份)?计划$/.test(value)
-    || /^(confirm|approve)( the)?( current)? plan$/.test(value)) return "plan";
-  if (/^(确认|同意)(当前|这版|这份)?(探索记录|brainstorm)$/.test(value)
-    || /^(confirm|approve)( the)? brainstorm$/.test(value)) return "brainstorm";
-  if (/^(批准|同意|开始)(开始)?执行$/.test(value) || /^(approve|start) execution$/.test(value)) return "execute";
-  return null;
-}
-
-function stageIntent(body: string): "exploration" | "requirements" | "plan" | null {
-  const value = body.trim().toLowerCase().replace(/[。.!！]+$/u, "").trim();
-  if (/^(继续探索|探索想法|开始探索)$/.test(value) || /^(explore ideas|continue exploring)$/.test(value)) return "exploration";
-  if (/^(整理|生成|编写|准备)(需求|需求文档|prd)$/.test(value)
-    || /^(prepare|write|generate)( the)? (requirements|prd)( document)?$/.test(value)) return "requirements";
-  if (/^(生成|制定|编写)(计划|plan)$/.test(value) || /^(generate|write|prepare)( the)? plan$/.test(value)) return "plan";
-  return null;
 }
 
 export function Composer({ runId, entityVersion, body, onBodyChange, projectId, onStarted, read, chat, onChanged, attachments, onAttachmentsChange }: {
@@ -244,17 +223,21 @@ export function Composer({ runId, entityVersion, body, onBodyChange, projectId, 
   const question = chat?.pendingDecision ?? chat?.messages.filter(message => message.kind === "decision" && !message.answeredBy).at(-1);
   const planning = runId && read?.run.phase === "planning" && !closed;
   const workflow = chat?.documentWorkflow, proposal = chat?.planApproval;
-  const intent = planning && !question && !attachments.length ? confirmationIntent(body) : null;
-  const nextStage = planning && workflow && !question && !attachments.length ? stageIntent(body) : null;
+  const typed = planning && !question && !attachments.length ? messageIntent(body) : null;
+  const intent: ConfirmationIntent | null = typed?.kind === "confirm" ? typed.intent : null;
+  const nextStage: StageIntent | null = typed?.kind === "stage" ? typed.stage : null;
   const version = workflow?.versions.find(document => document.kind === intent);
   const requirements = workflow?.versions.find(document => document.kind === "requirements");
   const requirementsConfirmed = !!requirements && requirements.id === workflow?.confirmed.requirements;
   const execution = intent === "execute" || intent === "plan" && !workflow;
   const settled = !!read && read.run.state === "approved" && !documentDiscussionPending(read, chat);
   const legacyApproval = proposal === null && !workflow;
-  const ready = !closed && (nextStage ? settled && !workflow?.pendingStage && (nextStage !== "plan" || requirementsConfirmed && !workflow?.error)
-    : !intent || settled && (execution ? legacyApproval || !!proposal?.plan?.content.trim() && !!proposal.roster?.digest && !proposal.error
-      && (!workflow || !!proposal.documentVersions) : !!version && !workflow?.error && !workflow?.pendingStage));
+  const stageReady = !workflow?.pendingStage && (nextStage !== "plan" || (requirementsConfirmed && !workflow?.error));
+  const confirmationReady = execution
+    ? legacyApproval || (!!proposal?.plan?.content.trim() && !!proposal.roster?.digest && !proposal.error
+      && (!workflow || !!proposal.documentVersions))
+    : !!version && !workflow?.error && !workflow?.pendingStage;
+  const ready = isSendReady({ closed: !!closed, nextStage, intent, settled, stageReady, confirmationReady });
   return <form className="composer" aria-busy={busy || undefined} onSubmit={async event => {
     event.preventDefault();
     if ((!body.trim() && !attachments.length) || sending.current || !ready) return;
@@ -295,7 +278,7 @@ export function Composer({ runId, entityVersion, body, onBodyChange, projectId, 
       setSelectedWorkflow(undefined);
       onBodyChange(""); onChanged?.();
     }
-    catch (cause) { setFailed(cause instanceof Error ? cause.message : t("web.error")); } finally { sending.current = false; setBusy(false); }
+    catch (cause) { setFailed(cause instanceof Error ? cause.message : t("action.failed")); } finally { sending.current = false; setBusy(false); }
   }}>
     {(!runId || read?.run.phase === "delivery") && !question &&
       <WorkflowPicker value={selectedWorkflow} onChange={setSelectedWorkflow} disabled={busy || !!closed} />}
@@ -358,7 +341,7 @@ function PlanPlate({ read, runId, entityVersion, chat, onChanged }: {
     {approved && <div className="plate-meta">{t("team.plan.work", { count: work })}</div>}
     {!approved && proposal?.plan && <details className="plate-meta">
       <summary>{t("team.plan")}</summary>
-      <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", maxHeight: 260, overflow: "auto" }}>{proposal.plan.content}</pre>
+      <pre className="ui-plan-pre">{proposal.plan.content}</pre>
     </details>}
     {!approved && proposal?.roster && <div role="group" aria-label={t("team.plan.roster")}>
       <h3 className="plate-meta">{t("team.plan.roster")}</h3>
@@ -368,7 +351,7 @@ function PlanPlate({ read, runId, entityVersion, chat, onChanged }: {
     </div>}
     {!approved && (updating || !proposalReady) && !proposal?.error && <p className="plate-meta">{t("team.plan.preparing")}</p>}
     {needsRecovery && <p className="plate-meta">{t("team.plan.staleRun")}</p>}
-    {(!updating && proposal?.error || failed) && <p role="alert" style={{ color: "var(--danger)", fontSize: 13 }}>
+    {(!updating && proposal?.error || failed) && <p role="alert" className="ui-alert-inline">
       {proposal?.error || t("team.plan.approvalFailed")}
     </p>}
     {!approved && (chat?.documentWorkflow || read.run.binding.readPaths.includes(".")) && <p className="plate-meta">
@@ -406,27 +389,23 @@ function PlanPlate({ read, runId, entityVersion, chat, onChanged }: {
   </div>;
 }
 
-/**
- * U8 — a blocked run's one owner action. An active-time block needs an explicit increase;
- * each click adds one hour, including after earlier extensions, and states that amount first.
- */
-/** Plan R11 — a worker's question, worded as it wrote it; the answer goes to that worker's task. */
+/** A worker's question, worded as it wrote it; the answer goes to that worker's task. */
 export function QuestionPlate({ read, task }: { read: TeamOwnerRead; task: TeamOwnerRead["tasks"][number] }) {
   const { t } = useTranslation();
   const { request } = useOwnerSession();
   const action = usePendingAction(task.taskId + ":" + read.run.entityVersion);
   const [answer, setAnswer] = useState("");
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const send = async () => {
     if (!answer.trim() || !action.begin()) return;
-    setFailed(false);
+    setFailed(null);
     try { await postTaskComment(request, read.runId, task.taskId, answer.trim(), read.run.entityVersion); setAnswer(""); action.complete(); }
-    catch { setFailed(true); action.fail(); }
+    catch (cause) { setFailed(cause instanceof Error ? cause.message : null); action.fail(); }
   };
   return <div className="plate plate-waiting" role="group" aria-label={task.displayName}>
     <h2 className="plate-title"><TextPreview text={task.workerReport?.question ?? ""} /></h2>
     <p className="plate-meta"><TextPreview text={task.displayName} /></p>
-    {failed && <p role="alert" style={{ color: "var(--danger)", fontSize: 13 }}>{t("web.error")}</p>}
+    {failed !== null && <p role="alert" className="ui-alert-inline">{failed || t("action.failed")}</p>}
     <textarea className="ui-question-answer" aria-label={t("overview.answerWorker")} value={answer} disabled={action.busy}
       onChange={event => setAnswer(event.target.value)}
       onKeyDown={event => { if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} />
@@ -436,12 +415,18 @@ export function QuestionPlate({ read, task }: { read: TeamOwnerRead; task: TeamO
   </div>;
 }
 
+/**
+ * A blocked run's one owner action. A budget block asks for an explicit increase; each click
+ * adds one hour, including after earlier extensions, and states that amount first. The cache
+ * is invalidated on success so the plate releases even when the event stream is down.
+ */
 export function ResumePlate({ read }: { read: TeamOwnerRead }) {
   const { t } = useTranslation();
   const { request } = useOwnerSession();
+  const cache = useQueryClient();
   const action = usePendingAction(read.run.entityVersion);
   const { busy } = action;
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const run = read.run;
   const limits = run.binding.limits;
   const minutes = 60;
@@ -457,19 +442,20 @@ export function ResumePlate({ read }: { read: TeamOwnerRead }) {
     {run.stateReasonKey === "team.reason.activeWallClockBudget" && <p className="plate-meta">{t("team.resume.minutes", { count: minutes })}</p>}
     {run.stateReasonKey === "team.reason.retryLimitExhausted" && <p className="plate-meta">{t("team.resume.retries", { count: retries })}</p>}
     {run.stateReasonKey === "team.reason.reviewLimitExhausted" && <p className="plate-meta">{t("team.resume.rounds", { count: rounds })}</p>}
-    {failed && <p role="alert" style={{ color: "var(--danger)", fontSize: 13 }}>{t("web.error")}</p>}
+    {failed !== null && <p role="alert" className="ui-alert-inline">{failed || t("action.failed")}</p>}
     <div className="plate-foot">
       <button className="btn btn-primary" disabled={busy} onClick={async () => {
         if (!action.begin()) return;
-        setFailed(false);
+        setFailed(null);
         try {
           await request(`/runs/${encodeURIComponent(run.id)}/resume`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ protocolVersion: "1.0", runId: run.id, actionId: run.id,
               expectedEntityVersion: run.entityVersion, idempotencyKey: crypto.randomUUID(), payload: increase }),
           });
+          await cache.invalidateQueries({ queryKey: ["team", read.runId] });
           action.complete();
-        } catch { setFailed(true); action.fail(); }
+        } catch (cause) { setFailed(cause instanceof Error ? cause.message : null); action.fail(); }
       }}>{t("team.resume.action")}</button>
     </div>
   </div>;

@@ -9,6 +9,8 @@ export interface TeamEventState extends TeamReplay {
   trimmedThrough: number;
   attempts: Record<string, AttemptEventFacts>;
   connection: "connecting" | "live" | "reconnecting" | "denied";
+  /** The last stream failure the owner can see, so a retry loop is never silent. */
+  lastError: { message: string; retryable: boolean } | null;
 }
 
 export interface SSEMessage { event: string; id: string; data: string }
@@ -155,11 +157,19 @@ export async function streamTeamEvents(options: TeamStreamOptions): Promise<void
           if (message.id !== String(event.seq)) throw new TypeError("Invalid team event sequence");
           accept([event]);
           failures = 0;
+          // A good frame proves the transport and the protocol are healthy again.
+          if (read().lastError) update({ ...read(), lastError: null });
         }
       }
     } catch (error) {
       if (signal.aborted) return;
       if (permissionFailure(error)) { update({ ...read(), connection: "denied" }); return; }
+      // A failed replay page or a bad frame is a deterministic parse/protocol error; retrying
+      // never fixes it, so the owner sees it instead of a loop that only says "reconnecting".
+      update({ ...read(), lastError: {
+        message: error instanceof Error ? error.message : String(error),
+        retryable: !(error instanceof TypeError),
+      } });
     }
     if (signal.aborted) return;
     update({ ...read(), connection: "reconnecting" });

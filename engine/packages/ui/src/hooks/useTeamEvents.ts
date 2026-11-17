@@ -11,7 +11,7 @@ export const teamEventsKey = (runId: string) => ["team", runId, "events"] as con
 
 function initialState(snapshot: TeamOwnerRead): TeamEventState {
   return { events: [], cursor: snapshot.replay.latestSeq, window: snapshot.replay, gap: false, connection: "connecting",
-    initialized: false, trimmedThrough: 0, attempts: {} };
+    initialized: false, trimmedThrough: 0, attempts: {}, lastError: null };
 }
 
 export function useTeamEvents(runId: string, snapshot?: TeamOwnerRead) {
