@@ -11,15 +11,18 @@ import { TeamSectionView, type WorkspaceActions } from "./team-section-view.js";
 import { ShellFrame, type ShellChrome } from "./shell-frame.js";
 import { ContextPanel } from "./context-panel.js";
 import { SettingsSheet } from "./settings-sheet.js";
+import { SetupScreen } from "./setup.js";
 import { CommandPalette } from "./command-palette.js";
 import { CreateProject } from "./create-project.js";
 import { NewWorkSheet } from "./new-task.js";
 import { ChatPanel } from "./chat-panel.js";
 import type { useThemePreference } from "./theme.js";
 
-export function TeamWorkspaceScreen({ language, onLanguage, appearance }: {
+export function TeamWorkspaceScreen({ language, onLanguage, appearance, onSetup }: {
   language: InterfaceI18n; onLanguage: (next: "zh-CN" | "en") => void;
   appearance: ReturnType<typeof useThemePreference>;
+  /** Opens first-run setup, which the screen can leave again once the owner continues. */
+  onSetup: () => void;
 }) {
   const { t } = useTranslation();
   const { paired } = useOwnerSession();
@@ -31,6 +34,7 @@ export function TeamWorkspaceScreen({ language, onLanguage, appearance }: {
   const [chatOpen, setChatOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(() => navigation.rawSection === "settings");
+  const [setupOpen, setSetupOpen] = useState(false);
   const [draftContext, setDraftContext] = useState<{ runId: string; body: string }>();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [newWorkFor, setNewWorkFor] = useState<string | null>(null);
@@ -93,6 +97,9 @@ export function TeamWorkspaceScreen({ language, onLanguage, appearance }: {
       </optgroup>)}</select> : undefined,
   };
 
+  // Setup is its own screen, above the shell and the GitHub gate: it is the way back to the proxy
+  // that a blocked sign-in needs.
+  if (setupOpen) return <SetupScreen language={language.language} onLanguage={onLanguage} onContinue={() => setSetupOpen(false)} />;
   return <ShellFrame
     language={language}
     section={section}
@@ -128,6 +135,7 @@ export function TeamWorkspaceScreen({ language, onLanguage, appearance }: {
       props={{
         seats: workspace.read?.seats ?? workspace.team?.seats ?? [],
         address: window.location.origin,
+        onSetup: () => setSetupOpen(true),
         teamId: workspace.team?.seats.some(seat => seat.role === "lead") ? workspace.team.id : undefined,
       }} />
   </ShellFrame>;

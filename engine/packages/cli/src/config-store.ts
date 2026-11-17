@@ -81,6 +81,8 @@ export interface MultiAgentConfig {
   ui: {
     /** Serve the web UI and its terminal WebSocket. Off by default; the daemon reads it at start. */
     enabled: boolean;
+    /** Whether the owner finished first-run setup; later launches skip the setup screen. */
+    setupComplete: boolean;
     timezone: string;
     language: "zh-CN" | "en";
     preview: {
@@ -244,6 +246,7 @@ const DEFAULTS = {
   progress: { scanRoots: "" },
   ui: {
     enabled: false,
+    setupComplete: false,
     timezone: "America/Los_Angeles",
     language: "zh-CN",
     preview: {
@@ -393,6 +396,8 @@ export const VALID_KEYS = [
   "ui.timezone",
   "ui.language",
   "ui.enabled",
+  // Whether the owner finished first-run setup; the setup screen is skipped once it is true.
+  "ui.setup_complete",
   "recovery.auto_drive_provider_prompts",
   "recovery.provider_auth_env_allowlist",
   // V1 Phase 4 SC-29 exception — allowlist-only additions.
@@ -455,8 +460,9 @@ export const VALID_KEYS = [
   "team.leadClient",
   "team.maxSeats",
   "team.maxConcurrentAgents",
-  // U9 — proxy URL for GitHub operations; lockstep with daemon settings-store.
-  "github.proxy",
+  // The owner's one network proxy: GitHub operations and every agent CLI; lockstep with the
+  // daemon settings-store.
+  "network.proxy",
 ] as const;
 
 export type ValidKey = typeof VALID_KEYS[number];
@@ -491,6 +497,7 @@ export const ENV_MAP: Partial<Record<ValidKey, { primary: string }>> = {
   "ui.timezone": { primary: "MULTI_AGENT_UI_TIMEZONE" },
   "ui.language": { primary: "MULTI_AGENT_UI_LANGUAGE" },
   "ui.enabled": { primary: "MULTI_AGENT_UI_ENABLED" },
+  "ui.setup_complete": { primary: "MULTI_AGENT_UI_SETUP_COMPLETE" },
   "ui.preview.default_lines": { primary: "MULTI_AGENT_UI_PREVIEW_DEFAULT_LINES" },
   "recovery.auto_drive_provider_prompts": { primary: "MULTI_AGENT_RECOVERY_AUTO_DRIVE_PROVIDER_PROMPTS" },
   "recovery.provider_auth_env_allowlist": { primary: "MULTI_AGENT_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST" },
@@ -541,7 +548,7 @@ export const ENV_MAP: Partial<Record<ValidKey, { primary: string }>> = {
   "team.leadClient": { primary: "MULTI_AGENT_TEAM_LEAD_CLIENT" },
   "team.maxSeats": { primary: "MULTI_AGENT_TEAM_MAX_SEATS" },
   "team.maxConcurrentAgents": { primary: "MULTI_AGENT_TEAM_MAX_CONCURRENT_AGENTS" },
-  "github.proxy": { primary: "MULTI_AGENT_GITHUB_PROXY" },
+  "network.proxy": { primary: "MULTI_AGENT_NETWORK_PROXY" },
 };
 
 // Maps dotted-string config keys to the camelCase MultiAgentConfig path.
@@ -580,6 +587,7 @@ const KEY_TO_PATH: Record<ValidKey, string[]> = {
   "ui.timezone": ["ui", "timezone"],
   "ui.language": ["ui", "language"],
   "ui.enabled": ["ui", "enabled"],
+  "ui.setup_complete": ["ui", "setupComplete"],
   "ui.preview.default_lines": ["ui", "preview", "defaultLines"],
   "recovery.auto_drive_provider_prompts": ["recovery", "autoDriveProviderPrompts"],
   "recovery.provider_auth_env_allowlist": ["recovery", "providerAuthEnvAllowlist"],
@@ -625,11 +633,22 @@ const KEY_TO_PATH: Record<ValidKey, string[]> = {
   "team.leadClient": ["team", "leadClient"],
   "team.maxSeats": ["team", "maxSeats"],
   "team.maxConcurrentAgents": ["team", "maxConcurrentAgents"],
-  "github.proxy": ["github", "proxy"],
+  "network.proxy": ["network", "proxy"],
 };
 
 function isValidKey(key: string): key is ValidKey {
   return (VALID_KEYS as readonly string[]).includes(key);
+}
+
+/** An empty value, or `http(s)://host:port`; the daemon refuses the same shapes. */
+const PROXY_URL = /^https?:\/\/(?:[^\s/?#@]+@)?[^\s/?#:]+:(\d{1,5})(?:[/?#][^\s]*)?$/i;
+
+function isNetworkProxyUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed === "") return true;
+  const match = trimmed.match(PROXY_URL);
+  const port = match ? Number(match[1]) : 0;
+  return port >= 1 && port <= 65_535;
 }
 
 const REMOVED_CONTEXT_KEY = "context.packs_root";
@@ -638,6 +657,25 @@ export function removedContextSettingMessage(key: string): string | null {
   return key === REMOVED_CONTEXT_KEY
     ? 'Config key "context.packs_root" was removed; use "context.root".'
     : null;
+}
+
+/**
+ * Carry a stored `github.proxy` forward as `network.proxy`, twin of the daemon settings-store.
+ *
+ * Only a value that still validates is carried; anything else falls back to "no proxy" the way a
+ * rejected file value does for every other key.
+ */
+function migrateGithubProxy(fileConfig: Record<string, unknown>): void {
+  const github = fileConfig.github as Record<string, unknown> | undefined;
+  if (!github || typeof github !== "object" || !("proxy" in github)) return;
+  const carried = github.proxy;
+  delete github.proxy;
+  if (Object.keys(github).length === 0) delete fileConfig.github;
+  const current = getNestedValue(fileConfig, KEY_TO_PATH["network.proxy"]);
+  if (typeof carried === "string" && carried !== "" && isNetworkProxyUrl(carried)
+    && (current === undefined || current === "")) {
+    setNestedValue(fileConfig, KEY_TO_PATH["network.proxy"], carried);
+  }
 }
 
 function assertNoRemovedContextSetting(fileConfig: Record<string, unknown>): void {
@@ -942,6 +980,10 @@ const KEY_CONSTRAINTS: Partial<Record<ValidKey, (raw: string, coerced: string | 
   "team.leadClient": raw => {
     if (raw !== "claude-code" && raw !== "codex") throw new Error("Invalid value for team.leadClient: use claude-code or codex.");
   },
+  // Lockstep with the daemon settings-store: the value reaches gh, git and every agent CLI.
+  "network.proxy": raw => {
+    if (!isNetworkProxyUrl(raw)) throw new Error(`Invalid value for network.proxy: use http://host:port, or leave it empty, got "${raw}"`);
+  },
 };
 
 function validateKeyConstraints(key: ValidKey, raw: string, coerced: string | number | boolean): void {
@@ -1085,6 +1127,7 @@ export class ConfigStore {
       },
       ui: {
         enabled: v("ui.enabled") as boolean,
+        setupComplete: v("ui.setup_complete") as boolean,
         timezone: v("ui.timezone") as string,
         language: v("ui.language") as "zh-CN" | "en",
         preview: {
@@ -1377,6 +1420,7 @@ export class ConfigStore {
       }
     }
     assertNoRemovedContextSetting(parsed);
+    migrateGithubProxy(parsed);
     return parsed;
   }
 }

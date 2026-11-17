@@ -203,6 +203,8 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
       "files.allowlist", "progress.scan_roots",
       "ui.preview.refresh_interval_seconds", "ui.preview.max_pins", "ui.preview.default_lines", "ui.timezone", "ui.language",
       "ui.enabled",
+      // First-run setup's completion marker.
+      "ui.setup_complete",
       "recovery.auto_drive_provider_prompts",
       "recovery.provider_auth_env_allowlist",
       // V1 attempt-3 Phase 4 — Advisor/Operator placeholders.
@@ -261,7 +263,7 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
       "team.leadClient",
       "team.maxSeats",
       "team.maxConcurrentAgents",
-      "github.proxy",
+      "network.proxy",
     ];
     expect([...VALID_KEYS]).toEqual(expected);
   });
@@ -289,6 +291,25 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     expect(store.resolveWithSource("context.system_world")).toMatchObject({ value: "operator/system-world.yaml", source: "file" });
     process.env["MULTI_AGENT_CONTEXT_SYSTEM_WORLD"] = "disabled";
     expect(store.resolve().context.systemWorld).toBe("disabled");
+  });
+
+  it("carries a stored github.proxy forward as network.proxy on upgrade", () => {
+    writeFileSync(configPath, JSON.stringify({ github: { proxy: "http://old-proxy.test:8080" } }, null, 2) + String.fromCharCode(10));
+    const store = new ConfigStore(configPath);
+    expect(store.resolveWithSource("network.proxy")).toMatchObject({ value: "http://old-proxy.test:8080", source: "file" });
+    store.set("ui.setup_complete", "true");
+    const saved = JSON.parse(readFileSync(configPath, "utf8")) as Record<string, Record<string, unknown>>;
+    expect(saved.network?.proxy).toBe("http://old-proxy.test:8080");
+    expect(saved.github?.proxy).toBeUndefined();
+  });
+
+  it("refuses a network.proxy that is not an http(s) URL with a port", () => {
+    const store = new ConfigStore(configPath);
+    for (const bad of ["socks5://proxy.test:1080", "http://proxy.test", "http://proxy.test:0"]) {
+      expect(() => store.set("network.proxy", bad), bad).toThrow(/network\.proxy/);
+    }
+    store.set("network.proxy", "http://proxy.test:8080");
+    expect(store.get("network.proxy")).toBe("http://proxy.test:8080");
   });
 
   it("refuses every removed context.packs_root input with context.root guidance", () => {

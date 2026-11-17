@@ -5,7 +5,7 @@ import type { SettingsStore } from "../domain/user-settings/settings-store.js";
 import { teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
 import { controlErrorHandler } from "../middleware/control-error.js";
 
-const KEYS = ["team.leadClient", "team.maxSeats", "team.maxConcurrentAgents", "github.proxy"] as const;
+const KEYS = ["team.leadClient", "team.maxSeats", "team.maxConcurrentAgents", "network.proxy"] as const;
 const snapshot = (store: SettingsStore) => ({ protocolVersion: TEAM_CONTROL_VERSION,
   settings: Object.fromEntries(KEYS.map(key => [key, store.resolveOne(key)])) });
 
@@ -32,7 +32,7 @@ export function teamSettingsRoutes(store: SettingsStore | undefined, credentials
     if (!(KEYS as readonly string[]).includes(key)) throw new TeamContractError("key");
     try { store!.set(key, value); }
     catch (error) {
-      if (error instanceof Error && error.message.startsWith("Invalid value for team.")) {
+      if (error instanceof Error && /^Invalid value for (team|network)\./.test(error.message)) {
         return c.json({ code: "invalid_team_setting", error: "The value is outside this setting's constraint." }, 400);
       }
       throw error;

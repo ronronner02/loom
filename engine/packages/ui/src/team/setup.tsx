@@ -1,0 +1,154 @@
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { Check, Info, RotateCw, X } from "lucide-react";
+import { useOwnerSession } from "../hooks/useOwnerSession.js";
+
+export interface ToolRow { client: "git" | "gh" | "claude" | "codex"; ok: boolean; path?: string; reason?: string }
+export interface SignInRow { client: "claude" | "codex"; state: "signed-in" | "signed-out" | "unknown"; signIn: string | null }
+export interface SetupState { tools: ToolRow[]; signIn: SignInRow[]; proxy: string; complete: boolean }
+
+export const setupKey = ["team", "setup"] as const;
+
+/** The one install line per tool, keyed by the resolver's client name. */
+const INSTALL_KEYS = { git: "setup.install.git", gh: "setup.install.gh", claude: "setup.install.claude", codex: "setup.install.codex" } as const;
+const TOOL_LABELS = { git: "Git", gh: "GitHub CLI", claude: "Claude Code", codex: "Codex" } as const;
+const SIGN_IN_KEYS = { "signed-in": "setup.signedIn", "signed-out": "setup.signedOut", unknown: "setup.unknown" } as const;
+
+/** The setup read: tools, agent sign-in and the proxy, as the daemon just observed them. */
+export function useSetup(enabled = true) {
+  const { paired, request } = useOwnerSession();
+  return useQuery({ queryKey: setupKey, enabled: paired && enabled, retry: false,
+    queryFn: ({ signal }) => request<SetupState>("/setup", { signal }) });
+}
+
+/**
+ * The proxy field, shared by the setup screen and Settings.
+ *
+ * One value covers GitHub operations and every agent CLI. The daemon validates it and applies it
+ * to the next call, so saving is the whole action, and an emptied field removes the proxy.
+ */
+export function NetworkProxy() {
+  const { t } = useTranslation();
+  const { request } = useOwnerSession();
+  const cache = useQueryClient();
+  const setup = useSetup();
+  const [draft, setDraft] = useState<string>();
+  const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
+  const saved = setup.data?.proxy ?? "";
+  const save = async () => {
+    setBusy(true); setFailed(false);
+    try {
+      cache.setQueryData(setupKey, await request<SetupState>("/setup", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proxy: draft }) }));
+      setDraft(undefined);
+    } catch { setFailed(true); } finally { setBusy(false); }
+  };
+  return <section className="setup-block" aria-label={t("setup.network")}>
+    <h2 className="setup-block-title">{t("setup.network")}</h2>
+    <form className="setup-proxy" onSubmit={event => { event.preventDefault(); void save(); }}>
+      <div className="field">
+        <label htmlFor="network-proxy">{t("setup.proxy")}</label>
+        <input id="network-proxy" className="input mono" type="text" autoComplete="off" spellCheck={false}
+          placeholder="http://host:port" value={draft ?? saved} disabled={!setup.data}
+          onChange={event => setDraft(event.target.value)} />
+      </div>
+      {draft !== undefined && draft !== saved && <div className="plate-foot"><button className="btn btn-outline"
+        type="submit" disabled={busy || !setup.data}>{t("settings.save")}</button></div>}
+    </form>
+    {failed && <p role="alert">{t("setup.proxyRejected")}</p>}
+  </section>;
+}
+
+function Tools() {
+  const { t } = useTranslation();
+  const setup = useSetup();
+  if (!setup.data) return setup.isError ? <p role="alert">{t("setup.readFailed")}</p> : <p role="status">{t("web.loading")}</p>;
+  return <section className="setup-block" aria-label={t("setup.tools")}>
+    <div className="setup-block-head">
+      <h2 className="setup-block-title">{t("setup.tools")}</h2>
+      <button type="button" className="ui-icon-button" aria-label={t("setup.recheck")} title={t("setup.recheck")}
+        disabled={setup.isFetching} onClick={() => void setup.refetch()}><RotateCw aria-hidden="true" /></button>
+    </div>
+    <ul className="setup-rows">{setup.data.tools.map(row => <li key={row.client} data-ok={row.ok}>
+      {row.ok ? <Check className="setup-mark" aria-hidden="true" /> : <X className="setup-mark" aria-hidden="true" />}
+      <strong>{TOOL_LABELS[row.client]}</strong>
+      {row.path
+        ? <span className="setup-path" title={row.path} aria-label={t("setup.path")}><Info aria-hidden="true" /></span>
+        : <span className="mono setup-command">{t(INSTALL_KEYS[row.client])}</span>}
+    </li>)}</ul>
+  </section>;
+}
+
+function SignIn() {
+  const { t } = useTranslation();
+  const setup = useSetup();
+  // A client that is not installed reports no sign-in state at all.
+  if (!setup.data?.signIn.length) return null;
+  return <section className="setup-block" aria-label={t("setup.agents")}>
+    <h2 className="setup-block-title">{t("setup.agents")}</h2>
+    <ul className="setup-rows">{setup.data.signIn.map(row => <li key={row.client} data-ok={row.state === "signed-in"}>
+      {row.state === "signed-in" ? <Check className="setup-mark" aria-hidden="true" /> : <X className="setup-mark" aria-hidden="true" />}
+      <strong>{TOOL_LABELS[row.client]}</strong>
+      <span className="setup-state">{t(SIGN_IN_KEYS[row.state])}</span>
+      {row.signIn && <span className="mono setup-command">{row.signIn}</span>}
+    </li>)}</ul>
+  </section>;
+}
+
+function Language({ language, onLanguage }: { language: "en" | "zh-CN"; onLanguage: (next: "en" | "zh-CN") => void }) {
+  const { t } = useTranslation();
+  return <section className="setup-block" aria-label={t("setup.language")}>
+    <h2 className="setup-block-title">{t("setup.language")}</h2>
+    <label className="field">{t("team.settings.language")}
+      <select className="input" value={language} onChange={event => onLanguage(event.target.value as "en" | "zh-CN")}>
+        <option value="en">English</option><option value="zh-CN">中文</option>
+      </select>
+    </label>
+  </section>;
+}
+
+/** First-run setup, before the GitHub sign-in it leads to. */
+export function SetupScreen({ language, onLanguage, onContinue }: {
+  language: "en" | "zh-CN"; onLanguage: (next: "en" | "zh-CN") => void; onContinue: () => void;
+}) {
+  const { t } = useTranslation();
+  const { request } = useOwnerSession();
+  const cache = useQueryClient();
+  const setup = useSetup();
+  const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
+  const complete = async () => {
+    setBusy(true); setFailed(false);
+    try {
+      cache.setQueryData(setupKey, await request<SetupState>("/setup", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ complete: true }) }));
+      onContinue();
+    } catch { setFailed(true); } finally { setBusy(false); }
+  };
+  return <div className="page page-narrow ui-setup">
+    <section className="plate" aria-label={t("setup.title")}>
+      <h1 className="display">{t("setup.title")}</h1>
+      <Language language={language} onLanguage={onLanguage} />
+      <NetworkProxy />
+      <Tools />
+      <SignIn />
+      <div className="plate-foot"><button className="btn btn-primary" disabled={busy || !setup.data}
+        onClick={() => void complete()}>{t("setup.continue")}</button></div>
+      {failed && <p role="alert">{t("setup.saveFailed")}</p>}
+    </section>
+  </div>;
+}
+
+/** The Settings section: the same state, reachable after setup is done. */
+export function SetupSection({ language, onLanguage }: {
+  language: "en" | "zh-CN"; onLanguage: (next: "en" | "zh-CN") => void;
+}) {
+  const { t } = useTranslation();
+  return <section className="plate ui-settings-panel" aria-label={t("setup.title")}>
+    <h2>{t("setup.title")}</h2>
+    <Language language={language} onLanguage={onLanguage} />
+    <NetworkProxy />
+    <Tools />
+    <SignIn />
+  </section>;
+}

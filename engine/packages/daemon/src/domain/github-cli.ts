@@ -140,7 +140,7 @@ export class GithubCli {
   private proxySource: (() => string | undefined) | null = null;
 
   /**
-   * Read the owner's `github.proxy` setting at each spawn, so a change in Settings applies to the
+   * Read the owner's `network.proxy` setting at each spawn, so a change in Settings applies to the
    * next upload without a daemon restart. An empty setting falls back to the environment.
    */
   setProxySource(source: () => string | undefined): void { this.proxySource = source; }

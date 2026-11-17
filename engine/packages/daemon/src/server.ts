@@ -34,6 +34,7 @@ import { teamStartRoutes } from "./routes/team-start.js";
 import { teamSetupRoutes } from "./routes/team-setup.js";
 import { teamGithubRoutes } from "./routes/team-github.js";
 import { teamSettingsRoutes } from "./routes/team-settings.js";
+import { setupRoutes } from "./routes/setup.js";
 import { GithubCli } from "./domain/github-cli.js";
 import { teamLeadRoutes } from "./routes/team-lead.js";
 import { teamResultRoutes } from "./routes/team-result.js";
@@ -266,11 +267,11 @@ export function createApp(deps: AppDeps): Hono {
   const githubAgent = deps.githubAgent ?? new GithubCli({ env: { ...process.env, GH_CONFIG_DIR: getStatePath("github-agent") } });
   deps.githubAgent = githubAgent;
   deps.github = github;
-  // U9 (R18): the owner's proxy setting is read at each gh/git spawn, so a change applies to the next
+  // The owner's one network proxy is read at each gh/git spawn, so a change applies to the next
   // upload without a restart; an empty setting falls back to the daemon environment.
   const settingsStore = deps.settingsStore;
   if (settingsStore) for (const cli of [github, githubAgent]) cli.setProxySource(() => {
-    const value = settingsStore.resolveOne("github.proxy").value;
+    const value = settingsStore.resolveOne("network.proxy").value;
     return typeof value === "string" ? value : undefined;
   });
   const app = new Hono();
@@ -466,6 +467,10 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api/team-control", teamGithubRoutes(github, githubAgent, teamOptions.credentials,
     [deps.legacyBearerToken]));
   app.route("/api/team-control", teamSettingsRoutes(deps.settingsStore, teamOptions.credentials,
+    [deps.legacyBearerToken]));
+  // First-run setup reads tools, agent sign-in and the one network proxy. It sits on the same
+  // owner surface as settings because it precedes GitHub sign-in, which the settings read does not.
+  app.route("/api/team-control", setupRoutes(deps.settingsStore, teamOptions.credentials,
     [deps.legacyBearerToken]));
   app.route("/api/team-control", teamSetupRoutes(deps.rigRepo, { credentials: teamOptions.credentials, github,
     ...(deps.settingsStore ? { settingsStore: deps.settingsStore } : {}), intake: () => deps.githubIntake },
