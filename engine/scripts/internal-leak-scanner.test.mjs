@@ -123,7 +123,7 @@ test("generated rules accept the shipped restore skill and reject concrete priva
   assert.ok(rules.path_prefixes.includes(".multi-agent/compaction/"));
   for (const path of [
     "daemon/assets/plugins/multi-agent-core/skills/claude-compaction-restore/SKILL.md",
-    "daemon/context-packs/skills/claude-compaction-restore/SKILL.md",
+    "daemon/assets/skills/claude-compaction-restore/SKILL.md",
   ]) {
     assert.deepEqual(scanInternalLeaks({ path, bytes, rules }), []);
     const changed = Buffer.concat([bytes, Buffer.from("\n.multi-agent/compaction/private.txt\n")]);

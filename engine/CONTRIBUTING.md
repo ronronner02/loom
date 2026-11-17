@@ -61,9 +61,8 @@ specific failure. A shipped skill may exist in more than one copy (see ARCHITECT
 `npm run mirror-skills` apply needs maintainer-only inputs; see "A shipped skill" in
 [ARCHITECTURE.md](ARCHITECTURE.md#a-shipped-skill)). The repository checks include a docs guard: a
 tracked file under `docs/` must be in `docs/as-built/`, `docs/reference/` or `docs/releases/`
-(`docs/DESIGN.md` is the one exception). They check that shipped first-run text names only teams, skills and
-commands that exist, and they validate the context-pack sources;
-`npm run generate-context-packs` rebuilds the generated packs locally, which aren't committed.
+(`docs/DESIGN.md` is the one exception). They check that shipped first-run text names only teams,
+skills and commands that exist.
 The UI unit-test suite is separate from `npm test`: run `npm run test:ui`. CI runs it on every pull
 request as `package-tests (ui)`, so a change has to pass it.
 [docs/as-built/test-layers.md](docs/as-built/test-layers.md) lists every test layer, what CI runs,
@@ -116,7 +115,7 @@ clarifying question or run the reproduction; a maintainer makes the merge decisi
 ## Where things live
 
 - **Start here:** [ARCHITECTURE.md](ARCHITECTURE.md) maps the packages, the request path, and where to
-  add a command, route, migration, adapter, skill, context pack or scenario.
+  add a command, route, migration, adapter, skill or scenario.
   [docs/as-built/arteries.md](docs/as-built/arteries.md) lists the areas where a small change has a
   large effect; if your change touches one, read it first.
 - **Using a coding agent?** Claude Code and Codex load the repository's `developing-multi-agent` skill
@@ -124,7 +123,5 @@ clarifying question or run the reproduction; a maintainer makes the merge decisi
   above and at what to run before you push.
 - Repository reference: `docs/reference/`; user documentation: [multi-agent.dev/docs](https://multi-agent.dev/docs).
 - Skills: `packages/daemon/specs/agents/shared/skills/`, plugin skills under
-  `packages/daemon/assets/plugins/`, and `skills/_canonical/`; static context-pack sources:
-  `packages/daemon/context-packs-src/`.
-  Generated packs live in `packages/daemon/context-packs/` and are not hand-edited or committed.
+  `packages/daemon/assets/plugins/`, and `skills/_canonical/`.
 - Releases: [GitHub Releases](https://github.com/ronronner02/multi-agent/releases) and npm `@multi-agent/cli`.

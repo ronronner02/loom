@@ -41,8 +41,6 @@ and becomes standing infrastructure instead of a hand-built probe.
   `env.stub_scripts` (paths relative to the scenario file); the built-in default script
   applies when a scenario names none.
 - `scripts/` — only its README, on the scripted-response contract.
-- `evals/` — the live-model eval harness, a separate gate from these scenarios (see
-  `evals/README.md`).
 - `ROUTING.md` — the runner, stub and format capabilities this set depends on, and which
   of them have landed. Per 51-03 mini-req 2 these are ROUTED, never shimmed here.
 

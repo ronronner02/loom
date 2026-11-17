@@ -39,10 +39,10 @@ to `main`. In the PR description, say which layers you ran and which you could n
 |---|---|---|---|---|
 | Typecheck | `npm run lint` | Builds the daemon, then `tsc --noEmit` passes for daemon, ui, cli and tui | Any runtime behaviour. Formatting. | Every change |
 | Build | `npm run build` | All four workspaces compile (the UI also runs `vite build`) | That the *published* package is complete (see Packaging) | Every change |
-| Repo checks | `npm run test:repo` | Builds the daemon, then runs `node --test --test-concurrency=1 scripts/*.test.mjs`, `scripts/check-first-run-references.mjs`, `scripts/check-docs-guard.mjs`, `mirror-skills --check` and `generate-context-packs --check` | Package behaviour | Every change. It matters most when you touch `scripts/`, `docs/` or skills. |
+| Repo checks | `npm run test:repo` | Builds the daemon, then runs `node --test --test-concurrency=1 scripts/*.test.mjs`, `scripts/check-first-run-references.mjs`, `scripts/check-docs-guard.mjs` and `mirror-skills --check` | Package behaviour | Every change. It matters most when you touch `scripts/`, `docs/` or skills. |
 | Package suites | `npm run test:workspaces`. One package: `npm run test -w packages/cli`. One file, from the repo root: `npx vitest run packages/cli/test/<file>.test.ts` | Vitest unit and integration tests for daemon, cli and tui. Some of them start real scenario daemons, tmux sessions and stub runners. | The installed package. Real Claude Code or Codex. CI's sandbox conditions (see CI). | Every change (`npm test` covers it) |
 | Web UI suite | `npm run test:ui` | jsdom unit tests for `packages/ui` | Real browser rendering | When you touch `packages/ui`, or a daemon API the UI reads. The web UI is in maintenance mode, so this suite is advisory locally and is not part of `npm test`. |
-| Generated files | `npm run mirror-skills:check`, `npm run generate-context-packs:check` (both part of `npm test`) | Every copy of each shipped skill matches its recorded hash, and every static context pack passes the daemon's own manifest parser and the leak scan | Whether the skill content is any good | After you edit a shipped skill: edit the same file in every copy that carries it, run `node scripts/regen-edge-digests.mjs`, then the check. The full `npm run mirror-skills` apply needs maintainer-only inputs. See "A shipped skill" in [ARCHITECTURE.md](../../ARCHITECTURE.md#a-shipped-skill). |
+| Generated files | `npm run mirror-skills:check` (part of `npm test`) | Every copy of each shipped skill matches its recorded hash and the leak scan | Whether the skill content is any good | After you edit a shipped skill: edit the same file in every copy that carries it, run `node scripts/regen-edge-digests.mjs`, then the check. The full `npm run mirror-skills` apply needs maintainer-only inputs. See "A shipped skill" in [ARCHITECTURE.md](../../ARCHITECTURE.md#a-shipped-skill). |
 | Local gate | `npm run gate` | Lint plus `npm test` on a clean tree, tied to `HEAD`, one run per machine at a time, with a JSON receipt | Anything that lint and `npm test` don't already prove | Optional. Useful when several agents share one machine, or when you want a receipt tied to a commit. |
 | Packaging | `npm run build:package`, `npm run test:tui-package`, `bash scripts/smoke-fresh-install.sh` | The publishable `@openrig/cli` assembles, the packed TUI launches, and a fresh install starts a daemon | Behaviour beyond startup | When you touch dependencies, bin entries, build scripts, or files a package ships |
 | Stub scenarios, host mode | `node --import tsx packages/daemon/scripts/run-scenarios.mjs [scenario.yaml …]` | A scenario's steps and assertions pass against a scratch daemon, real tmux and `runtime: stub` seats | The installed package. Seeded-regression pairing. Everything under [What a stub can and cannot prove](#what-a-stub-can-and-cannot-prove). | While you write or debug a scenario |
@@ -330,33 +330,10 @@ changes outside the arteries map are safe.
 
 ## Live-model evals
 
-`packages/test-system/evals/` is a separate check from scenarios. A real seat receives a
-natural prompt and decides what to do. A case passes when the seat's transcript shows the
-expected `rig context get <entry>` command, in the expected order. Cases live in
-`cases/selection.yaml` (10) and `cases/loading.yaml` (4).
-
-```sh
-# Harness check: a fake provider fed a JSON map of prompt -> transcript.
-# Any prompt without a transcript counts as an error, never as a pass.
-npm run eval -w packages/daemon -- --transcripts <transcripts.json> --out <result.json>
-
-# Live run: drives a real Claude Code seat
-npm run eval -w packages/daemon -- --provider rig --seat <session> --out <result.json>
-npm run eval -w packages/daemon -- --provider rig --seat-spec "$PWD/<one-seat-rig.yaml>" --out <result.json>
-```
-
-- **Live runs use provider credits, and the results vary from run to run.** CI never runs them.
-- `--provider rig` needs `OPENRIG_HOME` set, and it supports Claude Code seats only. It
-  refuses a Codex seat.
-- `--seat-spec` runs `rig up` of a scratch rig against **your current daemon**, then
-  `rig down` at the end. `--seat` attaches to an existing seat and leaves it running.
-- `evals/rig-seat/example-scratch-rig.yaml` sets `permission_policy: builtin:yolo` and
-  `cwd: "."`. It also references `local:agents/blank`, and no such agent directory ships
-  beside it. Read the file and expect to adapt it before you use it.
-- Before any run, the runner builds the production context package in a temp directory and
-  refuses if any case's entry doesn't resolve in it.
-- `npm test` covers the harness without a model: the case schema, the grader, the fixtures
-  and production entry resolution (`packages/daemon/test/eval-*.test.ts`).
+The live-model eval harness has been removed. Its door was `rig context get <entry>`, and the
+context-pack surface it graded no longer exists: the daemon serves no pack routes, the CLI has
+no `context` command, and the pack generator went with them. The `packages/test-system/evals/`
+cases, the `packages/daemon/test/eval-*.ts` harness and its `npm run eval` entry are gone.
 
 ## Docker testbed runbooks
 
