@@ -360,13 +360,13 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
     const prepared = progress.outcome;
     if (!prepared || task.entityVersion !== prepared.taskVersion) return defaultOutcome(attempt);
     let currentAttempt = attempt;
-    if (prepared.state === "failed" && currentAttempt.failure === null && prepared.reasonCode !== null) {
+    if (prepared.state === "failed" && currentAttempt.failure === null && (prepared.failure ?? prepared.reasonCode) !== null) {
       const observed = governance.recordUsage({
         protocolVersion: TEAM_CONTROL_VERSION, runId: currentAttempt.runId, actionId: currentAttempt.id,
         expectedEntityVersion: governance.getRun(currentAttempt.runId).entityVersion,
         idempotencyKey: `attempt-failure:${currentAttempt.id}:${currentAttempt.entityVersion}`,
         payload: { expectedAttemptVersion: currentAttempt.entityVersion, state: "stopped", usage: jsonValue(currentAttempt.usage),
-          failure: jsonValue(classificationFor(prepared.reasonCode)) },
+          failure: jsonValue(prepared.failure ?? classificationFor(prepared.reasonCode!)) },
       });
       if (observed.status !== "observed") return defaultOutcome(attempt);
       currentAttempt = governance.getAttempt(currentAttempt.id)!;
