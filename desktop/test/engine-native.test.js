@@ -56,8 +56,10 @@ test('the first-run page receives the dependency list with resolved paths and a 
   await app.ready;
   await settle();
   const dependencies = app.state().dependencies;
-  assert.ok(Array.isArray(dependencies) && dependencies.length === 4, `the page must receive the dependency list, got ${JSON.stringify(dependencies)}`);
-  assert.deepEqual(dependencies.map(row => row.client), ['git', 'gh', 'claude', 'codex']);
+  assert.ok(Array.isArray(dependencies) && dependencies.length === 5, `the page must receive the dependency list, got ${JSON.stringify(dependencies)}`);
+  assert.deepEqual(dependencies.map(row => row.client), ['git', 'gh', 'claude', 'codex', 'gemini']);
+  assert.equal(dependencies.find(row => row.client === 'gemini').ok, false);
+  assert.match(dependencies.find(row => row.client === 'gemini').hint, /@google\/gemini-cli/);
   assert.equal(dependencies.find(row => row.client === 'claude').path, String.raw`D:\claude.exe`);
   assert.equal(dependencies.find(row => row.client === 'gh').ok, false);
   assert.match(dependencies.find(row => row.client === 'gh').hint, /gh\.exe|cli\.github\.com/);
@@ -67,7 +69,7 @@ test('a dependency probe failure still lets the window connect', async () => {
   const app = desktopApp({ dependenciesError: new Error('dependency probe failed') });
   await app.ready;
   await settle();
-  assert.deepEqual(app.state().dependencies.map(row => row.ok), [false, false, false, false]);
+  assert.deepEqual(app.state().dependencies.map(row => row.ok), [false, false, false, false, false]);
   assert.equal(app.state().phase, 'ready');
 });
 

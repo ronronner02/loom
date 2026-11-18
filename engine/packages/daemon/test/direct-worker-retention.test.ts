@@ -81,7 +81,7 @@ describe("completed direct turns release their in-memory histories", () => {
     return { launcher, input, control: () => controlled };
   }
 
-  it.each(["claude-code", "codex"] as const)("releases a fulfilled %s turn and preserves admission", async client => {
+  it.each(["claude-code", "codex", "gemini"] as const)("releases a fulfilled %s turn and preserves admission", async client => {
     const { launcher, input, control } = fixture(client);
     expect(await launcher.launch(input)).toMatchObject({ ok: true });
     expect(liveTurnCount(launcher)).toBe(1);
@@ -94,7 +94,7 @@ describe("completed direct turns release their in-memory histories", () => {
     expect(control().cancel).not.toHaveBeenCalled();
   });
 
-  it.each(["claude-code", "codex"] as const)("releases a rejected %s wait without losing admission", async client => {
+  it.each(["claude-code", "codex", "gemini"] as const)("releases a rejected %s wait without losing admission", async client => {
     const { launcher, input, control } = fixture(client);
     expect(await launcher.launch(input)).toMatchObject({ ok: true });
     expect(liveTurnCount(launcher)).toBe(1);
@@ -105,7 +105,7 @@ describe("completed direct turns release their in-memory histories", () => {
     expect(await launcher.launch(input)).toMatchObject({ ok: false, error: "Direct launch blocked: managed_attempt_already_started" });
   });
 
-  it.each(["claude-code", "codex"] as const)("keeps a fast %s turn ready after its live entry is released", async client => {
+  it.each(["claude-code", "codex", "gemini"] as const)("keeps a fast %s turn ready after its live entry is released", async client => {
     const { launcher, input } = fixture(client, true);
     expect(await launcher.launch(input)).toMatchObject({ ok: true });
     await flushCompletion();

@@ -42,17 +42,20 @@ describe("owner setup read", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     const body = await response.json();
-    expect(body.tools.map((row: { client: string }) => row.client)).toEqual(["claude", "codex", "git", "gh"]);
+    expect(body.tools.map((row: { client: string }) => row.client)).toEqual(["claude", "codex", "gemini", "git", "gh"]);
     for (const row of body.tools) expect(typeof row.ok, row.client).toBe("boolean");
     expect(body.proxy).toBe("");
     expect(body.complete).toBe(false);
     // A client the resolver found is probed; one it did not is never reported as signed out.
     for (const row of body.signIn) {
-      expect(["claude", "codex"]).toContain(row.client);
+      expect(["claude", "codex", "gemini"]).toContain(row.client);
       expect(["signed-in", "signed-out", "unknown"]).toContain(row.state);
       if (row.state === "signed-in") expect(row.signIn).toBeNull();
-      else expect(row.signIn).toMatch(/^(claude auth login|codex login)$/);
+      else expect(row.signIn).toMatch(/^(claude auth login|codex login|gemini)$/);
     }
+    // Gemini has no status subcommand, so its answer is the screen's honest one: unknown.
+    expect(body.signIn.find((row: { client: string }) => row.client === "gemini") ?? { state: "unknown" })
+      .toMatchObject({ state: "unknown", signIn: "gemini" });
   });
 
   it("saves and clears the one proxy, and refuses a value that is not an http(s) URL", async () => {

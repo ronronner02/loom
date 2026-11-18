@@ -48,6 +48,25 @@ const executable = (directory: string, name: string): string => {
 const windowsEnv = (path: string): NodeJS.ProcessEnv => ({ PATH: path, PATHEXT: ".COM;.EXE;.BAT;.CMD" });
 
 describe("U1 executable resolver", () => {
+  it.each(["cmd", "ps1"])("runs a Gemini npm %s launcher through Node without a command shell", extension => {
+    const directory = temporary(), entry = join(directory, "node_modules", "@google", "gemini-cli", "bundle", "gemini.js");
+    mkdirSync(join(directory, "node_modules", "@google", "gemini-cli", "bundle"), { recursive: true });
+    writeFileSync(entry, "console.log('fixture');\n");
+    if (extension === "cmd") cmdShim(directory, "gemini", "node_modules\\@google\\gemini-cli\\bundle\\gemini.js");
+    else writeFileSync(join(directory, "gemini.ps1"), '$basedir=Split-Path $MyInvocation.MyCommand.Definition -Parent\n' +
+      'if (Test-Path "$basedir/node.exe") { & "$basedir/node.exe" "$basedir/node_modules/@google/gemini-cli/bundle/gemini.js" $args }\n');
+    expect(resolveExecutable("gemini", { platform: "win32", env: windowsEnv(directory) }))
+      .toMatchObject({ ok: true, path: process.execPath, args: [realpathSync(entry)], source: "shim" });
+  });
+
+  it("accepts a configured Gemini JavaScript entry but preserves the other clients' executable requirement", () => {
+    const entry = join(temporary(), "gemini.js");
+    writeFileSync(entry, "console.log('fixture');\n");
+    expect(resolveExecutable("gemini", { configuredPath: entry, platform: "win32" }))
+      .toMatchObject({ ok: true, path: process.execPath, args: [realpathSync(entry)], source: "configured" });
+    expect(resolveExecutable("claude", { configuredPath: entry, platform: "win32" })).toMatchObject({ ok: false });
+  });
+
   it("prefers an explicit configured path over everything else", () => {
     const directory = temporary();
     const configured = executable(directory, "custom-claude.exe");
@@ -144,7 +163,7 @@ describe("U1 executable resolver", () => {
     const directory = temporary();
     executable(directory, "gh.exe");
     const results = resolveClientDependencies({ platform: "win32", env: windowsEnv(directory) });
-    expect(results.map(result => result.client)).toEqual(["claude", "codex", "git", "gh"]);
+    expect(results.map(result => result.client)).toEqual(["claude", "codex", "gemini", "git", "gh"]);
     const gh = results.find(result => result.client === "gh");
     expect(gh).toMatchObject({ ok: true, path: join(directory, "gh.exe") });
     const claude = results.find(result => result.client === "claude");
