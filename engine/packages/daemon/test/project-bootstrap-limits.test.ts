@@ -90,7 +90,9 @@ describe("project bootstrap size, mode, and responsiveness", () => {
     expect(await previewProject({ repository, name: "project" }, undefined)).toMatchObject({ action: "create", fileCount: 2 });
   });
 
-  it("records every Windows regular file as 100644 even with core.fileMode=false", async () => {
+  // NTFS cannot carry an executable bit, so a Windows host is the only one that records 100644
+// here; a POSIX host records the bit it really has (the next case forces the Windows answer).
+  it.skipIf(process.platform !== "win32")("records every Windows regular file as 100644 even with core.fileMode=false", async () => {
     writeFileSync(join(repository, "plain.txt"), "plain\n");
     writeFileSync(join(repository, "executable.sh"), "#!/bin/sh\nexit 0\n");
     chmodSync(join(repository, "executable.sh"), 0o755);

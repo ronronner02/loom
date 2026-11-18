@@ -216,6 +216,8 @@ describeOnPosix("project creation through the owner route — GitHub push flow",
     directory = realpathSync.native(mkdtempSync(join(tmpdir(), "project-create-")));
     repository = s.state.repository = join(directory, "project");
     remote = s.state.remote = join(directory, "remote.git");
+    // The setup fixture reads its directory for the gh stub, its calls log and its database.
+    s.state.directory = directory;
     vi.stubEnv("GIT_CONFIG_GLOBAL", join(directory, "gitconfig"));
     vi.stubEnv("GIT_CONFIG_NOSYSTEM", "1");
     vi.stubEnv("MULTI_AGENT_TEAM_LEAD_CLIENT", "");

@@ -62,43 +62,51 @@ describe("project chat attachments", () => {
   });
 
   it("browses files and sends attachments over loopback with paired browser credentials", async () => {
+    // Each request uses its own connection. undici reuses one pooled socket across the large
+    // uploads and the small JSON posts that follow them, and on this loopback fixture it
+    // intermittently resets that socket mid-write (measured 4 of 20 runs), so the caller sees
+    // `ECONNRESET` rather than the response it was sent. The same server driven by a plain
+    // keep-alive `http.Agent` never reset (0 of 40), so the pooling is the client's, not the
+    // daemon's, and this test reads responses rather than pooling behavior.
+    const fetchOne = (input: Parameters<typeof fetch>[0], init: Parameters<typeof fetch>[1] = {}) =>
+      fetch(input, { ...init, headers: { ...(init.headers ?? {}), Connection: "close" } });
     const server = serve({ fetch: fixture.app.fetch, hostname: "127.0.0.1", port: 0 });
     try {
       if (!server.listening) await new Promise<void>(resolve => server.once("listening", resolve));
       const origin = "http://127.0.0.1:" + (server.address() as AddressInfo).port;
       const base = origin + "/api/team-control";
-      const minted = await fetch(base + "/owner-session/pairing", {
+      const minted = await fetchOne(base + "/owner-session/pairing", {
         method: "POST", headers: { Authorization: "Bearer owner-attachment-fixture" },
       });
       expect(minted.status).toBe(200);
       const { code } = await minted.json() as { code: string };
-      const exchange = await fetch(base + "/owner-session/exchange", { method: "POST",
+      const exchange = await fetchOne(base + "/owner-session/exchange", { method: "POST",
         headers: { Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
       expect(exchange.status).toBe(200);
       const cookie = exchange.headers.get("Set-Cookie")!.split(";")[0]!;
       const { antiForgeryToken } = await exchange.json() as { antiForgeryToken: string };
       const headers = { Origin: origin, Cookie: cookie, "X-Multi-Agent-CSRF": antiForgeryToken };
-      const files = await fetch(base + "/teams/" + teamId + "/files", { headers });
+      const files = await fetchOne(base + "/teams/" + teamId + "/files", { headers });
       expect(files.status).toBe(200);
       expect(await files.json()).toMatchObject({ kind: "directory", entries: [{ name: "README.md", kind: "file" }] });
       expect(fixture.db.prepare("SELECT count(*) AS count FROM team_runs").get()).toEqual({ count: 0 });
       const body = new FormData();
       body.append("file", new Blob(["Project references\n".repeat(70_000)]), "references.txt");
-      const denied = await fetch(base + "/teams/" + teamId + "/attachments", {
+      const denied = await fetchOne(base + "/teams/" + teamId + "/attachments", {
         method: "POST", headers: { Origin: origin, Cookie: cookie }, body,
       });
       expect(denied.status).toBe(403);
       await denied.text();
       expect(fixture.db.prepare("SELECT count(*) AS count FROM team_attachments").get()).toEqual({ count: 0 });
-      const uploaded = await fetch(base + "/teams/" + teamId + "/attachments", { method: "POST", headers, body });
+      const uploaded = await fetchOne(base + "/teams/" + teamId + "/attachments", { method: "POST", headers, body });
       expect(uploaded.status).toBe(201);
       const { attachment } = await uploaded.json() as { attachment: Attachment };
       expect(attachment.size).toBeGreaterThan(1_048_576);
-      const started = await fetch(base + "/runs", { method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+      const started = await fetchOne(base + "/runs", { method: "POST", headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ rig: teamId, goal: "Use the references", planning: true, documentWorkflow: true, attachments: [attachment.id] }) });
       expect(started.status).toBe(201);
       const { runId } = await started.json() as { runId: string };
-      const chat = await fetch(base + "/runs/" + runId + "/chat", { headers });
+      const chat = await fetchOne(base + "/runs/" + runId + "/chat", { headers });
       expect(chat.status).toBe(200);
       expect(await chat.json()).toMatchObject({ messages: [{ body: "Use the references", attachments: [attachment] }] });
       expect(readFileSync(join(repository, "README.md"), "utf8")).toBe("# Original project\n");
