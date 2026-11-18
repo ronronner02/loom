@@ -166,7 +166,7 @@ exposes four reads under `/api/health-summary`:
 | Suffix | Source |
 |---|---|
 | `/nodes` | `computeNodeHealthSummary`: node inventory aggregated across rigs, grouped by session/lifecycle status, with an attention-required count. |
-| `/context` | `computeContextHealthSummary`: `context_usage` rows grouped by urgency and sample freshness. |
+| `/context` | Deleted with the context monitor: the route and the `context_usage` table it read are gone. |
 | `/version` | `getDaemonVersion`: the build-stamped version, else the daemon package version, else `unknown`; always `200`. |
 | `/gateway` | The injected gateway subsystem's `status()`; `503` if unavailable. |
 

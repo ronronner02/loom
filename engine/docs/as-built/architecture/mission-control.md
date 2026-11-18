@@ -161,9 +161,9 @@ forwarded request, `claimed:v1` for a headerless body actor, or
 `origin-unknown:v1` (`routes/mission-control.ts:347–351`;
 `routes/require-sender-identity.ts:120`).
 
-Nothing writes this table today: the scope-approval route and the
+The table itself is dropped at schema 12: the scope-approval route and the
 `MissionControlActionLog` that recorded its rows were deleted with the
-living-notes surface, so the audit browse reads an empty history.
+living-notes surface, so nothing wrote it.
 
 ## 4. Bearer middleware, notifications, audit browse
 

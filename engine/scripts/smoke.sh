@@ -44,7 +44,6 @@ npm run test -w packages/daemon -- \
   test/github-source.test.ts \
   test/team-policy.test.ts \
   test/project-documents.test.ts \
-  test/run-growth.test.ts \
   test/review-loop.test.ts \
   test/task-completion.test.ts test/task-completion-paths.test.ts \
   test/agent-turn.test.ts \

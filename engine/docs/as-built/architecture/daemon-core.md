@@ -114,30 +114,21 @@ in `003_events.ts`, `snapshots` (serialized rig state) in `004_snapshots.ts`, an
   remain filesystem-backed, written by bounded periodic `capture-pane` snapshots;
   see `transport-and-transcripts.md`).
 - `017_pod_namespace.ts` — first-class authored pod namespace for export/adoption.
-- `018_context_usage.ts` — per-node context-usage snapshots.
 - `019_external_cli_attachment.ts` — binding-row extension for external CLI attach.
 - `020_rig_services.ts` — rig-scoped environment record for service-backed rigs.
 - `021_seat_handover_observability.ts`, `022_node_codex_config_profile.ts`.
 
 ### Coordination, workflow, mission control and workspace migrations
 
-- `023_stream_items.ts` … `027_outbox_entries.ts` — the coordination tables
-  (stream, queue, queue transitions, inbox, outbox; detail in
-  `coordination-primitive.md`).
-- `028_project_classifications.ts`, `029_classifier_leases.ts`,
-  `030_views_custom.ts` — classifier and view tables. The classifier code that
-  wrote them was never called and has been removed; the tables remain.
-- `031_watchdog_jobs.ts`, `032_watchdog_history.ts` — watchdog tables.
-- `033_workflow_specs.ts`, `034_workflow_instances.ts`,
-  `035_workflow_step_trails.ts` — workflow runtime tables (detail in
-  `workflow-runtime.md`). `036_watchdog_policy_enum_extension.ts` runs no DDL (its
-  SQL is a no-op `SELECT 1 WHERE 0`); it documents an enum extension.
-- `037_mission_control_actions.ts` — the mission control audit table
-  (`037_mission_control_actions.ts:58`; detail in `mission-control.md`).
+- `023_stream_items.ts` … `025_queue_transitions.ts` — the coordination tables
+  that survive (stream, queue items, queue transitions; detail in
+  `coordination-primitive.md`). The inbox and outbox tables they introduced at
+  `026`/`027` are gone.
+- The classifier, view, watchdog, workflow-runtime, context-usage, usage-sample,
+  launch-observation, permission-selection and mission-control-audit tables are
+  dropped at schema 12, because the code that wrote and read them was deleted.
 - `038_workspace_primitive.ts`, `039_queue_target_repo.ts` — the typed workspace
   primitive.
-- `040_workflow_specs_diagnostic.ts` — `ALTER TABLE workflow_specs ADD COLUMN`
-  for parser/validator diagnostics (no new table).
 
 Migrations `041`–`092` and `094`–`097` continue in the same directory; list them with
 `git ls-files packages/daemon/src/db/migrations`. `095_rig_non_interruptive.ts` adds

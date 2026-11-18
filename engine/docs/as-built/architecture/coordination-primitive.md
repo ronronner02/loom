@@ -54,18 +54,13 @@ Five host-scoped tables back the primitive, one per migration `023`–`027` in
   transition log; authoritative audit trail for state evolution. Domain code
   never updates its rows. The retention runner that archived aged transitions
   was deleted with the watchdog runtime, so nothing deletes from this table.
-- **`inbox_entries`** (`026_inbox_entries.ts`) — mailbox-style asynchronous
-  deposit; idempotent on `inbox_id`. State: `pending | absorbed | denied`
-  (`INBOX_STATES`). No daemon code writes it today: the `InboxHandler` that
-  did was constructed but never called, and has been removed.
-- **`outbox_entries`** (`027_outbox_entries.ts`) — sender-side record;
-  symmetric to inbox; idempotent on `outbox_id`. No daemon code writes it
-  today: the `OutboxHandler` was the durable wake-intent store, and it went
-  with the wake runtime.
+`inbox_entries` and `outbox_entries` were dropped at schema 12: the `InboxHandler`
+was constructed and never called, and the `OutboxHandler` was the durable wake-intent
+store that went with the wake runtime, so nothing wrote either table.
 
-These five are migrations `023`–`027` of the daemon's schema
-(`git ls-files packages/daemon/src/db/migrations | wc -l`), applied in the
-order of `ALL_MIGRATIONS` (`packages/daemon/src/db/all-migrations.ts:107`).
+The three that remain (`stream_items`, `queue_items`, `queue_transitions`) are
+created by the one-shot schema in `packages/daemon/src/db/baseline.ts`; there is no
+per-migration directory any more.
 Later migrations add columns to these tables; `daemon-core.md` covers the
 migration set.
 

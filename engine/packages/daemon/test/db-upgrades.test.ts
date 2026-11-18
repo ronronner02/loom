@@ -105,6 +105,78 @@ describe("schema upgrades from a shipped baseline", () => {
     expect(() => initializeDatabase(old, file, { upgrades: [] })).toThrow(LegacyDatabaseError);
   });
 
+  it("upgrades a v0.1.0-shaped database (schema 9), drops the dead tables and keeps live data", () => {
+    // v0.1.0 shipped at schema 9. A database from it holds rows in tables this baseline no
+    // longer creates, and the upgrade must drop those tables while every row a live path
+    // reads or writes survives.
+    const shipped = readFileSync(new URL("./fixtures/schema-v2.sql", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+    const db = track(new Database(":memory:"));
+    db.exec(shipped);
+    db.pragma("user_version = 2");
+    // Walk the shipped chain to schema 9 — the version v0.1.0 shipped — so this is a real v9
+    // database rather than a v2 one wearing a v9 marker.
+    for (const step of SCHEMA_UPGRADES.filter(step => step.from >= 2 && step.to <= 9)) {
+      db.exec(step.sql);
+      db.pragma(`user_version = ${step.to}`);
+    }
+    expect(db.pragma("user_version", { simple: true })).toBe(9);
+    db.exec("INSERT INTO rigs (id, name) VALUES ('team', 'Project')");
+    db.exec("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('n1', 'team', 'dev.worker')");
+    db.exec("INSERT INTO sessions (id, node_id, session_name, status) VALUES ('s1', 'n1', 'dev-worker@team', 'running')");
+    db.exec("INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, body) VALUES ('q1', '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z', 'a@team', 'dev-worker@team', 'pending', 'work')");
+    db.exec("INSERT INTO events (rig_id, node_id, type, payload) VALUES ('team', 'n1', 'node.ready', '{}')");
+    // A row in a table this baseline drops: the upgrade removes the table with it.
+    db.exec("INSERT INTO watchdog_jobs (job_id, policy, spec_yaml, target_session, interval_seconds, registered_by_session, registered_at, state) VALUES ('job1', 'periodic-reminder', '', 'dev-worker@team', 60, 'peer@team', '2026-11-01T00:00:00.000Z', 'active')");
+
+    initializeDatabase(db, ":memory:", { upgrades: SCHEMA_UPGRADES });
+
+    expect(db.pragma("user_version", { simple: true })).toBe(BASELINE_VERSION);
+    for (const dropped of ["watchdog_jobs", "views_custom", "classifier_leases", "context_usage",
+      "inbox_entries", "outbox_entries", "workflow_instances", "workflow_specs", "queue_transition_wakes"]) {
+      expect(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(dropped), dropped).toBeUndefined();
+    }
+    // The live rows are intact, and the upgraded schema matches a fresh install exactly.
+    expect(db.prepare("SELECT id, name FROM rigs").all()).toEqual([{ id: "team", name: "Project" }]);
+    expect(db.prepare("SELECT qitem_id, body FROM queue_items").all()).toEqual([{ qitem_id: "q1", body: "work" }]);
+    expect(db.prepare("SELECT count(*) AS n FROM sessions").get()).toEqual({ n: 1 });
+    const fresh = track(new Database(":memory:")); initializeDatabase(fresh);
+    expect(schema(db)).toEqual(schema(fresh));
+    expect(db.pragma("foreign_key_check")).toEqual([]);
+  });
+
+  it("upgrades a Gemini-era database (schema 12, rebuilt team_attempts) and keeps a gemini attempt", () => {
+    // The installed app was built from a branch that shipped schema 12: it rebuilt team_attempts
+    // and team_bootstraps so the provider and lead-client checks admit "gemini". A database from
+    // it upgrades to today's baseline and a row written under that schema survives unchanged.
+    const shipped = readFileSync(new URL("./fixtures/schema-v2.sql", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+    const db = track(new Database(":memory:"));
+    db.exec(shipped);
+    db.pragma("user_version = 2");
+    for (const step of SCHEMA_UPGRADES.filter(step => step.from >= 2 && step.to <= 12)) {
+      if (step.rebuildsTables) db.pragma("foreign_keys = OFF");
+      db.exec(step.sql);
+      db.pragma(`user_version = ${step.to}`);
+      if (step.rebuildsTables) db.pragma("foreign_keys = ON");
+    }
+    expect(db.pragma("user_version", { simple: true })).toBe(12);
+    expect(db.prepare("SELECT sql FROM sqlite_master WHERE name = 'team_attempts'").get()).toMatchObject({
+      sql: expect.stringContaining("'gemini'"),
+    });
+
+    db.exec("INSERT INTO rigs (id, name) VALUES ('team', 'Project')");
+    db.exec("INSERT INTO team_runs (id, rig_id, binding_json, binding_digest, state, created_at, updated_at) VALUES ('run', 'team', '{}', 'digest', 'approved', '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z')");
+    db.exec(`INSERT INTO team_attempts (id, run_id, role, provider, identity_json, state, usage_json, active_ms, created_at, updated_at)
+      VALUES ('attempt-gemini', 'run', 'implementer', 'gemini', '{"nativeSessionId":"g1"}', 'stopped', '{"activeMs":0}', 0, '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z')`);
+
+    initializeDatabase(db, ":memory:", { upgrades: SCHEMA_UPGRADES });
+
+    expect(db.pragma("user_version", { simple: true })).toBe(BASELINE_VERSION);
+    expect(db.prepare("SELECT id, provider FROM team_attempts").all()).toEqual([{ id: "attempt-gemini", provider: "gemini" }]);
+    const fresh = track(new Database(":memory:")); initializeDatabase(fresh);
+    expect(schema(db)).toEqual(schema(fresh));
+    expect(db.pragma("foreign_key_check")).toEqual([]);
+  });
+
   it("brings the first shipped schema to today's baseline through the recorded steps", () => {
     // The shipped schema is frozen in this fixture. Editing the baseline without adding the
     // step that carries a shipped database forward makes the two schemas differ here.

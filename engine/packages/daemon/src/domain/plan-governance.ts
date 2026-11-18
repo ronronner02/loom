@@ -46,7 +46,7 @@ export function hashBinding(binding: unknown): string {
 export interface ProviderPolicyCapability {
   policyRevision: number;
   policyFingerprint: string;
-  verifiedProviders: readonly ("claude" | "codex")[];
+  verifiedProviders: readonly ("claude" | "codex" | "gemini")[];
 }
 
 
@@ -2225,7 +2225,7 @@ export class PlanGovernance {
       const state = attemptState(v.state);
       const role = text(v.role, "role");
       if (!ctx.run.binding.roles.some((allowed) => allowed === role)) return deny("Attempt role is outside the binding");
-      if (v.provider !== "claude" && v.provider !== "codex") throw new TeamContractError("provider");
+      if (v.provider !== "claude" && v.provider !== "codex" && v.provider !== "gemini") throw new TeamContractError("provider");
       const identity = v.identity === null ? null : parseAttemptIdentity(v.identity);
       const unknownReason = state === "unknown" ? text(v.unknownReason, "unknownReason") : null;
       if (state !== "unknown" && (identity === null || v.unknownReason !== null)) throw new TeamContractError("attempt.identity");
@@ -2285,7 +2285,7 @@ export class PlanGovernance {
       const bytes = canonicalJson(command);
       if (Buffer.byteLength(bytes, "utf8") > 65_536 || hashBytes(bytes) !== commandDigest) throw new TeamContractError("nativeLaunch.command");
     }
-    if (v.provider !== "claude" && v.provider !== "codex") throw new TeamContractError("provider");
+    if (v.provider !== "claude" && v.provider !== "codex" && v.provider !== "gemini") throw new TeamContractError("provider");
     if (sessionId !== item.destinationSession || !["pending", "in-progress"].includes(item.state)) return "Native launch task/session is not dispatchable";
     if (this.db.prepare("SELECT id FROM team_attempts WHERE qitem_id = ? AND state <> 'stopped' LIMIT 1").get(qitemId)) {
       return "Task already has an unresolved native attempt";
