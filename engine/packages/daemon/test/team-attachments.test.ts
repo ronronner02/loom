@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
 import type { AddressInfo } from "node:net";
 import { serve } from "@hono/node-server";
+import { Agent } from "undici";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -63,13 +64,14 @@ describe("project chat attachments", () => {
 
   it("browses files and sends attachments over loopback with paired browser credentials", async () => {
     // Each request uses its own connection. undici reuses one pooled socket across the large
-    // uploads and the small JSON posts that follow them, and on this loopback fixture it
-    // intermittently resets that socket mid-write (measured 4 of 20 runs), so the caller sees
-    // `ECONNRESET` rather than the response it was sent. The same server driven by a plain
-    // keep-alive `http.Agent` never reset (0 of 40), so the pooling is the client's, not the
-    // daemon's, and this test reads responses rather than pooling behavior.
+    // uploads and the small JSON posts that follow them, and on a loopback fixture it can reset
+    // that socket rather than deliver the response (measured 4 of 20 runs here; the same server
+    // driven by a plain keep-alive `http.Agent` never reset, 0 of 40). A dispatcher that never
+    // pipelines opens one connection per request without the abrupt close `Connection: close`
+    // asks for, so this test reads responses rather than exercising the client's pooling.
+    const dispatcher = new Agent({ connections: 1, pipelining: 0 });
     const fetchOne = (input: Parameters<typeof fetch>[0], init: Parameters<typeof fetch>[1] = {}) =>
-      fetch(input, { ...init, headers: { ...(init.headers ?? {}), Connection: "close" } });
+      fetch(input, { ...init, dispatcher } as RequestInit);
     const server = serve({ fetch: fixture.app.fetch, hostname: "127.0.0.1", port: 0 });
     try {
       if (!server.listening) await new Promise<void>(resolve => server.once("listening", resolve));
@@ -90,14 +92,20 @@ describe("project chat attachments", () => {
       expect(files.status).toBe(200);
       expect(await files.json()).toMatchObject({ kind: "directory", entries: [{ name: "README.md", kind: "file" }] });
       expect(fixture.db.prepare("SELECT count(*) AS count FROM team_runs").get()).toEqual({ count: 0 });
-      const body = new FormData();
-      body.append("file", new Blob(["Project references\n".repeat(70_000)]), "references.txt");
+      // The refusal is the missing anti-forgery header, so its body is small: a refusal that
+      // lands while a large upload is still arriving is a race the socket decides, and that is
+      // not what this case is about. The large body is the accepted upload below, which the
+      // server reads in full.
+      const deniedBody = new FormData();
+      deniedBody.append("file", new Blob(["notes\n"]), "notes.md");
       const denied = await fetchOne(base + "/teams/" + teamId + "/attachments", {
-        method: "POST", headers: { Origin: origin, Cookie: cookie }, body,
+        method: "POST", headers: { Origin: origin, Cookie: cookie }, body: deniedBody,
       });
       expect(denied.status).toBe(403);
       await denied.text();
       expect(fixture.db.prepare("SELECT count(*) AS count FROM team_attachments").get()).toEqual({ count: 0 });
+      const body = new FormData();
+      body.append("file", new Blob(["Project references\n".repeat(70_000)]), "references.txt");
       const uploaded = await fetchOne(base + "/teams/" + teamId + "/attachments", { method: "POST", headers, body });
       expect(uploaded.status).toBe(201);
       const { attachment } = await uploaded.json() as { attachment: Attachment };
