@@ -114,7 +114,7 @@ export function TaskDetails({ read, task, thread = false }: { read?: TeamOwnerRe
       : <ol className="ui-attempt-list">{attempts.map((attempt, index) => <li key={attempt.attemptId}>
         <span>{t("team.task.attemptN", { round: index + 1 })}</span>
         <span>{statusLabel("attempt", attempt.state, t)}</span>
-        <small>{t(attempt.provider === "codex" ? "team.client.codex" : "team.client.claude-code")}</small>
+        <small>{t(attempt.provider === "codex" ? "team.client.codex" : attempt.provider === "gemini" ? "team.client.gemini" : "team.client.claude-code")}</small>
         {attempt.failure && <details><summary>{t("tasks.failureDetails")}</summary>
           <p>{attempt.failure.ownerAction}</p><code>{attempt.failure.reasonCode}</code>
         </details>}

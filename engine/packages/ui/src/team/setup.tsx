@@ -4,18 +4,19 @@ import { useTranslation } from "react-i18next";
 import { Check, Info, RotateCw, X } from "lucide-react";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 
-export interface ToolRow { client: "git" | "gh" | "claude" | "codex"; ok: boolean; path?: string; reason?: string }
-export interface SignInRow { client: "claude" | "codex"; state: "signed-in" | "signed-out" | "unknown"; signIn: string | null }
+export interface ToolRow { client: "git" | "gh" | "claude" | "codex" | "gemini"; ok: boolean; path?: string; reason?: string }
+export interface SignInRow { client: "claude" | "codex" | "gemini"; state: "signed-in" | "signed-out" | "unknown"; signIn: string | null }
 export interface SetupState { tools: ToolRow[]; signIn: SignInRow[]; proxy: string; complete: boolean }
 
 export const setupKey = ["team", "setup"] as const;
 
 /** The one install line per tool, keyed by the resolver's client name. */
-const INSTALL_KEYS = { git: "setup.install.git", gh: "setup.install.gh", claude: "setup.install.claude", codex: "setup.install.codex" } as const;
-const TOOL_LABELS = { git: "Git", gh: "GitHub CLI", claude: "Claude Code", codex: "Codex" } as const;
+const INSTALL_KEYS = { git: "setup.install.git", gh: "setup.install.gh", claude: "setup.install.claude", codex: "setup.install.codex",
+  gemini: "setup.install.gemini" } as const;
+const TOOL_LABELS = { git: "Git", gh: "GitHub CLI", claude: "Claude Code", codex: "Codex", gemini: "Gemini CLI" } as const;
 const SIGN_IN_KEYS = { "signed-in": "setup.signedIn", "signed-out": "setup.signedOut", unknown: "setup.unknown" } as const;
-/** The order the tools read in: the two every project needs, then the two clients. */
-const TOOL_ORDER = ["git", "gh", "claude", "codex"] as const;
+/** The order the tools read in: the two every project needs, then the clients. */
+const TOOL_ORDER = ["git", "gh", "claude", "codex", "gemini"] as const;
 
 /** The setup read: tools, agent sign-in and the proxy, as the daemon just observed them. */
 export function useSetup(enabled = true) {
