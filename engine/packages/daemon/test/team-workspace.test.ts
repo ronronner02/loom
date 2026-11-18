@@ -977,11 +977,12 @@ it.skipIf(posixShapesOnly)("records an escaping, dangling or directory symlink a
 
     for (const row of ROWS) it.skipIf(row.skipOn?.(process.platform) != null)(row.name, () => roundTrip(row));
 
-    it("refuses a file name that is not valid UTF-8 instead of dropping it", () => {
+    it.skipIf(posixShapesOnly)("refuses a file name that is not valid UTF-8 instead of dropping it", () => {
       const root = richRepository();
       const workspace = candidateOf(root);
       // Node decodes a directory entry lossily, so an invalid name becomes U+FFFD and
-      // the manifest would otherwise describe a path the candidate does not have.
+      // the manifest would otherwise describe a path the candidate does not have. Windows
+      // refuses to create the byte at all, so the shape only exists on a POSIX host.
       writeFileSync(Buffer.concat([Buffer.from(`${workspace.root}/bad-`), Buffer.from([0xff]), Buffer.from(".txt")]), "x\n");
       expect(() => candidateManifest(workspace)).toThrow(/not valid UTF-8/);
     });
@@ -1200,7 +1201,10 @@ it.skipIf(posixShapesOnly)("records an escaping, dangling or directory symlink a
       expect(manifest.files.length).toBe(2000);
       expect(manifest.patch, "an untouched candidate is still an empty patch").toBe("");
       expect(elapsed, `a 2,000-file candidate took ${elapsed}ms`).toBeLessThan(30_000);
-    });
+      // The case's own bound is 30 s, so the suite's 20 s test timeout would fire before this
+      // assertion could report the measurement it exists to make. Windows file-system work on a
+      // runner is slow enough to reach it: measured 27.5 s there, against about 3 s here.
+    }, 90_000);
 
     /**
      * The card's second group, as one candidate: CRLF under `eol`, a BOM-prefixed name, a
@@ -1264,7 +1268,11 @@ it.skipIf(posixShapesOnly)("records an escaping, dangling or directory symlink a
     }
       // And the properties that are not visible in a blob id.
       expect(lstatSync(join(checkout, "src", "link.ts")).isSymbolicLink(), "a link stays a link").toBe(true);
-      expect(statSync(join(checkout, "src", "run.sh")).mode & 0o100, "the executable bit arrives").toBe(0o100);
+      // Windows keeps no owner-executable bit on an ordinary file, so the mode change the fixture
+      // makes cannot exist there; the host that can hold the bit asserts the whole round trip.
+      if (process.platform !== "win32") {
+        expect(statSync(join(checkout, "src", "run.sh")).mode & 0o100, "the executable bit arrives").toBe(0o100);
+      }
       expect(existsSync(join(checkout, "src", "gone.ts")), "the deletion is applied").toBe(false);
       expect(readFileSync(join(checkout, "crlf.txt"), "utf8"), "the base's eol=lf governs the patch too").toBe("beta\n");
       expect(existsSync(join(checkout, "﻿anchor.txt")), "a BOM-prefixed name is its own file").toBe(true);
