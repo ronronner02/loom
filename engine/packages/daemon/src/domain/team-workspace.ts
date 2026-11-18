@@ -1077,7 +1077,12 @@ export function createCandidateWorkspace(input: {
 export function sourceWorktrees(sourceRoot: string): Set<string> {
   const repository = canonicalPath(sourceRoot);
   const registered = new Set<string>();
+  // Both spellings of the source itself: callers hold a `sourceRoot` from either resolver.
+  let physical = repository;
+  try { physical = realpathSync(sourceRoot); } catch { /* the canonical spelling stands alone */ }
   registered.add(repository);
+  registered.add(physical);
+  registered.add(resolve(sourceRoot));
   const adminPath = gitOrNull(repository, ["rev-parse", "--git-path", "worktrees"])?.trim();
   if (!adminPath) return registered;
   const admin = isAbsolute(adminPath) ? adminPath : join(repository, adminPath);
@@ -1090,6 +1095,7 @@ export function sourceWorktrees(sourceRoot: string): Set<string> {
     // The long spelling on both sides: Windows also keeps an 8.3 name for a directory, and a
     // registration git wrote and this walk resolves can come back in either one.
     try { registered.add(canonicalPath(named)); } catch { /* A registration whose tree is gone still names a path; it is kept. */ }
+    try { registered.add(realpathSync(named)); } catch { /* as above: the unresolved spelling is kept below */ }
     // The unresolved parent is kept too: a worktree whose directory was temporarily unmounted is
     // still a registration, and forgetting it would be the same defect in a quieter form.
     registered.add(named);
