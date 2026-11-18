@@ -556,11 +556,11 @@ function snapshotCandidate(root: string, destination: string): Map<string, Snaps
  * The same candidate walk, by path, for hosts without `/proc/self/fd`.
  *
  * The properties are unchanged: `.git` is metadata at every depth, a link is never followed, and
- * anything that is not a regular file refuses the manifest. A link itself is refused here rather
- * than copied: on Windows a junction cannot be recreated as a symbolic link without elevation, and
- * Git would stage the directory it names by descending it — so copying one would hand the worker a
- * way to put outside bytes in the manifest. Refusing by name is the boundary saying what it cannot
- * carry, which is the same answer a FIFO gets.
+ * anything that is not a regular file refuses the manifest. A link is recorded as its own text,
+ * exactly as the descriptor walk records it: `readlink` reads the link and not its target, so no
+ * outside bytes can enter the manifest, and the text is what git stores for a `120000` entry and
+ * what the patch writes back. It is never descended, because a link to a directory is the
+ * smuggling case.
  */
 function snapshotCandidateByPath(directory: string, destination: string, relativeDir: string, entries: Map<string, SnapshotEntry>): void {
   const prefix = relativeDir ? `${relativeDir}/` : "";
@@ -570,7 +570,13 @@ function snapshotCandidateByPath(directory: string, destination: string, relativ
     if (name === ".git") continue;
     const source = join(directory, name);
     const target = join(destination, path);
-    if (entry.isSymbolicLink()) throw new Error(`Candidate path is a link this host cannot stage without following it: ${path}`);
+    if (entry.isSymbolicLink()) {
+      // The text is the whole entry. The copy gets no placeholder: a link cannot be recreated on
+      // a host whose checkout would turn it into a plain file, and the staging step writes this
+      // text as the link's own blob and index entry.
+      entries.set(path, { kind: "link", text: readlinkSync(source, { encoding: "buffer" }) });
+      continue;
+    }
     if (entry.isDirectory()) {
       mkdirSync(target, { recursive: true });
       snapshotCandidateByPath(source, destination, path, entries);
@@ -823,7 +829,17 @@ function commitLaneManifest(workspace: CandidateWorkspace & { base: { kind: "com
       rmSync(join(snapshot, path), { force: true });
     }
     writeBaseRules(store, snapshot, base, autocrlf);
+    // A link is staged from its own text, not from the placeholder the copy holds. On a host
+    // whose checkout would turn a link into a plain file, `add -A` records that file's bytes and
+    // mode instead of the `120000` entry the base commit and the patch use, so the link's blob
+    // is written here and its index entry set directly.
+    const links = [...candidateEntries].filter((entry): entry is [string, SnapshotEntryLink] => entry[1].kind === "link");
+    for (const [path, entry] of links) rmSync(join(snapshot, path), { force: true });
     storeGit(store, snapshot, ["add", "-A"], { autocrlf });
+    for (const [path, entry] of links) {
+      const objectId = storeGit(store, null, ["hash-object", "-w", "--stdin"], { input: entry.text }).toString("utf8").trim();
+      storeGit(store, snapshot, ["update-index", "--add", "--cacheinfo", `120000,${objectId},${path}`]);
+    }
 
     const staged = readIndex(store);
     // A gitlink names a submodule directory: it is part of the tree the patch must reproduce, but
