@@ -64,6 +64,26 @@ describe("first-run setup", () => {
     expect(screen.getByText("Not signed in").closest("li")?.textContent).toContain("codex login");
   });
 
+  it("marks each sign-in state on its own terms: a check, a cross, and a neutral dash", async () => {
+    await show();
+    await screen.findByText("Signed in");
+    const rowOf = (label: string) => screen.getByText(label).closest("li")!;
+    const iconOf = (label: string) => rowOf(label).querySelector(".setup-mark")!.getAttribute("class")!;
+    expect(rowOf("Signed in").getAttribute("data-state")).toBe("signed-in");
+    expect(rowOf("Not signed in").getAttribute("data-state")).toBe("signed-out");
+    expect(rowOf("Unknown").getAttribute("data-state")).toBe("unknown");
+    // A signed-in client is a check; a definitively signed-out one is the cross it always was.
+    expect(iconOf("Signed in")).toContain("lucide-check");
+    expect(iconOf("Not signed in")).toContain("lucide-x");
+    // An unanswered probe is neither: it is a muted dash, not the red failure mark.
+    expect(iconOf("Unknown")).toContain("lucide-circle-dashed");
+    expect(iconOf("Unknown")).not.toContain("lucide-x");
+    // Only a client that answered "signed out" is a failure state; unknown still names the command.
+    expect(rowOf("Unknown").getAttribute("data-ok")).toBe("false");
+    expect(rowOf("Unknown").querySelector(".setup-command")?.textContent).toBe("gemini");
+    expect(rowOf("Signed in").querySelector(".setup-command")).toBeNull();
+  });
+
   it("lists Gemini as a tool with its resolved entry, and reports an unknown sign-in honestly", async () => {
     await show();
     expect(await screen.findByTitle("/npm/node_modules/@google/gemini-cli/bundle/gemini.js")).toBeTruthy();
