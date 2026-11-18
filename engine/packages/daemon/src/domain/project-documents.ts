@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { posix } from "node:path";
 import { canonicalJson, TeamContractError, type DocumentPins, type PlanBinding, type ProjectDocumentKind,
   type ProjectDocumentStage, type ProjectDocumentVersion, type ProjectDocumentWorkflow, type TeamRun } from "../contracts/team-control.js";
-import { readWorkspacePath } from "./team-workspace.js";
+import { readWorkspacePath } from "./workspace-read.js";
 
 export const DOCUMENT_KINDS = ["brainstorm", "requirements", "plan"] as const;
 export type DocumentEvidence = Partial<Record<ProjectDocumentKind, { content: string; hash: string }>>;
