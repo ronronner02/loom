@@ -92,7 +92,10 @@ describe("U11 persistent retry scheduling", () => {
     onAttemptStopped?: (attempt: { id: string; runId: string; qitemId: string | null; role: string }) => Promise<void>) => composeAttemptCompletion({ db, governance,
     currentBinding: () => binding, now: () => now, alive: () => false, turnStateRoot: root,
     sessions: { findResumeContextByName: () => null, updateStartupStatus: () => {} },
-    paneExit: async () => ({ dead: true, code: 1 }), paneTail: async () => tail, dispatchPending, onAttemptStopped, log: () => {},
+    // The supervisor wrote the turn's exit status and stderr tail; the sweep reads that.
+    turnExit: () => ({ version: 1 as const, attemptId: "", provider: "codex" as const, exitCode: 1, signal: null,
+      acknowledged: true, noResponse: false, threadId: null, stderrTail: tail, outputTail: "",
+      at: now.toISOString() }), dispatchPending, onAttemptStopped, log: () => {},
     // A partial candidate must never overrule a provider failure.
     candidateManifestFor: () => ({ base: "commit", baseIdentifier: "a".repeat(40), files: [{ path: "src/a.ts" }],
       manifestDigest: digest, patch: "diff --git a/src/a.ts b/src/a.ts\n+++ b/src/a.ts\n" }),

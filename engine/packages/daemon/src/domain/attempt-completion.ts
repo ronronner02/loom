@@ -2,16 +2,18 @@ import { pendingFinalization, recordedControlReceipt, saveFinalization,
   type AttemptFinalizationProgress, type FinalizationOutcome, type PreparedAttemptOutcome } from "./attempt-finalization.js";
 import { readFileSync } from "node:fs";
 import type Database from "better-sqlite3";
-import { TEAM_CONTROL_VERSION, jsonValue, type ControlRequest, type JsonObject, type JsonValue } from "../contracts/team-control.js";
+import { TEAM_CONTROL_VERSION, jsonValue, type ControlRequest, type JsonValue } from "../contracts/team-control.js";
 import type { PlanGovernance } from "./plan-governance.js";
 import type { SessionRegistry } from "./session-registry.js";
 import type { NativeAttemptIdentity } from "../contracts/team-control.js";
-import { classifyAttemptFailure, classificationFor, TERMINAL_TAIL_LINES, type AttemptClassification, type AttemptReasonCode } from "./attempt-failure.js";
-import { agentTurnOutputPaths, readAgentTurnLastMessage, readAgentTurnThreadId } from "./agent-turn.js";
-import { leadCompletionEvidence, taskCompletionEvidence, type CandidateFacts, type TaskCompletionEvidence } from "./task-completion.js";
+import { classifyAttemptFailure, classificationFor, type AttemptClassification, type AttemptReasonCode } from "./attempt-failure.js";
+import { agentTurnOutputPaths, readAgentTurnThreadId } from "./agent-turn.js";
+import type { CandidateFacts } from "./task-completion.js";
+import { prepareAutomaticOutcome } from "./attempt-outcome.js";
+import { reviewerOutput } from "./reviewer-report.js";
 import { recordedFindings } from "./review-loop.js";
 import type { AttemptTelemetry } from "./attempt-telemetry.js";
-import { parseTaskReport, unreadableTaskReport, type TaskReport } from "./task-report.js";
+import type { TaskReport } from "./task-report.js";
 import { recordWorkflowTurn } from "./team-workflows.js";
 import { observeIdentity } from "./process-termination.js";
 import type { SupervisorExitFacts } from "../adapters/child-process-supervisor.js";
@@ -64,32 +66,13 @@ export interface AttemptCompletionDependencies {
   /** Injectable for the tests; production reads the recorded identity on any host. */
   alive?: (identity: { processId: number; processStart: string }) => boolean | Promise<boolean>;
   /**
-   * T033 — the exit evidence the seat's terminal recorded for a pane, read once when the sweep
-   * observes the process gone. Absent means this daemon cannot read it (no pane is recorded, or
-   * a test), and the attempt is then classified from the evidence it does have.
-   */
-  paneExit?: (paneId: string) => Promise<{ dead: boolean; code: number | null } | null>;
-  /** T033 — the pane's last lines, for the classifier's text fingerprints. Absent means none. */
-  paneTail?: (paneId: string, lines: number) => Promise<string | null>;
-  /**
-   * U3 — the exit facts a supervised native turn recorded, read by attempt id.
+   * The exit facts a supervised turn recorded, read by attempt id.
    *
-   * A direct child has no pane, so the supervisor writes what it observed (exit code, signal,
-   * bounded stderr and output) to the attempt's own output. Absent means this daemon classifies
-   * only pane-era attempts, which is what a fixture without a supervisor wants.
+   * The supervisor writes what it observed — exit code, signal, bounded stderr and output — to
+   * the attempt's own output as soon as the child ends. Absent means this daemon has no such
+   * evidence and classifies from the recorded identity alone, which is what a fixture wants.
    */
   turnExit?: (attemptId: string) => SupervisorExitFacts | null;
-  /**
-   * The task a launch stamped into a pane before it started the client.
-   *
-   * A seat can hold two live tasks at once — two completed implementers are two pending
-   * reviews on the same reviewer seat — so the receipt's seat name is not always enough to
-   * say which task a turn is running. Absent means this daemon records no stamp and a
-   * multi-task seat stays ambiguous, which records nothing rather than guessing.
-   */
-  paneTask?: (paneId: string) => Promise<string | null>;
-  /** T033 — put a held pane back to a live shell once its exit evidence has been read. */
-  releasePane?: (paneId: string) => Promise<unknown>;
   /**
    * MVP — start the run's next pending task now that this attempt's seat and slot are free.
    *
@@ -151,27 +134,6 @@ export interface AttemptCompletion {
   stop(): void;
 }
 
-/** The final JSON report a reviewer turn must return for automatic verdict recording. */
-export function extractReviewerReport(message: string | null): Record<string, unknown> | null {
-  const value = extractReviewerOutput(message);
-  return value && "findings" in value ? value : null;
-}
-
-/** Findings and exception reports share the reviewer's existing final-message transport. */
-function extractReviewerOutput(message: string | null): Record<string, unknown> | null {
-  if (message === null) return null;
-  const blocks = [...message.matchAll(/```json\s*([\s\S]*?)^[ \t]*```[ \t]*\r?$/gim)];
-  const block = blocks.at(-1)?.[1];
-  if (block === undefined) return null;
-  try {
-    const value = JSON.parse(block) as unknown;
-    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-    return value as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
 const unavailable = { value: null, reason: "Native usage has not been observed" };
 
 /**
@@ -212,6 +174,14 @@ interface ReceiptRow { seq: number; payload: string }
 export function composeAttemptCompletion(dependencies: AttemptCompletionDependencies): AttemptCompletion {
   const { db, governance, currentBinding, sessions } = dependencies;
   const log = dependencies.log ?? ((message: string) => console.warn(message));
+  // The readers the outcome assembly needs, named once so the sweep and the evaluator cannot
+  // disagree about which evidence they hold.
+  const outcomeInput = { db, governance, turnStateRoot: dependencies.turnStateRoot,
+    ...(dependencies.candidateManifestFor ? { candidateManifestFor: dependencies.candidateManifestFor } : {}),
+    ...(dependencies.readLeadProposal ? { readLeadProposal: dependencies.readLeadProposal } : {}),
+    ...(dependencies.readTaskReport ? { readTaskReport: dependencies.readTaskReport } : {}),
+    ...(dependencies.readLeadEscalation ? { readLeadEscalation: dependencies.readLeadEscalation } : {}),
+    log };
   const intervalMs = dependencies.intervalMs ?? ATTEMPT_SWEEP_INTERVAL_MS;
   const alive = dependencies.alive ?? identityAlive;
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -231,10 +201,10 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
   /**
    * The task a seat is working, resolved from the run's own rows.
    *
-   * A native launch records its task in the submitted lifecycle fact before spawning; older
-   * pane launches carry a task stamp. Match that exact task before limiting the seat lookup,
-   * because a seat may have several queued tasks. Without a stamp, only one live task is
-   * sufficient evidence, and a stamp for another seat must never fall back to that guess.
+   * The launch records its task in the submitted lifecycle fact before the child exists, so the
+   * receipt and the task agree. Match that exact task before limiting the seat lookup, because a
+   * seat may have several queued tasks; without a named task only one live task is evidence
+   * enough, and a task for another seat must never fall back to that guess.
    */
   const taskForSeat = (runId: string, sessionName: string, taskId: string | null) => {
     const rows = db.prepare(`
@@ -257,13 +227,11 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
     // A resume re-enters the attempt it recorded, so its row already exists and keeps its own
     // history. Only the first observation of a native generation admits a new row.
     if (governance.getAttempt(receipt.attemptId)) return;
-    const paneId = receipt.identity.paneId;
-    const submitted = paneId === null ? db.prepare(`SELECT json_extract(payload, '$.taskId') AS taskId FROM events
+    const submitted = db.prepare(`SELECT json_extract(payload, '$.taskId') AS taskId FROM events
       WHERE type = 'team.control' AND json_extract(payload, '$.runId') = ?
         AND json_extract(payload, '$.attemptId') = ? AND json_extract(payload, '$.action') = 'attempt.submitted'
-      ORDER BY seq DESC LIMIT 1`).get(receipt.runId, receipt.attemptId) as { taskId: string | null } | undefined : undefined;
-    const taskId = submitted?.taskId
-      ?? (paneId !== null && dependencies.paneTask ? await dependencies.paneTask(paneId) : null) ?? null;
+      ORDER BY seq DESC LIMIT 1`).get(receipt.runId, receipt.attemptId) as { taskId: string | null } | undefined;
+    const taskId = submitted?.taskId ?? null;
     const task = taskForSeat(receipt.runId, sessionName, taskId);
     if (!task) {
       log(`team completion: no single live task on ${sessionName} for run=${receipt.runId}` +
@@ -314,16 +282,11 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
         // ends, so they are the direct proof of an end. Without them the recorded identity
         // decides, exactly as before: a live process keeps the attempt open.
         if (dependencies.turnExit?.(attempt.id) == null && await alive(attempt.identity)) continue;
-        // A pane the launcher held is still the seat's, but its dead foreground process makes the
-        // seat unusable: measured on tmux 3.6, input into a dead pane is accepted and does
-        // nothing. The evidence is read first, then the pane is released, so the next dispatch
-        // of this seat starts its client in a live shell instead of a dead one.
-        const failure = await classify(attempt);
+        const failure = classify(attempt);
         dependencies.telemetry?.capture(attempt);
         // A persisted stop is excluded from later sweeps. Save its exact documents first so a
         // restart never needs to attribute the candidate's later mutable bytes to this turn.
         dependencies.captureTurnDocuments?.(attempt);
-        if (attempt.identity.paneId !== null) await releaseHeldPane(attempt.identity.paneId);
         const request: ControlRequest<unknown> = {
           protocolVersion: TEAM_CONTROL_VERSION, runId: attempt.runId, actionId: attempt.id,
           expectedEntityVersion: governance.getRun(attempt.runId).entityVersion,
@@ -347,157 +310,23 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
   /**
    * The evidence the daemon holds about one ended attempt, classified once.
    *
-   * A terminal read that fails is no evidence, and the classifier already treats no evidence as
-   * no failure rather than as a clean exit, so a transient tmux error cannot manufacture a
+   * A read that fails is no evidence, and the classifier already treats no evidence as no
+   * failure rather than as a clean exit, so a transient read error cannot manufacture a
    * retryable code.
    *
    * The exit status decides first, because it is structured: a client that exits with 0 finished
    * its turn, so nothing it printed is the failure of this attempt. Only a non-zero exit, a
-   * signal, or no exit record at all sends the tail to the fingerprints.
-   *
-   * U3 — a native turn has no pane. Its supervisor writes the exit code and signal it observed,
-   * with the turn's stderr and rendered tail, to `exit.json` beside the attempt's other output;
-   * that file is the same evidence a held pane used to carry, and a pane-era attempt keeps
-   * reading its pane because its identity still names one.
+   * signal, or no exit record at all sends the tail to the fingerprints. The supervisor wrote
+   * both to `exit.json` beside the attempt's other output when the child ended.
    */
-  const classify = async (attempt: NonNullable<ReturnType<PlanGovernance["getAttempt"]>>): Promise<AttemptClassification | null> => {
+  const classify = (attempt: NonNullable<ReturnType<PlanGovernance["getAttempt"]>>): AttemptClassification | null => {
     const run = governance.getRun(attempt.runId);
     const canceled = run.state === "cancel_requested" || run.state === "canceled";
-    const pane = attempt.identity?.paneId ?? null;
-    const exit = pane !== null && dependencies.paneExit ? await dependencies.paneExit(pane) : null;
-    const terminalTail = pane !== null && dependencies.paneTail && exit?.code !== 0
-      ? await dependencies.paneTail(pane, TERMINAL_TAIL_LINES) : null;
-    if (pane === null && dependencies.turnExit) {
-      const facts = dependencies.turnExit(attempt.id);
-      if (facts !== null) return classifyAttemptFailure({ canceled,
-        exit: facts.exitCode === null && facts.signal === null ? null : { code: facts.exitCode },
-        terminalTail: [facts.stderrTail, facts.outputTail].filter(Boolean).join("\n") || null, now: dependencies.now?.() });
-    }
-    return classifyAttemptFailure({ canceled, exit: exit === null ? null : { code: exit.code }, terminalTail, now: dependencies.now?.() });
-  };
-
-  /** Freeze the first outcome evidence while the run is fenced from another turn. */
-  const prepareAutomaticOutcome = (stoppedAttempt: NonNullable<ReturnType<PlanGovernance["getAttempt"]>>): PreparedAttemptOutcome | null => {
-    // Older embedders and unit fixtures may compose only the stop observer. Production wires at
-    // least one worker-output reader; without one there is no daemon-owned evidence to record.
-    if (!dependencies.candidateManifestFor && !dependencies.readLeadProposal && !dependencies.turnStateRoot) return null;
-    if (stoppedAttempt.qitemId === null) return null;
-    const task = governance.getTask(stoppedAttempt.qitemId);
-    if (!task || !["lead", "implementer", "reviewer"].includes(task.assignment.role)) return null;
-    const lastMessage = dependencies.turnStateRoot
-      ? readAgentTurnLastMessage(dependencies.turnStateRoot, stoppedAttempt.id) : null;
-    const workflowOutcome = recordWorkflowTurn(dependencies.db, stoppedAttempt, lastMessage);
-    const reviewerReport = task.assignment.role === "reviewer" ? extractReviewerOutput(lastMessage) : null;
-    // A planning lead task is the owner↔lead chat conversation, not a delivery task. Its turn
-    // ends in a chat reply and is reopened by the next owner message; completion evidence applies
-    // once the run enters delivery and the lead writes its decomposition proposal.
-    if (task.assignment.role === "lead" && governance.getRun(stoppedAttempt.runId).phase === "planning"
-      && stoppedAttempt.failure === null) return null;
-    const subjectTaskId = task.assignment.role === "reviewer" && task.assignment.reviewOf !== undefined
-      ? task.assignment.reviewOf : task.assignment.taskId;
-    let state: "done" | "failed" | "blocked" | "canceled";
-    // Check each transport before selection; a stale file must not mask the current final report.
-    const forThisAttempt = (report: TaskReport | null): TaskReport | null => {
-      if (report?.attemptId !== undefined && report.attemptId !== stoppedAttempt.id) {
-        log(`team completion: attempt ${stoppedAttempt.id} read a report written by ${report.attemptId}; ignoring it`);
-        return null;
-      }
-      return report;
-    };
-    let taskReport: TaskReport | null = null;
-    if (task.assignment.role !== "lead" && dependencies.readTaskReport) {
-      try { taskReport = forThisAttempt(dependencies.readTaskReport(stoppedAttempt.runId, stoppedAttempt.id)); }
-      catch (error) { taskReport = unreadableTaskReport(error); }
-    }
-    // Existing file reports remain readable; read-only reviewers use their final message.
-    if (!taskReport && reviewerReport && "status" in reviewerReport) {
-      try { taskReport = forThisAttempt(parseTaskReport(reviewerReport)); }
-      catch (error) {
-        taskReport = { ...unreadableTaskReport(error), evidence: "The daemon did not accept the reviewer's final task report." };
-      }
-    }
-    if (!taskReport && workflowOutcome && task.assignment.role !== "lead"
-      && (workflowOutcome.status === "blocked" || workflowOutcome.status === "incomplete")) {
-      taskReport = { status: "blocked", evidence: workflowOutcome.reason };
-    }
-    let evidence: Record<string, unknown>;
-    let reasonCode: AttemptReasonCode | null = null;
-
-    if (stoppedAttempt.failure?.reasonCode === "canceled") {
-      state = "canceled"; evidence = { reasonCode: "canceled" };
-    } else if (taskReport) {
-      state = taskReport.status === "dropped" ? "done" : "blocked";
-      evidence = { taskReport, reportedAttemptId: stoppedAttempt.id, validated: false };
-    } else if (stoppedAttempt.failure) {
-      state = "failed";
-      reasonCode = stoppedAttempt.failure.reasonCode as AttemptReasonCode;
-      evidence = { reasonCode };
-    } else if (task.assignment.role === "reviewer") {
-      const report = reviewerReport;
-      if (!report || !("findings" in report)) {
-        state = "failed";
-        evidence = { reasonCode: "review_report_missing" };
-        reasonCode = "review_report_missing";
-      } else {
-        try {
-          // Validate the report at the same boundary the governance path uses before recording it.
-          recordedFindings(report);
-          evidence = { ...report };
-          try {
-            const manifest = dependencies.candidateManifestFor?.(stoppedAttempt.runId, subjectTaskId);
-            if (manifest) evidence.manifestDigest = manifest.manifestDigest;
-          } catch {
-            // The review report remains sufficient evidence; the existing review path treats a
-            // missing digest as unavailable candidate context and still validates the findings.
-          }
-          state = "done";
-        } catch {
-          state = "failed";
-          evidence = { reasonCode: "review_report_missing" };
-          reasonCode = "review_report_missing";
-        }
-      }
-    } else {
-      let manifest: CandidateFacts | null = null;
-      let unavailableReason = "Candidate trees are not composed in this daemon";
-      try {
-        manifest = dependencies.candidateManifestFor?.(stoppedAttempt.runId, subjectTaskId) ?? null;
-      } catch {
-        unavailableReason = "The task's candidate is not on disk";
-      }
-      let completion: TaskCompletionEvidence;
-      if (task.assignment.role === "lead") {
-        let proposal: { taskCount: number } | null = null;
-        if (dependencies.readLeadProposal) {
-          try { proposal = { taskCount: dependencies.readLeadProposal(stoppedAttempt.runId, task.assignment.taskId).length }; }
-          catch { proposal = null; }
-        }
-        // U6 — a delivery lead's other deliverable is the question only the owner can answer.
-        // Read here too, so a turn that escalated is a turn that did its job rather than a turn
-        // whose proposal is missing.
-        let escalation: { optionCount: number } | null = null;
-        if (dependencies.readLeadEscalation) {
-          try { escalation = dependencies.readLeadEscalation(stoppedAttempt.runId, task.assignment.taskId); }
-          catch { escalation = null; }
-        }
-        completion = leadCompletionEvidence({ manifest, proposal, planRef: governance.getRun(stoppedAttempt.runId).binding.planRef,
-          ...(dependencies.readLeadEscalation ? { escalation, managementTurn: true } : {}), unavailableReason });
-      } else {
-        completion = taskCompletionEvidence({ role: task.assignment.role, assignmentPaths: task.assignment.paths, manifest, unavailableReason,
-          ...(task.workflow && workflowOutcome ? { workflow: { readOnly: task.workflow.readOnly, outcome: workflowOutcome } } : {}) });
-      }
-      evidence = { ...completion, ...(workflowOutcome ? { workflowOutcome } : {}) } as unknown as Record<string, unknown>;
-      if (completion.validated) state = "done";
-      else {
-        state = "failed";
-        reasonCode = "evidence_invalid";
-        evidence = { ...evidence, reasonCode };
-      }
-    }
-
-    const actorSession = governance.taskSeat(task.qitemId);
-    return actorSession ? { taskVersion: task.entityVersion, actorSession, state,
-      evidence: jsonValue(evidence) as JsonObject, reasonCode } : null;
+    const facts = dependencies.turnExit?.(attempt.id) ?? null;
+    return classifyAttemptFailure({ canceled,
+      exit: facts === null || (facts.exitCode === null && facts.signal === null) ? null : { code: facts.exitCode },
+      terminalTail: facts === null ? null : ([facts.stderrTail, facts.outputTail].filter(Boolean).join("\n") || null),
+      now: dependencies.now?.() });
   };
 
   const defaultOutcome = (attempt: NonNullable<ReturnType<PlanGovernance["getAttempt"]>>): FinalizationOutcome => ({
@@ -528,7 +357,7 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
       return defaultOutcome(attempt);
     }
     if (progress.outcome === undefined) {
-      progress.outcome = prepareAutomaticOutcome(attempt);
+      progress.outcome = prepareAutomaticOutcome(attempt, outcomeInput);
       saveFinalization(db, attempt.id, progress);
     }
     const prepared = progress.outcome;
@@ -593,13 +422,6 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
         log(`team completion: finalization for ${row.id} remains pending: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
-  };
-
-  /** Release a pane the launcher held, so the seat's next client starts in a live shell. */
-  const releaseHeldPane = async (paneId: string): Promise<void> => {
-    if (!dependencies.paneExit || !dependencies.releasePane) return;
-    const exit = await dependencies.paneExit(paneId);
-    if (exit?.dead) await dependencies.releasePane(paneId);
   };
 
   /** Return the seat that ran a stopped attempt to "never launched", so a dispatch may start it. */
