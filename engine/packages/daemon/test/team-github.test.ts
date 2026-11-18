@@ -143,7 +143,12 @@ describe("owner GitHub sign-in", () => {
     const starting = call("POST", "/login");
     try {
       const pending = { state: "pending", code: "ABCD-1234", url: "https://github.com/login/device" };
-      await expect.poll(() => github.loginState()).toEqual(pending);
+      // The stub writes this prompt in three chunks with 10 ms gaps, because that split is the
+      // shape desktop WSL launches produce. `expect.poll` gives up after five seconds by default
+      // and the whole budget is a handful of attempts, so on a loaded runner the last chunk
+      // arrived after the poll had already failed; the assertion is about the parse, not about
+      // how fast the child is scheduled.
+      await expect.poll(() => github.loginState(), { timeout: 15_000 }).toEqual(pending);
       expect(await (await starting).json()).toEqual({ protocolVersion: "1.0", ...pending });
       expect(calls().filter(args => args[1] === "login")).toHaveLength(1);
     } finally {
