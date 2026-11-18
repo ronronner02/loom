@@ -188,10 +188,15 @@ describe("U11 persistent retry scheduling", () => {
 
   it.each(["stated", "unstated", "HTTP 429"])("waits for quota reset (%s), then retries only once", async scenario => {
     const stated = scenario === "stated";
-    now = new Date(2026, 10, 7, 9, 0);
+    // Ten minutes after the attempt started, and before the banner's stated reset. The run's
+    // active budget is wall-clock time with a live attempt, so a larger jump would spend the
+    // two-hour budget and the run would (correctly) refuse the retry as exhausted.
+    now = new Date(now.getTime() + 10 * 60_000);
     tail = scenario === "HTTP 429" ? "API Error: 429 insufficient_quota"
       : "\u25a0 You've hit your usage limit." + (stated ? " try again at 12:14 PM." : "");
     await completion().sweep();
+    // A stated clock reset is read in the client host's timezone and taken as its next
+    // occurrence, so the expected instant is built the same way.
     const due = stated ? new Date(2026, 10, 7, 12, 14) : new Date(now.getTime() + 30 * 60_000);
     expect(governance.getTask(qitemId)!.evidence).toMatchObject({ retryNotBefore: due.toISOString() });
     expect(governance.getRun("run")).toMatchObject({ state: "approved", retriesUsed: 1 });

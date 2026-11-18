@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import type { JsonObject, ControlReceipt } from "../contracts/team-control.js";
 import type { AttemptReasonCode } from "./attempt-failure.js";
+import type { AttemptFailure } from "../contracts/team-control.js";
 import type { AttemptOutcome } from "./attempt-telemetry.js";
 
 export interface PreparedAttemptOutcome {
@@ -9,6 +10,9 @@ export interface PreparedAttemptOutcome {
   state: "done" | "failed" | "blocked" | "canceled";
   evidence: JsonObject;
   reasonCode: AttemptReasonCode | null;
+  /** The attempt's own recorded failure, kept whole so a later finalize writes the same evidence
+   *  (a quota reset time included) rather than re-deriving a bare code. */
+  failure?: AttemptFailure;
 }
 
 export interface FinalizationOutcome {

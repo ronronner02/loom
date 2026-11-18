@@ -1,3 +1,34 @@
+# Every text file is stored and checked out with LF, on every host.
+#
+# Several files are compared byte-for-byte — instruction charters against a 16 KiB prompt
+# budget, skill trees against a generated digest, policy files against an authority hash — and
+# a Windows checkout with `core.autocrlf=true` would rewrite them to CRLF and silently change
+# those measurements. `eol=lf` makes the working tree match the index everywhere, so a Windows
+# clone behaves like a Linux one.
+* text=auto eol=lf
+
+# Binaries: never converted, never diffed as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.webp binary
+*.pdf binary
+*.mp4 binary
+*.webm binary
+*.zip binary
+*.gz binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.exe binary
+*.node binary
+*.sqlite binary
+*.db binary
+
 # Shell scripts run inside WSL straight from this checkout; keep LF on Windows.
 *.sh text eol=lf
 # Skill trees are hashed byte-for-byte into skill-edge-digests.generated.json; keep LF across platforms.

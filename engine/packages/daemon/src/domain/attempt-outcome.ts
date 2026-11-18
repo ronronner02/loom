@@ -156,6 +156,9 @@ export function prepareAutomaticOutcome(stoppedAttempt: TeamAttempt, dependencie
   }
 
   const actorSession = dependencies.governance.taskSeat(task.qitemId);
+  // The attempt's own recorded failure travels with the outcome: a quota reset time the
+  // classifier read must still be the evidence written when the outcome is recorded.
   return actorSession ? { taskVersion: task.entityVersion, actorSession, state,
-    evidence: jsonValue(evidence) as JsonObject, reasonCode } : null;
+    evidence: jsonValue(evidence) as JsonObject, reasonCode,
+    ...(stoppedAttempt.failure ? { failure: stoppedAttempt.failure } : {}) } : null;
 }
