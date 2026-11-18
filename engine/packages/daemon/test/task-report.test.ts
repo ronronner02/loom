@@ -11,6 +11,7 @@ import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
 import { agentTurnOutputPaths, managedTurnPrompt } from "../src/domain/agent-turn.js";
 import { parseTaskReport } from "../src/domain/task-report.js";
 import { parseLeadProposalFile } from "../src/domain/lead-proposal.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
 
 describe("the structured task report boundary", () => {
   const report = { status: "blocked", question: "Which response is required?", evidence: "The plan names two responses." };
@@ -53,7 +54,7 @@ describe("the structured task report boundary", () => {
     expect(runtime.taskReportFor("run", "attempt", root)).toBeNull();
   });
 
-  it.each(["symlink", "directory", "invalid-json", "invalid-utf8", "oversized"])("does not mistake an unreadable %s report for no report", kind => {
+  it.each(["directory", "invalid-json", "invalid-utf8", "oversized"].concat(symlinkRefusal === null ? ["symlink"] : []))("does not mistake an unreadable %s report for no report", kind => {
     const path = agentTurnOutputPaths(root, "attempt").taskReport;
     mkdirSync(dirname(path), { recursive: true });
     if (kind === "symlink") {

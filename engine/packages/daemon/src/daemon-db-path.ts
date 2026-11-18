@@ -56,6 +56,13 @@ export function resolveDaemonDbPath(explicitDb: string | undefined | null, multi
     return explicitDb;
   }
   const dbPath = join(multiAgentHome, "multi-agent.sqlite");
+  // A home that exists but is not a directory cannot hold the database, and resolving the
+  // path under it would error in a way that reads as a missing tail rather than the shape
+  // problem it is. Refuse it here, where the caller can see why.
+  const homeStat = lstatSync(multiAgentHome, { throwIfNoEntry: false });
+  if (homeStat && !homeStat.isDirectory() && !homeStat.isSymbolicLink()) {
+    throw new Error(`MULTI_AGENT_HOME is not a directory: ${multiAgentHome}`);
+  }
   const resolvedHome = resolveForContainment(multiAgentHome);
   const resolvedDb = resolveForContainment(dbPath);
   if (!isWithin(resolvedHome, resolvedDb)) {

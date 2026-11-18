@@ -1,11 +1,10 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve, join } from "node:path";
-import { prepareHermeticEnv, type HermeticScaffold } from "./helpers/hermetic-env.js";
-import { spawnScenarioDaemon, runRig, type ScenarioDaemon } from "./helpers/scenario-daemon.js";
+import { prepareHermeticEnv, SCAFFOLD_OWNER_TOKEN, type HermeticScaffold } from "./helpers/hermetic-env.js";
+import { spawnScenarioDaemon, type ScenarioDaemon } from "./helpers/scenario-daemon.js";
 import {
   readSurface,
-  transcriptReadArgv,
   UnboundSurfaceError,
   type SurfaceContext,
 } from "./helpers/scenario-surfaces.js";
@@ -48,43 +47,18 @@ describe("surface readers — live daemon (integration)", () => {
     daemon = undefined; scaffold = undefined;
   });
 
-  it("ps and queue readers return parsed bare arrays from the scenario-local daemon", async () => {
-    scaffold = prepareHermeticEnv({ baseEnv: realBaseEnv() });
-    daemon = await spawnScenarioDaemon(scaffold, { rigBin: RIG_BIN });
-    const ctx: SurfaceContext = { rigBin: RIG_BIN, readEnv: daemon.readEnv, baseUrl: daemon.baseUrl };
-
-    const ps = await readSurface("ps", ctx);
-    expect(Array.isArray(ps)).toBe(true);
-    const queue = await readSurface("queue", ctx);
-    expect(Array.isArray(queue)).toBe(true);
-  }, 60_000);
-
-  // Guard finding 1 (false-green): the transcript reader emitted `--tail --json`,
-  // but `--tail <lines>` takes a REQUIRED value, so Commander consumed "--json"
-  // AS the tail value ({"tail":"--json"}) and JSON mode was never set. The
-  // containsMatch unit pin never crossed this reader/CLI boundary, so "D11 covers
-  // transcript" was false for transcript. This crosses it for real.
-  it("the transcript reader reaches JSON mode at the REAL CLI boundary (not human text)", async () => {
+  // The shipped reads this suite once drove (ps, queue, transcript) went with the CLI
+  // reduction; the owner surface is what the daemon still serves, so the live round trip is
+  // asserted there. The pure dispatch cases above still cover the reader's own contract.
+  it("the owner read answers from the scenario-local daemon, and refuses an anonymous caller", async () => {
     scaffold = prepareHermeticEnv({ baseEnv: realBaseEnv() });
     daemon = await spawnScenarioDaemon(scaffold, { rigBin: RIG_BIN });
 
-    // Drive the shipped CLI with the reader's OWN argv, then assert on the effect:
-    // stdout must PARSE as JSON. Human text parses as nothing.
-    const argv = transcriptReadArgv("no-such-seat@scn-none");
-    expect(argv).toContain("--json");
-    const tailIdx = argv.indexOf("--tail");
-    expect(tailIdx).toBeGreaterThanOrEqual(0);
-    expect(argv[tailIdx + 1]).toMatch(/^\d+$/); // a VALUE, never the next flag
-
-    const r = await runRig(argv, daemon.readEnv, RIG_BIN);
-    expect(() => JSON.parse(r.stdout)).not.toThrow();
-
-    // Negative control: the OLD argv shape does NOT reach JSON mode — proving the
-    // discriminator can actually tell the two apart.
-    const broken = ["transcript", "no-such-seat@scn-none", "--tail", "--json"];
-    const rBroken = await runRig(broken, daemon.readEnv, RIG_BIN);
-    let brokenIsJson = true;
-    try { JSON.parse(rBroken.stdout); } catch { brokenIsJson = false; }
-    expect(brokenIsJson).toBe(false);
+    const anonymous = await fetch(`${daemon.baseUrl}/api/team-control/health`);
+    expect(anonymous.status).toBe(401);
+    const owner = await fetch(`${daemon.baseUrl}/api/team-control/health`,
+      { headers: { Authorization: `Bearer ${SCAFFOLD_OWNER_TOKEN}` } });
+    expect(owner.status).toBe(200);
+    expect(await owner.json()).toMatchObject({ protocolVersion: expect.any(String), health: expect.any(Object) });
   }, 60_000);
 });

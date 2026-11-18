@@ -245,7 +245,14 @@ export function assertNoAmbientTmux(env: EnvLike = process.env): void {
  * Not fail-closed triggers on their own (they carry no target address), but they
  * must never bleed into a scenario-local daemon's environment.
  */
-const CREDENTIAL_ENV_VARS = ["MULTI_AGENT_AUTH_BEARER_TOKEN"] as const;
+const CREDENTIAL_ENV_VARS = ["MULTI_AGENT_AUTH_BEARER_TOKEN", "MULTI_AGENT_OWNER_TOKEN"] as const;
+
+/**
+ * The owner credential the scaffold's own daemon boots with. The daemon refuses to start
+ * without one, and a scenario spawn gives it no environment to read it from, so the scaffold
+ * sets its own rather than inheriting (and scrubbing) the operator's.
+ */
+export const SCAFFOLD_OWNER_TOKEN = "scaffold-owner-token";
 
 /** A per-run hermetic scaffold: scratch dirs + a clean child-process env + teardown. */
 export interface HermeticScaffold {
@@ -351,6 +358,7 @@ process.exit(result.status ?? 1);
   const env: Record<string, string | undefined> = { ...baseEnv };
   for (const name of DAEMON_TARGET_ENV_VARS) delete env[name];
   for (const name of CREDENTIAL_ENV_VARS) delete env[name];
+  env.MULTI_AGENT_OWNER_TOKEN = SCAFFOLD_OWNER_TOKEN;
   // Scrub any injected-clock var (defense in depth behind the fail-closed guard) so
   // only an explicit injectClockNow can set it below — never an inherited value.
   for (const name of TEST_CLOCK_ENV_VARS) delete env[name];

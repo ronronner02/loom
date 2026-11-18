@@ -170,8 +170,9 @@ describe("A3-R3 compaction-asset clock/stamp injection (real-spawn)", () => {
       expect(runBridge(home, { hook_event_name: "PostCompact" }, INJECTED_ISO).status).toBe(0);
       const m = readMarker(home);
       // Normalize the ephemeral per-run tmp prefix out of outputDir — the timestamped
-      // STAMP element (the clock-derived part) is what the pin proves deterministic.
-      const outStamp = String(m["outputDir"]).split("/").pop();
+      // STAMP element (the clock-derived part) is what the pin proves deterministic. The
+      // marker writes the path this host spells, so both separators are split.
+      const outStamp = String(m["outputDir"]).split(/[\\/]/).pop();
       return { createdAt: m["createdAt"], outputDir: outStamp, deliveredAt: m["deliveredAt"], postCompactAt: m["postCompactAt"] };
     };
     const run1 = runOnce();

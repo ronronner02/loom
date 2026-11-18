@@ -11,6 +11,7 @@ import { QueueRepository } from "../src/domain/queue-repository.js";
 import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
 import { hashBinding, hashBytes } from "../src/domain/plan-governance.js";
 import { candidateManifest, removeCandidateWorkspace } from "../src/domain/team-workspace.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
 
 // T048 — a resumed candidate is adopted only when a control-owned record accounts for it, and a
 // candidate is released without any git process receiving its path.
@@ -29,12 +30,18 @@ function repository(): string {
   git(root, "init", "--quiet", "--initial-branch=main");
   git(root, "config", "user.email", "test@example.invalid");
   git(root, "config", "user.name", "test");
+  // Git answers `worktree list` in the long spelling; a short-form %TEMP% would make the
+  // followed path and the registered one compare unequal.
+  git(root, "config", "core.longpaths", "true");
   mkdirSync(join(root, "src"));
   writeFileSync(join(root, "src", "base.ts"), "export const base = 1;\n");
   git(root, "add", ".");
   git(root, "commit", "--quiet", "-m", "base");
   return root;
 }
+
+/** Git's own spelling of an absolute path: `/`-separated with the drive letter, as it reports them. */
+const gitPath = (path: string): string => path.replaceAll("\\", "/");
 
 /** A repository with no commit, which is the snapshot lane. */
 function unbornRepository(): string {
@@ -114,7 +121,7 @@ describe("candidate adoption and release use control-owned provenance", () => {
     writeFileSync(join(created.root, "src", "work.ts"), "export const work = 1;\n");
     // The registry entry the source holds is what makes the tree adoptable; it was written by
     // `git worktree add` against the source, not by anything in the candidate.
-    expect(git(repo, "worktree", "list", "--porcelain")).toContain(created.root);
+    expect(git(repo, "worktree", "list", "--porcelain")).toContain(gitPath(created.root));
 
     const adopted = runtimeFor().candidateFor("run-1", "T048", "ma-worker1");
     expect(adopted.root).toBe(created.root);
@@ -164,8 +171,8 @@ describe("candidate adoption and release use control-owned provenance", () => {
     git(other, "worktree", "add", "--detach", "--force", occupied, "HEAD");
     const created = runtimeFor().candidateFor("run-1", "T048", "ma-worker1");
     expect(created.root).toBe(occupied);
-    expect(git(repo, "worktree", "list", "--porcelain"), "the task now owns a worktree of its own").toContain(occupied);
-    expect(git(other, "worktree", "list", "--porcelain"), "the other repository keeps its tree").toContain(occupied);
+    expect(git(repo, "worktree", "list", "--porcelain"), "the task now owns a worktree of its own").toContain(gitPath(occupied));
+    expect(git(other, "worktree", "list", "--porcelain"), "the other repository keeps its tree").toContain(gitPath(occupied));
   });
 
   it("adopts a candidate holding work whose .git the worker removed", () => {
@@ -202,7 +209,7 @@ describe("candidate adoption and release use control-owned provenance", () => {
     const workspace = runtimeFor().candidateFor("run-1", "T048", "ma-worker1");
     removeCandidateWorkspace(workspace);
     expect(git(repo, "worktree", "list", "--porcelain"), "another registration survives the release")
-      .toContain(unrelated);
+      .toContain(gitPath(unrelated));
   });
 
   it("adopts and releases a candidate registered with relative pointers", () => {
@@ -242,7 +249,7 @@ describe("candidate adoption and release use control-owned provenance", () => {
     expect(candidateManifest(adopted).files.map(file => file.path)).toContain("src/work.ts");
   });
 
-  it("adopts a genuine candidate when the source is reached through a symlink", () => {
+  it.skipIf(symlinkRefusal !== null)("adopts a genuine candidate when the source is reached through a symlink", () => {
     const repo = repository();
     const throughLink = join(directory, "repo-link");
     symlinkSync(repo, throughLink);
@@ -302,7 +309,9 @@ describe("candidate adoption and release use control-owned provenance", () => {
     expect(git(repo, "worktree", "list", "--porcelain")).not.toContain(workspace.root);
   });
 
-  it("hands no git process a candidate path while adopting or removing", () => {
+  // The observation is a `/bin/sh` wrapper first on PATH with `:`-joined PATH entries; Windows
+// resolves git.exe through PATHEXT and never reaches it, so the coverage stays on POSIX hosts.
+  it.skipIf(process.platform === "win32")("hands no git process a candidate path while adopting or removing", () => {
     // R1-2: the previous version of this test could not fail — it planted an invalid gitdir, so
     // git would have rejected it before the marker mattered, and no assertion ever looked at what
     // git was given. This observes the invocation itself: every git call made while a candidate is

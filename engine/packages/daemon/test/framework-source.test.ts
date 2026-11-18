@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { FRAMEWORK_CATALOG } from "../src/integrations/framework/catalog.js";
 import { frameworkInstructionSources, installPinnedFramework, localFrameworkRoot, verifyFrameworkSource } from "../src/integrations/framework/source.js";
 import { writeFrameworkFixture } from "./helpers/framework-source.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
 
 const roots: string[] = [];
 const fixture = () => { const root = mkdtempSync(join(tmpdir(), "workflow-source-")); roots.push(root); writeFrameworkFixture(root); return root; };
@@ -21,7 +22,7 @@ describe("complete pinned workflow source", () => {
     writeFileSync(join(root, "skills/spec-work/references/check.md"), "substituted instructions");
     expect(() => verifyFrameworkSource(root)).toThrow(/bytes differ/);
   });
-  it("rejects extra files and symlink substitutions", () => {
+  it.skipIf(symlinkRefusal !== null)("rejects extra files and symlink substitutions", () => {
     const root = fixture();
     symlinkSync(join(root, "skills/spec-work/SKILL.md"), join(root, "unexpected.md"));
     expect(() => verifyFrameworkSource(root)).toThrow(/link/);

@@ -15,6 +15,10 @@ import { roleConfiguration } from "../src/domain/role-configuration.js";
 import type { PlanBinding } from "../src/contracts/team-control.js";
 import { createTestApp } from "./helpers/test-app.js";
 
+// The four cases below signal a POSIX process group: Windows has no groups, ends a tree with
+// `taskkill`, and proves identity through a CIM query, so their assertions have no counterpart
+// there. The Windows branch has its own coverage in process-identity.test.ts.
+
 /**
  * T017 (cancellation half) — the owner's cancel stops the work.
  *
@@ -140,7 +144,7 @@ describe("T017 — the owner's cancel stops the work", () => {
     try { rmSync(directory, { recursive: true, force: true }); } catch { /* the projection seals its own tree */ }
   });
 
-  it("records the intent, ends the client the run launched, and reaches canceled", async () => {
+  it.skipIf(process.platform === "win32")("records the intent, ends the client the run launched, and reaches canceled", async () => {
     receipt("attempt-1", "builder@rig");
     await sweep();
     expect(governance.getAttempt("attempt-1")?.state).toBe("running");
@@ -174,7 +178,7 @@ describe("T017 — the owner's cancel stops the work", () => {
       destinationSession: "builder@rig", body: "Second." }), binding)).toMatchObject({ status: "denied" });
   });
 
-  it("escalates to SIGKILL after the grace and reports the escalation", async () => {
+  it.skipIf(process.platform === "win32")("escalates to SIGKILL after the grace and reports the escalation", async () => {
     receipt("attempt-1", "builder@rig");
     await sweep();
     app = createTestApp(db, { appDeps: { teamGovernance: governance, teamControl: { credentials: { ownerToken: "owner-fixture" },
@@ -191,7 +195,7 @@ describe("T017 — the owner's cancel stops the work", () => {
     expect(governance.getAttempt("attempt-1")?.state).toBe("stopped");
   });
 
-  it("never signals a pid whose start time moved, and never one that is not its own group", async () => {
+  it.skipIf(process.platform === "win32")("never signals a pid whose start time moved, and never one that is not its own group", async () => {
     receipt("attempt-1", "builder@rig");
     await sweep();
     // The pid was reused by another process: a different start tick, so it is not this run's.
@@ -207,7 +211,7 @@ describe("T017 — the owner's cancel stops the work", () => {
       .toMatchObject({ outcome: "not-running" });
   });
 
-  it("reports an attempt that survives the whole limit as unresolved and keeps the run requested", async () => {
+  it.skipIf(process.platform === "win32")("reports an attempt that survives the whole limit as unresolved and keeps the run requested", async () => {
     receipt("attempt-1", "builder@rig");
     await sweep();
     // Nothing ever ends it: not SIGTERM, not SIGKILL.
@@ -246,7 +250,10 @@ describe("T017 — the owner's cancel stops the work", () => {
     expect(governance.getAttempt("other-attempt")?.state).toBe("running");
   });
 
-  it("refuses to cancel a run that already came to rest", async () => {
+  // The fixture's process is a POSIX one: `leavesOnTerm` signals it and clears `live`, which is
+  // what lets the sweep record the attempt stopped. Windows ends a tree through `taskkill` and
+  // proves the end with a CIM query, so this fixture's process never ends there.
+  it.skipIf(process.platform === "win32")("refuses to cancel a run that already came to rest", async () => {
     receipt("attempt-1", "builder@rig");
     await sweep();
     const first = await request("/api/team-control/runs/run/cancel", { method: "POST", headers: { "Content-Type": "application/json" },

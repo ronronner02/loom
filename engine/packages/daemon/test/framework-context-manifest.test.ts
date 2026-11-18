@@ -17,7 +17,16 @@ afterEach(() => {
 // directories it creates, so the ownership checks are exercised rather than skipped.
 const ownerUid = typeof process.getuid === "function" ? process.getuid() : 0;
 const ownerGid = typeof process.getgid === "function" ? process.getgid() : 0;
-function fixture(role: "implementer" | "reviewer" = "implementer") {
+/**
+ * The identity shape a manifest is built for.
+ *
+ * `same` is the only shape production composes now: the worker is the daemon's own user, so
+ * the private-ownership checks prove nothing and are skipped. The provisioned shape — a
+ * control uid distinct from the worker's — is still the manifest's other contract, and the
+ * cases that assert those ownership refusals build it explicitly.
+ */
+type IdentityShape = "same" | "provisioned";
+function fixture(role: "implementer" | "reviewer" = "implementer", shape: IdentityShape = "same") {
   const base = mkdtempSync(join(tmpdir(), "context-test-")); roots.push(base); chmodSync(base, 0o755);
   for (const d of ["repo", "context", "state", "framework"]) mkdirSync(join(base, d));
   const root = join(base, "context", "ma-worker1", "run", "attempt-1");
@@ -31,8 +40,10 @@ function fixture(role: "implementer" | "reviewer" = "implementer") {
   const source = join(base, "framework", "skill.md"); writeFileSync(source, "pinned instructions"); writeFileSync(join(base, "repo", "plan.md"), plan);
   const files = ([ ["framework", "pinned instructions"], ["plan", plan], ["role", JSON.stringify(roleConfiguration)], ...roleInstructionEntries(role) ] as const).map(([kind, content]) => { const path = join(root, kind); writeFileSync(path, content, { mode: 0o440 }); return { path, hash: hashBytes(content), kind, readOnly: true as const, ...(kind === "framework" ? { source } : {}) }; });
   chmodSync(root, 0o550);
-  const input: ContextInput = { sameIdentity: true, projection: { worker: "ma-worker1", attemptId: "attempt-1", controlUid: ownerUid, workerGid: ownerGid,
-    policy: { policy_revision: 4, worker_identities: ["ma-worker1", "ma-worker2"], paths: { context_root: join(base, "context"), framework_dir: join(base, "framework") }, sandbox: { context: "/context", framework: "/framework" } } }, runId: "run", assignment: { taskId: "T007", role, paths: ["src"], dependencies: [] }, outputs: role === "reviewer" ? [] : ["src/result.ts"], permissions: role === "reviewer" ? ["submit-review"] : ["write-assigned-tree"], role, client: "claude-code", binding, root, mutableStateRoot: join(base, "state"), frameworkRoot: join(base, "framework"), frameworkRevision: FRAMEWORK_PIN.revision, workerUid: ownerUid, workerGroups: [], discoveryRoots: [root], files };
+  const input: ContextInput = { ...(shape === "same" ? { sameIdentity: true as const } : {}),
+    projection: { worker: "ma-worker1", attemptId: "attempt-1", controlUid: ownerUid, workerGid: ownerGid,
+    policy: { policy_revision: 4, worker_identities: ["ma-worker1", "ma-worker2"], paths: { context_root: join(base, "context"), framework_dir: join(base, "framework") }, sandbox: { context: "/context", framework: "/framework" } } }, runId: "run", assignment: { taskId: "T007", role, paths: ["src"], dependencies: [] }, outputs: role === "reviewer" ? [] : ["src/result.ts"], permissions: role === "reviewer" ? ["submit-review"] : ["write-assigned-tree"], role, client: "claude-code", binding, root, mutableStateRoot: join(base, "state"), frameworkRoot: join(base, "framework"), frameworkRevision: FRAMEWORK_PIN.revision,
+    workerUid: shape === "same" ? ownerUid : ownerUid + 1, workerGroups: [], discoveryRoots: [root], files };
   const observed = { discoveryRoots: ["/context"], files: files.map(({ kind, hash }) => ({ path: "/context/" + kind, hash })) }; return { base, input, observed };
 }
 it("pins a specialist identity and rejects content or role substitution", () => {
@@ -78,7 +89,9 @@ it.each(FRAMEWORK_CATALOG)("delivers $name from its complete source package", en
 });
 it.each(["parent", "global", "unobserved"])("rejects %s instruction contamination", kind => { const { input, observed } = fixture(), m = createContextManifest(input); if (kind === "unobserved") observed.files.pop(); else observed.files.push({ path: kind === "parent" ? join(input.root, "..", "AGENTS.md") : "/global/CLAUDE.md", hash: hashBytes("extra") }); expect(() => verifyEffectiveContext(m, observed)).toThrow(); });
 it.each(["file", "parent", "owner", "state", "pin", "source", "alias", "role", "unreadable", "unsearchable"])("rejects invalid projected context: %s", kind => {
-  const { base, input } = fixture();
+  // The mode, ownership and alias refusals are the provisioned-identity contract, so the
+  // fixture builds that shape; the rest hold under either identity.
+  const { base, input } = fixture("implementer", "provisioned");
   // Mode and symlink cases need a POSIX filesystem; Windows refuses both the symlink and the
   // permission change, so those shapes are proved on the host that enforces them.
   const posix = typeof process.getuid === "function";
@@ -213,7 +226,9 @@ it("records host and worker paths from exactly the two installed-policy prefixes
 });
 
 it.each(["discovery", "file", "projection", "worker", "group", "public-file", "public-parent"])("refuses context outside its private mount contract: %s", kind => {
-  const { base, input } = fixture();
+  // The private mount contract belongs to the provisioned identity; one identity has no
+  // separate owner to keep a projection private from.
+  const { base, input } = fixture("implementer", "provisioned");
   const posix = typeof process.getuid === "function";
   if (["group", "public-file", "public-parent"].includes(kind) && !posix) return;
   const outside = join(base, "outside"); writeFileSync(outside, "pinned instructions", { mode: 0o440 });

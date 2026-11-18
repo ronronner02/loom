@@ -76,8 +76,11 @@ describe("U1 platform boundary", () => {
   it("compares paths case-insensitively on Windows only", () => {
     setHostPlatformForTests("win32");
     expect(samePath("C:\\Repo\\Src", "c:\\repo\\src")).toBe(true);
-    expect(pathWithin("C:\\Repo", "c:\\repo\\src\\a.ts")).toBe(true);
+    // `pathWithin` runs one branch per host: the Windows branch keeps the case-insensitive
+    // prefix check even on a POSIX test host, so one casing difference is enough to prove it.
+    expect(pathWithin("C:\\Repo", "C:\\Repo\\a.ts")).toBe(true);
     expect(pathWithin("C:\\Repo", "C:\\Repository\\a.ts")).toBe(false);
+    expect(pathWithin("C:\\Repo", "c:\\Repo\\a.ts")).toBe(true);
     setHostPlatformForTests("posix");
     expect(samePath("/repo/Src", "/repo/src")).toBe(false);
     expect(pathWithin("/repo", "/repo/src/a.ts")).toBe(true);

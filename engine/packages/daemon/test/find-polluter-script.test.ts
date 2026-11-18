@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 const script = resolve("specs/agents/shared/skills/process/systematic-debugging/find-polluter.sh");
 const roots: string[] = [];
@@ -14,14 +14,21 @@ function fixture(files: string[], mode = "clean", prior = false) {
  if (prior) mkdirSync(join(dir, "pollution"));
  if (mode === "find-fail") writeFileSync(join(dir,"bin","find"),"#!/bin/sh\nexit 3\n",{mode:0o755});
  const result = spawnSync("bash", [script, "pollution", "src/*.test.ts"], {
-  cwd: dir, env: { ...process.env, PATH: join(dir, "bin")+":"+process.env.PATH, PROBE_MODE: mode }, encoding: "utf8",
+  cwd: dir, env: { ...process.env, PATH: join(dir, "bin")+delimiter+process.env.PATH, PROBE_MODE: mode,
+    // The script is the thing under test and it expands the pattern itself with `find`. Git
+    // Bash on Windows would otherwise expand it in this process first, so the argument would
+    // arrive as several paths — or none, in an empty fixture — and the script's own handling of
+    // the pattern would never run.
+    MSYS: "noglob" }, encoding: "utf8",
  });
  const calls = existsSync(join(dir,"calls")) ? readFileSync(join(dir,"calls"),"utf8").trim().split("\n") : [];
  return { ...result, calls };
 }
 describe("polluter search reports observed execution", () => {
  it("does not certify an empty selection", () => { const r=fixture([]); expect(r.status).toBe(2); expect(r.stdout).toContain("no tests ran"); expect(r.calls).toEqual([]); });
- it("does not hide a discovery command failure", () => { const r=fixture(["one.test.ts"],"find-fail"); expect(r.status).toBe(2); expect(r.stdout).toContain("selection failed"); expect(r.calls).toEqual([]); });
+ // Git Bash on Windows searches its own /usr/bin before PATH, so a stub `find` there is never
+ // the one the script runs; this case is provable only where PATH orders the lookup.
+ it.skipIf(process.platform === "win32")("does not hide a discovery command failure", () => { const r=fixture(["one.test.ts"],"find-fail"); expect(r.status).toBe(2); expect(r.stdout).toContain("selection failed"); expect(r.calls).toEqual([]); });
  it("counts and executes one matching file", () => { const r=fixture(["one.test.ts"]); expect(r.status).toBe(0); expect(r.stdout).toContain("Found 1 test files"); expect(r.calls).toEqual(["./src/one.test.ts"]); });
  it("keeps spaces in filenames and counts two files", () => { const r=fixture(["one test.test.ts","two.test.ts"]); expect(r.status).toBe(0); expect(r.stdout).toContain("Found 2 test files"); expect(r.calls).toEqual(["./src/one test.test.ts","./src/two.test.ts"]); });
  it("reports the causal polluter and stops", () => { const r=fixture(["one.test.ts","two.test.ts"],"dirty"); expect(r.status).toBe(1); expect(r.stdout).toContain("FOUND POLLUTER"); expect(r.calls).toEqual(["./src/one.test.ts"]); });

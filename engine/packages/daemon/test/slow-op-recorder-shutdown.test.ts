@@ -98,7 +98,9 @@ describe("drainSlowOpRecorderOnShutdown — bounded shutdown drain", () => {
     expect(logs.join(" ")).toMatch(/slow-operation/);
   });
 
-  it("a real SIGINT crosses the actual startServer shutdown handler and drains to exit 0", async () => {
+  it.skipIf(process.platform === "win32")("a real SIGINT crosses the actual startServer shutdown handler and drains to exit 0", async () => {
+    // A POSIX signal: Windows has no SIGINT delivery to a child process, so the handler
+    // this case exists to cross is never entered there.
     // Runs the production entrypoint directly (isDirectRun -> startServer()),
     // which registers the real SIGINT handler at index.ts and builds a real
     // file-backed recorder. A real signal crosses THAT handler — not a test
@@ -113,6 +115,9 @@ describe("drainSlowOpRecorderOnShutdown — bounded shutdown drain", () => {
         MULTI_AGENT_DB: path.join(home, "multi-agent.sqlite"),
         MULTI_AGENT_PORT: String(port),
         MULTI_AGENT_URL: "",
+        // The daemon refuses to start without an owner credential; this child gets none from
+        // the environment, so name one rather than rely on a file the harness does not write.
+        MULTI_AGENT_OWNER_TOKEN: "slow-op-shutdown-owner",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

@@ -214,7 +214,9 @@ emit(${JSON.stringify(last)});`);
     expect(activity.every(record => record.summary.length <= 512)).toBe(true);
   });
 
-  it("settles open calls as aborted while preserving a child's signal and unavailable usage", () => {
+  // A child's terminating signal is a POSIX fact: Windows terminates the process and reports an
+  // exit code, so there is no `signal` to preserve.
+  it.skipIf(process.platform === "win32")("settles open calls as aborted while preserving a child's signal and unavailable usage", () => {
     const result = synthetic([{ type: "item.started", item: { id: "item-1", type: "command_execution", command: "sleep 10", status: "in_progress" } }],
       "process.kill(process.pid, 'SIGTERM');");
     expect(result.signal).toBe("SIGTERM"); expect(result.stdout).toBe("[command] sleep 10\n");

@@ -1,0 +1,58 @@
+# The full test suites, on both hosts the product ships to. `smoke.yml` runs the focused set on
+# every PR; this workflow is the release gate the owner set on 2026-11-17: a suite that is only
+# green on one host drifts on the other, and nothing notices until a release.
+#
+# The daemon suite is the long pole. `--maxWorkers=2` is kept because the suites spawn real child
+# processes and bind sockets; shard here only if a single job passes about twenty minutes on a
+# runner.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  suites:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      # The skill and reference packs are symlinked into the repository. Without this a Windows
+      # checkout writes each link target as a plain file and the pack checks fail.
+      - uses: actions/checkout@v4
+        with:
+          symlinks: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: engine/package-lock.json
+      # better-sqlite3 ships a win32-x64 N-API prebuild, so the node-gyp rebuild its install
+      # script would run is unnecessary and would fail on a runner without a compiler. The CLI's
+      # `postinstall` ABI check is likewise skipped and covered by its own test.
+      - name: Install
+        run: npm ci --no-audit --no-fund --ignore-scripts
+        working-directory: engine
+      # The CLI imports @multi-agent/daemon through its package exports, which point at dist, and
+      # the daemon's own spawned-CLI tests read packages/cli/dist, so the build comes first.
+      - name: Build
+        run: npm run build
+        working-directory: engine
+      - name: Daemon suite
+        run: npx vitest run --maxWorkers=2
+        working-directory: engine/packages/daemon
+      - name: CLI suite
+        run: npx vitest run --maxWorkers=2
+        working-directory: engine/packages/cli
+      - name: UI suite
+        run: npx vitest run --maxWorkers=2
+        working-directory: engine/packages/ui
+      - name: i18n suite
+        run: npm run test
+        working-directory: engine/packages/i18n
+      - name: Repository guards and script tests
+        run: npm run test:repo
+        working-directory: engine

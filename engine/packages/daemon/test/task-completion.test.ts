@@ -499,7 +499,9 @@ describe("the completion path's pure rules", () => {
     expect(result.outsideAssignment).toEqual(validated ? [] : [path]);
   });
 
-  it("treats a process whose start time moved as a different process, and an unreadable one as alive", () => {
+  // processIdentityAlive reads /proc, which only exists on POSIX hosts. The Windows
+  // identity reader is covered by process-identity.test.ts.
+  it.skipIf(process.platform === "win32")("treats a process whose start time moved as a different process, and an unreadable one as alive", () => {
     // The test's own process is alive under its recorded start; a moved start time is not it.
     const self = process.pid, stat = execFileSync("cat", ["/proc/" + self + "/stat"], { encoding: "utf8" });
     const start = stat.slice(stat.lastIndexOf(")") + 2).trim().split(/\s+/)[19]!;

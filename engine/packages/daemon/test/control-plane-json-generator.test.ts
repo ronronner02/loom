@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { symlinkRefusal } from "./helpers/symlink.js";
 
 const roots: string[] = [];
 const REPO_ROOT = resolve(import.meta.dirname, "../../..");
@@ -185,7 +186,7 @@ describe("control-plane JSON generator", () => {
     await expect(generator.generateControlPlaneJson(input)).rejects.toThrow(/internal-tokens\.generated\.json.*charged_terms/);
   });
 
-  it("rejects edge file symlinks before digesting outside-root bytes", async () => {
+  it.skipIf(symlinkRefusal !== null)("rejects edge file symlinks before digesting outside-root bytes", async () => {
     const generator = await loadGenerator();
     const root = tempRoot();
     const input = seedGeneratorInput(root);
@@ -219,7 +220,7 @@ describe("control-plane JSON generator", () => {
     }
   });
 
-  it("rejects edge directory symlinks before traversal or digesting outside-root bytes", async () => {
+  it.skipIf(symlinkRefusal !== null)("rejects edge directory symlinks before traversal or digesting outside-root bytes", async () => {
     const generator = await loadGenerator();
     const root = tempRoot();
     const input = seedGeneratorInput(root);
