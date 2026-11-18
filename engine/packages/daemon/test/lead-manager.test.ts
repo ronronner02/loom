@@ -537,6 +537,11 @@ describe("U6 — the lead as manager", () => {
     // route the lead cannot call and not from the owner.
     const proposal = [{ taskId: "task-2", seat: "a@rig", paths: ["src/a.ts"], dependencies: [], body: "Implement it" }];
     const completion = composeAttemptCompletion({ db, governance, turnStateRoot: turnRoot,
+      // The recorded identity is a pid that does not exist, so this turn is over. It is stated
+      // rather than looked up: the real lookup asks the OS, and on a loaded runner that query can
+      // time out and answer `unknown`, which the sweep (correctly) treats as possibly alive. The
+      // case is about admitting the lead's list at the turn end, not about process observation.
+      alive: () => false,
       sessions: { findResumeContextByName: () => null, updateStartupStatus: () => {} },
       currentBinding: () => structuredClone(binding),
       candidateManifestFor: () => ({ base: "commit" as const, baseIdentifier: "a".repeat(40),
