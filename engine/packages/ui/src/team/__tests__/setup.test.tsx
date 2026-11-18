@@ -20,9 +20,11 @@ beforeEach(() => {
     { client: "gh", ok: true, path: "/gh/bin/gh.exe" },
     { client: "claude", ok: false, reason: "not-found" },
     { client: "codex", ok: false, reason: "not-found" },
+    { client: "gemini", ok: true, path: "/npm/node_modules/@google/gemini-cli/bundle/gemini.js" },
   ], signIn: [
     { client: "claude", state: "signed-in", signIn: null },
     { client: "codex", state: "signed-out", signIn: "codex login" },
+    { client: "gemini", state: "unknown", signIn: "gemini" },
   ], proxy: "", complete: false };
   request.mockImplementation(async (path: string, init?: RequestInit) => {
     if (path !== "/setup") throw new Error("Unexpected request: " + path);
@@ -60,6 +62,21 @@ describe("first-run setup", () => {
     const signedIn = await screen.findByText("Signed in");
     expect(signedIn.closest("li")?.textContent).toContain("Claude Code");
     expect(screen.getByText("Not signed in").closest("li")?.textContent).toContain("codex login");
+  });
+
+  it("lists Gemini as a tool with its resolved entry, and reports an unknown sign-in honestly", async () => {
+    await show();
+    expect(await screen.findByTitle("/npm/node_modules/@google/gemini-cli/bundle/gemini.js")).toBeTruthy();
+    const row = screen.getByText("Unknown").closest("li")!;
+    expect(row.textContent).toContain("Gemini CLI");
+    expect(row.textContent).toContain("gemini");
+  });
+
+  it("names Gemini's install line when it is missing", async () => {
+    state = { ...state, tools: (state.tools as Array<{ client: string }>).map(row =>
+      row.client === "gemini" ? { client: "gemini", ok: false, reason: "not-found" } : row) };
+    await show();
+    expect(await screen.findByText("npm install -g @google/gemini-cli")).toBeTruthy();
   });
 
   it("re-checks the tools on demand", async () => {

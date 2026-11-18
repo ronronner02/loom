@@ -224,5 +224,7 @@ describe("the intake assessment turn", () => {
       "--strict-mcp-config", "--output-format", "text", "--model", "sonnet"]);
     expect(assessorArgv("codex", null, "/tmp/a")).toEqual(["exec", "-s", "read-only", "-c", "approval_policy=never",
       "-c", "check_for_update_on_startup=false", "-o", "/tmp/a", "-"]);
+    expect(assessorArgv("gemini", "fixture-model", "/tmp/a")).toEqual(["--skip-trust", "--approval-mode", "plan",
+      "--output-format", "text", "--model", "fixture-model"]);
   });
 });

@@ -128,3 +128,6 @@ jobs:
       - name: Native CLI tests
         run: npx vitest run --maxWorkers=2 packages/cli/test/daemon-stop-windows.test.ts packages/cli/test/daemon-stop-outcome.test.ts packages/cli/test/daemon-start-port.test.ts packages/cli/test/thin-cli.test.ts packages/cli/test/github-command.test.ts packages/cli/test/github-sign-in.test.ts packages/cli/test/team-start.test.ts packages/cli/test/team-setup.test.ts packages/cli/test/team-chat.test.ts packages/cli/test/team-apply.test.ts packages/cli/test/team-merge.test.ts
         working-directory: engine
+      - name: Native additional-client tests
+        run: npx vitest run --maxWorkers=2 packages/daemon/test/gemini-launch-argv.test.ts packages/daemon/test/gemini-worker-events.test.ts packages/daemon/test/gemini-native-client.test.ts packages/daemon/test/worker-event-normalizer.test.ts packages/daemon/test/direct-worker-launch.test.ts packages/daemon/test/direct-worker-retention.test.ts packages/daemon/test/native-model-choices.test.ts packages/daemon/test/team-settings.test.ts packages/daemon/test/team-model-policy.test.ts packages/daemon/test/framework-invocation.test.ts packages/daemon/test/system-health.test.ts packages/daemon/test/setup.test.ts
+        working-directory: engine

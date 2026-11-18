@@ -135,13 +135,13 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     } finally { stderr.mockRestore(); }
   });
 
-  it("selects the configured lead client without accepting unsupported clients", () => {
+  it.each(["codex", "gemini"])("selects %s as the configured lead without accepting unsupported clients", client => {
     const store = new ConfigStore(configPath);
     expect(store.get("team.leadClient")).toBe("claude-code");
-    store.set("team.leadClient", "codex");
-    expect(new ConfigStore(configPath).get("team.leadClient")).toBe("codex");
+    store.set("team.leadClient", client);
+    expect(new ConfigStore(configPath).get("team.leadClient")).toBe(client);
     expect(() => store.set("team.leadClient", "unsupported")).toThrow(/team.leadClient/);
-    expect(store.get("team.leadClient")).toBe("codex");
+    expect(store.get("team.leadClient")).toBe(client);
   });
 
   it("ui.language defaults to Chinese and persists without replacing other owner settings", () => {

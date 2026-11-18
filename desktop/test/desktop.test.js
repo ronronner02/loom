@@ -213,10 +213,13 @@ test('dependency rows carry the resolved Windows path or one install line', () =
   const rows = dependencyRows([
     { ok: true, client: 'claude', path: String.raw`D:\dev\npm-global\node_modules\@anthropic-ai\claude-code\bin\claude.exe`, source: 'shim' },
     { ok: true, client: 'codex', path: String.raw`D:\dev\codex.exe`, source: 'shim' },
+    { ok: true, client: 'gemini', path: 'node.exe', args: ['gemini.js'], source: 'shim' },
     { ok: true, client: 'git', path: String.raw`D:\git\Git\cmd\git.exe`, source: 'path' },
     { ok: false, client: 'gh', reason: 'not-found', tried: [] },
   ]);
-  assert.deepEqual(rows.map(row => row.client), ['git', 'gh', 'claude', 'codex']);
+  assert.deepEqual(rows.map(row => row.client), ['git', 'gh', 'claude', 'codex', 'gemini']);
+  // A client that runs through Node reports the entry the owner installed, not node.exe.
+  assert.deepEqual(rows.find(row => row.client === 'gemini'), { client: 'gemini', label: 'Gemini CLI', ok: true, path: 'gemini.js' });
   assert.deepEqual(rows.find(row => row.client === 'git'), { client: 'git', label: 'Git', ok: true, path: String.raw`D:\git\Git\cmd\git.exe` });
   assert.equal(rows.find(row => row.client === 'claude').path, String.raw`D:\dev\npm-global\node_modules\@anthropic-ai\claude-code\bin\claude.exe`);
   const missing = rows.find(row => row.client === 'gh');
@@ -228,7 +231,7 @@ test('dependency rows carry the resolved Windows path or one install line', () =
 
 test('a client the resolver never reported reads as missing', () => {
   const rows = dependencyRows([]);
-  assert.equal(rows.length, 4);
+  assert.equal(rows.length, 5);
   for (const row of rows) assert.equal(row.ok, false);
 });
 

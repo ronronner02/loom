@@ -67,10 +67,11 @@ describe("attempt telemetry persistence and per-turn usage", () => {
     expect(fixture.governance.getAttempt(attempt.id)!.usage.costUsd.value).toBeNull();
   });
 
-  it("keeps resumed Claude invocation counts instead of subtracting the previous invocation", () => {
-    fixture.addAttempt("first"); fixture.writeSidecars("first", nativeUsage()); capture("first");
-    fixture.addAttempt("resumed");
-    fixture.writeSidecars("resumed", nativeUsage({ resumed: true, counts: { ...tokenCounts, inputTokens: 80, outputTokens: 7 } }));
+  it.each(["claude", "gemini"] as const)("keeps resumed %s invocation counts instead of subtracting the previous invocation", provider => {
+    const client = provider === "claude" ? "claude-code" : provider;
+    fixture.addAttempt("first", { provider }); fixture.writeSidecars("first", nativeUsage({ client })); capture("first");
+    fixture.addAttempt("resumed", { provider });
+    fixture.writeSidecars("resumed", nativeUsage({ client, resumed: true, counts: { ...tokenCounts, inputTokens: 80, outputTokens: 7 } }));
     expect(store.read(capture("resumed")).usage).toMatchObject({ status: "available", inputTokens: 80, outputTokens: 7 });
   });
 

@@ -53,6 +53,15 @@ it("pins a specialist identity and rejects content or role substitution", () => 
   expect(() => createContextManifest(input)).toThrow(/specialist profile/);
 });
 it.each(["claude-code", "codex"] as const)("%s binds generated and observed hashes and freezes projected authority", client => { const { input, observed } = fixture(); input.client = client; const m = createContextManifest(input); expect(verifyEffectiveContext(m, observed)).toBe(hashBytes(canonicalJson(observed))); expect(Object.isFrozen(m.files[0])).toBe(true); expect(Object.isFrozen(m.binding.writePaths)).toBe(true); expect(readFileSync(m.files[0]!.path, "utf8")).toBe("pinned instructions"); });
+it("admits Gemini context only through the same-identity native path", () => {
+  const { input } = fixture();
+  input.client = "gemini";
+  input.sameIdentity = true;
+  expect(createContextManifest(input)).toMatchObject({ client: "gemini", sameIdentity: true });
+  // A separate worker identity has no projection of its own to prove, so it is refused earlier.
+  input.sameIdentity = false;
+  expect(() => createContextManifest(input)).toThrow("Invalid context projection identity");
+});
 it.each(FRAMEWORK_CATALOG)("delivers $name from its complete source package", entry => {
   const { input } = fixture();
   const source = join(input.frameworkRoot, entry.sourcePath);

@@ -21,7 +21,7 @@ function fixture(client: FrameworkRequest["client"] = "claude-code") {
 }
 
 describe("bounded framework invocation", () => {
-  it.each(FRAMEWORK_CATALOG.flatMap(entry => (["claude-code", "codex"] as const).map(client => ({ entry, client }))))(
+  it.each(FRAMEWORK_CATALOG.flatMap(entry => (["claude-code", "codex", "gemini"] as const).map(client => ({ entry, client }))))(
     "routes $entry.name on $client after its invocation and capability gates", async ({ entry, client }) => {
       const { request, bridge } = fixture(client);
       const result = await invokeFramework({ ...request, entrypoint: entry.name, origin: entry.invocation === "user" ? "user" : "caller" }, bridge);
@@ -31,14 +31,15 @@ describe("bounded framework invocation", () => {
       expect((await invokeFramework({ ...request, entrypoint: entry.name, origin: entry.invocation === "user" ? "user" : "caller" }, bridge)).status).toBe("blocked");
       expect(bridge.invoke).toHaveBeenCalledTimes(1);
     });
-  it.each(["claude-code", "codex"] as const)("%s preserves the approved scope and uses the pinned native entrypoint", async client => {
+  it.each(["claude-code", "codex", "gemini"] as const)("%s preserves the approved scope and uses the pinned entrypoint", async client => {
     const { request, bridge } = fixture(client);
     expect(await invokeFramework(request, bridge)).toEqual({ status: "complete", artifacts: ["evidence/result.md"], reason: "" });
     const prepared = bridge.invoke.mock.calls[0]![0] as FrameworkRequest & { revision: string; nativeInvocation: string };
-    expect(prepared).toMatchObject({ binding: request.binding, revision: FRAMEWORK_PIN.revision, nativeInvocation: `${client === "codex" ? "$" : "/"}spec-work` });
+    expect(prepared).toMatchObject({ binding: request.binding, revision: FRAMEWORK_PIN.revision,
+      nativeInvocation: `${client === "codex" ? "$" : client === "gemini" ? "" : "/"}spec-work` });
     expect(bridge.checkReadiness).toHaveBeenCalledOnce();
   });
-  it.each(["claude-code", "codex"] as const)("%s code review stays report-only even when writes are requested", async client => {
+  it.each(["claude-code", "codex", "gemini"] as const)("%s code review stays report-only even when writes are requested", async client => {
     const { request, bridge } = fixture(client);
     request.entrypoint = "spec-code-review";
     await invokeFramework(request, bridge);

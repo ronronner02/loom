@@ -93,6 +93,58 @@ describe("turn telemetry sidecars", () => {
       { input: "", encoding: "utf8", timeout: 10_000 });
   };
 
+  it("records Gemini chunks, settled tools and invocation usage without exposing user or tool bodies", () => {
+    const tool = { type: "tool_use", tool_id: "read-1", tool_name: "read_file", parameters: { file_path: "src/input.ts" } };
+    expect(synthetic([
+      { type: "init", session_id: "00000000-0000-4000-8000-000000000003", model: "requested-model" },
+      { type: "message", role: "user", content: "PRIVATE USER PROMPT" },
+      { type: "message", role: "assistant", content: "Checking the file.", delta: true },
+      tool, tool,
+      { type: "tool_result", tool_id: "read-1", status: "success", output: "PRIVATE TOOL BODY" },
+      { type: "tool_result", tool_id: "read-1", status: "success", output: "PRIVATE TOOL BODY" },
+      { type: "message", role: "assistant", content: "All ", delta: true },
+      { type: "message", role: "assistant", content: "done", delta: true },
+      { type: "result", status: "success", stats: { input_tokens: 120, input: 100, cached: 20,
+        output_tokens: 30, models: { "observed-model": {} } } },
+    ]).status).toBe(0);
+    const { activity, usage } = sidecars();
+    expect(activity.map(record => record.status)).toEqual(["running", "completed"]);
+    expect(activity[0]).toMatchObject({ tool: "read_file", summary: '{"file_path":"src/input.ts"}' });
+    expect(activity[1]!.id).toBe(activity[0]!.id);
+    expect(usage).toMatchObject({ available: true, client: "gemini", nativeSessionId: "00000000-0000-4000-8000-000000000003",
+      model: "observed-model", mode: "turn", counts: { inputTokens: 100, cacheReadInputTokens: 20,
+        cacheWriteInputTokens: null, outputTokens: 30, reasoningOutputTokens: null } });
+    const progress = JSON.parse(readFileSync(join(root, "progress.json"), "utf8"));
+    expect(progress.status).toBe("completed");
+    expect(progress.blocks.map((block: { text: string; complete: boolean }) => [block.text, block.complete]))
+      .toEqual([["Checking the file.", true], ["All done", true]]);
+    expect(JSON.stringify({ activity, usage, progress })).not.toContain("PRIVATE");
+  });
+
+  it("keeps mixed-model Gemini usage unattributed and marks a failed native result", () => {
+    expect(synthetic([
+      { type: "init", session_id: "00000000-0000-4000-8000-000000000003", model: "requested-model" },
+      { type: "tool_use", tool_id: "read-1", tool_name: "read_file", parameters: {} },
+      { type: "tool_result", tool_id: "read-1", status: "error", output: "PRIVATE TOOL BODY" },
+      { type: "result", status: "error", error: { message: "Request failed" }, stats: {
+        input: 1, cached: 0, output_tokens: 2, models: { first: {}, second: {} } } },
+    ]).status).toBe(0);
+    const { activity, usage } = sidecars();
+    expect(activity.map(record => record.status)).toEqual(["running", "failed"]);
+    expect(usage).toMatchObject({ available: true, client: "gemini", model: null, mode: "turn" });
+    expect(JSON.parse(readFileSync(join(root, "progress.json"), "utf8")).status).toBe("failed");
+  });
+
+  it("does not mistake a Gemini warning for a failed turn or invent missing usage", () => {
+    expect(synthetic([
+      { type: "init", session_id: "00000000-0000-4000-8000-000000000003", model: "fixture-model" },
+      { type: "error", severity: "warning", message: "A recoverable tool warning" },
+    ]).status).toBe(0);
+    expect(JSON.parse(readFileSync(join(root, "progress.json"), "utf8")).status).toBe("stopped");
+    expect(JSON.parse(readFileSync(join(root, "usage.json"), "utf8")))
+      .toMatchObject({ available: false, client: "gemini", counts: null });
+  });
+
   it.each(["claude", "codex"])("publishes %s public output before exit, without reasoning content or duplicate final blocks", async client => {
     const first = client === "claude"
       ? [{ type: "stream_event", event: { type: "message_start", message: { id: "message-1" } } },

@@ -147,6 +147,16 @@ describe("multi-agent team create", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it("carries Gemini choices for every team role to the daemon", async () => {
+    const fetchImpl = accepted();
+    const result = await run(["team", "create", "/work/project", "--lead", "gemini", "--implementers", "gemini,codex",
+      "--reviewer", "gemini"], deps(fetchImpl));
+    expect(result.code).toBeUndefined();
+    const init = (fetchImpl as unknown as { mock: { calls: Array<[string, RequestInit]> } }).mock.calls[0]![1];
+    expect(JSON.parse(String(init.body)).seats).toEqual([{ role: "lead", client: "gemini" },
+      { role: "implementer", client: "gemini" }, { role: "implementer", client: "codex" }, { role: "reviewer", client: "gemini" }]);
+  });
+
   it("refuses an empty implementer list before any request", async () => {
     const fetchImpl = vi.fn() as unknown as typeof fetch;
     await expect(run(["team", "create", "/work/project", "--implementers", " , "], deps(fetchImpl)))

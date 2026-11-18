@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Focused smoke suite for CI: the team-control surface plus its two clients.
+# Focused smoke suite for CI: the team-control surface and its execution clients.
 # Each package runs through its own vitest config; the full suite stays out.
 set -euo pipefail
 
@@ -52,6 +52,8 @@ npm run test -w packages/daemon -- \
   test/team-telemetry-routes.test.ts \
   test/attempt-completion.test.ts \
   test/direct-worker-launch.test.ts test/direct-worker-retention.test.ts \
+  test/executable-resolver.test.ts test/desktop-dependencies.test.ts \
+  test/gemini-launch-argv.test.ts test/gemini-worker-events.test.ts test/gemini-native-client.test.ts \
   test/child-process-supervisor.test.ts \
   test/attempt-failure.test.ts \
   test/team-cancellation.test.ts \
