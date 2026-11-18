@@ -277,6 +277,11 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
     const root = mkdtempSync(join(tmpdir(), "t044-rich-")); roots.push(root);
     git(root, "init", "--quiet", "--initial-branch=main");
     git(root, "config", "user.email", "test@example.invalid"); git(root, "config", "user.name", "test");
+    // The fixture is about bytes, so its repository must not rewrite them: a runner whose global
+    // config says `core.autocrlf=true` otherwise checks these files out with CRLF and every
+    // byte-exact expectation in this suite reads the runner's setting instead of the product's.
+    git(root, "config", "core.autocrlf", "false");
+    git(root, "config", "core.safecrlf", "false");
     mkdirSync(join(root, "src", "nested", "deep"), { recursive: true });
     mkdirSync(join(root, "docs"), { recursive: true });
     writeFileSync(join(root, "README.md"), "# fixture\n");
@@ -532,7 +537,15 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
     expect(manifest.patch, "an unmodified candidate needs no patch").toBe("");
   });
 
-  it("records an escaping, dangling or directory symlink as its own text and reads nothing through it", () => {
+  // The shapes a POSIX candidate can hold and Windows cannot: a symlink to a POSIX-only path, a
+// FIFO, and a file name holding a newline or a colon. Each case states the shape itself, so it
+// runs where the shape can exist. The product behaviour it pins is host-independent — a link is
+// recorded as its own text and never followed, an unreadable entry refuses the manifest, and a
+// hostile name is quoted — and the Windows-specific boundaries are covered by
+// `team-workspace-windows.test.ts`.
+const posixShapesOnly = process.platform === "win32";
+
+it.skipIf(posixShapesOnly)("records an escaping, dangling or directory symlink as its own text and reads nothing through it", () => {
     // T054 replaced refusal with a positive guarantee: the copy carries a link's text and
     // never follows one. A link out of the tree therefore leaks nothing — the vault's bytes
     // are not read, hashed, patched or copied — which is strictly stronger than refusing the
@@ -562,7 +575,7 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
     expect(c.files.map(file => file.path)).toContain("src/nested/deep/leaf.ts");
   });
 
-  it("records a tracked file the worker replaced with an escaping link as that link, not as a deletion", () => {
+  it.skipIf(posixShapesOnly)("records a tracked file the worker replaced with an escaping link as that link, not as a deletion", () => {
     // The patch presents the link itself, which is what the candidate now holds: the worker
     // chose to replace the file, and the manifest says so instead of hiding the change.
     const root = richRepository();
@@ -578,7 +591,7 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
     expect(manifest.patch).not.toContain(readFileSync("/etc/hostname", "utf8").trim());
   });
 
-  it("refuses a tracked path the worker replaced with a FIFO instead of blocking the control", () => {
+  it.skipIf(posixShapesOnly)("refuses a tracked path the worker replaced with a FIFO instead of blocking the control", () => {
     const root = richRepository();
     const workspace = candidateOf(root);
     const fifo = join(workspace.root, "src", "base.ts");
@@ -610,7 +623,7 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
     expect(section).not.toContain("+caf�");
   });
 
-  it("quotes a file name that would otherwise be read as a fast-import command", () => {
+  it.skipIf(posixShapesOnly)("quotes a file name that would otherwise be read as a fast-import command", () => {
     const root = richRepository();
     const workspace = candidateOf(root);
     // Unquoted, this name adds a `forged.txt` entry to the patch that the manifest never
@@ -665,7 +678,9 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
     writeFileSync(patchFile, manifest.patch);
     execFileSync("git", ["-C", checkout, "apply", "--binary", patchFile], { stdio: ["ignore", "pipe", "pipe"] });
     expect(lstatSync(join(checkout, "src", "link2.md")).isSymbolicLink(), "an applied link is still a link").toBe(true);
-    expect(readlinkSync(join(checkout, "src", "link2.md"))).toBe("../docs/target.md");
+    // The host answers `readlink` in its own separator; the patch wrote git's, which is the form
+    // this asserts.
+    expect(readlinkSync(join(checkout, "src", "link2.md")).replaceAll("\\", "/")).toBe("../docs/target.md");
   });
 
   it("does not let the source index contaminate an unmodified candidate's patch (round 1 finding)", () => {
@@ -748,6 +763,8 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
       attributeShaped?: readonly string[];
       /** Paths that must be distinct manifest entries, so a decoded-name collision fails. */
       attributesPresent?: readonly string[];
+      /** The shape this row needs cannot exist on this host, so the row states why and skips. */
+      skipOn?: (platform: NodeJS.Platform) => string | null;
     };
 
     /** Latin-1 `café\n`: a text file to git's heuristic, invalid UTF-8 to everything else. */
@@ -767,6 +784,9 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
       const root = mkdtempSync(join(tmpdir(), "t044-row-")); roots.push(root);
       git(root, "init", "--quiet", "--initial-branch=main");
       git(root, "config", "user.email", "test@example.invalid"); git(root, "config", "user.name", "test");
+      // Rows compare bytes, so this repository must not rewrite them: a runner whose global config
+      // says `core.autocrlf=true` otherwise checks out CRLF where the row wrote LF.
+      git(root, "config", "core.autocrlf", "false");
       writeFileSync(join(root, "anchor.txt"), "anchor\n");
       git(root, "add", "-A"); git(root, "commit", "--quiet", "-m", "base");
       row.base?.(root);
@@ -778,6 +798,10 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
     function applied(root: string, commit: string, patch: string, submodule: boolean): string {
       const checkout = candidateRoot(root);
       git(tmpdir(), "clone", "--quiet", root, checkout);
+      // The clone reads the source's own repository config, which names no `core.autocrlf`; the
+      // checkout that produces the bytes to compare sets it explicitly, so the runner's global
+      // setting cannot turn this comparison into a line-ending question.
+      git(checkout, "config", "core.autocrlf", "false");
       git(checkout, "checkout", "--quiet", commit);
       if (submodule) git(checkout, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--quiet");
       const file = join(candidateRoot(root), "candidate.patch");
@@ -799,6 +823,14 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
       for (const file of manifest.files) {
         const source = readFileSync(join(workspace.root, file.path));
         const got = readFileSync(join(checkout, file.path));
+        // A link is a link, and reading through it would compare the target's bytes rather than
+        // the entry the patch writes: the manifest's hash is the link's own text, so that is what
+        // a link's round trip is measured against.
+        if (row.links?.includes(file.path)) {
+          expect(`sha256:${createHash("sha256").update(readlinkSync(join(checkout, file.path))).digest("hex")}`,
+            `${row.name}: ${file.path} reproduces the hashed bytes`).toBe(file.hash);
+          continue;
+        }
         if (row.attributeShaped?.includes(file.path)) {
           // The property is not "the worktree bytes reappear" but "the patch writes what the
           // manifest hashed". The base's attributes legitimately clean the candidate's bytes,
@@ -855,6 +887,8 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
             writeFileSync(join(root, name), LATIN);
           }
         },
+        // Windows refuses a newline in a file name, so that part of the row cannot exist there.
+        skipOn: platform => platform === "win32" ? "Windows refuses a newline in a file name" : null,
       },
       {
         name: "several non-UTF-8 files round-trip together",
@@ -881,6 +915,8 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
         base: (root) => { writeFileSync(join(root, "run.sh"), "#!/bin/sh\n"); chmodSync(join(root, "run.sh"), 0o644); },
         edit: (root) => { chmodSync(join(root, "run.sh"), 0o755); },
         modes: [["run.sh", 0o100]],
+        // Windows keeps no owner-executable bit on an ordinary file, so the edit never happens.
+        skipOn: platform => platform === "win32" ? "Windows keeps no owner-executable bit" : null,
       },
       // T051 — the manifest and the patch must describe one reading of an
       // attribute-shaped file, and an untouched candidate must still produce no patch.
@@ -924,7 +960,7 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
       },
     ];
 
-    for (const row of ROWS) it(row.name, () => roundTrip(row));
+    for (const row of ROWS) it.skipIf(row.skipOn?.(process.platform) != null)(row.name, () => roundTrip(row));
 
     it("refuses a file name that is not valid UTF-8 instead of dropping it", () => {
       const root = richRepository();
@@ -1306,7 +1342,7 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
         expect(() => candidateManifest(workspace)).toThrow(/changes a rule file/);
       });
 
-      it("refuses a non-UTF-8 symlink target anywhere it appears", () => {
+      it.skipIf(process.platform === "win32")("refuses a non-UTF-8 symlink target anywhere it appears", () => {
         // A base attribute such as `working-tree-encoding` must not convert a link's target: git
         // never converts a symlink, and a link is stored as its raw text. A target the string type
         // cannot carry is refused by name, at a rule path or anywhere else.
@@ -1324,7 +1360,10 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
         expect(() => candidateManifest(ruleWorkspace)).toThrow(/changes a rule file/);
       });
 
-      it("reads a directory through the descriptor it opened, not through its path", () => {
+      // POSIX only: the property is `/proc/self/fd` plus `O_DIRECTORY|O_NOFOLLOW`, and Windows has
+      // neither. The host's own equivalent — a reparse point below the candidate is refused — is
+      // asserted in `team-workspace-windows.test.ts`.
+      it.skipIf(process.platform === "win32")("reads a directory through the descriptor it opened, not through its path", () => {
         // Round 3 found the previous version of this test worthless: `setInterval` cannot run
         // while `execFileSync` blocks, so the mutator never fired. This is the deterministic
         // version of the same property, from the mechanism the walk actually relies on.
