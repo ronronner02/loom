@@ -11,7 +11,7 @@ export const WORKER_EVENT_SCHEMA = "multi-agent-worker-events/v1" as const;
 export const WORKER_EVENT_SUMMARY_LIMIT = 512 as const;
 export const WORKER_TURN_START_WINDOW_MS = 30_000;
 
-export type WorkerProvider = "claude" | "codex";
+export type WorkerProvider = "claude" | "codex" | "gemini";
 
 export type WorkerEventType =
   | "session.started"
@@ -148,7 +148,7 @@ export function isWorkerEvent(value: unknown): value is WorkerEvent {
   return event.schema === WORKER_EVENT_SCHEMA
     && event.protocolVersion === WORKER_EVENT_PROTOCOL_VERSION
     && (WORKER_EVENT_TYPES as readonly string[]).includes(event.type ?? "")
-    && (event.provider === "claude" || event.provider === "codex")
+    && (event.provider === "claude" || event.provider === "codex" || event.provider === "gemini")
     && typeof event.attemptId === "string"
     && typeof event.sequence === "number"
     && Number.isSafeInteger(event.sequence)

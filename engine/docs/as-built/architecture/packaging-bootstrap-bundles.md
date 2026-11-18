@@ -261,7 +261,7 @@ routes each kind independently. When it runs depends on the bundle schema:
 |---|---|
 | `skills` | The OpenRig `packages` cache, stripping the legacy `packages/` prefix; this does not import a complete harness skill into the managed skill catalog. |
 | `plugins` | The OpenRig `plugins` root, through local plugin references. |
-| `workflow_specs` | `workflows/` beneath the resolved `workspaceSpecsRoot`. If that setting is empty, this kind is recorded as a routing failure. |
+| `workflow_specs` | Removed with the workflow runtime; a bundle no longer carries this kind. |
 | `context_packs` | The configured `context.root`, matching context-library discovery. |
 | `agent_images` | The OpenRig `agent-images` root; declarations address image directories containing a manifest. |
 | `project` | Registered in the workspace catalog (`workspace.catalog_path`) with the rig associated, and its files placed under `workspace.projects_root/<id>` (`registerBundleProject()` in `packages/daemon/src/domain/workspace/project-registration.ts`). A conflict changes nothing and is a routing failure. |

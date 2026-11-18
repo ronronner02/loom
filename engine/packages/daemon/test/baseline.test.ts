@@ -9,33 +9,20 @@ import { createDb, openDatabase } from "../src/db/connection.js";
 import { createDaemon } from "../src/startup.js";
 
 const tables = [
-  "applied_launch_observation_invalidations",
-  "applied_launch_observations",
   "attempt_telemetry",
   "bindings",
   "chat_messages",
-  "classification_attempts",
-  "classifier_leases",
-  "context_usage",
   "daemon_lifecycle",
   "edges",
   "events",
-  "inbox_entries",
-  "mission_control_actions",
-  "node_permission_selections",
   "nodes",
   "occupant_tenures",
   "operator_context_mode_bindings",
-  "outbox_entries",
   "owner_pairing_codes",
   "owner_sessions",
   "pods",
-  "project_classifications",
-  "projection_manifest",
   "queue_items",
-  "queue_transition_wakes",
   "queue_transitions",
-  "queue_transitions_archive",
   "rig_services",
   "rigs",
   "sessions",
@@ -67,15 +54,6 @@ const tables = [
   "team_soul_versions",
   "team_worker_credentials",
   "team_workflow_outcomes",
-  "usage_samples",
-  "views_custom",
-  "watchdog_history",
-  "watchdog_jobs",
-  "workflow_failure_occurrences",
-  "workflow_frontier_bindings",
-  "workflow_instances",
-  "workflow_specs",
-  "workflow_step_trails"
 ];
 const roots: string[] = [];
 const connections: Database.Database[] = [];
@@ -100,8 +78,8 @@ describe("fresh team baseline", () => {
       .all().map(row => (row as {name: string}).name)).toEqual(tables);
     // Pins the current baseline; db-upgrades.test.ts checks equivalence with shipped upgrades.
     // This also pins every column type, default, CHECK, UNIQUE and FK declaration.
-    expect(hash(JSON.stringify(schema(db)))).toBe("b01b8558db1d61d6e98fa161b752c2faf5a7270cfd25bc80a3cf4be42962f541");
-    expect(schema(db).filter(row => (row as {type: string}).type === "index")).toHaveLength(80);
+    expect(hash(JSON.stringify(schema(db)))).toBe("ab5181c4c11c9c4f5cde43915216c1a8d002b825e828e3805a296e3850bc5332");
+    expect(schema(db).filter(row => (row as {type: string}).type === "index")).toHaveLength(38);
     expect(schema(db).filter(row => (row as {type: string}).type === "trigger")).toHaveLength(1);
     expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
     expect(db.pragma("foreign_key_check")).toEqual([]);
@@ -172,7 +150,7 @@ describe("fresh team baseline", () => {
     const db = createDb(join(directory(), "failed.sqlite"));
     connections.push(db);
     expect(() => initializeDatabase(db, db.name, { injectFailure: () => {
-      expect(schema(db)).toHaveLength(148);
+      expect(schema(db)).toHaveLength(45 + 38 + 1);
       expect(db.pragma("user_version", { simple: true })).toBe(BASELINE_VERSION);
       throw new Error("injected baseline failure");
     } })).toThrow("injected baseline failure");
@@ -185,7 +163,7 @@ describe("fresh team baseline", () => {
     expect(schema(reopened)).toEqual([]);
     expect(reopened.pragma("user_version", { simple: true })).toBe(0);
     initializeDatabase(reopened);
-    expect(schema(reopened)).toHaveLength(148);
+    expect(schema(reopened)).toHaveLength(45 + 38 + 1);
     expect(reopened.pragma("foreign_key_check")).toEqual([]);
   });
 });
