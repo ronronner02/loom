@@ -160,8 +160,23 @@ class ByteTail {
  * `observeIdentity` answers a different question — whether a *recorded* pair is still alive — so
  * nothing is recorded yet at spawn. A query that cannot answer is `null`, and the caller records
  * the unobserved marker rather than inventing a time.
+ *
+ * The two hosts keep different facts: Windows has a CIM creation time, and POSIX has the start
+ * tick in `/proc/<pid>/stat`, which is what `captureIdentity` records there. Asking the Windows
+ * query on POSIX never answers, so a caller that recorded what this returned held the unobserved
+ * marker on Linux while the supervisor held a start tick — the identity a shutdown is supposed
+ * to end could never be observed as the same process.
  */
 export async function readSpawnCreationTime(processId: number): Promise<string | null> {
+  if (process.platform !== "win32") {
+    // A pid the kernel has not listed yet reads as absent; the same short retry closes it.
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const tick = readStartTick(processId);
+      if (tick !== null) return tick;
+      await new Promise<void>(resolve => setTimeout(resolve, 50));
+    }
+    return null;
+  }
   // The pid was just spawned, and the OS can answer "absent" for a process that exists but has
   // not been registered yet. A short bounded retry closes that window; a query that still cannot
   // answer stays null, and the caller records the unobserved marker rather than inventing a time.

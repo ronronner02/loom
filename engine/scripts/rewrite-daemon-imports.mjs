@@ -122,6 +122,86 @@ export function rewriteDaemonImports({ cliDir, daemonPackageJsonPath }) {
   return { rewritten, files };
 }
 
+/**
+ * Point the vendored daemon's imports of an unpublished workspace package at the copy the CLI
+ * package ships beside it.
+ *
+ * `@multi-agent/i18n` is `private: true`, so a global install cannot resolve it, and the daemon's
+ * compiled output imports it by name for the role and client vocabulary. `build-package.sh`
+ * stages the built package at `cli/daemon/i18n-dist`, and this step rewrites the name to the relative
+ * path that reaches it, so the published artifact has no dependency on an unpublished package.
+ * The package's own dependencies (`i18next`, `string-width`) are the CLI's dependencies, exactly
+ * as every other runtime dependency of the vendored daemon is.
+ */
+export function rewriteWorkspaceImports({ cliDir, stagedDaemon, packages }) {
+  const roots = [stagedDaemon];
+  let rewritten = 0;
+  let files = 0;
+  for (const file of roots.flatMap(javascriptFiles)) {
+    const text = readFileSync(file, "utf8");
+    // Only real module specifiers are rewritten: a doc comment that names the package is text,
+    // not an import, and rewriting it would describe the wrong module to every later reader.
+    const found = workspaceSpecifiers(text, file, Object.keys(packages));
+    let output = text;
+    for (const { value, start, end } of [...found].reverse()) {
+      const stagedPath = packages[value];
+      if (!existsSync(stagedPath)) {
+        throw new Error(`${file}: ${value} is not staged at ${stagedPath}`);
+      }
+      const specifier = nextRelative(dirname(file), stagedPath);
+      output = `${output.slice(0, start + 1)}${specifier}${output.slice(end - 1)}`;
+    }
+    if (found.length === 0) continue;
+    writeFileSync(file, output);
+    rewritten += found.length;
+    files += 1;
+  }
+  return { rewritten, files };
+}
+
+/**
+ * The module specifiers in one file that name a package in `specifiers`, from its syntax tree.
+ *
+ * This mirrors the daemon rewrite: import and export declarations, and `import()` or `require()`
+ * calls with a literal argument. Strings and comments are left alone.
+ */
+function workspaceSpecifiers(text, file, specifiers) {
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+  if (source.parseDiagnostics.length > 0) {
+    throw new Error(`${file}: cannot parse (${source.parseDiagnostics[0].messageText})`);
+  }
+  const found = [];
+  const visit = (node) => {
+    let literal;
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier) {
+      literal = node.moduleSpecifier;
+    } else if (ts.isCallExpression(node)
+      && (node.expression.kind === ts.SyntaxKind.ImportKeyword
+        || (ts.isIdentifier(node.expression) && node.expression.text === "require"))) {
+      const argument = node.arguments[0];
+      if (argument && ts.isStringLiteralLike(argument)) literal = argument;
+    }
+    if (literal && ts.isStringLiteralLike(literal) && specifiers.includes(literal.text)) {
+      found.push({ value: literal.text, start: literal.getStart(source), end: literal.getEnd() });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return found;
+}
+
+/**
+ * A `./`-prefixed module specifier from `fromDir` to `target`, with `/` separators.
+ *
+ * `path.relative` can answer a bare name (two directories sitting beside each other at the same
+ * depth still differ only below their shared parent, so this is the only shape that yields one);
+ * a specifier starting with neither `.` nor `/` would name a package instead of a file.
+ */
+function nextRelative(fromDir, target) {
+  const specifier = relative(fromDir, target).split(sep).join("/");
+  return specifier.startsWith(".") ? specifier : `./${specifier}`;
+}
+
 // Run only when executed directly. Compare real file paths, not a hand-built URL:
 // import.meta.url is percent-encoded (spaces, "#") and names the symlink-resolved file.
 function invokedDirectly() {
@@ -140,6 +220,12 @@ if (invokedDirectly()) {
       daemonPackageJsonPath: join(repoRoot, "packages", "daemon", "package.json"),
     });
     console.log(`Rewrote ${rewritten} @multi-agent/daemon import(s) in ${files} file(s) to the shipped daemon/dist.`);
+    const stagedDaemon = join(repoRoot, "packages", "cli", "daemon");
+    const workspace = rewriteWorkspaceImports({
+      cliDir: join(repoRoot, "packages", "cli"), stagedDaemon,
+      packages: { "@multi-agent/i18n": join(stagedDaemon, "i18n-dist", "index.js") },
+    });
+    console.log(`Rewrote ${workspace.rewritten} unpublished workspace import(s) in ${workspace.files} file(s).`);
   } catch (error) {
     console.error(`rewrite-daemon-imports: ${error.message}`);
     process.exitCode = 1;

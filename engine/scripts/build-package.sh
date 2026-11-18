@@ -5,6 +5,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CLI_DIR="$REPO_ROOT/packages/cli"
 DAEMON_DIR="$REPO_ROOT/packages/daemon"
 UI_DIR="$REPO_ROOT/packages/ui"
+I18N_DIR="$REPO_ROOT/packages/i18n"
 SUBSTANCE_SURFACE_ROOTS=()
 
 echo "=== Multi-Agent Package Build ==="
@@ -17,6 +18,9 @@ rm -rf "$CLI_DIR/daemon" "$CLI_DIR/ui"
 
 # 2. Build daemon
 echo "[2/5] Building daemon..."
+# The i18n package is built first: the daemon imports its role and client vocabulary, so the
+# daemon's build resolves its types from there.
+(cd "$I18N_DIR" && npm run build)
 (cd "$DAEMON_DIR" && npm run build)
 
 # 3. Build UI
@@ -71,6 +75,12 @@ write_build_info "$CLI_DIR/dist/build-info.js"
 # Daemon: dist + assets + specs
 mkdir -p "$CLI_DIR/daemon/dist"
 cp -r "$DAEMON_DIR/dist/"* "$CLI_DIR/daemon/dist/"
+
+# The daemon imports @multi-agent/i18n, which is private and so unpublished: a global install
+# could not resolve it. Its built package ships beside the vendored daemon, and
+# rewrite-daemon-imports.mjs points the daemon's import at that copy. Its own dependencies
+# (i18next, string-width) are declared by the CLI for the same reason.
+cp -r "$I18N_DIR/dist" "$CLI_DIR/daemon/i18n-dist"
 
 if [ -d "$DAEMON_DIR/assets" ]; then
   cp -r "$DAEMON_DIR/assets" "$CLI_DIR/daemon/assets"

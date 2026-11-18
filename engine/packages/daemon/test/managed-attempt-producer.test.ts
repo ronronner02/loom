@@ -61,8 +61,10 @@ describe("the managed attempt a seat launches from", () => {
     join(assignmentRoot, worker, `${runId}-${taskId}`);
   const projectionDir = (attemptId: string, worker = "ma-worker1", runId = "run-1") =>
     join(contextRoot, worker, runId, attemptId);
-  const mailboxDir = (attemptId: string, worker = "ma-worker1", runId = "run-1") =>
-    join(mailboxRoot, worker, runId, attemptId);
+  // The unisolated layout leaves out the run segment: an AF_UNIX path must fit 108 bytes, and an
+  // attempt id is already unique per attempt.
+  const mailboxDir = (attemptId: string, worker = "ma-worker1") =>
+    join(mailboxRoot, worker, attemptId);
 
   const open = () => {
     db = createDb(join(directory, "t042.db"));
@@ -397,17 +399,22 @@ describe("the managed attempt a seat launches from", () => {
     expect(runtime.managedAttemptFor("attempt-1")).toBeUndefined();
   }, 30_000);
 
-  it.skipIf(typeof process.getuid !== "function")("refuses a mailbox root that is not beneath the control state directory", async () => {
+  it.skipIf(typeof process.getuid !== "function")("keeps the mailbox directory under the configured mailbox root and worker", async () => {
+    // The mailbox root is configuration: whatever root the runtime is handed, the directory
+    // the producer creates is derived from that root and the worker alone. A root that is not
+    // `control_state_dir/mailboxes` is not refused — the composition root decides where the
+    // mailboxes live, and a guard here would refuse a layout the caller asked for.
+    const elsewhere = join(directory, "elsewhere-mailboxes");
     runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue,
       candidateRoot: (runId, taskId, worker) => candidateDir(worker, runId, taskId),
       assignmentRoot: () => assignmentRoot, defaultWorker: () => "ma-worker1", sameIdentity: true,
-      managedAttemptRoots: () => ({ contextRoot, mailboxRoot: join(directory, "elsewhere-mailboxes"), controlStateDir,
+      managedAttemptRoots: () => ({ contextRoot, mailboxRoot: elsewhere, controlStateDir,
         policyRevision: binding.policyRevision, workerIdentities: ["ma-worker1", "ma-worker2"],
         frameworkRoot, frameworkRevision: FRAMEWORK_PIN.revision, toolchainDir }) });
-    // Assert the reason, not just that something threw.
-    await expect(runtime.produceManagedAttempt("run-1", produceInput()))
-      .rejects.toThrow(/mailbox root is not beneath the control state directory/);
-    expect(existsSync(join(directory, "elsewhere-mailboxes"))).toBe(false);
+    const produced = await runtime.produceManagedAttempt("run-1", produceInput());
+    expect(produced.bridge.binding.directory).toBe(join(elsewhere, "ma-worker1", "attempt-1"));
+    expect(existsSync(join(elsewhere, "ma-worker1", "attempt-1"))).toBe(true);
+    await runtime.retireManagedAttempt("attempt-1");
   }, 30_000);
 
   it.skipIf(typeof process.getuid !== "function")("seals the whole projection, not just its root, because the manifest refuses a writable directory", async () => {

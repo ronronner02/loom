@@ -5,7 +5,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSyn
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { rewriteDaemonImports } from "./rewrite-daemon-imports.mjs";
+import { rewriteDaemonImports, rewriteWorkspaceImports } from "./rewrite-daemon-imports.mjs";
 import { supportsSymlinks } from "./platform-commands.mjs";
 
 const noSymlinks = supportsSymlinks() ? false : "this machine cannot create symlinks";
@@ -238,5 +238,74 @@ test("still fails the build when executed directly with an unmapped import", { s
     assert.equal(readFileSync(join(root, "packages/cli/dist/x.js"), "utf8"), compiled);
   } finally {
     rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("points the vendored daemon's unpublished workspace import at the copy ships beside it", () => {
+  // @multi-agent/i18n is private and unpublished: a global install resolves nothing for it. The
+  // packaged build stages its dist next to the vendored daemon and rewrites the name, so the
+  // published artifact imports a file that exists rather than a package the registry does not have.
+  const root = mkdtempSync(join(tmpdir(), "rewrite-workspace-"));
+  try {
+    const cliDir = join(root, "cli");
+    const stagedDaemon = join(cliDir, "daemon");
+    const write = (path, text) => {
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, text);
+    };
+    const displayNames = 'import { CATALOGS } from "@multi-agent/i18n";\nexport const x = CATALOGS;\n';
+    const dynamicSibling = 'const m = await import("@multi-agent/i18n");\n';
+    const plain = "export const plain = 1;\n";
+    // The shape the built daemon actually ships: a doc comment that names the package, then the
+    // import that is the only thing this step may touch.
+    const commentOnly = "/** Keys come from `@multi-agent/i18n`, the one vocabulary. */\nexport const x = 1;\n";
+    write(join(stagedDaemon, "dist", "domain", "display-names.js"), displayNames);
+    write(join(stagedDaemon, "dist", "index.js"), dynamicSibling);
+    write(join(stagedDaemon, "dist", "plain.js"), plain);
+    const stagedI18n = join(stagedDaemon, "i18n-dist", "index.js");
+    write(stagedI18n, "export const CATALOGS = {};\n");
+
+    const result = rewriteWorkspaceImports({
+      cliDir, stagedDaemon, packages: { "@multi-agent/i18n": stagedI18n },
+    });
+    assert.equal(result.rewritten, 2);
+    assert.equal(result.files, 2);
+    assert.equal(readFileSync(join(stagedDaemon, "dist", "domain", "display-names.js"), "utf8"),
+      'import { CATALOGS } from "../../i18n-dist/index.js";\nexport const x = CATALOGS;\n');
+    // One level up from `dist/` is the daemon root, which is where the staged package sits.
+    assert.equal(readFileSync(join(stagedDaemon, "dist", "index.js"), "utf8"),
+      'const m = await import("../i18n-dist/index.js");\n');
+    assert.equal(readFileSync(join(stagedDaemon, "dist", "plain.js"), "utf8"), plain);
+
+    // A doc comment naming the package is text, not an import: rewriting it would describe the
+    // wrong module to every later reader of the shipped file.
+    write(join(stagedDaemon, "dist", "described.js"), commentOnly);
+    const second = rewriteWorkspaceImports({
+      cliDir, stagedDaemon, packages: { "@multi-agent/i18n": stagedI18n },
+    });
+    assert.equal(second.rewritten, 0);
+    assert.equal(readFileSync(join(stagedDaemon, "dist", "described.js"), "utf8"), commentOnly);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("fails the build when the unpublished package was not staged", () => {
+  const root = mkdtempSync(join(tmpdir(), "rewrite-workspace-"));
+  try {
+    const cliDir = join(root, "cli");
+    const stagedDaemon = join(cliDir, "daemon");
+    const file = join(stagedDaemon, "dist", "display-names.js");
+    const source = 'import { CATALOGS } from "@multi-agent/i18n";\n';
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, source);
+    assert.throws(
+      () => rewriteWorkspaceImports({
+        cliDir, stagedDaemon, packages: { "@multi-agent/i18n": join(stagedDaemon, "i18n-dist", "index.js") },
+      }),
+      /is not staged at/);
+    assert.equal(readFileSync(file, "utf8"), source);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
