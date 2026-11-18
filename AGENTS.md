@@ -52,7 +52,7 @@ Load the `karpathy-guidelines` skill when writing, reviewing or refactoring code
 
 ### Fixing
 - Fix a failure with a verified cause directly. A cause is verified when the failure was reproduced, or when a failing test or a direct trace points to the responsible line. Keep a test that fails for that cause, and record the cause in the PR. The full `spec-debug` workflow is only for failures whose cause is unknown; in this repository this overrides the `spec-debug` entry rule in the managed block above.
-- A failure listed in `docs/known-failures.md` with a matching test and error is pre-existing. Never weaken a legacy test.
+- Never weaken a legacy test to make it pass.
 
 ### Verification
 - Every change runs the focused tests for the code it touched, the touched package's typecheck, and `npm run smoke` in `engine/` once that script exists. CI runs the smoke set on every PR.
