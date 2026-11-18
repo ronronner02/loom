@@ -37,6 +37,7 @@ import { planningRosterRequired } from "./domain/lead-roster.js";
 import { composeLeadTurnEnd } from "./domain/lead-chat.js";
 // T053 — the managed attempt's production inputs, composed here beside the candidate roots.
 import { WorkerControlAccess } from "./domain/worker-control-access.js";
+import { MailboxDelivery, createMailboxPromptStateReader } from "./domain/mailbox-delivery.js";
 import { SeatMailboxCapabilities } from "./domain/worker-mailbox-capability.js";
 import { WorkerIdentities } from "./domain/worker-identity.js";
 import { FRAMEWORK_PIN } from "./integrations/framework/catalog.js";
@@ -60,7 +61,8 @@ import { defaultWorktreeRoot } from "./domain/worktree-policy.js";
 import fs from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
-import { MULTI_AGENT_HOME } from "./data-paths.js";
+import { MULTI_AGENT_HOME, getStatePath } from "./data-paths.js";
+import { GithubCli } from "./domain/github-cli.js";
 
 interface DaemonOptions {
   dbPath?: string;
@@ -163,7 +165,7 @@ function composeDirectLaunch(dependencies: {
   settingsStore?: import("./domain/user-settings/settings-store.js").SettingsStore;
 }) {
   const { rigRepo } = dependencies;
-  const endpoints: NonNullable<AppDeps["managedLaunch"]>["endpoints"] = new Map();
+  const endpoints: Map<string, Pick<import("./adapters/worker-mailbox-bridge.js").WorkerMailboxBridge, "binding" | "endpoint">> = new Map();
   const launcher = new DirectWorkerLauncher({
     modelRefusal: input => managedModelRefusal(rigRepo.db, input),
     documentRefusal: input => {
@@ -228,9 +230,9 @@ function composeManagedAttemptAttachment(dependencies: {
   readMaxSeats?: () => number;
   db: Database.Database;
   governance: PlanGovernance;
-  endpoints: NonNullable<AppDeps["managedLaunch"]>["endpoints"];
+  endpoints: Map<string, Pick<import("./adapters/worker-mailbox-bridge.js").WorkerMailboxBridge, "binding" | "endpoint">>;
   runtime: () => WorkflowRuntime | undefined;
-  owners: () => { chat?: AppDeps["chatRepo"]; delivery?: AppDeps["mailboxDelivery"] };
+  owners: () => { chat?: ChatRepository; delivery?: MailboxDelivery };
   /** The roots in force for this daemon: the daemon's own state tree. */
   roots: () => ManagedWorkerRoots;
 }) {
@@ -639,26 +641,26 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const agentActivityStore = new AgentActivityStore({ db, eventBus,
     resolveOccupantGeneration: (nodeId) => sessionRegistry.currentOccupantTenure(nodeId)?.generationUuid ?? null,
     isRegisteredOccupantGeneration: (nodeId, generation) => sessionRegistry.isOccupantGenerationRegistered(nodeId, generation) });
-  const deps: AppDeps = {
-    teamControl: teamControlOptions,
-    teamGovernance,
-    readSeatMailboxCapability,
-    managedLaunch,
-    rigRepo, sessionRegistry, daemonLifecycleStore, daemonBootEpoch, eventBus,
-    startupOrchestrator,
-    runtimeAdapters: { "claude-code": claudeAdapter, codex: codexAdapter, gemini: geminiAdapter },
-    chatRepo: new ChatRepository(db),
-    slowOpRecorder,
-    queueRepo: queueRepoInstance,
-    shadowCapture: shadow.capture,
-    shadowCaptureError: shadow.error,
+  // The one mailbox owner. Its channel reader is the daemon's own observed activity, so it is
+  // composed here where both the store and the owner exist, and `createApp` is handed a
+  // finished object rather than the parts it would otherwise assemble a second one from.
+  const runtimeAdapters = { "claude-code": claudeAdapter, codex: codexAdapter, gemini: geminiAdapter };
+  const chatRepository = new ChatRepository(db);
+  const mailboxDelivery = new MailboxDelivery(chatRepository, createMailboxPromptStateReader({
+    db,
     agentActivityStore,
-  };
+    observedSince: new Date().toISOString(),
+  }), undefined, readSeatMailboxCapability);
+  // The GitHub accounts delivery and intake share. Composed with the network proxy the owner's
+  // settings name, read at each spawn so a change applies to the next upload.
+  const github = new GithubCli();
+  const githubAgent = new GithubCli({ env: { ...process.env, GH_CONFIG_DIR: getStatePath("github-agent") } });
 
   // The candidate runtime. It owns where a task's work tree is created and reads
   // the files a lead and a worker write; nothing here instantiates a workflow.
-  const queueRepoForWorkflow = deps.queueRepo;
+  const queueRepoForWorkflow = queueRepoInstance;
   let workflowRuntime: WorkflowRuntime | undefined;
+  let integration: AppDeps["integration"];
   if (queueRepoForWorkflow) {
     // The runtime owns where a candidate is created. The roots are the daemon's own state
     // tree, so nothing in the launch path ever reads an installed policy.
@@ -707,13 +709,12 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       onManagedAttemptRetired: (attempt: { runId: string; sessionId: string }) =>
         managedInputs.credentials.retire(attempt.runId, attempt.sessionId),
     });
-    deps.workflowRuntime = workflowRuntime;
     // U7 — the run's integration branch. The worktree root is the one U5's plan worktree lives
     // under, and the patch is the runtime's own candidate read, so what lands is exactly the
     // work the reviewer approved and `multi-agent team apply` would have applied.
     {
       const { composeIntegration } = await import("./domain/integration-branch.js");
-      deps.integration = composeIntegration({
+      integration = composeIntegration({
         db, governance: teamGovernance,
         worktreeRoot: () => teamControlOptions.planWorktreeRoot!(),
         candidateManifest: (runId: string, taskId: string) => {
@@ -729,37 +730,20 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
           return policy ? refreshPlanBinding(run.binding, policy) : run.binding;
         } } : {}),
       });
-      teamControlOptions.integrateTask = (runId: string, taskId: string) => deps.integration!.integrate(runId, taskId);
+      teamControlOptions.integrateTask = (runId: string, taskId: string) => integration!.integrate(runId, taskId);
     }
     // T047 — assigned here, after the runtime it produces through exists and before the app
     // serves: every seat launch that could reach a worker happens after this point.
     managedAttempt = managedLaunch ? composeManagedAttemptAttachment({
-      readMaxSeats: () => Number(deps.settingsStore?.resolveOne("team.maxSeats").value ?? 6),
+      readMaxSeats: () => Number(settingsStore.resolveOne("team.maxSeats").value ?? 6),
       db, governance: teamGovernance, endpoints: managedLaunch.endpoints,
       runtime: () => workflowRuntime,
-      owners: () => ({ chat: deps.chatRepo, delivery: deps.mailboxDelivery }),
+      owners: () => ({ chat: chatRepository, delivery: mailboxDelivery }),
       roots: rootsNow,
     }) : undefined;
   }
 
-  deps.legacyBearerToken = opts?.bearerToken ?? null;
-
   const settingsStore = new SettingsStore();
-  deps.settingsStore = settingsStore;
-
-
-
-  // GHOST-STAGE (e/Class-B) — construct the canonical OccupantInvalidator now that both Class-A deps
-  // exist (the enforcer's in-mem maps 1a-1f + the context sidecar 2a). Injected into SeatHandoverService
-  // via the app context so commit()'s re-key call FIRES (it was a no-op until wired). An absent enforcer
-  // (degraded boot, no sessionTransport) falls back to a sidecar-only invalidator — never throws.
-  const { DefaultOccupantInvalidator } = await import("./domain/occupant-invalidator.js");
-  deps.occupantInvalidator = new DefaultOccupantInvalidator({
-    enforcer: { invalidateOccupant: () => {} },
-    // In-progress items claimed by the retiring generation release to pending.
-    queue: queueRepoInstance,
-    log: (msg) => console.warn(msg),
-  });
 
   // What a new task starts. A start request dispatches the agent it puts work on, because
   // nothing else ever launches a seat.
@@ -771,7 +755,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     "SELECT count(*) AS count FROM team_attempts WHERE run_id = ? AND state IN ('running', 'unknown')")
     .get(runId) as { count: number }).count;
   const maxSessions = (runId: string) => teamGovernance.getRun(runId).binding.limits.maxSessions;
-  deps.teamControl!.dispatch = composeTaskDispatch({ rigRepo, sessions: sessionRegistry, startupOrchestrator, runtimeAdapters: deps.runtimeAdapters ?? {},
+  teamControlOptions.dispatch = composeTaskDispatch({ rigRepo, sessions: sessionRegistry, startupOrchestrator, runtimeAdapters,
     prepareDeliveryLeadTurn: (runId, taskId) => {
       if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
       return workflowRuntime.prepareDeliveryLeadTurn(runId, taskId);
@@ -781,7 +765,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // it again. A freed slot now starts the run's next pending task through the same dispatch,
   // as internal scheduling over the durable queue rather than an owner verb.
   const { composePendingDispatch } = await import("./domain/pending-dispatch.js");
-  const dispatchPending = composePendingDispatch({ db, dispatch: () => deps.teamControl?.dispatch,
+  const dispatchPending = composePendingDispatch({ db, dispatch: () => teamControlOptions.dispatch,
     liveSessions, maxSessions });
   // MVP — the other end of that dispatch. A direct launch's receipt names the client process
   // the seat runs, and nothing wrote or closed the attempt from it, so a task could never be
@@ -803,20 +787,19 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       if (!workflowRuntime) throw new Error("Candidate runtime is unavailable");
       return workflowRuntime.leadProposalWithSeatsFor(runId, taskId);
     },
-    readMaxSeats: () => Number(deps.settingsStore?.resolveOne("team.maxSeats").value ?? 6),
-    currentBinding, dispatch: () => deps.teamControl?.dispatch });
+    readMaxSeats: () => Number(settingsStore.resolveOne("team.maxSeats").value ?? 6),
+    currentBinding, dispatch: () => teamControlOptions.dispatch });
   // The direct worker's mutable state root: each attempt's prompt, its captured Codex thread
   // id and its final message live under it. One value, so the readers of a turn's end cannot
   // disagree about where.
   const turnStateRoot = nodePath.join(rootsNow().workerRoot, rootsNow().worker, "scratch");
   const telemetry = new AttemptTelemetry(db, { turnStateRoot });
-  deps.attemptTelemetry = telemetry;
   const { composeTaskThreads, declinePath } = await import("./domain/task-thread.js");
   const { agentTurnOutputPaths } = await import("./domain/agent-turn.js");
-  const taskThreads = composeTaskThreads({ db, governance: teamGovernance, turnStateRoot, dispatch: () => deps.teamControl?.dispatch });
+  const taskThreads = composeTaskThreads({ db, governance: teamGovernance, turnStateRoot, dispatch: () => teamControlOptions.dispatch });
   // U4 — a restart reconciles the attempts its predecessor left running before the first sweep.
   const { bootReconcileAttempts } = await import("./domain/boot-recovery.js");
-  deps.attemptCompletion = composeAttemptCompletion({ db, governance: teamGovernance, sessions: sessionRegistry,
+  const attemptCompletion = composeAttemptCompletion({ db, governance: teamGovernance, sessions: sessionRegistry,
     turnStateRoot, telemetry,
     reconcileOnBoot: () => bootReconcileAttempts({ db, governance: teamGovernance }),
     // U3 — a native turn's own end: the supervisor writes what it observed to the attempt's
@@ -866,18 +849,18 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     stoppedOwners: [
       { name: "lead-chat", complete: composeLeadTurnEnd({ db, governance: teamGovernance, turnStateRoot,
         readEscalation: (runId, taskId) => workflowRuntime ? workflowRuntime.leadEscalationFor(runId, taskId) : null,
-        dispatch: () => deps.teamControl?.dispatch }) },
+        dispatch: () => teamControlOptions.dispatch }) },
       { name: "lead-proposal", complete: attempt => leadManager.turnEnd(attempt) },
       { name: "task-comments", complete: attempt => taskThreads.attemptStopped(attempt) },
-      { name: "github-comments", complete: attempt => deps.githubSource?.attemptStopped(attempt,
+      { name: "github-comments", complete: attempt => githubSource?.attemptStopped(attempt,
         declinePath(agentTurnOutputPaths(turnStateRoot, attempt.id).taskReport)) },
     ],
     // U7 — an approving review is the run's signal to deliver: the implementer's task lands as
     // one commit on the run's branch, through the same owner the merge route reads.
-    ...(deps.integration ? { integrateTask: (runId: string, taskId: string) => deps.integration!.integrate(runId, taskId) } : {}),
+    ...(integration ? { integrateTask: (runId: string, taskId: string) => integration!.integrate(runId, taskId) } : {}),
     // U6 — the facts no single attempt produces — a failed retry, an exhausted review, an
     // integration conflict, every task done — are read once per tick, after the attempts.
-    onSweep: async () => { await leadManager.sweep(); await taskThreads.sweep(); await deps.pullRequestDelivery?.sweep(); await deps.githubSource?.sweep(); await deps.githubIntake?.sweep(); },
+    onSweep: async () => { await leadManager.sweep(); await taskThreads.sweep(); await pullRequestDelivery?.sweep(); await githubSource?.sweep(); await githubIntake?.sweep(); },
     dispatchPending,
     currentBinding });
   // T017 (cancellation half) — the owner's cancel stops the work. Dispatch closure is the
@@ -885,60 +868,75 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // this owner adds the two things nothing did: end the processes the run launched, and
   // record the observation once the sweep above has seen them end.
   const { composeCancellation } = await import("./domain/team-cancellation.js");
-  deps.teamControl!.cancellation = composeCancellation({ db, governance: teamGovernance });
+  teamControlOptions.cancellation = composeCancellation({ db, governance: teamGovernance });
 
-  // OPR.0.4.3.21 — daemon event-loop health instrumentation. Constructed once
-  // per daemon and wired into deps so `/healthz` can surface wedge evidence
-  // (loop lag / last-tick age) and the expensive topology routes are timed.
+  // The daemon's event-loop health: a lag histogram and a tick stamp, so /healthz can say whether
+  // a listening daemon is still answering.
   const { EventLoopMonitor } = await import("./domain/event-loop-monitor.js");
   const { RouteTimingRecorder } = await import("./domain/route-timing-recorder.js");
   const requestPhaseObserver = slowOpRecorder?.recordDiagnostic ? new RequestPhaseObserver(slowOpRecorder) : undefined;
-  deps.requestPhaseObserver = requestPhaseObserver;
   const eventLoopMonitor = new EventLoopMonitor({ onTick: (at, previous) => requestPhaseObserver?.tick(at, previous) });
   const routeTimingRecorder = new RouteTimingRecorder();
-  deps.eventLoopMonitor = eventLoopMonitor;
-  deps.routeTimingRecorder = routeTimingRecorder;
-  // S20 — bind provenance rides the health surface (absent = legacy healthz body).
-  deps.bindPlan = opts?.bindPlan;
-  deps.requestShutdown = opts?.requestShutdown;
-
   // `ui.enabled` (default off): read once at start.
-  deps.webUiEnabled = opts?.webUiEnabled ?? new ContextPackSettingsStore().resolveOne("ui.enabled").value === true;
-  // /api browser boundary: this machine's exact Tailscale MagicDNS name, looked up on demand.
-  deps.selfNameDiscovery = () => discoverTailscaleSelfNames({ timeoutMs: 1500 });
-  const app = createApp(deps);
-  // Plan KTD13 — composed after the app, which owns the two GitHub CLI instances it needs.
-  if (deps.integration && deps.github && deps.githubAgent) {
+  const webUiEnabled = opts?.webUiEnabled ?? new ContextPackSettingsStore().resolveOne("ui.enabled").value === true;
+  // The GitHub side of delivery: the pull request a run's branch becomes, the reviews and CI that
+  // come back to it, and the issues that start a run. Composed only where a run can be delivered.
+  let pullRequestDelivery: AppDeps["pullRequestDelivery"], githubSource: AppDeps["githubSource"], githubIntake: AppDeps["githubIntake"];
+  if (integration) {
     const { composePullRequestDelivery } = await import("./domain/pull-request-delivery.js");
-    deps.pullRequestDelivery = composePullRequestDelivery({ db, governance: teamGovernance, integration: deps.integration,
-      agent: deps.githubAgent, owner: deps.github });
+    pullRequestDelivery = composePullRequestDelivery({ db, governance: teamGovernance, integration,
+      agent: githubAgent, owner: github });
     const { composeGithubSource } = await import("./domain/github-source.js");
-    deps.githubSource = composeGithubSource({ db, governance: teamGovernance, agent: deps.githubAgent, owner: deps.github,
-      dispatch: () => deps.teamControl?.dispatch });
-    // Plan KTD14 — issues and the owner's rules start planning runs through the owner's own start.
-    if (deps.teamControl) {
-      const { composeGithubIntake } = await import("./domain/github-intake.js");
-      const { commandAssessor } = await import("./domain/intake-assessor.js");
-      const { startTeamRun } = await import("./routes/team-start.js");
-      const { resolveExecutable } = await import("./domain/executable-resolver.js");
-      const control = deps.teamControl;
-      const intakeActor = { kind: "owner" as const, sessionId: "github-intake" };
-      deps.githubIntake = composeGithubIntake({ db, agent: deps.githubAgent, owner: deps.github,
-        assess: commandAssessor({ resolve: client => {
-          if (client !== "claude-code" && client !== "codex" && client !== "gemini") return null;
-          const configured = opts?.directLaunchExecutable?.(client);
-          const resolution = resolveExecutable(client === "claude-code" ? "claude" : client, configured ? { configuredPath: configured } : {});
-          return resolution.ok ? resolution : null;
-        } }),
-        start: async (rigId, goal, displayName) => {
-          const outcome = await startTeamRun(teamGovernance, deps.rigRepo,
-            { ...control, ...(deps.settingsStore ? { settingsStore: deps.settingsStore } : {}) }, intakeActor,
-            { goal, rig: rigId, planning: true, displayName });
-          if (outcome.status !== 201) throw new Error(String(outcome.body.error ?? outcome.body.code ?? "The start was refused."));
-          return String(outcome.body.runId);
-        } });
-    }
+    githubSource = composeGithubSource({ db, governance: teamGovernance, agent: githubAgent, owner: github,
+      dispatch: () => teamControlOptions.dispatch });
+    const { composeGithubIntake } = await import("./domain/github-intake.js");
+    const { commandAssessor } = await import("./domain/intake-assessor.js");
+    const { startTeamRun } = await import("./routes/team-start.js");
+    const { resolveExecutable } = await import("./domain/executable-resolver.js");
+    const intakeActor = { kind: "owner" as const, sessionId: "github-intake" };
+    githubIntake = composeGithubIntake({ db, agent: githubAgent, owner: github,
+      assess: commandAssessor({ resolve: client => {
+        if (client !== "claude-code" && client !== "codex" && client !== "gemini") return null;
+        const configured = opts?.directLaunchExecutable?.(client);
+        const resolution = resolveExecutable(client === "claude-code" ? "claude" : client, configured ? { configuredPath: configured } : {});
+        return resolution.ok ? resolution : null;
+      } }),
+      start: async (rigId, goal, displayName) => {
+        const outcome = await startTeamRun(teamGovernance, rigRepo,
+          { ...teamControlOptions, settingsStore }, intakeActor,
+          { goal, rig: rigId, planning: true, displayName });
+        if (outcome.status !== 201) throw new Error(String(outcome.body.error ?? outcome.body.code ?? "The start was refused."));
+        return String(outcome.body.runId);
+      } });
   }
 
+  // The dependency object is built once, after every owner exists: nothing below reaches back
+  // into it, so what the routes see is exactly what this composition decided.
+  const deps: AppDeps = {
+    teamControl: teamControlOptions,
+    teamGovernance,
+    readSeatMailboxCapability,
+    mailboxDelivery,
+    github, githubAgent,
+    rigRepo, db, daemonLifecycleStore, daemonBootEpoch, eventBus,
+    workflowRuntime,
+    attemptCompletion,
+    integration,
+    pullRequestDelivery,
+    githubSource,
+    githubIntake,
+    attemptTelemetry: telemetry,
+    settingsStore,
+    slowOpRecorder,
+    requestPhaseObserver,
+    eventLoopMonitor,
+    routeTimingRecorder,
+    bindPlan: opts?.bindPlan,
+    requestShutdown: opts?.requestShutdown,
+    legacyBearerToken: opts?.bearerToken ?? null,
+    webUiEnabled,
+    selfNameDiscovery: () => discoverTailscaleSelfNames({ timeoutMs: 1500 }),
+  };
+  const app = createApp(deps);
   return { app, db, deps, eventLoopMonitor };
 }
