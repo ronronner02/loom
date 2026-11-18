@@ -220,7 +220,7 @@ export type RigEvent =
   // AgentSpec reboot events — pods + startup + continuity
   | { type: "pod.created"; rigId: string; podId: string; namespace: string; label: string }
   | { type: "pod.deleted"; rigId: string; podId: string }
-  | { type: "node.startup_pending"; rigId: string; nodeId: string; startupProof?: StartupProofSelection }
+  | { type: "node.startup_pending"; rigId: string; nodeId: string }
   | { type: "node.startup_ready"; rigId: string; nodeId: string; submission?: { status: "unverified" | "staged"; reasons: string[]; warning?: string; diagnostics?: StartupSubmissionDiagnostic[] } }
   | { type: "node.startup_failed"; rigId: string; nodeId: string; error: string; sessionId?: string; freshContextPending?: boolean; submissionDiagnostics?: StartupSubmissionDiagnostic[] }
   // T047 — the exact receipt a successful managed launch returned. A native-token resume must
@@ -327,7 +327,6 @@ export interface NodeWithBinding extends Node {
 export interface RigWithRelations {
   rig: Rig;
   nodes: NodeWithBinding[];
-  edges: Edge[];
 }
 
 export interface PersistedProjectionEntry {
@@ -539,31 +538,6 @@ export interface AgentActivity {
   generationProvenance?: "resolved" | "unresolved";
 }
 
-/**
- * OPR.0.4.3.19 — the liveness identity verdict for a managed seat.
- *
- * A THIRD axis, orthogonal to slice-15's `terminalActive` (tmux output
- * recency) and `hasAssignedWork` (queue-derived). It answers: does the process
- * currently in the seat's registered tmux pane match the seat we are reporting?
- * Computed by the periodic SeatIdentityReconciler from the pane PID/command vs
- * the registered `bindings.tmux_pane`, NEVER from queue/classifier/hook
- * heartbeats. Only `mismatch` and `pane_missing` down-rank a `running`
- * projection; `verified`, `binding_absent`, and `tmux_unavailable` (and an
- * absent verdict) leave it unchanged.
- */
-// Per-rig lifecycle aggregate folded from per-node states.
-//   running           — every node is running.
-//   recoverable       — every node is non-running and at least one node has a usable snapshot token.
-//   stopped           — every node is non-running and no node has a usable snapshot token.
-//   degraded          — mixed running + non-running on the same rig.
-//   attention_required — any node is attention_required (priority over above).
-// -- AgentSpec types (AgentSpec reboot) --
-
-export interface ImportSpec {
-  ref: string;
-  version?: string;
-}
-
 export interface StartupFile {
   /** Explicit per-seat role orientation; never inferred from the filename. */
   orientation?: "role";
@@ -575,13 +549,6 @@ export interface StartupFile {
   appliesOn: ("fresh_start" | "restore")[];
 }
 
-export interface StartupProofSelection {
-  mode: "authenticated" | "none";
-  source: "authored" | "default";
-  /** Index in the composed startup action sequence. */
-  actionIndex?: number;
-}
-
 export interface StartupAction {
   type: "slash_command" | "send_text" | "startup_proof";
   value: string;
@@ -589,125 +556,6 @@ export interface StartupAction {
   appliesOn: ("fresh_start" | "restore")[];
   idempotent: boolean;
   builtin?: "session_identity";
-}
-
-export interface StartupBlock {
-  files: StartupFile[];
-  actions: StartupAction[];
-}
-
-export interface LifecycleDefaults {
-  executionMode: "interactive_resident";
-  // OPR.0.5.6.20 B-3/B-4: optional so a lifecycle block that omits a field preserves
-  // ABSENCE through normalization — a level that does not specify does not
-  // participate in precedence. The defaults level materializes the defaults
-  // (default-compaction per F-6; resume_if_possible for restore).
-  compactionStrategy?: "default-compaction" | "managed-compaction" | "handover" | "apprentice-handover";
-  /** Canonical seat@rig address that executes an apprentice cutover. No default: absence
-   *  is a materialization-time refusal for apprentice-handover. */
-  mechanic?: string;
-  restorePolicy?: "resume_if_possible" | "relaunch_fresh" | "checkpoint_only";
-}
-
-export interface SkillResource { id: string; path: string; }
-export interface GuidanceResource { id: string; path: string; target: string; merge: "managed_block" | "append"; }
-export interface SubagentResource { id: string; path: string; }
-export interface RuntimeResource { id: string; path: string; runtime: string; type: string; }
-
-export type PluginSource =
-  | { kind: "local"; path: string };
-
-export interface PluginResource {
-  id: string;
-  source: PluginSource;
-  pluginType?: "claude" | "codex" | "auto";
-}
-
-export interface AgentResources {
-  skills: SkillResource[];
-  guidance: GuidanceResource[];
-  subagents: SubagentResource[];
-  plugins: PluginResource[];
-  runtimeResources: RuntimeResource[];
-}
-
-export interface ProfileSpec {
-  summary?: string;
-  preferences?: { runtime?: string; model?: string; effort?: string };
-  startup?: StartupBlock;
-  lifecycle?: LifecycleDefaults;
-  uses: {
-    skills: string[];
-    guidance: string[];
-    subagents: string[];
-    plugins: string[];
-    runtimeResources: string[];
-  };
-  /**
-   * Per-seat activity-detection tuning. `silenceWindowSeconds` is the
-   * threshold below which terminal output reads as "terminal-active".
-   * Currently inert: the live SeatActivityService poller uses the global
-   * 3s default and does not read per-seat windows. Retained for a future
-   * per-seat-poller decision. Invalid values are dropped at normalize time.
-   */
-  activity?: {
-    silenceWindowSeconds?: number;
-  };
-}
-
-export interface AgentSpec {
-  version: string;
-  name: string;
-  summary?: string;
-  imports: ImportSpec[];
-  defaults?: {
-    runtime?: string;
-    model?: string;
-    effort?: string;
-    lifecycle?: LifecycleDefaults;
-  };
-  startup: StartupBlock;
-  resources: AgentResources;
-  profiles: Record<string, ProfileSpec>;
-}
-
-// -- Legacy RigSpec types (Phase 3, pre-reboot flat contract) --
-// TODO: Remove when AS-T08b/AS-T12 migrate all consumers to pod-aware RigSpec
-
-export interface LegacyRigSpec {
-  schemaVersion: number;
-  name: string;
-  version: string;
-  nodes: LegacyRigSpecNode[];
-  edges: LegacyRigSpecEdge[];
-}
-
-export interface LegacyRigSpecNode {
-  id: string;
-  runtime: string;
-  role?: string;
-  model?: string;
-  effort?: string;
-  cwd?: string;
-  surfaceHint?: string;
-  workspace?: string;
-  restorePolicy?: string;
-  packageRefs?: string[];
-}
-
-export interface LegacyRigSpecEdge {
-  from: string;
-  to: string;
-  kind: string;
-}
-
-// -- RigSpec types (pod-aware, AgentSpec reboot) --
-
-export interface ContinuityPolicySpec {
-  enabled: boolean;
-  syncTriggers?: string[];
-  artifacts?: { sessionLog?: boolean; restoreBrief?: boolean; quiz?: boolean };
-  restoreProtocol?: { peerDriven?: boolean; verifyViaQuiz?: boolean };
 }
 
 /**
@@ -771,175 +619,17 @@ export interface SessionSourceAgentImageSpec {
 }
 
 /**
- * Reference to a named agent-starter registry entry. Artifact-seeded
- * fresh-launch context: the starter's curated artifacts are added to the
- * member's startup-file chain at launch time. Composes additively with
- * `sessionSource` (independent semantics: starter_ref seeds context;
- * session_source declares the runtime-source mode). v0 schema constraint:
- * `starter_ref` MAY combine with `session_source.mode: "rebuild"` (both
- * apply on `fresh_start`) but MAY NOT combine with `session_source.mode:
- * "fork"` (the v1+ "Real native-fork-from-registered-thread-id starter
- * proof" trigger covers that composition).
- */
-export interface StarterRefSpec {
-  /** Registry key. Matches an entry at `<registryRoot>/<name>.yaml`. */
-  name: string;
-}
-
-export interface RigSpecPodMember {
-  id: string;
-  label?: string;
-  agentRef: string;
-  profile: string;
-  runtime: string;
-  codexConfigProfile?: string;
-  model?: string;
-  effort?: string;
-  /**
-   * OPR.0.4.6.FAC1: optional seat-side role declaration (writes the
-   * existing `nodes.role` column via createMemberNode → addNode). The
-   * workflow binding layer resolves workflow roles to seats by this
-   * dimension. Opt-in: a role-less member is never role-resolved and
-   * stays reachable only via explicit preferred_targets.
-   */
-  role?: string;
-  /** OPR.0.4.8.3 Seam B: optional per-seat permission_policy REF (builtin:<name> or a spec-relative
-   *  custom path). Absent = the floor. Overrides the rig-level ref. */
-  permissionPolicy?: string;
-  cwd: string;
-  restorePolicy?: string;
-  /** OPR.0.5.6.20 — per-member continuity override (most-specific-wins; canonical or
-   *  deprecated-alias spelling, normalized at resolution). Absent = inherit. */
-  compactionStrategy?: string;
-  /** Per-member continuity mechanic override; resolves beside compactionStrategy. */
-  mechanic?: string;
-  startup?: StartupBlock;
-  /**
-   * Optional fork source declaration. v1 MVP: mode="fork" with
-   * ref.kind="native_id". Validated by `rigspec-schema.ts` and translated
-   * to the runtime adapter's `forkSource` opt at launch time.
-   */
-  sessionSource?: SessionSourceSpec;
-  /**
-   * Optional reference to a named starter registry entry.
-   * See {@link StarterRefSpec}. Resolved by `AgentStarterResolver` at
-   * launch time; resolved artifacts seed the STARTER layer of the
-   * member's startup-file chain. Mutually exclusive with
-   * `sessionSource.mode: "fork"` per v0 schema (validateStarterRef).
-   */
-  starterRef?: StarterRefSpec;
-}
-
-export interface RigSpecPodEdge {
-  kind: string;
-  from: string;
-  to: string;
-}
-
-export interface RigSpecCrossPodEdge {
-  kind: string;
-  from: string;
-  to: string;
-}
-
-export interface RigSpecPod {
-  id: string;
-  label: string;
-  summary?: string;
-  continuityPolicy?: ContinuityPolicySpec;
-  startup?: StartupBlock;
-  members: RigSpecPodMember[];
-  edges: RigSpecPodEdge[];
-}
-
-export interface RigSpecDoc {
-  path: string;
-}
-
-/**
  * PL-007 Workspace Primitive — typed workspace kinds enum. Reserved set
  * at v0. The workspace doctor and the frontmatter validator were deleted with
  * `workspaceRoutes()`, so a later kind has no per-kind required-field map.
  */
 export const WORKSPACE_KINDS = ["user", "project", "knowledge", "lab", "delivery"] as const;
-export type WorkspaceKind = (typeof WORKSPACE_KINDS)[number];
-
-/** PL-007 — RigSpec.workspace.repos[] entry (typed). */
-export interface WorkspaceRepoSpec {
-  name: string;
-  /** Absolute path after normalization. Authors may declare a path relative to
-   *  `workspaceRoot` in YAML; the codec resolves to absolute at parse time. */
-  path: string;
-  kind: WorkspaceKind;
-}
-
-/** PL-007 — Optional RigSpec.workspace block. Rigs without it stay valid;
- *  whoami / node-inventory return a null workspace block in that case. */
-export interface WorkspaceSpec {
-  workspaceRoot: string;
-  repos: WorkspaceRepoSpec[];
-  defaultRepo?: string;
-  /** Optional knowledge-canon root (e.g., a shared docs repo path).
-   *  Treated as kind=knowledge when surfaced through whoami / UI. */
-  knowledgeRoot?: string;
-}
-
-export interface RigSpec {
-  /** Authored launch-warning choice; an explicit launch option takes precedence. */
-  nonInterruptive?: boolean;
-  version: string;
-  name: string;
-  summary?: string;
-  cultureFile?: string;
-  /** OPR.0.4.8.3 Seam B: optional rig-level permission_policy REF (builtin:<name> or a
-   *  spec-relative custom path). Absent = the floor. A per-member ref overrides this. */
-  permissionPolicy?: string;
-  docs?: RigSpecDoc[];
-  startup?: StartupBlock;
-  services?: RigServicesSpec;
-  /** PL-007 Workspace Primitive — optional typed workspace declaration. */
-  workspace?: WorkspaceSpec;
-  pods: RigSpecPod[];
-  edges: RigSpecCrossPodEdge[];
-}
 
 export interface RigServicesWaitTarget {
   service?: string;
   condition?: "healthy";
   url?: string;
   tcp?: string;
-}
-
-export interface RigServicesSurfaceUrl {
-  name: string;
-  url: string;
-}
-
-export interface RigServicesSurfaceCommand {
-  name: string;
-  command: string;
-}
-
-export interface RigServicesSurface {
-  urls?: RigServicesSurfaceUrl[];
-  commands?: RigServicesSurfaceCommand[];
-}
-
-export interface RigServicesCheckpointHook {
-  id: string;
-  exportCommand: string;
-  importCommand?: string;
-}
-
-export interface RigServicesSpec {
-  kind: "compose";
-  composeFile: string;
-  projectName?: string;
-  profiles?: string[];
-  downPolicy?: "leave_running" | "down" | "down_and_volumes";
-  waitFor?: RigServicesWaitTarget[];
-  surfaces?: RigServicesSurface;
-  checkpoints?: RigServicesCheckpointHook[];
 }
 
 export interface EnvReceipt {
@@ -949,205 +639,4 @@ export interface EnvReceipt {
   services: Array<{ name: string; status: string; health?: string | null }>;
   waitFor: Array<{ target: RigServicesWaitTarget; status: "healthy" | "unhealthy" | "pending"; detail?: string | null }>;
   capturedAt: string;
-}
-
-export interface EnvCheckpoint {
-  kind: "compose";
-  capturedAt: string;
-  artifactsJson: string;
-}
-
-export interface RigServicesRecordInput {
-  kind: "compose";
-  specJson: string;
-  rigRoot: string;
-  composeFile: string;
-  projectName?: string;
-  latestReceiptJson?: string | null;
-}
-
-export interface RigServicesRecord {
-  rigId: string;
-  kind: "compose";
-  specJson: string;
-  rigRoot: string;
-  composeFile: string;
-  projectName: string;
-  latestReceiptJson: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ValidationResult {
-  valid: boolean;
-  errors: string[];
-  /** OPR.0.5.3.3 — non-blocking advisories (e.g. alias-form model pins). Fail-open: advisories
-   *  never affect `valid`. Absent/empty when there is nothing to advise. */
-  advisories?: string[];
-}
-
-export interface PreflightResult {
-  ready: boolean;
-  warnings: string[];
-  errors: string[];
-}
-
-export type InstantiateOutcome =
-  | { ok: true; result: InstantiateResult }
-  | { ok: false; code: "validation_failed"; errors: string[] }
-  | { ok: false; code: "preflight_failed"; errors: string[]; warnings: string[] }
-  | { ok: false; code: "instantiate_error"; message: string }
-  | { ok: false; code: "cycle_error"; message: string }
-  | { ok: false; code: "service_boot_failed"; message: string }
-  | { ok: false; code: "compose_project_conflict"; message: string }
-  // S5b (OPR.0.5.4.11) — the running-name guard refusal: a same-name rig is
-  // RUNNING, so instantiation refuses before any create/launch. The message
-  // teaches the running rig's identity and the supported alternatives.
-  // (Additive variant per orch-lead territory ruling on row r054-s5b-build.)
-  | { ok: false; code: "rig_name_running"; message: string; runningRig: { id: string; name: string; runningSessionCount: number } }
-  // #141: an unarchived same-name rig exists but could not be confirmed stopped, so the YAML import
-  // neither archives it nor creates another same-name generation beside it.
-  | { ok: false; code: "generation_unconfirmed"; message: string }
-  // OPR.0.3.2.CT (conveyor-trust-minimal-fix):
-  // When every launched node reaches a recoverable attention_required
-  // state (e.g., workspace-trust prompt), do NOT tear the multi-agent down.
-  // The rig + sessions are preserved, listable, and approvable; the
-  // operator's path is "approve trust → resume". `attentionNodes`
-  // carries the actionable per-node detail for the route's 3-part
-  // error response.
-  | {
-      ok: false;
-      code: "attention_required";
-      message: string;
-      rigId: string;
-      attentionNodes: AttentionNode[];
-      /** #141: notices that must reach the user even though the import stopped for attention. */
-      warnings?: string[];
-    };
-
-export interface AttentionNode {
-  logicalId: string;
-  sessionName: string;
-  evidence?: string;
-  reason: string;
-}
-
-export interface InstantiateResult {
-  rigId: string;
-  specName: string;
-  specVersion: string;
-  // Per-node startup status — `launched` and `failed` are the legacy
-  // terminal states; `attention_required` (OPR.0.3.2.CT) marks a
-  // recoverable parked node awaiting operator action (e.g., trust
-  // approval). The session row's startup_status carries the same
-  // signal so `multi-agent ps` surfaces it.
-  //
-  // `sessionName` + `evidence` carry runtime detail needed by
-  // BootstrapOrchestrator to construct AttentionNode[] for the mixed
-  // launched+attention_required path (the route's 3-part error
-  // response needs sessionName for the tmux-attach hint). Optional
-  // because legacy callers don't supply them on terminal-only paths.
-  nodes: {
-    logicalId: string;
-    status: "launched" | "failed" | "attention_required";
-    error?: string;
-    sessionName?: string;
-    evidence?: string;
-  }[];
-  warnings?: string[];
-}
-
-// -- Expansion types --
-
-export interface ExpansionPodFragment {
-  id: string;
-  label: string;
-  summary?: string;
-  members: Array<{
-    id: string;
-    runtime: string;
-    agentRef?: string;
-    profile?: string;
-    cwd?: string;
-    model?: string;
-    codexConfigProfile?: string;
-    /** OPR.0.4.8.3 Seam B: per-seat permission_policy REF — threaded through the
-     *  expansion ingress exactly like role (never silently dropped). Typed UNKNOWN
-     *  (R2 at 4ac243c3): the ingress preserves RAW presence — including null and other
-     *  invalid shapes — so the ONE canonical RigSpec validator rejects present-invalid
-     *  values; the normalizer must never erase presence into absence/floor. */
-    permissionPolicy?: unknown;
-    restorePolicy?: string;
-    label?: string;
-    /**
-     * OPR.0.4.6.FAC1: optional seat-side role; threaded through
-     * buildExpansionSpecObject → the pod-member schema → nodes.role
-     * (a provided role is never silently dropped — the sibling-layer
-     * rule).
-     */
-    role?: string;
-    /** Optional session source declaration; threaded through to launch. */
-    sessionSource?: SessionSourceSpec;
-    /**
-     * Optional reference to a named starter registry entry; threaded
-     * through expansion → buildSyntheticSpec → daemon instantiation,
-     * matching the pass-through shape of `sessionSource`.
-     */
-    starterRef?: StarterRefSpec;
-  }>;
-  edges: Array<{ from: string; to: string; kind: string }>;
-}
-
-export interface ExpansionRequest {
-  rigId: string;
-  pod: ExpansionPodFragment;
-  crossPodEdges?: Array<{ from: string; to: string; kind: string }>;
-  rigRoot?: string;
-}
-
-export interface ExpansionNodeOutcome {
-  logicalId: string;
-  nodeId: string;
-  // OPR.0.3.2.CT — `attention_required` is a recoverable parked state
-  // (e.g., workspace-trust prompt awaiting operator action). The
-  // session row's startup_status carries the same signal so `multi-agent ps`
-  // surfaces it. Distinct from `failed` (terminal).
-  status: "launched" | "failed" | "attention_required";
-  error?: string;
-  sessionName?: string;
-}
-
-export type ExpansionResult =
-  | { ok: true; status: "ok" | "partial" | "failed"; podId: string; podNamespace: string; nodes: ExpansionNodeOutcome[]; warnings: string[]; retryTargets: string[] }
-  | { ok: false; code: string; error: string };
-
-// -- Context usage types --
-
-export type ContextAvailability = "known" | "unknown";
-
-export type ContextUnknownReason =
-  | "unsupported_runtime"
-  | "not_managed"
-  | "missing_sidecar"
-  | "parse_error"
-  | "stale"
-  | "session_mismatch"
-  | "stale_generation"
-  | "no_data";
-
-export interface ContextUsage {
-  availability: ContextAvailability;
-  reason: ContextUnknownReason | null;
-  source: "claude_statusline_json" | "codex_token_count_jsonl" | null;
-  usedPercentage: number | null;
-  remainingPercentage: number | null;
-  contextWindowSize: number | null;
-  totalInputTokens: number | null;
-  totalOutputTokens: number | null;
-  currentUsage: string | null;
-  transcriptPath: string | null;
-  sessionId: string | null;
-  sessionName: string | null;
-  sampledAt: string | null;
-  fresh: boolean;
 }

@@ -6,12 +6,9 @@ import { deriveComposeProjectName } from "./compose-project-name.js";
 import type {
   Rig,
   Node,
-  Edge,
   Binding,
   NodeWithBinding,
   RigWithRelations,
-  RigServicesRecord,
-  RigServicesRecordInput,
   SessionSourceSpec,
 } from "./types.js";
 
@@ -135,34 +132,6 @@ export class RigRepository {
     const row = this.db.prepare("SELECT * FROM rigs WHERE id = ?").get(rigId) as
       { install_root?: string | null } | undefined;
     return row?.install_root ?? null;
-  }
-
-  /**
-   * PL-007 Workspace Primitive — persist the typed workspace block on the
-   * rigs row. Stored as JSON in `workspace_json` (migration 038). Pass
-   * null to clear. Older test fixtures that bypass the canonical migration
-   * list don't have the column; setter is a no-op in that case (the
-   * caller's contract is "best-effort persistence"). Whoami / node-inventory
-   * read this column to surface the rig's workspace block alongside cwd.
-   */
-  setRigWorkspace(rigId: string, workspace: import("./types.js").WorkspaceSpec | null): void {
-    if (!this.hasRigColumn("workspace_json")) return;
-    const json = workspace ? JSON.stringify(workspace) : null;
-    this.db.prepare("UPDATE rigs SET workspace_json = ?, updated_at = ? WHERE id = ?")
-      .run(json, new Date().toISOString(), rigId);
-  }
-
-  /** PL-007 — read the persisted workspace block for a rig. */
-  getRigWorkspace(rigId: string): import("./types.js").WorkspaceSpec | null {
-    if (!this.hasRigColumn("workspace_json")) return null;
-    const row = this.db.prepare("SELECT workspace_json FROM rigs WHERE id = ?")
-      .get(rigId) as { workspace_json: string | null } | undefined;
-    if (!row || !row.workspace_json) return null;
-    try {
-      return JSON.parse(row.workspace_json) as import("./types.js").WorkspaceSpec;
-    } catch {
-      return null;
-    }
   }
 
   setRigNonInterruptive(rigId: string, enabled: boolean): void {
@@ -439,19 +408,6 @@ export class RigRepository {
     return result.changes > 0;
   }
 
-  addEdge(rigId: string, sourceId: string, targetId: string, kind: string): Edge {
-    const id = ulid();
-    this.db
-      .prepare(
-        "INSERT INTO edges (id, rig_id, source_id, target_id, kind) VALUES (?, ?, ?, ?, ?)"
-      )
-      .run(id, rigId, sourceId, targetId, kind);
-
-    return this.rowToEdge(
-      this.db.prepare("SELECT * FROM edges WHERE id = ?").get(id) as EdgeRow
-    );
-  }
-
   getRig(rigId: string): RigWithRelations | null {
     const rigRow = this.db
       .prepare("SELECT * FROM rigs WHERE id = ?")
@@ -462,10 +418,6 @@ export class RigRepository {
     const nodeRows = this.db
       .prepare("SELECT * FROM nodes WHERE rig_id = ? ORDER BY created_at")
       .all(rigId) as NodeRow[];
-
-    const edgeRows = this.db
-      .prepare("SELECT * FROM edges WHERE rig_id = ?")
-      .all(rigId) as EdgeRow[];
 
     const nodes: NodeWithBinding[] = nodeRows.map((row) => {
       const bindingRow = this.db
@@ -478,11 +430,7 @@ export class RigRepository {
       };
     });
 
-    return {
-      rig: this.rowToRig(rigRow),
-      nodes,
-      edges: edgeRows.map((r) => this.rowToEdge(r)),
-    };
+    return { rig: this.rowToRig(rigRow), nodes };
   }
 
   listRigs(filter?: RigArchiveFilter, observe?: import("./request-phase-observer.js").QueryObservation): Rig[] {
@@ -514,32 +462,6 @@ export class RigRepository {
       .prepare(`SELECT * FROM rigs WHERE name = ?${archived} ORDER BY created_at`)
       .all(name) as RigRow[];
     return rows.map((r) => this.rowToRig(r));
-  }
-
-  getRigSummaries(filter?: RigArchiveFilter): Array<{ id: string; name: string; nodeCount: number; latestSnapshotAt: string | null; latestSnapshotId: string | null; hasServices: boolean; archivedAt: string | null }> {
-    const cond = archiveWhereClause("r.archived_at", filter);
-    const where = cond ? `WHERE ${cond}` : "";
-    const rows = this.db.prepare(`
-      SELECT
-        r.id,
-        r.name,
-        r.archived_at AS archived_at,
-        (SELECT COUNT(*) FROM nodes n WHERE n.rig_id = r.id) AS node_count,
-        EXISTS(SELECT 1 FROM rig_services rs WHERE rs.rig_id = r.id) AS has_services
-      FROM rigs r
-      ${where}
-      ORDER BY r.created_at
-    `).all() as Array<{ id: string; name: string; archived_at: string | null; node_count: number; has_services: number }>;
-
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      nodeCount: r.node_count,
-      hasServices: r.has_services === 1,
-      latestSnapshotAt: null,
-      latestSnapshotId: null,
-      archivedAt: r.archived_at,
-    }));
   }
 
   /**
@@ -626,80 +548,6 @@ export class RigRepository {
     this.db.prepare("DELETE FROM nodes WHERE id = ?").run(nodeId);
   }
 
-  setServicesRecord(rigId: string, record: RigServicesRecordInput): RigServicesRecord {
-    const now = new Date().toISOString();
-    const composeFile = resolve(record.rigRoot, record.composeFile);
-    const rig = this.db.prepare("SELECT 1 AS present FROM rigs WHERE id = ?").get(rigId);
-    if (!rig) throw new Error(`Rig not found: ${rigId}`);
-    // Keep the fallback aligned with bootstrap's unique, stable rig-ID default.
-    const projectName = record.projectName ?? this.getServicesRecord(rigId)?.projectName ?? deriveComposeProjectName(rigId);
-    this.db.prepare(`
-      INSERT INTO rig_services (
-        rig_id,
-        kind,
-        spec_json,
-        rig_root,
-        compose_file,
-        project_name,
-        latest_receipt_json,
-        created_at,
-        updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(rig_id) DO UPDATE SET
-        kind = excluded.kind,
-        spec_json = excluded.spec_json,
-        rig_root = excluded.rig_root,
-        compose_file = excluded.compose_file,
-        project_name = excluded.project_name,
-        latest_receipt_json = excluded.latest_receipt_json,
-        updated_at = excluded.updated_at
-    `).run(
-      rigId,
-      record.kind,
-      record.specJson,
-      record.rigRoot,
-      composeFile,
-      projectName,
-      record.latestReceiptJson ?? null,
-      now,
-      now,
-    );
-
-    const stored = this.db.prepare("SELECT * FROM rig_services WHERE rig_id = ?").get(rigId) as RigServicesRow | undefined;
-    if (!stored) throw new Error(`Failed to persist services record for rig ${rigId}`);
-    return this.rowToServicesRecord(stored);
-  }
-
-  /** A retained generation must not tear down a live generation's project. */
-  getLiveServicesSuccessor(rigId: string, projectName: string): { id: string; name: string } | null {
-    if (!this.hasRigColumn("archived_at")) return null;
-    return this.db.prepare(`
-      SELECT r.id, r.name FROM rig_services s JOIN rigs r ON r.id = s.rig_id
-      JOIN rigs predecessor ON predecessor.id = ?
-      WHERE s.project_name = ? AND r.id != predecessor.id
-        AND predecessor.archived_at IS NOT NULL AND r.archived_at IS NULL
-        AND r.name = predecessor.name
-      ORDER BY r.created_at DESC LIMIT 1
-    `).get(rigId, projectName) as { id: string; name: string } | undefined ?? null;
-  }
-
-  getServicesRecord(rigId: string): RigServicesRecord | null {
-    const row = this.db.prepare("SELECT * FROM rig_services WHERE rig_id = ?").get(rigId) as RigServicesRow | undefined;
-    return row ? this.rowToServicesRecord(row) : null;
-  }
-
-  updateServicesReceipt(rigId: string, latestReceiptJson: string | null): RigServicesRecord | null {
-    const now = new Date().toISOString();
-    const result = this.db.prepare(`
-      UPDATE rig_services
-      SET latest_receipt_json = ?, updated_at = ?
-      WHERE rig_id = ?
-    `).run(latestReceiptJson, now, rigId);
-
-    if (result.changes === 0) return null;
-    return this.getServicesRecord(rigId);
-  }
-
   // -- Row-to-domain mappers --
 
   private rowToRig(row: RigRow): Rig {
@@ -746,16 +594,6 @@ export class RigRepository {
     };
   }
 
-  private rowToEdge(row: EdgeRow): Edge {
-    return {
-      id: row.id,
-      rigId: row.rig_id,
-      sourceId: row.source_id,
-      targetId: row.target_id,
-      kind: row.kind,
-      createdAt: row.created_at,
-    };
-  }
 
   private rowToBinding(row: BindingRow): Binding {
     return {
@@ -772,19 +610,6 @@ export class RigRepository {
     };
   }
 
-  private rowToServicesRecord(row: RigServicesRow): RigServicesRecord {
-    return {
-      rigId: row.rig_id,
-      kind: row.kind as "compose",
-      specJson: row.spec_json,
-      rigRoot: row.rig_root,
-      composeFile: row.compose_file,
-      projectName: row.project_name,
-      latestReceiptJson: row.latest_receipt_json ?? null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
-  }
 
   private hasNodeColumn(columnName: string): boolean {
     return this.db.prepare("PRAGMA table_info(nodes)").all()
@@ -832,14 +657,6 @@ interface NodeRow {
   created_at: string;
 }
 
-interface EdgeRow {
-  id: string;
-  rig_id: string;
-  source_id: string;
-  target_id: string;
-  kind: string;
-  created_at: string;
-}
 
 interface BindingRow {
   id: string;
@@ -854,14 +671,3 @@ interface BindingRow {
   updated_at: string;
 }
 
-interface RigServicesRow {
-  rig_id: string;
-  kind: string;
-  spec_json: string;
-  rig_root: string;
-  compose_file: string;
-  project_name: string;
-  latest_receipt_json: string | null;
-  created_at: string;
-  updated_at: string;
-}
