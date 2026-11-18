@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,11 +29,10 @@ const missing = (client: Resolution["client"]): Resolution =>
 const allInstalled: Resolution[] = [found("claude"), found("codex"),
   { ok: true, client: "gemini", path: process.execPath, args: ["C:\\fixture\\gemini.js"], source: "shim" },
   found("git"), found("gh")];
-const probeFor = (state: SignInProbe["state"]): SignInProbe["state"] => state;
 const signInAnswers: Record<string, SignInProbe> = {
-  claude: { client: "claude", state: probeFor("signed-in"), signIn: null },
-  codex: { client: "codex", state: probeFor("signed-out"), signIn: "codex login" },
-  gemini: { client: "gemini", state: probeFor("unknown"), signIn: "gemini" },
+  claude: { client: "claude", state: "signed-in", signIn: null },
+  codex: { client: "codex", state: "signed-out", signIn: "codex login" },
+  gemini: { client: "gemini", state: "unknown", signIn: "gemini" },
 };
 
 describe("owner setup read", () => {
