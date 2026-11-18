@@ -553,6 +553,20 @@ function snapshotCandidate(root: string, destination: string): Map<string, Snaps
 }
 
 /**
+ * A link's target in the form git stores it, for a host that answers in another form.
+ *
+ * Windows reports a relative target with `\` separators whatever the link was created with, and
+ * git stores the target text as authored. Every comparison in this module is against git's own
+ * bytes — the base rule file, the staged `120000` blob, the patch's hunk — so a host form that
+ * disagrees makes an untouched link read as an edited one. Rewriting the host's separator to the
+ * one git uses is the same target, and it is the only difference allowed here: the bytes
+ * otherwise pass through untouched.
+ */
+function gitLinkText(text: Buffer): Buffer {
+  return isWindows() ? Buffer.from(text.toString("utf8").replaceAll("\\", "/"), "utf8") : text;
+}
+
+/**
  * The same candidate walk, by path, for hosts without `/proc/self/fd`.
  *
  * The properties are unchanged: `.git` is metadata at every depth, a link is never followed, and
@@ -575,8 +589,14 @@ function snapshotCandidateByPath(directory: string, destination: string, relativ
       // created where this host allows one, so every later containment check sees the link at
       // the path it occupies; a host that refuses it (Windows needs a privilege for a file
       // symlink) still records the text, and the staging step writes it as the index entry.
+      //
+      // `readlink` on Windows answers a relative target with Windows separators, while git
+      // stores the target as the link was authored (`../docs/target.md`) — and that stored form
+      // is what an untouched link's blob holds and what the patch must write back. Recording the
+      // Windows spelling made every link read as modified, hashed different bytes than the patch
+      // carried, and recreated the link as a different one when the patch was applied.
       mkdirSync(dirname(target), { recursive: true });
-      const text = readlinkSync(source, { encoding: "buffer" });
+      const text = gitLinkText(readlinkSync(source, { encoding: "buffer" }));
       try { symlinkSync(text, target); } catch { /* staged from the text instead */ }
       entries.set(path, { kind: "link", text });
       continue;
@@ -815,7 +835,7 @@ function commitLaneManifest(workspace: CandidateWorkspace & { base: { kind: "com
       const checkedOut = join(baseRuleTree, path);
       const entry = base.get(path)!;
       baseRules.set(path, entry.mode === "120000"
-        ? readlinkSync(checkedOut, { encoding: "buffer" })
+        ? gitLinkText(readlinkSync(checkedOut, { encoding: "buffer" }))
         : readFileSync(checkedOut));
     }
 
@@ -1444,7 +1464,7 @@ export function createReviewPacket(workspace: CandidateWorkspace, destination: s
     // rule; the leaf is not, because resolving it is exactly what would read the target.
     const packetParent = candidatePath(workspace.root, dirname(file.path));
     const source = join(packetParent, basename(file.path));
-    if (lstatSync(source).isSymbolicLink()) writeFileSync(target, readlinkSync(source, { encoding: "buffer" }));
+    if (lstatSync(source).isSymbolicLink()) writeFileSync(target, gitLinkText(readlinkSync(source, { encoding: "buffer" })));
     else copyFileSync(source, target);
     // 0o444: the reviewer may read the bytes and nothing else.
     chmodSync(target, 0o444);
