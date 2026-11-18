@@ -9,7 +9,9 @@ import type { PlanGovernance } from "../domain/plan-governance.js";
 import type { WorkflowRuntime } from "../domain/workflow-runtime.js";
 import { credentialExcluded } from "../domain/scope-extension.js";
 import { teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
-import { readWorkspacePath, readCommittedWorkspacePath, type CandidateWorkspace } from "../domain/team-workspace.js";
+import { readCommittedWorkspacePath } from "../domain/team-workspace.js";
+import { readWorkspacePath } from "../domain/workspace-read.js";
+import type { CandidateWorkspace } from "../domain/team-workspace.js";
 import * as path from "node:path";
 
 /** Managed browsing reads the live workspace plus the recorded candidate base. */

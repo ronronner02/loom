@@ -32,11 +32,11 @@ import {
   sourceWorktrees,
   TEAM_BRANCH_PREFIX,
   verifySourceUnchanged,
-  readWorkspacePath,
   type CandidateWorkspace,
   type SourceRefMove,
   type WorkspaceBase,
 } from "./team-workspace.js";
+import { readWorkspacePath } from "./workspace-read.js";
 import { LEAD_ESCALATION_PATH, LEAD_PROPOSAL_PATH, LeadProposalMissingError, parseLeadEscalation, parseLeadProposalFile, type LeadProposal,
   type LeadEscalation, type LeadTask } from "./lead-proposal.js";
 import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";

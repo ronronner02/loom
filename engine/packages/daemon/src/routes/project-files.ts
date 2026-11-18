@@ -5,7 +5,7 @@ import { ATTACHMENT_MAX_BYTES, TEAM_CONTROL_VERSION, TeamContractError, parsePro
 import { storeProjectAttachment } from "../domain/project-attachments.js";
 import { listTeams } from "../domain/team-setup.js";
 import { credentialExcluded } from "../domain/binding-scope.js";
-import { readWorkspacePath } from "../domain/team-workspace.js";
+import { readWorkspacePath } from "../domain/workspace-read.js";
 import { teamControlAuthentication, type TeamControlCredentials, type TeamControlEnv } from "../middleware/auth-bearer-token.js";
 import { controlErrorHandler } from "../middleware/control-error.js";
 
