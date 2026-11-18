@@ -269,7 +269,7 @@ export function planningInstructions(goal: string, planRef: string, buildRoster 
     "the tasks in the order they should run, the files each task touches and how each one will be checked.\n\n" +
     (buildRoster ? `Also write ${leadRosterPath(planRef)} as {"seats":[{"role":"implementer","client":"claude-code"},` +
       `{"role":"reviewer","client":"codex"}]}. Choose at least one implementer, at most one reviewer and at most ${maxSeats} ` +
-      `seats excluding yourself. Clients are claude-code or codex. Change only ${planRef}, ${leadRosterPath(planRef)} and ${LEAD_ESCALATION_PATH}. ` +
+      `seats excluding yourself. Clients are claude-code, codex or gemini. Change only ${planRef}, ${leadRosterPath(planRef)} and ${LEAD_ESCALATION_PATH}. ` +
       "The owner approves the roster digest together with the plan. Reuse existing seats by role, including duplicate slots. " +
       "When the owner has configured an allowlist, idle seats may switch to an allowed client and model; busy seats keep their client. " +
       "Without a configured allowlist preserve the existing role and client. Approval adds only missing seats. "

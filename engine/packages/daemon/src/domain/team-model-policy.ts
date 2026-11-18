@@ -25,7 +25,7 @@ export function modelId(value: unknown): string {
 function choice(value: unknown): TeamModelChoice {
   const v = object(value, "modelChoice");
   if (Object.keys(v).some(key => key !== "client" && key !== "model")
-    || (v.client !== "claude-code" && v.client !== "codex")) throw new TeamContractError("modelChoice");
+    || (v.client !== "claude-code" && v.client !== "codex" && v.client !== "gemini")) throw new TeamContractError("modelChoice");
   return { client: v.client, model: modelId(v.model) };
 }
 export function teamModelAllowlist(db: Database.Database, rigId: string): TeamModelChoice[] | null {
