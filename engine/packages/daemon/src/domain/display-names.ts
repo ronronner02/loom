@@ -1,5 +1,7 @@
+import { CATALOGS, CLIENT_LABEL_KEYS, ROLE_LABEL_KEYS } from "@multi-agent/i18n";
+
 /**
- * U9 / KTD8 — the readable names the owner read publishes beside the ids.
+ * The readable names the owner read publishes beside the ids.
  *
  * Names come from recorded text, never from ids: a run starts with its goal and receives a
  * concise title from the lead's reply; a task has an explicit title or its body's first line.
@@ -80,16 +82,27 @@ export function ordinalTaskName(ordinal: number): string {
   return `Task ${ordinal}`;
 }
 
-/** A role's label in the stored English form. Clients localise from the `role` field instead. */
+/**
+ * A role's and a client's label in the stored English form.
+ *
+ * The stored name is the English fallback; a client localises from the `role`/`client` field
+ * using the same keys `@multi-agent/i18n` publishes, so a new client is added in one place and
+ * neither side can name it differently.
+ */
 export function roleLabel(role: string): string {
-  return role.charAt(0).toUpperCase() + role.slice(1);
+  const key = ROLE_LABEL_KEYS[role as keyof typeof ROLE_LABEL_KEYS];
+  return key === undefined ? role.charAt(0).toUpperCase() + role.slice(1) : CATALOGS.en[key];
 }
 
-const CLIENT_LABELS: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex", gemini: "Gemini CLI" };
-
-/** A client's label in the stored English form. Clients localise from the `client` field instead. */
+/**
+ * A client's English label, from the one vocabulary both packages share.
+ *
+ * The i18n key names the client; its English catalog entry is that label. Reading the catalog
+ * rather than a second table is what keeps a new client's stored name and rendered name equal.
+ */
 export function clientLabel(client: string): string {
-  return CLIENT_LABELS[client] ?? client;
+  const key = CLIENT_LABEL_KEYS[client as keyof typeof CLIENT_LABEL_KEYS];
+  return key === undefined ? client : CATALOGS.en[key];
 }
 
 /**

@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import { statusLabelKey, type MessageKey, type StatusDomain } from "@multi-agent/i18n";
+import { clientLabelKey, roleLabelKey, statusLabelKey, type MessageKey, type StatusDomain } from "@multi-agent/i18n";
 import type { TeamReviewView, TeamSeatView, TeamTaskNameParts, TeamTaskStage } from "@multi-agent/daemon/team-control";
 
 /**
@@ -27,8 +27,8 @@ export function isFinished(task: Pick<TeamReviewView, "queueState">): boolean {
 }
 
 export function clientLabel(client: string, t: TFunction): string {
-  return client === "codex" ? t("team.client.codex") : client === "claude-code" ? t("team.client.claude-code")
-    : client === "gemini" ? t("team.client.gemini") : client;
+  const key = clientLabelKey(client);
+  return key ? t(key) : client;
 }
 
 /** "刚刚 / 3 分钟前 / 昨天 22:06" — relative inside a day, then a date. */
@@ -77,11 +77,8 @@ export function assignedSeat(task: TeamReviewView, seats: readonly TeamSeatView[
   return seat ? namedSeat(seat, t) : roleLabel(task.role, t);
 }
 
-/** The three roles the surface names; the lookup lives here so a wrong role cannot render raw. */
-const ROLE_KEYS = { lead: "role.lead", implementer: "role.implementer", reviewer: "role.reviewer" } as const;
-
 export function roleLabel(role: TeamReviewView["role"], t: TFunction): string {
-  return t(Object.hasOwn(ROLE_KEYS, role) ? ROLE_KEYS[role] : "role.implementer");
+  return t(roleLabelKey(role) ?? "role.implementer");
 }
 
 /** A status word from the daemon's own codes; an unknown code renders as the code itself. A
