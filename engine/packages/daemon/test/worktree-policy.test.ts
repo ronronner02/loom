@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import type Database from "better-sqlite3";
 import {
@@ -82,11 +82,14 @@ describe("worktree policy constants", () => {
     // spelling. `MULTI_AGENT_HOME` is blanked by name, not spread: the suite's own value
     // relocates the state root and would describe a different default than this case asserts.
     const environment: NodeJS.ProcessEnv = { ...process.env, MULTI_AGENT_HOME: "" };
-    if (windows) environment.LOCALAPPDATA = "C:\\Users\\owner\\AppData\\Local";
-    else environment.HOME = "/home/owner";
-    expect(defaultWorktreeRoot(environment)).toBe(windows
-      ? join("C:\\Users\\owner\\AppData\\Local", "Multi-Agent", "wt")
-      : join("/home/owner", ".multi-agent", "wt"));
+    if (windows) {
+      environment.LOCALAPPDATA = "C:\\Users\\owner\\AppData\\Local";
+      expect(defaultWorktreeRoot(environment)).toBe(join("C:\\Users\\owner\\AppData\\Local", "Multi-Agent", "wt"));
+    } else {
+      // The POSIX default is the per-user home, which this module reads from the OS rather
+      // than from the environment it is handed.
+      expect(defaultWorktreeRoot(environment)).toBe(join(homedir(), ".multi-agent", "wt"));
+    }
   });
 
   it("lets an explicit override win on both hosts", () => {
