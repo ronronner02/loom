@@ -652,33 +652,38 @@ describe("a freed slot dispatches the run's next task", () => {
     expect(pendingTasks(db, "run")).toEqual(["task-2"]);
   });
 
-  it("admits a receipt on a seat that holds two live tasks, by the pane's stamp", async () => {
+  it("admits a receipt on a seat that holds two live tasks, by the launch's own task", async () => {
     // Measured on the C4 rerun: both implementers completed, so the run created task-2-review-1
     // and task-3-review-1 on the same reviewer seat. The review turn really ran, but the receipt
     // named only the seat, the sweep found two live tasks there and recorded nothing, so the
-    // owner's completion read had no attempt to record. The launch stamps its pane with the task
-    // it starts, and that stamp is the answer.
+    // owner's completion read had no attempt to record. The launch records the task it starts in
+    // its own submitted fact before the child exists, and that fact is the answer.
     expect(admit("task-1", "a@rig").status).toBe("accepted");
     expect(admit("task-2", "a@rig").status).toBe("accepted");
-    // A receipt for the seat, as a real launch writes one: the daemon's event log is its source.
+    // A receipt for the seat, as a real launch writes one, and the submitted fact beside it.
     db.prepare(`INSERT INTO events (rig_id, node_id, type, payload, created_at)
       VALUES ('rig', 'a-node', 'managed.attempt.receipt', ?, '2026-11-04T00:00:01.000Z')`).run(JSON.stringify({
         sessionName: "a@rig", runId: "run", receipt: { attemptId: "attempt-stamped", runId: "run", client: "claude-code",
-          identity: { nativeSessionId: "stamped", tmuxServer: "/tmp/tmux", paneId: "%9", processId: process.pid,
+          identity: { nativeSessionId: "stamped", tmuxServer: null, paneId: null, processId: process.pid,
             processStart: "0", generation: 1, policyFingerprint: binding.policyFingerprint } } }));
-    const sweepWith = async (paneTask: string | null) => {
+    const submitted = (taskId: string | null) => db.prepare(
+      `INSERT INTO events (rig_id, node_id, type, payload, created_at)
+       VALUES ('rig', 'a-node', 'team.control', ?, '2026-11-04T00:00:00.500Z')`).run(JSON.stringify({
+        type: "team.control", rigId: "rig", runId: "run", taskId, attemptId: "attempt-stamped", action: "attempt.submitted" }));
+    const sweep = async () => {
       const completion = composeAttemptCompletion({ db, governance, sessions: { findResumeContextByName: () => null,
-        updateStartupStatus: () => {} }, currentBinding: () => binding, intervalMs: 60_000, paneTask: async () => paneTask,
+        updateStartupStatus: () => {} }, currentBinding: () => binding, intervalMs: 60_000,
         // The launch's client is still running; this case is about which task it is admitted for.
         alive: () => true });
       await completion.sweep();
       completion.stop();
     };
-    // Without a stamp the seat is ambiguous and nothing is recorded: the conservative answer.
-    await sweepWith(null);
+    // Without a submitted task the seat is ambiguous and nothing is recorded: the conservative answer.
+    await sweep();
     expect(governance.getAttempt("attempt-stamped")).toBeNull();
-    // The stamp names task-2, so that is the task the attempt belongs to.
-    await sweepWith("task-2");
+    // The submitted fact names task-2, so that is the task the attempt belongs to.
+    submitted("task-2");
+    await sweep();
     expect(governance.getAttempt("attempt-stamped")).toMatchObject({ state: "running", role: "implementer" });
     expect(governance.getAttempt("attempt-stamped")?.qitemId).toBe(governance.findTask("run", "task-2")!.qitemId);
   });

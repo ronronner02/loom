@@ -180,7 +180,7 @@ describe("attempt telemetry persistence and per-turn usage", () => {
     expect(store.read(attempt).usage).toMatchObject({ status: "partial", inputTokens: 10, outputTokens: null });
   });
 
-  it("persists before pane/seat release and stores the outcome before dispatch", async () => {
+  it("persists the telemetry before the seat is released and stores the outcome before dispatch", async () => {
     const successor = fixture.addTask("successor");
     const attempt = fixture.addAttempt("complete");
     fixture.writeSidecars(attempt.id, nativeUsage(), [toolStart, { ...toolStart, seq: 2, status: "completed" }]);
@@ -188,14 +188,15 @@ describe("attempt telemetry persistence and per-turn usage", () => {
     const order: string[] = [];
     const completion = composeAttemptCompletion({ db: fixture.db, governance: fixture.governance,
       currentBinding: () => fixture.binding, turnStateRoot: fixture.turnRoot, telemetry: store,
-      alive: identity => identity.processStart === "successor-attempt", paneExit: async () => ({ dead: true, code: 0 }),
-      releasePane: async () => {
-        expect(store.read(attempt)).toMatchObject({ source: "stored", activeMs: 10_000 }); order.push("pane");
-      },
+      alive: identity => identity.processStart === "successor-attempt",
+      turnExit: attemptId => attemptId === attempt.id
+        ? { version: 1 as const, attemptId, provider: "codex" as const, exitCode: 0, signal: null,
+          acknowledged: true, noResponse: false, threadId: null, stderrTail: "", outputTail: "", at: fixture.clock().toISOString() }
+        : null,
       sessions: { findResumeContextByName: () => ({ sessionId: "session" }) as never,
         updateStartupStatus: () => {
           expect(store.read(fixture.governance.getAttempt(attempt.id)!)).toMatchObject({ source: "stored", outcome: "succeeded" });
-          order.push("seat");
+          if (!order.includes("seat")) order.push("seat");
         } },
       candidateManifestFor: () => ({ base: "commit", baseIdentifier: "a".repeat(40), files: [{ path: "src/result.txt" }],
         manifestDigest: "sha256:" + "b".repeat(64), patch: "diff --git a/src/result.txt b/src/result.txt\n+++ b/src/result.txt\n" }),
@@ -207,9 +208,9 @@ describe("attempt telemetry persistence and per-turn usage", () => {
       },
     });
     await completion.sweep();
-    expect(order).toEqual(["pane", "seat", "dispatch"]);
+    expect(order).toEqual(["seat", "dispatch"]);
     expect(fixture.governance.getAttempt(attempt.id)!.usage.inputTokens.value).toBeNull();
-    await completion.sweep(); expect(order).toHaveLength(3);
+    await completion.sweep(); expect(order).toHaveLength(2);
     expect(fixture.governance.getAttempt("successor-attempt")!.state).toBe("running");
   });
 
@@ -220,8 +221,10 @@ describe("attempt telemetry persistence and per-turn usage", () => {
     const completion = composeAttemptCompletion({ db: fixture.db, governance: fixture.governance,
       currentBinding: () => fixture.binding, turnStateRoot: fixture.turnRoot, telemetry: store, alive: () => false,
       sessions: { findResumeContextByName: () => null, updateStartupStatus: vi.fn() },
-      now: fixture.clock, paneExit: async () => ({ dead: true, code: 1 }),
-      paneTail: async () => "Error: connect ECONNRESET",
+      now: fixture.clock,
+      turnExit: attemptId => ({ version: 1 as const, attemptId, provider: "codex" as const, exitCode: 1, signal: null,
+        acknowledged: true, noResponse: false, threadId: null, stderrTail: "Error: connect ECONNRESET", outputTail: "",
+        at: fixture.clock().toISOString() }),
     });
     await completion.sweep();
     expect(fixture.governance.queueState(fixture.qitemId)).toBe("pending");

@@ -137,8 +137,7 @@ describe("the owner retry reads the recorded classification", () => {
   let nextKey: number;
   let alive: boolean;
   let sessions: SessionRegistry;
-  let paneExit: { dead: boolean; code: number | null } | null;
-  let paneTail: string | null;
+  let turnExit: import("../src/adapters/child-process-supervisor.js").SupervisorExitFacts | null;
 
   beforeEach(() => {
     db = createDb();
@@ -170,8 +169,7 @@ describe("the owner retry reads the recorded classification", () => {
     sessions.updateResumeToken(session.id, "claude_id", "poisoned-native-session");
     nextKey = 0;
     alive = true;
-    paneExit = { dead: false, code: null };
-    paneTail = null;
+    turnExit = null;
   });
   afterEach(() => { if (db?.open) db.close(); });
 
@@ -180,8 +178,7 @@ describe("the owner retry reads the recorded classification", () => {
     expectedEntityVersion: governance.getRun("run-1").entityVersion, idempotencyKey: `retry-${++nextKey}`, payload });
 
   const completion = () => composeAttemptCompletion({ db, governance, sessions, alive: () => alive,
-    currentBinding: () => structuredClone(binding), log: () => {},
-    paneExit: async () => paneExit, paneTail: async () => paneTail });
+    currentBinding: () => structuredClone(binding), log: () => {}, turnExit: () => turnExit });
 
   /** Admit an attempt from a launch receipt, as the direct launch's own event does. */
   const launch = (attemptId = "attempt-1", seat = "builder@rig-1") => {
@@ -207,6 +204,13 @@ describe("the owner retry reads the recorded classification", () => {
       expectedAttemptVersion: governance.getAttempt(attemptId)!.entityVersion,
     }), owner, binding);
   };
+  /** The turn's own end, as the supervisor writes it when the child exits. */
+  const exitFacts = (code: number | null, tail: string | null, attemptId = "attempt-1"):
+    import("../src/adapters/child-process-supervisor.js").SupervisorExitFacts => ({
+      version: 1, attemptId, provider: "claude", exitCode: code, signal: null,
+      acknowledged: true, noResponse: false, threadId: null, stderrTail: tail ?? "", outputTail: "",
+      at: new Date().toISOString(),
+    });
   /** Run one attempt to its observed end with the given terminal evidence. */
   const end = async (exit: { dead: boolean; code: number | null } | null, tail: string | null) => {
     launch();
@@ -214,14 +218,13 @@ describe("the owner retry reads the recorded classification", () => {
     await owner_.sweep();
     expect(governance.getAttempt("attempt-1")?.state).toBe("running");
     alive = false;
-    paneExit = exit;
-    paneTail = tail;
+    turnExit = exit === null ? null : exitFacts(exit.code, tail);
     await owner_.sweep();
     expect(governance.getAttempt("attempt-1")?.state).toBe("stopped");
     return governance.getAttempt("attempt-1")!;
   };
 
-  it("records the classifier's decision with the stop, from the pane's own exit status", async () => {
+  it("records the classifier's decision with the stop, from the turn's own exit status", async () => {
     const stopped = await end({ dead: true, code: 7 }, "Error: connect ECONNREFUSED 127.0.0.1:443\n");
     expect(stopped.failure).toEqual({ ...classificationFor("agent_error.provider_network"),
       ownerAction: OWNER_ACTIONS["agent_error.provider_network"] });
