@@ -66,16 +66,20 @@ describe("mailbox endpoint naming", () => {
     const mailboxRoot = "/var/lib/multi-agent/control/mailboxes";
     const socket = { transport: "unix", path: mailboxRoot + "/ma-worker1/run-1/attempt-1/mailbox.sock",
       dev: 9, ino: 22, uid: 990, gid: 990, generation } as const;
-    const fact = { mailboxRoot, worker: "ma-worker1", runId: "run-1", attemptId: "attempt-1", controlUid: 990, controlGid: 990 };
+    const fact = { mailboxRoot, worker: "ma-worker1", segments: ["run-1", "attempt-1"], controlUid: 990, controlGid: 990 };
     expect(admitsPosixMailboxEndpoint(socket, fact)).toBe(true);
+    // The unisolated layout has no run segment: the producer names the attempt directly under the
+    // worker, so the same fact with one segment admits that socket too.
+    const unisolated = { ...socket, path: mailboxRoot + "/ma-worker1/attempt-1/mailbox.sock" } as const;
+    expect(admitsPosixMailboxEndpoint(unisolated, { ...fact, segments: ["attempt-1"] })).toBe(true);
     // A pipe is never mountable by the launcher, however well-formed its name.
     expect(admitsPosixMailboxEndpoint(mailboxEndpoint("/tmp/x", generation, "win32") as never, fact)).toBe(false);
     for (const change of [{ dev: -1 }, { ino: 0 }, { uid: 991 }, { gid: 991 }, { path: socket.path + "-other" },
       { path: "/var/lib/multi-agent/mailbox.sock" }, { generation: "-leading-dash" }]) {
       expect(admitsPosixMailboxEndpoint({ ...socket, ...change }, fact)).toBe(false);
     }
-    for (const change of [{ mailboxRoot: undefined }, { worker: "ma-worker2" }, { runId: "run-2" },
-      { attemptId: "attempt-2" }, { controlUid: 991 }, { controlGid: undefined }]) {
+    for (const change of [{ mailboxRoot: undefined }, { worker: "ma-worker2" }, { segments: ["run-2", "attempt-1"] },
+      { segments: ["run-1", "attempt-2"] }, { controlUid: 991 }, { controlGid: undefined }]) {
       expect(admitsPosixMailboxEndpoint(socket, { ...fact, ...change } as never)).toBe(false);
     }
   });
