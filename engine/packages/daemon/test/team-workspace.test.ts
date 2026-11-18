@@ -12,7 +12,14 @@ const roots: string[] = [];
 afterEach(() => {
   for (const root of [...roots.splice(0), ...outsideRoots.splice(0)]) rmSync(root, { recursive: true, force: true });
 });
-const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-C", cwd, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+// Every git call in this suite is about bytes, so the host's own git configuration must not
+// change them: a runner whose global config says `core.autocrlf=true` normalizes a file when it
+// is *added*, which stores CRLF where the fixture wrote LF and breaks every byte-exact
+// expectation below. The two settings are pinned on the command line, which outranks every config
+// file, so a dev machine and a Windows runner measure the same bytes.
+const gitWithByteExactConfig = ["-c", "core.autocrlf=false", "-c", "core.eol=lf"];
+const git = (cwd: string, ...args: string[]) =>
+  execFileSync("git", ["-C", cwd, ...gitWithByteExactConfig, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 /**
  * Candidate trees live outside the repository. Placing one inside it would let
  * git discovery find the parent repository and hide every snapshot-lane bug.
@@ -678,7 +685,7 @@ it.skipIf(posixShapesOnly)("records an escaping, dangling or directory symlink a
     git(checkout, "-c", "core.autocrlf=false", "checkout", "--quiet", (workspace.base as { commit: string }).commit);
     const patchFile = join(checkout, "..", `${Date.now()}-link.patch`);
     writeFileSync(patchFile, manifest.patch);
-    execFileSync("git", ["-C", checkout, "apply", "--binary", patchFile], { stdio: ["ignore", "pipe", "pipe"] });
+    execFileSync("git", ["-C", checkout, ...gitWithByteExactConfig, "apply", "--binary", patchFile], { stdio: ["ignore", "pipe", "pipe"] });
     expect(lstatSync(join(checkout, "src", "link2.md")).isSymbolicLink(), "an applied link is still a link").toBe(true);
     // The host answers `readlink` in its own separator; the patch wrote git's, which is the form
     // this asserts.
@@ -814,7 +821,7 @@ it.skipIf(posixShapesOnly)("records an escaping, dangling or directory symlink a
       if (submodule) git(checkout, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--quiet");
       const file = join(candidateRoot(root), "candidate.patch");
       writeFileSync(file, patch);
-      execFileSync("git", ["-C", checkout, "apply", "--binary", file], { stdio: ["ignore", "pipe", "pipe"] });
+      execFileSync("git", ["-C", checkout, ...gitWithByteExactConfig, "apply", "--binary", file], { stdio: ["ignore", "pipe", "pipe"] });
       return checkout;
     }
 
@@ -1236,7 +1243,7 @@ it.skipIf(posixShapesOnly)("records an escaping, dangling or directory symlink a
       git(checkout, "checkout", "--quiet", base);
       const patchFile = join(candidateRoot(root), "candidate.patch");
       writeFileSync(patchFile, manifest.patch);
-      execFileSync("git", ["-C", checkout, "apply", "--binary", patchFile], { stdio: ["ignore", "pipe", "pipe"] });
+      execFileSync("git", ["-C", checkout, ...gitWithByteExactConfig, "apply", "--binary", patchFile], { stdio: ["ignore", "pipe", "pipe"] });
       git(checkout, "add", "-A");
 
       // The applied tree against the manifest, by content: a git blob id and the manifest's
