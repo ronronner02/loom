@@ -357,6 +357,17 @@ describe("GitHub push with retry and error classification", () => {
   it("classifies auth failure", () => {
     expect(isAuthFailure("fatal: Authentication failed for 'https://github.com/'")).toBe(true);
     expect(isAuthFailure("fatal: unable to access")).toBe(false);
+    // The status is matched where it is a status, not wherever those digits appear. A remote
+    // rejection whose message carries an object id was classified as an auth failure, which is a
+    // permanent answer and an instruction to sign in again for a push the remote declined.
+    expect(isAuthFailure("remote: HTTP 403")).toBe(true);
+    expect(isAuthFailure("remote: returned error: 401")).toBe(true);
+    expect(isAuthFailure("error: 403 Forbidden")).toBe(true);
+    expect(isAuthFailure("403")).toBe(true);
+    expect(isAuthFailure(
+      "To /tmp/remote.git\n ! [remote rejected] 603a92fc28a41df3fc05cfaa31fe86a197160965 -> main (pre-receive hook declined)\n"
+      + "error: failed to push some refs to '/tmp/remote.git'\n")).toBe(false);
+    expect(isAuthFailure("commit 1403abcd was rejected")).toBe(false);
   });
 
   it("classifies network failure", () => {

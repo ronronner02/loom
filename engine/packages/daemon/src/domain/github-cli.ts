@@ -86,10 +86,21 @@ export function isLargeFileRejection(stderr: string): boolean {
 
 /**
  * Detect whether a push failure looks like an auth failure.
+ *
+ * The status codes are matched as status codes, not as loose digits: a bare `403` alternative
+ * fires on any number that happens to contain it, so a rejection whose message carries an object
+ * id like `603a92fc…` was reported as an authentication failure — a permanent answer for a
+ * transient refusal, and an instruction to sign in again for a push the remote simply declined.
+ * Git and GitHub print the status after a status word — `HTTP 403`, `returned error: 403`,
+ * `status code: 401`, `code=403` — and at the start of the line when the status is the whole
+ * message. Those are the shapes matched here.
+ *
  * Exported for testing.
  */
 export function isAuthFailure(stderr: string): boolean {
-  return /authentication failed|auth failed|not authorized|403|401|permission denied/i.test(stderr);
+  return /authentication failed|auth failed|not authorized|permission denied/i.test(stderr)
+    || /(?:HTTP\s*|returned(?:\s+error)?:?\s+|error:\s*|status(?:\s+code)?\s*[:=]\s*|code\s*[:=]\s*)(?:401|403)\b/i.test(stderr)
+    || /^\s*(?:401|403)\b/m.test(stderr);
 }
 
 /**
