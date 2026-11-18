@@ -32,7 +32,7 @@ npm run test -w packages/daemon -- \
   test/team-model-policy.test.ts \
   test/team-souls.test.ts \
   test/team-dependencies.test.ts \
-  test/setup.test.ts test/network-proxy.test.ts \
+  test/setup.test.ts test/agent-sign-in.test.ts test/network-proxy.test.ts \
   test/framework-source.test.ts \
   test/framework-invocation.test.ts \
   test/lead-roster.test.ts \

@@ -92,11 +92,18 @@ describe("first-run setup", () => {
     expect(row.textContent).toContain("gemini");
   });
 
-  it("names Gemini's install line when it is missing", async () => {
-    state = { ...state, tools: (state.tools as Array<{ client: string }>).map(row =>
-      row.client === "gemini" ? { client: "gemini", ok: false, reason: "not-found" } : row) };
+  it("names Gemini's install line when it is missing, and gives it no sign-in row", async () => {
+    // A client that is not installed is a tools row and nothing else: the daemon sends no sign-in
+    // entry for it, so the screen never offers to sign in to a program that is not there.
+    state = { ...state,
+      tools: (state.tools as Array<{ client: string }>).map(row =>
+        row.client === "gemini" ? { client: "gemini", ok: false, reason: "not-found" } : row),
+      signIn: (state.signIn as Array<{ client: string }>).filter(row => row.client !== "gemini") };
     await show();
     expect(await screen.findByText("npm install -g @google/gemini-cli")).toBeTruthy();
+    // The tools row is the only place Gemini appears; the Agents block has no row for it.
+    expect(screen.getAllByText("Gemini CLI")).toHaveLength(1);
+    expect(document.querySelector(".setup-rows .setup-command")).toBeTruthy();
   });
 
   it("re-checks the tools on demand", async () => {
