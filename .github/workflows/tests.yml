@@ -2,9 +2,9 @@
 # every PR; this workflow is the release gate the owner set on 2026-11-17: a suite that is only
 # green on one host drifts on the other, and nothing notices until a release.
 #
-# The daemon suite is the long pole. `--maxWorkers=2` is kept because the suites spawn real child
-# processes and bind sockets; shard here only if a single job passes about twenty minutes on a
-# runner.
+# `--maxWorkers=2` is kept because the suites spawn real child processes and bind sockets. The
+# daemon suite is the long pole, so it is split into three shards; `--shard` is vitest's own
+# partitioner, so every file runs in exactly one shard.
 name: tests
 
 on:
@@ -13,11 +13,12 @@ on:
     branches: [main]
 
 jobs:
-  suites:
+  daemon:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        shard: [1, 2, 3]
     runs-on: ${{ matrix.os }}
     steps:
       # The skill and reference packs are symlinked into the repository. Without this a Windows
@@ -36,14 +37,36 @@ jobs:
       - name: Install
         run: npm ci --no-audit --no-fund --ignore-scripts
         working-directory: engine
-      # The CLI imports @multi-agent/daemon through its package exports, which point at dist, and
-      # the daemon's own spawned-CLI tests read packages/cli/dist, so the build comes first.
+      # The daemon suite spawns the real CLI, and the CLI imports @multi-agent/daemon through
+      # package exports that point at dist, so the build comes first.
       - name: Build
         run: npm run build
         working-directory: engine
-      - name: Daemon suite
-        run: npx vitest run --maxWorkers=2
+      - name: Daemon suite (shard ${{ matrix.shard }}/3)
+        run: npx vitest run --maxWorkers=2 --shard=${{ matrix.shard }}/3
         working-directory: engine/packages/daemon
+
+  suites:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          symlinks: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: engine/package-lock.json
+      - name: Install
+        run: npm ci --no-audit --no-fund --ignore-scripts
+        working-directory: engine
+      - name: Build
+        run: npm run build
+        working-directory: engine
       - name: CLI suite
         run: npx vitest run --maxWorkers=2
         working-directory: engine/packages/cli
