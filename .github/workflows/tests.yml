@@ -21,11 +21,10 @@ jobs:
         shard: [1, 2, 3]
     runs-on: ${{ matrix.os }}
     steps:
-      # The skill and reference packs are symlinked into the repository. Without this a Windows
-      # checkout writes each link target as a plain file and the pack checks fail.
+      # No `symlinks` input: actions/checkout has none, and the repository tracks no symlink at
+      # all — every skill and reference file is a regular file in the index. A checkout therefore
+      # writes exactly what the index holds on both hosts.
       - uses: actions/checkout@v4
-        with:
-          symlinks: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -54,8 +53,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          symlinks: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
