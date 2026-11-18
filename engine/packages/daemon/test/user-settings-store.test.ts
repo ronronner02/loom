@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   SettingsStore,
@@ -21,7 +21,7 @@ import {
 const DEFAULT_PRE_COMPACT_INSTRUCTION_FRAGMENT = "Read the claude-compaction-restore skill";
 const DEFAULT_RESTORE_INSTRUCTION_FRAGMENT = "Read the claude-compaction-restore skill";
 const DEFAULT_AUDIT_INSTRUCTION_FRAGMENT = "Required Read-Depth Audit";
-const DEFAULT_EXTRA_INSTRUCTION_FILE_SUFFIX = "compaction/post-compact-extra.md";
+const DEFAULT_EXTRA_INSTRUCTION_FILE_SUFFIX = join("compaction", "post-compact-extra.md");
 
 function clearEnv(): () => void {
   const keys = [
@@ -467,18 +467,19 @@ describe("SettingsStore (User Settings v0)", () => {
 
   it("workspace.root cascades into per-subdir defaults", () => {
     const store = new SettingsStore(configPath);
-    store.set("workspace.root", "/custom/ws");
+    const root = "/custom/ws";
+    store.set("workspace.root", root);
     store.set("skills.root", join(tmpDir, "skills"));
     const cfg = store.resolveConfig();
-    expect(cfg.workspaceRoot).toBe("/custom/ws");
-    expect(cfg.workspaceSlicesRoot).toBe("/custom/ws/missions");
-    expect(cfg.workspaceSteeringPath).toBe("/custom/ws/STEERING.md");
-    expect(cfg.workspaceSpecsRoot).toBe("/custom/ws/specs");
-    expect(cfg.workspaceProjectsRoot).toBe("/custom/ws/projects");
-    expect(cfg.workspaceCatalogPath).toBe("/custom/ws/workspace.yaml");
+    expect(cfg.workspaceRoot).toBe(root);
+    expect(cfg.workspaceSlicesRoot).toBe(join(root, "missions"));
+    expect(cfg.workspaceSteeringPath).toBe(join(root, "STEERING.md"));
+    expect(cfg.workspaceSpecsRoot).toBe(join(root, "specs"));
+    expect(cfg.workspaceProjectsRoot).toBe(join(root, "projects"));
+    expect(cfg.workspaceCatalogPath).toBe(join(root, "workspace.yaml"));
     expect(cfg.skillsRoot).toBe(join(tmpDir, "skills"));
-    expect(cfg.filesAllowlistRaw).toBe("workspace:/custom/ws");
-    expect(cfg.progressScanRootsRaw).toBe("workspace:/custom/ws");
+    expect(cfg.filesAllowlistRaw).toBe(`workspace:${root}`);
+    expect(cfg.progressScanRootsRaw).toBe(`workspace:${root}`);
   });
 
   it("recovery.auto_drive_provider_prompts defaults false and resolves into daemon config", () => {
@@ -497,20 +498,22 @@ describe("SettingsStore (User Settings v0)", () => {
 
   it("per-subdir override beats the workspace.root cascade", () => {
     const store = new SettingsStore(configPath);
-    store.set("workspace.root", "/ws");
+    const root = "/ws";
+    store.set("workspace.root", root);
     store.set("workspace.slices_root", "/custom/slices");
     const cfg = store.resolveConfig();
     expect(cfg.workspaceSlicesRoot).toBe("/custom/slices");
     // Other subdirs still cascade from workspace.root:
-    expect(cfg.workspaceProjectsRoot).toBe("/ws/projects");
-    expect(cfg.workspaceCatalogPath).toBe("/ws/workspace.yaml");
+    expect(cfg.workspaceProjectsRoot).toBe(join(root, "projects"));
+    expect(cfg.workspaceCatalogPath).toBe(join(root, "workspace.yaml"));
   });
 
   it("workspace project paths default from workspace.root and support env overrides", () => {
     const store = new SettingsStore(configPath);
-    store.set("workspace.root", "/custom/ws");
-    expect(store.resolveConfig().workspaceProjectsRoot).toBe("/custom/ws/projects");
-    expect(store.resolveConfig().workspaceCatalogPath).toBe("/custom/ws/workspace.yaml");
+    const root = "/custom/ws";
+    store.set("workspace.root", root);
+    expect(store.resolveConfig().workspaceProjectsRoot).toBe(join(root, "projects"));
+    expect(store.resolveConfig().workspaceCatalogPath).toBe(join(root, "workspace.yaml"));
 
     store.set("workspace.projects_root", "/configured/projects");
     store.set("workspace.catalog_path", "/configured/workspace.yaml");
@@ -529,18 +532,21 @@ describe("SettingsStore (User Settings v0)", () => {
   });
 
   it("treats persisted legacy workspace defaults as default-derived values", () => {
+    // The stored values are spelled as an older install wrote them on this host: the legacy
+    // defaults are compared by exact string, so both sides carry the host's separators.
+    const root = "/ws";
     writeFileSync(configPath, JSON.stringify({
       workspace: {
-        root: "/ws",
-        slicesRoot: "/ws/slices",
-        steeringPath: "/ws/steering/STEERING.md",
+        root,
+        slicesRoot: join(root, "slices"),
+        steeringPath: join(root, "steering", "STEERING.md"),
       },
     }));
     const store = new SettingsStore(configPath);
     const slices = store.resolveOne("workspace.slices_root");
     const steering = store.resolveOne("workspace.steering_path");
-    expect(slices).toMatchObject({ value: "/ws/missions", source: "default" });
-    expect(steering).toMatchObject({ value: "/ws/STEERING.md", source: "default" });
+    expect(slices).toMatchObject({ value: join("/", "ws", "missions"), source: "default" });
+    expect(steering).toMatchObject({ value: join("/", "ws", "STEERING.md"), source: "default" });
   });
 
   it("ignores the removed files-allowlist environment selector", () => {
@@ -596,7 +602,7 @@ describe("SettingsStore (User Settings v0)", () => {
     expect(policy.preCompactInstruction).toContain(DEFAULT_PRE_COMPACT_INSTRUCTION_FRAGMENT);
     expect(policy.compactInstruction).toBe("");
     expect(policy.messageInline).toContain(DEFAULT_RESTORE_INSTRUCTION_FRAGMENT);
-    expect(policy.messageFilePath).toMatch(/^\//);
+    expect(isAbsolute(policy.messageFilePath)).toBe(true);
     expect(policy.messageFilePath.endsWith(DEFAULT_EXTRA_INSTRUCTION_FILE_SUFFIX)).toBe(true);
     expect(policy.postRestoreAuditInstruction).toContain(DEFAULT_AUDIT_INSTRUCTION_FRAGMENT);
   });

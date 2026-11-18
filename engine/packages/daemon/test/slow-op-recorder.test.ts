@@ -76,7 +76,9 @@ describe("SlowOpRecorder locked instrumentation contract", () => {
       expect(records[1]).toMatchObject({ site: "test.sync.boundary", outcome: "ok" });
       expect(typeof records[1]!.durationMs).toBe("number");
       expect(fs.readFileSync(logPath, "utf8")).not.toContain(secret);
-      expect(fs.statSync(logPath).mode & 0o777).toBe(0o600);
+      // Windows reports the file's ACL, not POSIX mode bits, so the private-mode record is
+      // proved on hosts that have modes.
+      if (process.platform !== "win32") expect(fs.statSync(logPath).mode & 0o777).toBe(0o600);
     } finally {
       delete process.env.MULTI_AGENT_TEST_SECRET;
       await recorder.close();
@@ -249,7 +251,8 @@ describe("SlowOpRecorder locked instrumentation contract", () => {
     const retained = [logPath, `${logPath}.1`, `${logPath}.2`, `${logPath}.3`];
     for (const retainedPath of retained) {
       expect(fs.existsSync(retainedPath), `${retainedPath} should exist`).toBe(true);
-      expect(fs.statSync(retainedPath).mode & 0o777).toBe(0o600);
+      // Windows reports the ACL, not POSIX mode bits.
+      if (process.platform !== "win32") expect(fs.statSync(retainedPath).mode & 0o777).toBe(0o600);
     }
     expect(fs.existsSync(`${logPath}.4`)).toBe(false);
     const all = retained

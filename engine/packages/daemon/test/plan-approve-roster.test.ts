@@ -16,6 +16,7 @@ import { continuationNote } from "../src/domain/agent-turn.js";
 import { appendChatMessage, takeOwnerMessages } from "../src/domain/lead-chat.js";
 import { unisolatedPolicyCapability } from "../src/routes/team-start.js";
 import { createTestApp } from "./helpers/test-app.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
 
 const seats: LeadRosterSeat[] = [{ role: "implementer", client: "claude-code" }, { role: "implementer", client: "codex" },
   { role: "reviewer", client: "codex" }];
@@ -153,7 +154,7 @@ describe("planning roster approval", () => {
     expect(governance.getRun(runId).phase).toBe("delivery");
   });
 
-  it("refuses a symlinked roster through the real bounded reader without exposing its target", async () => {
+  it.skipIf(symlinkRefusal !== null)("refuses a symlinked roster through the real bounded reader without exposing its target", async () => {
     const outside = join(root, "outside-roster.json");
     writeFileSync(outside, "outside-roster-bytes");
     rmSync(join(candidate, "lead-roster.json"));

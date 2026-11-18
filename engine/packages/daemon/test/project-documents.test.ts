@@ -23,6 +23,7 @@ import { leadActivation } from "../src/domain/lead-proposal.js";
 import { parseLeadRoster } from "../src/domain/lead-roster.js";
 import { commitPlan } from "../src/domain/plan-branch.js";
 import { canonicalJson, type ProjectDocumentKind, type ProjectDocumentVersion, type ProjectDocumentWorkflow } from "../src/contracts/team-control.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
 
 const token = "document-owner-fixture";
 const policy = unisolatedPolicyCapability(4);
@@ -328,6 +329,7 @@ describe("project document workflow", () => {
     const run = governance.getRun(runId), path = join(run.binding.repository.root, latest(runId, "requirements").path);
     writeFileSync(path, "An unapproved requirements change");
     expect(documentDispatchRefusal(db, run, "lead")).toMatch(/source changed/);
+    if (symlinkRefusal !== null) return; // The unreadable half needs a link.
     rmSync(path); symlinkSync(join(root, "repo/README.md"), path);
     expect(documentDispatchRefusal(db, run, "lead")).toMatch(/unreadable/);
   });
@@ -338,11 +340,12 @@ describe("project document workflow", () => {
     const path = documentPaths("plan.md").requirements;
     put(path, "x".repeat(262145));
     expect(() => runtime.documentsFor(runId, "task-1", "plan.md")).toThrow(/limit/);
+    if (symlinkRefusal !== null) return; // The linked half needs a link.
     rmSync(join(root, "candidate", path)); symlinkSync(join(root, "repo/README.md"), join(root, "candidate", path));
     expect(() => runtime.documentsFor(runId, "task-1", "plan.md")).toThrow();
   });
 
-  it("does not follow a repository link when publishing confirmed documents", async () => {
+  it.skipIf(symlinkRefusal !== null)("does not follow a repository link when publishing confirmed documents", async () => {
     const destination = join(root, "repo/planning-docs");
     symlinkSync(join(root, "candidate"), destination);
     expect(() => commitPlan({ worktree: join(root, "repo"), planRef: "plan.md", plan: "Plan", message: "Plan",
@@ -350,7 +353,7 @@ describe("project document workflow", () => {
     expect(() => readFileSync(join(root, "candidate/requirements.md"))).toThrow();
   });
 
-  it("rejects a dangling document symlink before publishing any files", () => {
+  it.skipIf(symlinkRefusal !== null)("rejects a dangling document symlink before publishing any files", () => {
     const external = join(root, "not-a-project-document.md");
     mkdirSync(join(root, "repo/planning-docs"));
     symlinkSync(external, join(root, "repo/planning-docs/requirements.md"));

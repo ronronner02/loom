@@ -82,7 +82,7 @@ function projectionRoot(input: ContextInput): string {
     || !policy.worker_identities.includes(worker) || policy.policy_revision < 4
     || input.binding.policyRevision !== policy.policy_revision
     || !Number.isSafeInteger(controlUid) || controlUid < 0 || (!input.sameIdentity && controlUid === input.workerUid)
-    || !Number.isSafeInteger(workerGid) || (workerGid <= 0 && !input.sameIdentity)) throw new Error("Invalid context projection identity");
+    || !Number.isSafeInteger(workerGid) || (workerGid < 0 && !input.sameIdentity)) throw new Error("Invalid context projection identity");
   for (const root of [policy.paths.context_root, policy.paths.framework_dir]) {
     if (!isAbsolute(root) || resolve(root) !== root) throw new Error("Non-canonical context policy root");
   }

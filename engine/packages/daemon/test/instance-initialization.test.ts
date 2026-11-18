@@ -11,11 +11,12 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import {
   ensureMultiAgentInstance,
   multiAgentContextLibraryRoots,
 } from "../src/domain/instance-initialization.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
 
 const roots: string[] = [];
 
@@ -30,7 +31,7 @@ function tree(root: string): Array<{ path: string; kind: "directory" | "file"; c
   const walk = (dir: string): void => {
     for (const name of readdirSync(dir).sort()) {
       const abs = join(dir, name);
-      const rel = relative(root, abs);
+      const rel = relative(root, abs).split(sep).join("/");
       if (statSync(abs).isDirectory()) {
         out.push({ path: rel, kind: "directory" });
         walk(abs);
@@ -60,10 +61,9 @@ describe("canonical Multi-Agent instance initialization", () => {
   });
 
   it("declares the canonical addressable and System World library roots together", () => {
-    expect(multiAgentContextLibraryRoots("/instance/context")).toEqual([
-      "/instance/context",
-      "/instance/context/system",
-    ]);
+    // The first root is the one it is given, verbatim; the second is its `system` child.
+    const contextRoot = join("/", "instance", "context");
+    expect(multiAgentContextLibraryRoots(contextRoot)).toEqual([contextRoot, join(contextRoot, "system")]);
   });
 
   it("creates the canonical roots plus the S01 workspace through one idempotent owner", () => {
@@ -127,7 +127,7 @@ describe("canonical Multi-Agent instance initialization", () => {
     expect(readFileSync(join(home, "context"), "utf8")).toBe("owned file\n");
   });
 
-  it("treats a user-owned symlink as a conflict instead of writing through it", () => {
+  it.skipIf(symlinkRefusal !== null)("treats a user-owned symlink as a conflict instead of writing through it", () => {
     const parent = freshRoot();
     const home = join(parent, "home");
     const outside = join(parent, "outside");

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { codexQueueStateRoot, codexTeamWorkspaceArg, prepareCodexTeamWorkspace } from "../src/domain/codex-team-workspace.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); vi.restoreAllMocks(); });
@@ -28,17 +29,29 @@ describe("Codex team workspace preparation", () => {
   });
   it("does not grant home, an ancestor, or a symlink to home", () => {
     const f = fixture(); vi.spyOn(console, "warn").mockImplementation(() => {});
-    const alias = path.join(f.root, "alias"); fs.symlinkSync(f.home, alias);
-    for (const candidate of [f.home, f.root, alias, "/"]) {
+    const candidates = [f.home, f.root, "/"];
+    if (symlinkRefusal === null) {
+      const alias = path.join(f.root, "alias"); fs.symlinkSync(f.home, alias);
+      candidates.splice(2, 0, alias);
+    }
+    for (const candidate of candidates) {
       const dirs = prepareCodexTeamWorkspace("dev-builder@workshop", candidate, f.shared, f.home);
       expect(dirs).toEqual([path.join(f.shared, "rigs/workshop/state/dev")]);
     }
+  });
+  it.skipIf(symlinkRefusal !== null)("does not grant a symlink to home either", () => {
+    // A link to home is a second name for the refused directory, so this host can only
+    // prove it where links can be created.
+    const f = fixture(); vi.spyOn(console, "warn").mockImplementation(() => {});
+    const alias = path.join(f.root, "alias"); fs.symlinkSync(f.home, alias);
+    expect(prepareCodexTeamWorkspace("dev-builder@workshop", alias, f.shared, f.home))
+      .toEqual([path.join(f.shared, "rigs/workshop/state/dev")]);
   });
   it("keeps legacy/malformed names from inventing state paths", () => {
     for (const name of ["r00-team-seat", "seat@team", "dev-seat@team@host", "../dev-seat@team"]) {
       expect(codexQueueStateRoot(name, "/shared")).toBeUndefined();
     }
-    expect(codexQueueStateRoot("dev-code-review@team", "/shared")).toBe("/shared/rigs/team/state/dev");
+    expect(codexQueueStateRoot("dev-code-review@team", "/shared")).toBe(path.join("/shared", "rigs", "team", "state", "dev"));
   });
   it("quotes spaces and preserves launch availability when optional preparation fails", () => {
     expect(codexTeamWorkspaceArg(() => ["/custom work", "/state"], "seat")).toBe(" --add-dir '/custom work' --add-dir '/state'");

@@ -441,6 +441,9 @@ describe("the reviewer's packet is the exact candidate and is read-only", () => 
     git(repository, "init", "--quiet", "--initial-branch=main");
     git(repository, "config", "user.email", "test@example.invalid");
     git(repository, "config", "user.name", "test");
+    // The packet copies worktree bytes: a host-level autocrlf would translate them on
+    // checkout and make this fixture's stored and checked-out bytes disagree.
+    git(repository, "config", "core.autocrlf", "false");
     writeFileSync(join(repository, "src", "tracked.ts"), "export const tracked = 1;\n");
     git(repository, "add", ".");
     git(repository, "commit", "--quiet", "-m", "base");
@@ -462,8 +465,8 @@ describe("the reviewer's packet is the exact candidate and is read-only", () => 
     expect(() => readFileSync(join(packet.root, ".git"))).toThrow();
     expect(verifyReviewPacket(packet)).toMatchObject({ unchanged: true, reason: null });
 
-    // The reviewer cannot write it...
-    expect(() => writeFileSync(join(packet.root, "src", "tracked.ts"), "tampered\n")).toThrow(/EACCES|permission/i);
+    // ...and the refusal is the host's own: POSIX reports EACCES, Windows EPERM.
+    expect(() => writeFileSync(join(packet.root, "src", "tracked.ts"), "tampered\n")).toThrow(/EACCES|EPERM|permission/i);
     // ...and an out-of-band edit is a mismatch, not silently the same candidate.
     chmodSync(join(packet.root, "src", "tracked.ts"), 0o644);
     writeFileSync(join(packet.root, "src", "tracked.ts"), "tampered\n");

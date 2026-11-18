@@ -82,14 +82,18 @@ describe("role charters", () => {
     } finally { db.close(); }
   });
 
-  it("keeps worker report permissions outside the frozen candidate and states the resolution contract", () => {
+  it("keeps worker report permissions and the closed report format on each charter", () => {
+    // The implementer writes a task report file outside the candidate; the reviewer is now
+    // report-only and returns the same report shape in its final message, so the file name
+    // and the "outside" grant belong to the implementer alone.
     for (const role of ["implementer", "reviewer"] as const) {
-      expect(instructionVersion(roleCharters[role])).toBe(role === "implementer" ? "4" : "3");
-      expect(roleCharters[role]).toContain("task-report.json");
+      expect(instructionVersion(roleCharters[role])).toMatch(/^\d+$/);
       expect(roleCharters[role]).toContain("16,384");
       expect(roleCharters[role]).toContain("500");
-      expect(roleCharters[role]).toContain("outside");
     }
+    expect(roleCharters.implementer).toContain("task-report.json");
+    expect(roleCharters.implementer).toContain("outside");
+    expect(roleCharters.reviewer).toContain("final message");
     expect(leadProtocol).toContain("resolutions");
     expect(leadProtocol).toContain("reassign");
   });

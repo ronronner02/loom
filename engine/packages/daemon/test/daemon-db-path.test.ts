@@ -1,34 +1,41 @@
 import { describe, it, expect } from "vitest";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import Database from "better-sqlite3";
 import { resolveDaemonDbPath } from "../src/daemon-db-path.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
+
+/** A home path spelled the way this host spells paths; the answer carries the same spelling. */
+const homeNamed = (...segments: string[]): string => join("/", "scratch", ...segments);
+const dbUnder = (home: string): string => join(home, "multi-agent.sqlite");
 
 describe("resolveDaemonDbPath — D15: db derives from MULTI_AGENT_HOME, never CWD-relative", () => {
   it("derives the db under MULTI_AGENT_HOME when MULTI_AGENT_DB is unset — NOT a bare CWD-relative filename", () => {
-    const p = resolveDaemonDbPath(undefined, "/scratch/home");
+    const home = homeNamed("home");
+    const p = resolveDaemonDbPath(undefined, home);
     // The tonight incident: a bare 'multi-agent.sqlite' resolved against the process
     // CWD -> could land on the SHARED fleet db. The default must be home-anchored.
-    expect(p).toBe("/scratch/home/multi-agent.sqlite");
+    expect(p).toBe(dbUnder(home));
     expect(p).not.toBe("multi-agent.sqlite");
-    expect(p.startsWith("/")).toBe(true); // absolute, CWD-independent
+    expect(isAbsolute(p)).toBe(true); // absolute, CWD-independent
   });
 
   it("isolates two daemons with different MULTI_AGENT_HOME even from the same CWD", () => {
-    expect(resolveDaemonDbPath(undefined, "/tmp/iso-a")).toBe("/tmp/iso-a/multi-agent.sqlite");
-    expect(resolveDaemonDbPath(undefined, "/home/fleet")).toBe("/home/fleet/multi-agent.sqlite");
+    expect(resolveDaemonDbPath(undefined, homeNamed("iso-a"))).toBe(dbUnder(homeNamed("iso-a")));
+    expect(resolveDaemonDbPath(undefined, homeNamed("fleet"))).toBe(dbUnder(homeNamed("fleet")));
   });
 
   it("honors an explicit MULTI_AGENT_DB path verbatim", () => {
-    expect(resolveDaemonDbPath("/iso/custom.sqlite", "/scratch/home")).toBe("/iso/custom.sqlite");
+    expect(resolveDaemonDbPath(join("/", "iso", "custom.sqlite"), homeNamed("home")))
+      .toBe(join("/", "iso", "custom.sqlite"));
   });
 
   it("treats an empty MULTI_AGENT_DB as unset (falls back to home-anchored default)", () => {
-    expect(resolveDaemonDbPath("", "/scratch/home")).toBe("/scratch/home/multi-agent.sqlite");
+    expect(resolveDaemonDbPath("", homeNamed("home"))).toBe(dbUnder(homeNamed("home")));
   });
 
-  it("fails loud when the implicit database resolves through a symlink outside resolved MULTI_AGENT_HOME", () => {
+  it.skipIf(symlinkRefusal !== null)("fails loud when the implicit database resolves through a symlink outside resolved MULTI_AGENT_HOME", () => {
     const root = mkdtempSync(join(tmpdir(), "multi-agent-db-home-guard-"));
     const home = join(root, "home");
     const outsideDb = join(root, "shared.sqlite");

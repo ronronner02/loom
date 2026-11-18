@@ -1,20 +1,19 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { prepareHermeticEnv, type HermeticScaffold } from "./helpers/hermetic-env.js";
+import { prepareHermeticEnv, SCAFFOLD_OWNER_TOKEN, type HermeticScaffold } from "./helpers/hermetic-env.js";
 import {
   spawnScenarioDaemon,
-  runRig,
   findFreePort,
   type ScenarioDaemon,
 } from "./helpers/scenario-daemon.js";
 
 // Slice 51-02 — the forced-local daemon SPAWN (the last hermetic-helper unit).
 // Integration: the helper spawns a REAL scenario-local daemon (the built `rig`
-// bin) under the scrubbed scratch env, the shipped `multi-agent ps --json` read works
-// against it, and stop() tears it down. This is the foundation of proof item 2
-// (live round-trip) proven at a real process boundary — the whole point of the
-// fail-closed helper (a direct method call would not be a transport proof).
+// bin) under the scrubbed scratch env, its owner surface answers against it, and
+// stop() tears it down. This is the foundation of proof item 2 (live round-trip)
+// proven at a real process boundary — the whole point of the fail-closed helper
+// (a direct method call would not be a transport proof).
 //
 // Contention note: spawns a real daemon (seconds); a free port avoids collisions.
 // Under heavy fleet load the start/healthz wait can be slow — bounded by timeout.
@@ -24,6 +23,11 @@ const RIG_BIN = resolve(HERE, "../../cli/dist/bin-wrapper.js");
 
 function realBaseEnv() {
   return { HOME: process.env.HOME, PATH: process.env.PATH, TERM: "xterm" };
+}
+
+/** The owner-authenticated health read: the daemon's own evidence that it is serving. */
+async function ownerHealth(baseUrl: string): Promise<Response> {
+  return fetch(`${baseUrl}/api/team-control/health`, { headers: { Authorization: `Bearer ${SCAFFOLD_OWNER_TOKEN}` } });
 }
 
 describe("scenario-daemon forced-local spawn (integration)", () => {
@@ -43,7 +47,7 @@ describe("scenario-daemon forced-local spawn (integration)", () => {
     expect(p).toBeLessThan(65536);
   });
 
-  it("spawns a real forced-local daemon, serves the ps read, and tears it down", async () => {
+  it("spawns a real forced-local daemon, serves the owner read, and tears it down", async () => {
     scaffold = prepareHermeticEnv({ baseEnv: realBaseEnv() });
     daemon = await spawnScenarioDaemon(scaffold, { rigBin: RIG_BIN });
 
@@ -51,11 +55,11 @@ describe("scenario-daemon forced-local spawn (integration)", () => {
     const health = await fetch(`${daemon.baseUrl}/healthz`);
     expect(health.ok).toBe(true);
 
-    // the shipped read works against the scenario-local daemon (bare array = empty rig set)
-    const ps = await runRig(["ps", "--json"], daemon.readEnv, RIG_BIN);
-    expect(ps.code).toBe(0);
-    const parsed = JSON.parse(ps.stdout);
-    expect(Array.isArray(parsed)).toBe(true);
+    // The owner surface authenticates with the scaffold's credential, so this proves the
+    // daemon booted admin-able rather than only listening.
+    const read = await ownerHealth(daemon.baseUrl);
+    expect(read.status).toBe(200);
+    expect(await read.json()).toMatchObject({ protocolVersion: expect.any(String), health: expect.any(Object) });
 
     // teardown: the daemon is gone (connection refused), scaffold removed
     const baseUrl = daemon.baseUrl;
@@ -90,9 +94,7 @@ describe("scenario-daemon forced-local spawn (integration)", () => {
     expect(daemon.port).toBe(beforePort);
     const health = await fetch(`${daemon.baseUrl}/healthz`);
     expect(health.ok).toBe(true);
-    // the shipped read still works against the re-spawned daemon
-    const ps = await runRig(["ps", "--json"], daemon.readEnv, RIG_BIN);
-    expect(ps.code).toBe(0);
-    expect(Array.isArray(JSON.parse(ps.stdout))).toBe(true);
+    // the owner read still works against the re-spawned daemon
+    expect((await ownerHealth(daemon.baseUrl)).status).toBe(200);
   }, 60_000);
 });

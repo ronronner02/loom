@@ -6,6 +6,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { prepareTeamAssignment, type AssignmentInput } from "../src/domain/team-assignment.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
+import { specFirstCli } from "./helpers/spec-first.js";
 import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
 import type { TeamRun, TeamTaskAuthority } from "../src/contracts/team-control.js";
 import { PlanGovernance, hashBytes } from "../src/domain/plan-governance.js";
@@ -37,7 +39,7 @@ it("prepares read-only workflow inputs from the read scope without accepting wri
   input.assignment.paths = ["outside"];
   await expect(prepareTeamAssignment(input)).rejects.toThrow("expands the approved scope");
 });
-it("prepares project-wide assignments while retaining concrete outputs and protected paths", async () => {
+it.skipIf(symlinkRefusal !== null)("prepares project-wide assignments while retaining concrete outputs and protected paths", async () => {
   const input = fixture();
   input.binding.readPaths = ["."];
   input.binding.writePaths = ["."];
@@ -52,14 +54,17 @@ it("prepares project-wide assignments while retaining concrete outputs and prote
   input.outputs = ["outside-task.ts"];
   input.context = { ...input.context, outputs: input.outputs };
   await expect(prepareTeamAssignment(input)).rejects.toThrow(/expands the approved scope/);
+  // The escaping path is a link, so this half runs only where a link can be created.
   symlinkSync(tmpdir(), join(input.binding.repository.root, "server"));
   input.outputs = ["server/external.ts"];
   await expect(prepareTeamAssignment(input)).rejects.toThrow();
 });
-it.each(["repository", "policy", "digest", "inactive", "role", "path", "output", "permission", "dependency", "symlink", "source", "internal-path", "internal-output"])("rejects invalid assignment: %s", async kind => { const input = fixture(); if (kind === "repository") input.currentBinding.repository.identity = "git:" + "b".repeat(40); if (kind === "policy") input.currentBinding.policyRevision++; if (kind === "digest") input.currentBinding.planDigest = hashBytes("changed"); if (kind === "inactive") input.currentBinding.status = "completed" as "active"; if (kind === "role") input.assignment.role = "reviewer"; if (kind === "path") input.assignment.paths = ["outside"]; if (kind === "output") input.outputs = ["test/report.md"]; if (kind === "permission") input.permissions = ["merge"]; if (kind === "dependency") input.assignment.dependencies = ["T006"]; if (kind === "symlink") { symlinkSync(tmpdir(), join(input.binding.repository.root, "src", "escape")); input.outputs = ["src/escape/new.ts"]; } if (kind.startsWith("internal-")) { mkdirSync(join(input.binding.repository.root, "test")); symlinkSync("../test", join(input.binding.repository.root, "src", "alias")); input.outputs[0] = "src/alias/result.ts"; if (kind === "internal-path") input.assignment.paths = ["src/alias"]; } if (kind === "source") writeFileSync(join(input.binding.repository.root, "plan.md"), "changed plan"); await expect(prepareTeamAssignment(input)).rejects.toThrow(); });
+it.each(["repository", "policy", "digest", "inactive", "role", "path", "output", "permission", "dependency", "source"].concat(symlinkRefusal === null ? ["symlink", "internal-path", "internal-output"] : []))("rejects invalid assignment: %s", async kind => { const input = fixture(); if (kind === "repository") input.currentBinding.repository.identity = "git:" + "b".repeat(40); if (kind === "policy") input.currentBinding.policyRevision++; if (kind === "digest") input.currentBinding.planDigest = hashBytes("changed"); if (kind === "inactive") input.currentBinding.status = "completed" as "active"; if (kind === "role") input.assignment.role = "reviewer"; if (kind === "path") input.assignment.paths = ["outside"]; if (kind === "output") input.outputs = ["test/report.md"]; if (kind === "permission") input.permissions = ["merge"]; if (kind === "dependency") input.assignment.dependencies = ["T006"]; if (kind === "symlink") { symlinkSync(tmpdir(), join(input.binding.repository.root, "src", "escape")); input.outputs = ["src/escape/new.ts"]; } if (kind.startsWith("internal-")) { mkdirSync(join(input.binding.repository.root, "test")); symlinkSync("../test", join(input.binding.repository.root, "src", "alias")); input.outputs[0] = "src/alias/result.ts"; if (kind === "internal-path") input.assignment.paths = ["src/alias"]; } if (kind === "source") writeFileSync(join(input.binding.repository.root, "plan.md"), "changed plan"); await expect(prepareTeamAssignment(input)).rejects.toThrow(); });
 it.each(["lead", "reviewer"] as const)("%s never acquires assigned-tree writes", async role => { const input = fixture(); input.assignment.role = role; input.context = { ...input.context, role, client: "codex" }; await expect(prepareTeamAssignment(input)).rejects.toThrow("Role permission denied"); });
 it.each(["valid", "stale", "invalid", "task", "changed"])("honors upstream task-pack validation: %s", async kind => { const input = fixture(); writeFileSync(join(input.binding.repository.root, "tasks.md"), "task pack"); const validate = vi.fn(async () => { const r = receipt(input); if (kind === "stale") r.validation.source_plan_hash = "mismatch"; if (kind === "invalid") r.task_pack_validity = "invalid"; if (kind === "task") r.task_pack.contract.tasks[0]!.files = ["other"]; if (kind === "changed") writeFileSync(join(input.binding.repository.root, "tasks.md"), "changed"); return r; }); input.taskPack = { path: "tasks.md", targetRepository: "fixture", validate }; if (kind === "valid") expect((await prepareTeamAssignment(input)).taskPackDigest).toBe(hashBytes("task pack")); else await expect(prepareTeamAssignment(input)).rejects.toThrow(); expect(validate).toHaveBeenCalledOnce(); });
-it("accepts the actual upstream validator receipt for a real task pack", async () => {
+it.skipIf(specFirstCli === null)("accepts the actual upstream validator receipt for a real task pack", async () => {
+  // The real validator is a developer-installed CLI the engine does not depend on.
+  const SPEC_FIRST_CLI = specFirstCli!;
   const repo = resolve(fileURLToPath(new URL("../../../..", import.meta.url))), planRef = "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md", path = "docs/tasks/2026-10-13-001-feat-multi-agent-team-tasks.md";
   const root = mkdtempSync(join(tmpdir(), "assignment-pack-")); roots.push(root); mkdirSync(join(root, "docs/plans"), { recursive: true }); mkdirSync(join(root, "docs/tasks"), { recursive: true });
   const planText = readFileSync(join(repo, planRef), "utf8").replace(/^status: partially-shipped$/m, "status: active");
@@ -76,7 +81,8 @@ it("accepts the actual upstream validator receipt for a real task pack", async (
   input.assignment.dependencies = ["T006"];
   input.outputs = [...input.assignment.paths];
   input.dependencySatisfied = () => true;
-  input.taskPack = { path, targetRepository: "ronronner02/multi-agent", validate: async (pack, testRoot) => JSON.parse(execFileSync(process.execPath, ["/mnt/d/dev/npm-global/node_modules/spec-first/bin/spec-first.js", "tasks", "validate", pack, "--repo", testRoot, "--json"], { cwd: testRoot, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" })) };
+  input.taskPack = { path, targetRepository: "ronronner02/multi-agent", validate: async (pack, testRoot) =>
+    JSON.parse(execFileSync(process.execPath, [SPEC_FIRST_CLI, "tasks", "validate", pack, "--repo", testRoot, "--json"], { cwd: testRoot, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" })) };
   input.context = { ...input.context, assignment: input.assignment, outputs: input.outputs };
   expect((await prepareTeamAssignment(input)).taskPackDigest).toBe(hashBytes(readFileSync(resolve(root, path))));
 });

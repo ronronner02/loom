@@ -12,6 +12,20 @@ import {
 } from "../src/middleware/auth-bearer-token.js";
 import type { NetworkInterfaceInfo } from "node:os";
 
+/**
+ * Run `body` with the hostname resolver failing, then restore it.
+ *
+ * The unresolvable-hostname cases assert the resolver's failure branch. A host whose DNS
+ * server answers every name with a synthetic address (a captive resolver, a VPN's fake-IP
+ * mode) never reaches that branch, so the branch is exercised through the resolver itself
+ * rather than through whatever this machine's DNS happens to do.
+ */
+async function withUnresolvableDns<T>(body: () => Promise<T>): Promise<T> {
+  const dns = await import("node:dns");
+  const spy = vi.spyOn(dns.promises, "lookup").mockRejectedValue(Object.assign(new Error("getaddrinfo ENOTFOUND"), { code: "ENOTFOUND" }));
+  try { return await body(); } finally { spy.mockRestore(); }
+}
+
 describe("auth-bearer-token middleware (PL-005 Phase B)", () => {
   it("constantTimeEqual returns true for equal strings", () => {
     expect(constantTimeEqual("abc", "abc")).toBe(true);
@@ -140,8 +154,10 @@ describe("auth-bearer-token middleware (PL-005 Phase B)", () => {
     });
 
     it("returns null for an intentionally-unresolvable hostname (HG-4)", async () => {
-      const ip = await resolveToIpOrNull("this-host-does-not-exist.invalid");
-      expect(ip).toBeNull();
+      // Injected: the assertion is the resolver-failure branch, and a host whose DNS server
+      // synthesises an answer for every name would never reach it.
+      await expect(withUnresolvableDns(() => resolveToIpOrNull("this-host-does-not-exist.invalid")))
+        .resolves.toBeNull();
     });
   });
 
@@ -196,9 +212,9 @@ describe("auth-bearer-token middleware (PL-005 Phase B)", () => {
 
     // Scenario 7: DNS-fails hostname, no bearer → THROW
     it("(7) DNS-unresolvable hostname with no bearer → THROW (HG-4)", async () => {
-      await expect(
-        assertBindAuthInvariant({ host: "this-host-does-not-exist.invalid", bearerToken: null }),
-      ).rejects.toThrow(AuthBearerTokenStartupError);
+      await expect(withUnresolvableDns(() =>
+        assertBindAuthInvariant({ host: "this-host-does-not-exist.invalid", bearerToken: null })))
+        .rejects.toThrow(AuthBearerTokenStartupError);
     });
 
     // Existing-behavior preservation

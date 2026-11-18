@@ -6,6 +6,7 @@ import { constants as fsConstants } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { acceptSourceRefMove, candidateManifest, candidatePath, createCandidateWorkspace, createReviewPacket, listFiles, removeCandidateWorkspace, removeReviewPacket, resolveWorkspaceBase, sourceFingerprint, verifyReviewPacket, verifySourceUnchanged } from "../src/domain/team-workspace.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -154,7 +155,7 @@ describe("isolated candidate ownership", () => {
     removeCandidateWorkspace(workspace);
   });
 
-  it("resolves paths through a root reached by symlink", () => {
+  it.skipIf(symlinkRefusal !== null)("resolves paths through a root reached by symlink", () => {
     const root = repository();
     const link = join(tmpdir(), `candidate-link-${Date.now()}`); roots.push(link);
     symlinkSync(root, link);
@@ -217,12 +218,14 @@ describe("isolated candidate ownership", () => {
     removeCandidateWorkspace(workspace);
   });
 
-  it("refuses a candidate path that escapes through .. or an escaping symlink", () => {
+  it("refuses a candidate path that escapes through .., and through an escaping symlink where one can exist", () => {
     const root = repository();
     expect(() => candidatePath(root, "../outside.ts")).toThrow(/escapes the repository/);
     expect(() => candidatePath(root, "src/../../outside.ts")).toThrow(/escapes the repository/);
-    symlinkSync(tmpdir(), join(root, "src", "escape"));
-    expect(() => candidatePath(root, "src/escape/new.ts")).toThrow(/escapes the repository through a symlink/);
+    if (symlinkRefusal === null) {
+      symlinkSync(tmpdir(), join(root, "src", "escape"));
+      expect(() => candidatePath(root, "src/escape/new.ts")).toThrow(/escapes the repository through a symlink/);
+    }
     expect(() => candidatePath(root, "src/missing.ts")).toThrow(/missing/);
   });
 });
@@ -241,7 +244,7 @@ describe("isolated candidate ownership", () => {
  * a program that would create it, so "the manifest still describes the same bytes"
  * and "nothing the worker wrote ran" are checked separately.
  */
-describe("T044 commit-lane manifest without a git in the candidate", () => {
+describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a git in the candidate", () => {
   // Captured from the base commit's source, on the richRepository() fixture below.
   // The manifest for an unmodified candidate must keep exactly these bytes: every
   // recorded candidate identity in every run is this digest.

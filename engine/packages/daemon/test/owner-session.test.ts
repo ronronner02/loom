@@ -230,10 +230,14 @@ describe("KTD14 paired owner authentication", () => {
     expect(db.prepare("SELECT * FROM events ORDER BY rowid").all()).toEqual(eventsBefore);
   });
 
-  it("keeps the UI off and rejects a non-loopback production bind plan", () => {
-    expect(() => createTestApp(db, { appDeps: { teamControl: options, bindPlan: {
-      mode: "explicit", hosts: ["0.0.0.0"], tailscaleDetected: false,
-    } } })).toThrow(/loopback-only/);
+  it("keeps the UI off, rejects a non-loopback bind plan, and admits the owner's own tailnet", () => {
+    const app = (hosts: string[]) => () => createTestApp(db, { appDeps: { teamControl: options, bindPlan: {
+      mode: "explicit", hosts, tailscaleDetected: hosts.some(host => host.startsWith("100.")) } } });
+    expect(app(["0.0.0.0"])).toThrow(/loopback or tailscale/);
+    expect(app(["192.168.1.50"])).toThrow(/loopback or tailscale/);
+    // The default plan adds the Tailscale address when one is up; that is the tailnet auth
+    // boundary, not a public listener, so it is admitted where a LAN address is not.
+    expect(app(["127.0.0.1", "100.95.124.51"])).not.toThrow();
   });
 
 

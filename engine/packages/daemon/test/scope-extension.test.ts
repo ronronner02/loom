@@ -14,6 +14,7 @@ import { ScopeExtensions } from "../src/domain/scope-extension.js";
 import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
 import { removeReviewPacket, type ReviewPacket } from "../src/domain/team-workspace.js";
 import type { ControlRequest, PlanBinding } from "../src/contracts/team-control.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
 
 
 const policyInput = vi.hoisted(() => ({ paths: 5, extensions: 5, registries: ["registry.npmjs.org:443"] as string[] | null }));
@@ -344,7 +345,7 @@ describe("task-local scope extensions at candidate staging", () => {
     expect(governance.getApproval(extensions()[0]!.id)!.state).toBe("pending");
   });
 
-  it("canonicalizes approved aliases and rejects traversal or escaping aliases", () => {
+  it.skipIf(symlinkRefusal !== null)("canonicalizes approved aliases and rejects traversal or escaping aliases", () => {
     const root = candidate().root;
     symlinkSync("neighbor.ts", join(root, "src/alias.ts"));
     const evidence = (path: string) => ({ root, candidateDigest: hashBytes(path), files: ["src/owned.ts"],
@@ -431,13 +432,13 @@ describe("task-local scope extensions at candidate staging", () => {
     })).toThrow(/Dependency graph refused/);
   });
 
-  it("returns a scope refusal for an escaping symlink at real staging", () => {
+  it.skipIf(symlinkRefusal !== null)("returns a scope refusal for an escaping symlink at real staging", () => {
     symlinkSync(directory, join(candidate().root, "src/escape"));
     expect(() => packet()).toThrow(/plan-change-required/);
   });
 
 
-  it("compares canonical foreign assignment paths, not just their alias names", () => {
+  it.skipIf(symlinkRefusal !== null)("compares canonical foreign assignment paths, not just their alias names", () => {
     symlinkSync("neighbor.ts", join(repo, "src/alias-owned.ts"));
     expect(governance.createTask(command("alias-owner", { assignment: { taskId: "alias-owner", role: "implementer",
       paths: ["src/alias-owned.ts"], dependencies: [] }, outputs: [], permissions: [],

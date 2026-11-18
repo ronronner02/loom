@@ -4,6 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { listProjectDirectories } from "../src/domain/project-bootstrap.js";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
 
 describe("owner project folder browser", () => {
   let directory: string, home: string, outside: string;
@@ -16,7 +17,7 @@ describe("owner project folder browser", () => {
     mkdirSync(join(home, "project"), { recursive: true });
     mkdirSync(outside);
     writeFileSync(join(home, "file.txt"), "not a directory\n");
-    symlinkSync(outside, join(home, "escape"));
+    if (symlinkRefusal === null) symlinkSync(outside, join(home, "escape"));
   });
   afterEach(() => rmSync(directory, { recursive: true, force: true }));
 
@@ -30,7 +31,7 @@ describe("owner project folder browser", () => {
   });
 
   it("rejects paths outside the roots and symlinks that leave them", () => {
-    for (const path of [outside, join(home, "escape"), directory, "relative"]) {
+    for (const path of [outside, directory, "relative", ...(symlinkRefusal === null ? [join(home, "escape")] : [])]) {
       expect(() => listProjectDirectories(path, [home])).toThrow(expect.objectContaining({ code: "team_folder_refused" }));
     }
   });
@@ -51,7 +52,10 @@ describe("folder browser route", () => {
       expect(roots.status).toBe(200);
       expect(roots.headers.get("Cache-Control")).toBe("no-store");
       expect(await roots.json()).toMatchObject({ protocolVersion: "1.0", roots: expect.arrayContaining([homedir()]), path: null });
-      expect((await call("?path=%2F", "owner-fs-fixture")).status).toBe(400);
+      // A path outside the selectable roots is refused; this host's filesystem root is named
+      // in its own spelling.
+      const outside = process.platform === "win32" ? "C:\\" : "/";
+      expect((await call("?path=" + encodeURIComponent(outside), "owner-fs-fixture")).status).toBe(400);
     } finally { db.close(); }
   });
 });

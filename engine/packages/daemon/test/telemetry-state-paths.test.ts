@@ -10,14 +10,15 @@ import {
 } from "../src/domain/telemetry-state-paths.js";
 
 describe("Multi-Agent-owned telemetry paths", () => {
+  const home = "/multi-agent-home";
   it("owns both telemetry roots beneath state", () => {
-    expect(contextUsageDirectory("/multi-agent-home")).toBe("/multi-agent-home/state/context-usage");
-    expect(providerUsageDirectory("/multi-agent-home")).toBe("/multi-agent-home/state/provider-usage");
+    expect(contextUsageDirectory(home)).toBe(path.join(home, "state", "context-usage"));
+    expect(providerUsageDirectory(home)).toBe(path.join(home, "state", "provider-usage"));
   });
 
   it("names the 0.5.8 compatibility roots without changing canonical ownership", () => {
-    expect(legacyContextUsageDirectory("/multi-agent-home")).toBe("/multi-agent-home/context");
-    expect(legacyProviderUsageDirectory("/multi-agent-home")).toBe("/multi-agent-home/provider-usage");
+    expect(legacyContextUsageDirectory(home)).toBe(path.join(home, "context"));
+    expect(legacyProviderUsageDirectory(home)).toBe(path.join(home, "provider-usage"));
   });
 
   it("owns the sidecar filename rule used by readers", () => {
