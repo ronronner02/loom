@@ -32,8 +32,20 @@ function toolRows(resolutions: Resolution[]): ToolRow[] {
     : { client: resolution.client, ok: false, reason: resolution.reason });
 }
 
+/**
+ * The two host questions the setup read asks, and the seam a test uses to answer them.
+ *
+ * Production leaves both out: the resolver probes PATH, and each installed client's own status
+ * subcommand answers the sign-in question. A test supplies them so the read's shape is asserted
+ * the same way on a host with every client installed and on one with none.
+ */
+export interface SetupReadDependencies {
+  resolveClients?: () => Resolution[];
+  probeSignIn?: (client: SignInProbe["client"], executable: string, options: { env: NodeJS.ProcessEnv }) => Promise<SignInProbe>;
+}
+
 export function setupRoutes(store: SettingsStore | undefined, credentials: TeamControlCredentials,
-  legacyTokens: readonly (string | null | undefined)[]): Hono<TeamControlEnv> {
+  legacyTokens: readonly (string | null | undefined)[], dependencies: SetupReadDependencies = {}): Hono<TeamControlEnv> {
   const app = new Hono<TeamControlEnv>();
   app.use("/setup", teamControlAuthentication(() => credentials, legacyTokens));
   app.use("/setup", async (c, next) => {
@@ -48,7 +60,7 @@ export function setupRoutes(store: SettingsStore | undefined, credentials: TeamC
   app.use("/setup", bodyLimit({ maxSize: 4096,
     onError: c => c.json({ code: "invalid_team_contract", error: "The setup request exceeds its size limit." }, 413) }));
 
-  app.get("/setup", async c => c.json({ protocolVersion: TEAM_CONTROL_VERSION, ...await read(store!) }));
+  app.get("/setup", async c => c.json({ protocolVersion: TEAM_CONTROL_VERSION, ...await read(store!, dependencies) }));
 
   app.put("/setup", async c => {
     const body = object(await c.req.json(), "setup");
@@ -67,7 +79,7 @@ export function setupRoutes(store: SettingsStore | undefined, credentials: TeamC
       }
     }
     if (body.complete === true) store!.set(SETUP_COMPLETE_KEY, "true");
-    return c.json({ protocolVersion: TEAM_CONTROL_VERSION, ...await read(store!) });
+    return c.json({ protocolVersion: TEAM_CONTROL_VERSION, ...await read(store!, dependencies) });
   });
 
   app.onError((error, c) => error instanceof TeamContractError || error instanceof SyntaxError
@@ -83,14 +95,19 @@ export function setupRoutes(store: SettingsStore | undefined, credentials: TeamC
  * mean what it says: an install or a sign-in the owner just finished shows up on the next read.
  * The sign-in probes run in parallel and each is bounded, so a client that hangs costs its own
  * timeout and not the screen's.
+ *
+ * A client that is not installed has no sign-in row at all. The tools row above it already says
+ * the client is missing and names its install line; a second row repeating that, or offering a
+ * sign-in command for a program that is not there, would only be more to read.
  */
-async function read(store: SettingsStore) {
-  const resolutions = resolveClientDependencies();
+async function read(store: SettingsStore, dependencies: SetupReadDependencies) {
+  const resolutions = (dependencies.resolveClients ?? resolveClientDependencies)();
+  const probe = dependencies.probeSignIn ?? probeAgentSignIn;
   const proxy = configuredProxy(store);
   const env = { ...process.env, ...proxyEnvironment(proxy) };
   const installed = new Map(resolutions.filter((r): r is Extract<Resolution, { ok: true }> => r.ok)
-    .map(resolution => [resolution.client, resolution.path]));
+    .map(resolution => [resolution.client, resolution.args?.[0] ?? resolution.path]));
   const clients = (["claude", "codex", "gemini"] as const).filter(client => installed.has(client));
-  const signIn = await Promise.all(clients.map(client => probeAgentSignIn(client, installed.get(client)!, { env })));
+  const signIn = await Promise.all(clients.map(client => probe(client, installed.get(client)!, { env })));
   return { tools: toolRows(resolutions), signIn, proxy, complete: store.resolveOne(SETUP_COMPLETE_KEY).value === true };
 }
