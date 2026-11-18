@@ -60,6 +60,9 @@ export class StartupOrchestrator {
       if (delivered.failed.length) throw new Error(delivered.failed.map((item) => item.error).join("; "));
       const attempt = binding.managedAttempt;
       const { runId, assignment } = attempt.context;
+      // Selected once, so the prompt and the client's admitted directories name the same place.
+      const evidenceDirectory = this.evidenceDirectory(attempt.context.mutableStateRoot, runId, assignment, attempt.attemptId);
+      binding.managedAttempt = { ...attempt, evidenceDirectory };
       const prompt = managedTurnPrompt({ identity: "", bundle: "", runId, assignment,
         taskBody: this.taskBody(runId, assignment.taskId), outputs: attempt.context.outputs, permissions: attempt.context.permissions,
         instructions: turnInstructions(attempt.context),
@@ -68,7 +71,7 @@ export class StartupOrchestrator {
         workflow: attempt.context.workflow,
         ...(assignment.role === "lead" ? {} : { taskReportPath: agentTurnOutputPaths(attempt.context.mutableStateRoot, attempt.attemptId).taskReport,
           ownerWords: this.ownerWords(runId),
-          evidenceDirectory: this.evidenceDirectory(attempt.context.mutableStateRoot, runId, assignment, attempt.attemptId) }) });
+          evidenceDirectory }) });
       writeAgentTurnPrompt(attempt.context, prompt);
       this.pending.set(input.nodeId, { sessionId: input.sessionId, binding });
       const launch = input.skipHarnessLaunch ? { ok: true as const } : await input.adapter.launchHarness(binding, { name: input.sessionName ?? input.sessionId,

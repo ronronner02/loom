@@ -1,6 +1,6 @@
 import type { HarnessLaunchResult, ManagedAttempt, NodeBinding, ReadinessResult } from "../domain/runtime-adapter.js";
 
-export type WorkerClient = "claude-code" | "codex";
+export type WorkerClient = "claude-code" | "codex" | "gemini";
 
 export interface WorkerLaunchInput {
   client: WorkerClient;

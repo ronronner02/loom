@@ -50,6 +50,9 @@ export function nativeModelChoices(options: {
     add("claude-code", env[key]);
   }
   for (const alias of ["opus", "sonnet", "haiku"]) add("claude-code", alias);
+  const gemini = readObject(join(env.GEMINI_CLI_HOME || home, ".gemini", "settings.json"));
+  add("gemini", object(gemini.model).name);
+  add("gemini", env.GEMINI_MODEL);
   for (const choice of options.saved ?? []) add(choice.client, choice.model);
   return [...choices.values()].sort((a, b) => a.client.localeCompare(b.client) || a.model.localeCompare(b.model));
 }

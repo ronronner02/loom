@@ -58,7 +58,7 @@ function parseUsage(text: string | null, provider: TeamAttempt["provider"]): Nat
   if (text === null) return null;
   try {
     const value = object(JSON.parse(text));
-    const client = provider === "codex" ? "codex" : "claude-code", mode = provider === "codex" ? "cumulative" : "turn";
+    const client = provider === "claude" ? "claude-code" : provider, mode = provider === "codex" ? "cumulative" : "turn";
     if (!value || value.version !== 1 || value.client !== client || typeof value.resumed !== "boolean"
       || typeof value.available !== "boolean" || (value.available && value.mode !== mode)) return null;
     const native: NativeUsage = { nativeSessionId: nativeId(value.nativeSessionId),
