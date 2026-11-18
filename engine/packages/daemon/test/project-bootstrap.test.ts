@@ -263,7 +263,10 @@ describeOnPosix("project creation through the owner route — GitHub push flow",
     expect(git(repository, "show", "-s", "--format=%an <%ae>")).toBe("Fixture Owner <123+octocat@users.noreply.github.com>");
     expect(git(repository, "status", "--porcelain")).toBe("");
     expect(calls()).toContainEqual(["repo", "create", "octocat/project", "--private", "--source", repository, "--remote", "origin"]);
-    expect(existsSync(join(directory, "gitconfig"))).toBe(false);
+    // The upload must not write the fixture's GIT_CONFIG_GLOBAL file. The fixture creates it
+    // empty before the case, so the assertion is about its bytes: a run that wrote through it
+    // would leave a key in there.
+    expect(readFileSync(join(directory, "gitconfig"), "utf8")).toBe("");
     expect(db.prepare("SELECT step, last_error_code FROM team_bootstraps").get()).toEqual({ step: "push", last_error_code: null });
   });
 

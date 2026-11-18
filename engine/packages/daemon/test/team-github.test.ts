@@ -319,6 +319,14 @@ describe("GitHub push with retry and error classification", () => {
     expect(recorded.split("repo").length - 1).toBeGreaterThanOrEqual(2);
   });
 
+  it("refuses a repository that exists but is public, instead of retrying a state it cannot fix", async () => {
+    // The stub reports a public repository when this marker exists; a public repository is not
+    // transient, so the upload must stop with the push refusal rather than a view retry.
+    writeFileSync(join(directory, "repo-public"), "");
+    await expect(github.push(directory, "https://github.com/octocat/project.git", "main:main", "octocat"))
+      .rejects.toMatchObject({ code: "github_push_failed" });
+  });
+
   it("retries push on transient failure and succeeds on retry", async () => {
     // No view-not-found, view succeeds.
     // Mark a proxy failure that is not fatal but causes push retry.
