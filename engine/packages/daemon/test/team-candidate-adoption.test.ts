@@ -50,9 +50,13 @@ function repository(): string {
  * one, which is what the daemon canonicalises to and what git reports.
  */
 const gitPath = (path: string): string => {
-  // A registration can name a tree that no longer exists, so the long spelling is best effort.
+  // A registration can name a tree that no longer exists, so the leaf itself may be
+  // unresolvable: the parent is canonicalised and the leaf appended, which is still the long
+  // spelling of the same path.
   let long = path;
-  try { long = realpathSync.native(path); } catch { /* keep the spelling it was given */ }
+  try { long = realpathSync.native(path); } catch {
+    try { long = join(realpathSync.native(dirname(path)), basename(path)); } catch { /* keep the given spelling */ }
+  }
   return long.replaceAll("\\", "/");
 };
 

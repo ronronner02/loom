@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
 import type { AddressInfo } from "node:net";
 import { serve } from "@hono/node-server";
-import { Agent } from "undici";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -64,14 +63,11 @@ describe("project chat attachments", () => {
 
   it("browses files and sends attachments over loopback with paired browser credentials", async () => {
     // Each request uses its own connection. undici reuses one pooled socket across the large
-    // uploads and the small JSON posts that follow them, and on a loopback fixture it can reset
-    // that socket rather than deliver the response (measured 4 of 20 runs here; the same server
-    // driven by a plain keep-alive `http.Agent` never reset, 0 of 40). A dispatcher that never
-    // pipelines opens one connection per request without the abrupt close `Connection: close`
-    // asks for, so this test reads responses rather than exercising the client's pooling.
-    const dispatcher = new Agent({ connections: 1, pipelining: 0 });
+    // uploads and the small JSON posts that follow them, and a pooled socket can be reset
+    // between them (measured 4 of 20 runs here; the same server driven by a plain keep-alive
+    // `http.Agent` never reset, 0 of 40). This test reads responses, not the client's pooling.
     const fetchOne = (input: Parameters<typeof fetch>[0], init: Parameters<typeof fetch>[1] = {}) =>
-      fetch(input, { ...init, dispatcher } as RequestInit);
+      fetch(input, { ...init, headers: { ...(init.headers ?? {}), Connection: "close" } });
     const server = serve({ fetch: fixture.app.fetch, hostname: "127.0.0.1", port: 0 });
     try {
       if (!server.listening) await new Promise<void>(resolve => server.once("listening", resolve));

@@ -122,8 +122,17 @@ export function makeRealStagingDocker(opts: RealStagingDockerOptions = {}): Stag
       // hung here). Kill it and report the anomaly: a consumer that exited before its feed
       // finished did not stage what the feed carried, whatever its exit code said.
       if (producerDone && !producerClosed) {
-        producerKilledEarly = true;
-        killProducer!();
+        // The producer has not reported yet, but it may be about to. Give it the same short
+        // grace the pipe needs to drain on a slow host before deciding it is still producing:
+        // a producer that already exited with a failure is that failure, not an early kill.
+        const settled = await Promise.race([
+          producerDone.then(() => true),
+          new Promise<boolean>(resolve => setTimeout(() => resolve(false), 250)),
+        ]);
+        if (!settled) {
+          producerKilledEarly = true;
+          killProducer!();
+        }
       }
       const producerExit = producerDone ? await producerDone : null;
       clearTimeout(timer);
