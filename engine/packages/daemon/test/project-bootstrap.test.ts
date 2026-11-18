@@ -365,6 +365,9 @@ describeOnPosix("project creation through the owner route — GitHub push flow",
     const later = git(repository, "rev-parse", "HEAD");
     db.close();
     openApp();
+    // `openApp` reopens the database on the shared setup; the rest of this case reads the
+    // reopened one.
+    db = s.state.db;
     unlinkSync(hook);
     const response = await create();
     expect(response.status, await response.clone().text()).toBe(201);
