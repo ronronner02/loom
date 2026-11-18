@@ -98,8 +98,11 @@ export function TeamWorkspaceScreen({ language, onLanguage, appearance, onSetup 
   };
 
   // Setup is its own screen, above the shell and the GitHub gate: it is the way back to the proxy
-  // that a blocked sign-in needs.
-  if (setupOpen) return <SetupScreen onContinue={() => setSetupOpen(false)} />;
+  // that a blocked sign-in needs. It keeps the shell's own wrapper, because its styles are scoped
+  // to that wrapper and the first-run route reaches it through one.
+  if (setupOpen) return <div className="team-shell ui-entry" data-ui-theme={appearance.theme} lang={language.language}>
+    <SetupScreen onContinue={() => setSetupOpen(false)} />
+  </div>;
   return <ShellFrame
     language={language}
     section={section}
