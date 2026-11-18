@@ -466,7 +466,7 @@ export function readCommittedWorkspacePath(sourceRoot: string, commit: string, p
     env: controlGitEnv({ GIT_NO_LAZY_FETCH: "1" }),
   });
   const entries = (tree: string) => {
-    const rows = strictUtf8(readGit(["ls-tree", "-z", tree]), "Commit tree").split(" ").filter(Boolean);
+    const rows = strictUtf8(readGit(["ls-tree", "-z", tree]), "Commit tree").split("\u0000").filter(Boolean);
     if (rows.length > 1000) throw new Error("Workspace directory exceeds browse limit");
     return rows.map(row => {
       const match = /^(d+) (tree|blob|commit) ([a-f0-9]+)	([sS]*)$/.exec(row);
