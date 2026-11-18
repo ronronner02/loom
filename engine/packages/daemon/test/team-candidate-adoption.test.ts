@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type Database from "better-sqlite3";
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { createDb } from "../src/db/connection.js";
@@ -41,7 +41,19 @@ function repository(): string {
 }
 
 /** Git's own spelling of an absolute path: `/`-separated with the drive letter, as it reports them. */
-const gitPath = (path: string): string => path.replaceAll("\\", "/");
+/**
+ * Git's spelling of an absolute path for comparison: `/`-separated, and in the long form.
+ *
+ * Windows keeps a second, 8.3 spelling of a directory name (`C:/Users/RUNNER~1^/…`), and a temp
+ * path created there can be reported in either. `realpathSync.native` asks the OS for the long
+ * one, which is what the daemon canonicalises to and what git reports.
+ */
+const gitPath = (path: string): string => {
+  // A registration can name a tree that no longer exists, so the long spelling is best effort.
+  let long = path;
+  try { long = realpathSync.native(path); } catch { /* keep the spelling it was given */ }
+  return long.replaceAll("\\", "/");
+};
 
 /** A repository with no commit, which is the snapshot lane. */
 function unbornRepository(): string {

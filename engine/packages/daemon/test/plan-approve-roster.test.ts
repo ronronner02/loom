@@ -162,7 +162,8 @@ describe("planning roster approval", () => {
     const before = git(governance.getRun(runId).binding.repository.root, "rev-parse", "HEAD");
     const read = await (await call(`/runs/${runId}/chat`)).json() as { planApproval: { roster: unknown; error: string } };
     expect(read.planApproval.roster).toBeNull();
-    expect(read.planApproval.error).toContain("ELOOP");
+    // The bounded reader refuses the link by naming what it found; the errno is the host's.
+    expect(read.planApproval.error).toMatch(/ELOOP|became a symlink/);
     expect(read.planApproval.error).not.toContain("outside-roster-bytes");
     const response = await call(`/runs/${runId}/plan/approve`, command({ rosterDigest: "unread" }));
     expect(response.status).toBe(409);
