@@ -261,13 +261,16 @@ export class GithubCli {
       }
 
       // Step 1: repo view — retry once if not found (transient after create).
-      let viewed = await this.tryViewRepo(identity);
-      if (!viewed) {
+      let view = await this.tryViewRepo(identity);
+      if (view === null) {
         // Brief backoff, then retry.
         await sleep(VIEW_RETRY_BACKOFF);
-        viewed = await this.tryViewRepo(identity);
+        view = await this.tryViewRepo(identity);
       }
-      if (!viewed) throw new GithubCliError("github_view_retry");
+      if (view === null) throw new GithubCliError("github_view_retry");
+      // A repository that exists but is public is not a transient state: retrying will not make
+      // it private, so the upload is refused and the owner is told what to fix.
+      if (view.isPrivate === false) throw new GithubCliError("github_push_failed");
 
       // Step 2: verify the destination URL.
       const destination = await execute("git", ["-C", repository, "remote", "get-url", "--push", "--all", "origin"], {
@@ -365,13 +368,19 @@ export class GithubCli {
   }
 
   /** Check whether the remote is visible and private. Returns null on transient not-found. */
-  private async tryViewRepo(identity: string): Promise<boolean | null> {
+  /**
+   * The created repository as GitHub reports it, or `null` when it is not visible yet.
+   *
+   * The view is returned whole because "not found yet" and "found but public" need different
+   * answers: the first is transient, the second is a refusal.
+   */
+  private async tryViewRepo(identity: string): Promise<{ isPrivate: boolean } | null> {
     try {
       const result = await execute(this.resolvedExecutable(), [...this.execArgv, "repo", "view", identity,
         "--json", "nameWithOwner,isPrivate", "--hostname", HOST],
         { windowsHide: true, env: this.env, encoding: "utf8", timeout: STAGED_VIEW_TIMEOUT, maxBuffer: 65_536 });
       const value = JSON.parse(result.stdout);
-      return value.isPrivate === true && String(value.nameWithOwner).toLowerCase() === identity.toLowerCase();
+      return String(value.nameWithOwner).toLowerCase() === identity.toLowerCase() ? { isPrivate: value.isPrivate === true } : null;
     } catch (error) {
       const failure = error as NodeJS.ErrnoException & { stdout?: string; stderr?: string };
       // "Not found" (gh exit 1 after repo create) is transient; other failures are permanent.
