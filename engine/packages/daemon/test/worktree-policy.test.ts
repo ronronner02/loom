@@ -79,13 +79,14 @@ describe("worktree policy constants", () => {
 
   it("defaults the Windows root to %LOCALAPPDATA%\\Multi-Agent\\wt and POSIX to ~/.multi-agent/wt", () => {
     // The platform is the one the module reads, so each expectation names that platform's
-    // spelling: a POSIX host joins with `/`, a Windows host with `\`.
-    if (windows) {
-      expect(defaultWorktreeRoot({ LOCALAPPDATA: "C:\\Users\\owner\\AppData\\Local" }))
-        .toBe(join("C:\\Users\\owner\\AppData\\Local", "Multi-Agent", "wt"));
-    } else {
-      expect(defaultWorktreeRoot({ HOME: "/home/owner" })).toBe(join("/home/owner", ".multi-agent", "wt"));
-    }
+    // spelling. `MULTI_AGENT_HOME` is blanked by name, not spread: the suite's own value
+    // relocates the state root and would describe a different default than this case asserts.
+    const environment: NodeJS.ProcessEnv = { ...process.env, MULTI_AGENT_HOME: "" };
+    if (windows) environment.LOCALAPPDATA = "C:\\Users\\owner\\AppData\\Local";
+    else environment.HOME = "/home/owner";
+    expect(defaultWorktreeRoot(environment)).toBe(windows
+      ? join("C:\\Users\\owner\\AppData\\Local", "Multi-Agent", "wt")
+      : join("/home/owner", ".multi-agent", "wt"));
   });
 
   it("lets an explicit override win on both hosts", () => {

@@ -94,12 +94,14 @@ export type IdentityState = "alive" | "dead" | "not-ours" | "unknown";
 export async function observeIdentity(identity: ProcessIdentity): Promise<IdentityState> {
   if (!isWindows()) {
     let state: ProcessState | null;
-    try { state = liveProcess(identity); }
+    try { state = readProcessState(identity.processId); }
     catch { return "unknown"; }
-    if (state !== null) return "alive";
-    // A missing process is dead; a `/proc` that cannot be read at all is not evidence of an end.
-    try { readProcessState(identity.processId); return "dead"; }
-    catch { return "unknown"; }
+    // A pid the kernel no longer lists is dead; one that answers with a different start tick
+    // belongs to another process, which is `not-ours` — never called dead, because the record
+    // has not been shown to have ended.
+    if (state === null) return "dead";
+    if (state.processStart !== identity.processStart || !isRunning(state)) return "not-ours";
+    return "alive";
   }
   try {
     const row = (await queryWindowsProcesses([identity.processId])).get(identity.processId);
