@@ -1,4 +1,4 @@
-// OPR.0.4.4.11 — the SHARED daemon-side hosts-registry read module (the P3/P4
+// The SHARED daemon-side hosts-registry read module (the P3/P4
 // interface cell, pm-lead ruling c): P3 uses it for topology placement
 // resolution + validation messages; P4's fan-out aggregation consumes the
 // SAME module. Land once, here; P4 must not re-implement it.

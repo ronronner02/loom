@@ -8,7 +8,7 @@ import { parseProtocolVersion, TEAM_CONTROL_VERSION, canonicalJson } from "../co
 import { boundedLogBody, type TeamReadModel } from "../team-control-surface.js";
 
 /**
- * T052 — the managed, owner-authenticated, run-scoped replay reader.
+ * The managed, owner-authenticated, run-scoped replay reader.
  *
  * This route is the transport owner only: it authenticates the owner, scopes by
  * run, and replays persisted events with their sequence ids. It synthesizes no
@@ -22,7 +22,7 @@ export interface TeamEventsOptions {
   /** The committed event log this transport replays and tails. */
   events: EventBus;
   /**
-   * T052 — the composed read projection. The page endpoint delegates to it so
+   * The composed read projection. The page endpoint delegates to it so
    * identity, redaction, bounding and the gap verdict are decided in one place
    * rather than re-derived by the transport.
    */
@@ -56,7 +56,7 @@ export function teamEventsRoutes(options: TeamEventsOptions): Hono<TeamControlEn
    */
   app.get("/runs/:runId/events", (c) => {
     // Only an owner may read committed run evidence; a worker credential can
-    // request decisions but never read the owner projections (KTD6).
+    // request decisions but never read the owner projections.
     const allowed = ownerScope(c);
     if (allowed === "worker") return c.json({ code: "owner_control_required" }, 403);
     if (allowed === "cross-run") return c.json({ code: "control_scope_denied" }, 403);

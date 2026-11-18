@@ -42,7 +42,7 @@ const ALLOWED_BINDING_KEYS = new Set(["kind", "connectorRef", "secretsRef", "rol
 // / whitespace) — it is compared to an inbound sender id and spliced into teaching text.
 export const HANDLE_PATTERN = /^[A-Za-z0-9._-]+$/;
 const ALLOWED_PREFS_KEYS = new Set(["deliveryClass", "away", "availability"]);
-// OPR.0.5.6.1 — the availability enum the delivery rules engine consumes.
+// The availability enum the delivery rules engine consumes.
 // Legacy `away: true` reads as availability=away ONLY when availability is
 // whole-field-absent (the D1 convention); a present-but-conflicting pair is
 // refused at validation, never silently resolved.
@@ -384,7 +384,7 @@ export function addHumanFragment(
   return { ok: true, path: file, fragment: v.fragment };
 }
 
-// ── S12 lifecycle beyond add: list / show / set / remove (OPR.0.5.5.12) ──
+// ── S12 lifecycle beyond add: list / show / set / remove ──
 // RED commit: surfaces declared UNWIRED so the pins run and fail at the behavior
 // layer (never module-not-found). GREEN implements them through the same
 // fragment->validate->atomic-write->re-project spine as add.

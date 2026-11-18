@@ -73,9 +73,9 @@ export type NativeChannelClient = "claude-code" | "codex";
 export type NativeChannelMechanism = "post-tool-use-hook";
 
 /**
- * KTD19 adoption, recorded by the T031 spike (docs/validation/native-channel-spike.md).
+ * adoption, recorded by the spike (docs/validation/native-channel-spike.md).
  * Only these pinned builds deliver through a structured channel; any other build
- * stays on KTD11 polling. Codex app-server `turn/steer` is not adopted: it records
+ * stays on polling. Codex app-server `turn/steer` is not adopted: it records
  * peer text as a user message.
  */
 export const NATIVE_CHANNEL_ADOPTION: Readonly<Record<NativeChannelClient, Readonly<Record<string, NativeChannelMechanism>>>> = {
@@ -91,7 +91,7 @@ export function adoptedNativeChannel(client: NativeChannelClient, version: strin
 /**
  * What the daemon itself knows about a seat's channel: the client build from its
  * launch record and both digests from its own install record and its own read of
- * the seat's configuration. Never taken from a request (KTD11).
+ * the seat's configuration. Never taken from a request.
  */
 export interface NativeChannelSeatState {
   client: NativeChannelClient;
@@ -348,7 +348,7 @@ export class MailboxDelivery {
     try {
       // Existence and scope come first, so a foreign capability learns nothing
       // about the seat. Admission is then decided once, here, from the daemon's
-      // observation; a prompt that appears afterwards is an observed outcome (KTD22).
+      // observation; a prompt that appears afterwards is an observed outcome.
       this.chatRepo.getMailbox({ ...scope, messageId });
       if (state === "prompt-active" || this.readPromptState(scope.recipient) !== "clear") {
         throw new MailboxDeliveryError(
@@ -380,10 +380,10 @@ export class MailboxDelivery {
   }
 
   /**
-   * KTD19 delivery at a native tool boundary. Messages handed to one boundary's
+   * delivery at a native tool boundary. Messages handed to one boundary's
    * hook output are consumed only when a later boundary acknowledges them, so a
    * lost hook output is redelivered (at least once) and each message keeps one
-   * receipt. Anything unproven holds every message pending for KTD11 polling.
+   * receipt. Anything unproven holds every message pending for polling.
    */
   deliverToNativeChannel(input: NativeChannelDeliveryRequest): NativeChannelDeliveryResult {
     const scope = normalizeScope(input);

@@ -259,7 +259,7 @@ export function createApp(deps: AppDeps): Hono {
       }), deps.nativeChannelState, managedSeatCapability)
     : undefined);
 
-  // OPR.0.4.3.21 — ONE request-duration middleware for the expensive topology
+  // ONE request-duration middleware for the expensive topology
   // routes (rigs summary/graph, nodes, ps). Registered only when a recorder is
   // wired (production); the internal expensiveRouteLabel gate makes it a no-op
   // for every other path, so cheap routes pay nothing.
@@ -354,7 +354,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api/team-control", projectFilesRoutes(deps.db, teamOptions.credentials, [deps.legacyBearerToken]));
   app.route("/api/team-control", teamControlRoutes(teamGovernance, teamOptionsWithRead,
     [deps.legacyBearerToken]));
-  // T052 — the managed replay transport. Mounted separately from the legacy
+  // The managed replay transport. Mounted separately from the legacy
   // `/api/events` stream so legacy admission and behaviour stay exactly as they
   // were while managed reads get owner authentication and run scoping.
   app.route("/api/team-control", workspaceBrowseRoutes(teamGovernance, {
@@ -362,20 +362,20 @@ export function createApp(deps: AppDeps): Hono {
     ...(deps.workflowRuntime ? { runtime: deps.workflowRuntime } : {}),
     orchestratorRoot: fileURLToPath(new URL("../../../../", import.meta.url)),
   }));
-  // MVP slice 3 — the finished task's patch, served to the owner so `multi-agent team apply` and the
+  // The finished task's patch, served to the owner so `multi-agent team apply` and the
   // Web UI can hand the result back. Absent a runtime there are no candidate trees to read.
   app.route("/api/team-control", teamResultRoutes(teamGovernance, {
     credentials: teamOptions.credentials, legacyTokens: [deps.legacyBearerToken],
     ...(deps.workflowRuntime ? { runtime: deps.workflowRuntime } : {}),
   }));
-  // MVP — the owner's completion read: the attempt the daemon observed stop, and the evidence it
+  // The owner's completion read: the attempt the daemon observed stop, and the evidence it
   // could verify about the candidate. The owner action forwards both to `tasks/outcome`, so the
   // write contract is the one C2 already owns.
   app.route("/api/team-control", teamCompletionRoutes(teamGovernance, {
     credentials: teamOptions.credentials, legacyTokens: [deps.legacyBearerToken],
     ...(deps.workflowRuntime ? { runtime: deps.workflowRuntime,
       readLeadProposal: (runId: string, taskId: string) => deps.workflowRuntime!.leadProposalFor(runId, taskId),
-      // U6 — a delivery lead's turn may ask the owner for a decision instead of proposing work.
+      // A delivery lead's turn may ask the owner for a decision instead of proposing work.
       readLeadEscalation: (runId: string, taskId: string) => {
         const escalation = deps.workflowRuntime!.leadEscalationFor(runId, taskId);
         return escalation === null ? null : { optionCount: escalation.options.length };
@@ -391,7 +391,7 @@ export function createApp(deps: AppDeps): Hono {
     legacyTokens: [deps.legacyBearerToken],
     ...(teamOptionsWithRead.readModel ? { readModel: teamOptionsWithRead.readModel } : {}),
   }));
-  // U3 — the owner's teams: the rig and seats a repository's team runs on. Same surface and the
+  // The owner's teams: the rig and seats a repository's team runs on. Same surface and the
   // same owner credential as the start below, because a team is what a start routes work to.
   app.route("/api/team-control", teamGithubRoutes(github, githubAgent, teamOptions.credentials,
     [deps.legacyBearerToken]));
@@ -408,7 +408,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api/team-control", teamSetupRoutes(deps.rigRepo, { credentials: teamOptions.credentials, github,
     ...(deps.settingsStore ? { settingsStore: deps.settingsStore } : {}), intake: () => deps.githubIntake },
     [deps.legacyBearerToken]));
-  // MVP slice 2 — the owner's run collection: list the runs, and start one from a goal.
+  // The owner's run collection: list the runs, and start one from a goal.
   app.route("/api/team-control", teamStartRoutes(teamGovernance, deps.rigRepo, {
     credentials: teamOptions.credentials,
     ...(deps.settingsStore ? { settingsStore: deps.settingsStore } : {}),
@@ -416,7 +416,7 @@ export function createApp(deps: AppDeps): Hono {
     ...(teamOptions.dispatch ? { dispatch: teamOptions.dispatch } : {}),
     ...(teamOptions.planWorktreeRoot ? { planWorktreeRoot: teamOptions.planWorktreeRoot } : {}),
   }, [deps.legacyBearerToken]));
-  // MVP slice C3 — the owner's read of a lead's decomposition and the decision it becomes. The
+  // The owner's read of a lead's decomposition and the decision it becomes. The
   // read is the daemon's own reading of the file the lead wrote; the write records an owner
   // decision, never an admission.
   app.route("/api/team-control", teamLeadRoutes(teamGovernance, {
@@ -424,12 +424,12 @@ export function createApp(deps: AppDeps): Hono {
     ...(deps.attemptTelemetry ? { telemetry: deps.attemptTelemetry } : {}),
     credentials: teamOptions.credentials, legacyTokens: [deps.legacyBearerToken],
     ...(teamOptions.readPolicyCapability ? { readPolicyCapability: teamOptions.readPolicyCapability } : {}),
-    // U5 — the chat and plan routes start the lead's next turn through the same dispatch a
+    // The chat and plan routes start the lead's next turn through the same dispatch a
     // start and a growth use, so a chat message and a plan approval launch exactly as they do.
     ...(teamOptions.dispatch ? { dispatch: teamOptions.dispatch } : {}),
     ...(deps.workflowRuntime ? { runtime: deps.workflowRuntime } : {}),
   }));
-  // U7 — the run's integration branch: what landed on it, and the owner's one merge.
+  // The run's integration branch: what landed on it, and the owner's one merge.
   app.route("/api/team-control", teamMergeRoutes({
     credentials: teamOptions.credentials,
     legacyTokens: [deps.legacyBearerToken],
@@ -438,7 +438,7 @@ export function createApp(deps: AppDeps): Hono {
   }));
 
   app.get("/healthz", (c) => {
-    // OPR.0.4.3.21 — enrich the health surface with event-loop wedge evidence
+    // Enrich the health surface with event-loop wedge evidence
     // when the monitor is wired. Absent monitor keeps the exact legacy body so
     // existing probes / tests that assert `{ status: "ok" }` are unchanged.
     // OPR.0.4.4.11 FR-7 — a STAMPED build additionally carries
@@ -449,7 +449,7 @@ export function createApp(deps: AppDeps): Hono {
     const slowOperations = deps.slowOpRecorder?.snapshot
       ? { slowOperations: deps.slowOpRecorder.snapshot() }
       : {};
-    // S20 — bind provenance on the health surface (ADDITIVE; absent = legacy body):
+    // Bind provenance on the health surface (ADDITIVE; absent = legacy body):
     // adoption gates derive the REQUIRED listener set from this and then prove each
     // host by probing it — binding evidence, never config echo.
     const bind = deps.bindPlan ? { bind: deps.bindPlan } : {};

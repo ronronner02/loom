@@ -2,7 +2,7 @@ import { agentTurnOutputPaths } from "../domain/agent-turn.js";
 import type { WorkerClient } from "./worker-launcher.js";
 
 /**
- * U3 — the frozen worker launch argv, one row per client, posture and continuation.
+ * The frozen worker launch argv, one row per client, posture and continuation.
  *
  * This is the contract the plan pins: fresh and continuation, implementer and reviewer, for each
  * client. The flags are not incidental — each one is why a managed turn is watchable, resumable

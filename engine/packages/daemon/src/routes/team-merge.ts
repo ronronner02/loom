@@ -8,7 +8,7 @@ import { teamControlAuthentication, type TeamControlCredentials, type TeamContro
 import { controlErrorHandler } from "../middleware/control-error.js";
 
 /**
- * U7 / KTD7 — the run's delivery branch, and the owner's one merge.
+ * The run's delivery branch, and the owner's one merge.
  *
  * Both verbs are owner-only. The read publishes what landed and whether a merge would go
  * through now; the write is the merge itself, into the repository the team was created for.
@@ -23,7 +23,7 @@ export function teamMergeRoutes(options: {
   legacyTokens: readonly (string | null | undefined)[];
   /** The integration owner. Absent leaves delivery unreadable rather than answering partially. */
   integration?: Integration;
-  /** Plan KTD13 — read at use, because the delivery is composed after the app. */
+  /** read at use, because the delivery is composed after the app. */
   delivery?: () => PullRequestDelivery | undefined;
 }): Hono<TeamControlEnv> {
   const app = new Hono<TeamControlEnv>();
@@ -69,7 +69,7 @@ export function teamMergeRoutes(options: {
       return c.json({ code: "integration_unavailable", error: "This daemon does not compose an integration branch." }, 503);
     }
     let outcome;
-    // Plan KTD13 — an open pull request is merged on GitHub with the owner's account; any other run
+    // An open pull request is merged on GitHub with the owner's account; any other run
     // keeps the local merge into the owner's checkout.
     try {
       const viaPull = await options.delivery?.()?.merge(runId);

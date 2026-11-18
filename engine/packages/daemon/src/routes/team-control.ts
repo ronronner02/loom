@@ -19,7 +19,7 @@ export interface TeamControlOptions {
   readPolicyCapability?: () => ProviderPolicyCapability | null;
   readSystemHealth?: () => TeamSystemHealth | Promise<TeamSystemHealth>;
   /**
-   * T052 — the managed owner read projections. Absent leaves the read routes
+   * The managed owner read projections. Absent leaves the read routes
    * unavailable rather than serving a partial or invented projection.
    */
   readModel?: TeamReadModel;
@@ -31,7 +31,7 @@ export interface TeamControlOptions {
    */
   dispatch?: (runId: string, taskId: string) => Promise<void>;
   /**
-   * U5 — where a planning run's plan worktree lives.
+   * Where a planning run's plan worktree lives.
    *
    * A planning run is bound before any plan exists, so the daemon creates the worktree of the
    * owner's repository that holds the plan and the run's `team/<slug>` branch. It is the control
@@ -40,15 +40,15 @@ export interface TeamControlOptions {
    */
   planWorktreeRoot?: () => string;
   /**
-   * U7 — land an approved task on the run's integration branch.
+   * Land an approved task on the run's integration branch.
    *
    * The daemon's own sweep calls the same owner; this is the owner-recorded outcome path
    * (`multi-agent team done --findings`), which approves a review without an automatic turn. Absent
-   * leaves the commit unlanded and the outcome recorded, exactly as before U7.
+   * leaves the commit unlanded and the outcome recorded, exactly as .
    */
   integrateTask?: (runId: string, taskId: string) => Promise<unknown>;
   /**
-   * T017 (cancellation half) — what turns the owner's cancel into a stopped run.
+   * What turns the owner's cancel into a stopped run.
    *
    * `cancelRun` records the intent; this ends the processes the run launched and records the
    * observation, so the response says whether the stop was seen rather than only that it was
@@ -88,7 +88,7 @@ export function teamControlRoutes(
     return c.json({ protocolVersion: TEAM_CONTROL_VERSION, run: governance.getRun(c.req.param("runId")) });
   });
   /**
-   * T052 — the composed owner read projection for one run.
+   * The composed owner read projection for one run.
    *
    * Owner-only, because it publishes committed evidence the worker boundary is
    * not allowed to read. It composes existing owners and writes nothing, so a
@@ -117,7 +117,7 @@ export function teamControlRoutes(
     }
   });
   /**
-   * T052 — one bounded replay page for a run from a durable cursor.
+   * One bounded replay page for a run from a durable cursor.
    *
    * Reads through the event bus's own committed log; a cursor older than the
    * retained floor reports a gap instead of backfilling silently.
@@ -148,7 +148,7 @@ export function teamControlRoutes(
       }
       const actor = c.get("controlActor");
       if (action === "cancel") {
-        // T017 — the owner's cancel stops the work, not only records that it was asked for.
+        // The owner's cancel stops the work, not only records that it was asked for.
         // The intent is written first and durably; only then are this run's own client
         // processes signalled, and the receipt reports what was observed. Without a composed
         // cancellation owner the intent-only command runs, as it did before this slice.
@@ -172,7 +172,7 @@ export function teamControlRoutes(
         for (const taskId of [...addedTasks, ...next, ...resumed]) void options.dispatch(request.runId, taskId).catch(error =>
           console.warn(`team control: launch for run=${request.runId} task=${taskId} failed: ${error instanceof Error ? error.message : String(error)}`));
       }
-      // U7 — the same trigger as the daemon's sweep: an approving review delivers the task's
+      // The same trigger as the daemon's sweep: an approving review delivers the task's
       // work to the run's branch. Awaited so the answer to the owner is not "recorded" while
       // the delivery it caused is still unknown; the outcome itself is already durable.
       const approved = (receipt.value as { review?: { verdict?: string; taskId?: string } } | null)?.review;
@@ -194,7 +194,7 @@ export function teamControlRoutes(
 }
 
 /**
- * T017 — the owner's cancel, as the route answers it.
+ * The owner's cancel, as the route answers it.
  *
  * Three steps in one request, in this order and no other: the intent is recorded, the
  * processes this run launched are ended, and the observation is recorded. A refusal at the

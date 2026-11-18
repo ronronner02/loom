@@ -177,7 +177,7 @@ export interface ForkSource {
 export interface RuntimeAdapter {
   readonly runtime: string;
   /**
-   * U3 — how a managed attempt of this adapter is launched.
+   * How a managed attempt of this adapter is launched.
    *
    * `direct` is the native path: the turn is a piped child process the supervisor owns, its
    * activity comes from the JSONL stream, and the adapter therefore writes none of the user's

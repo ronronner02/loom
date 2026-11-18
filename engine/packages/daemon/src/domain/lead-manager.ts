@@ -6,14 +6,14 @@ import type { LeadSeatChanges } from "./lead-roster.js";
 import { LeadProposalMissingError, type LeadTask, type LeadProposal, type LeadResolution } from "./lead-proposal.js";
 
 /**
- * U6 — the lead as manager, after the owner approved the plan.
+ * The lead as manager, after the owner approved the plan.
  *
  * Two facts about a delivery run are the daemon's to observe rather than an agent's to claim:
  *
  * - *What did the lead's turn deliver?* The lead writes its task list and, when it needs a
  *   decision it may not take, an escalation. Both land as files in its own tree, and both are
  *   read at the turn boundary that already owns worker-written data. A valid list is admitted
- *   with no owner approval (KTD1); a list outside the approved plan is refused and the refusal
+ *   with no owner approval; a list outside the approved plan is refused and the refusal
  *   becomes the lead's next prompt.
  * - *What has the team done since the lead last spoke?* A task that failed after its retry, a
  *   review allowance that ran out, a task that will not apply to the integration branch, and
@@ -90,7 +90,7 @@ export function leadTeamEvents(db: Database.Database, runId: string): LeadTeamEv
   const events: LeadTeamEvent[] = [];
   for (const row of rows) {
     if (row.role !== "implementer" && row.role !== "reviewer") continue;
-    // Plan KTD4 — a worker's question is the owner's: it waits in Needs you, and the owner's
+    // A worker's question is the owner's: it waits in Needs you, and the owner's
     // answer goes to the worker. The lead reads a copy in its next turn instead of being woken.
     if (row.role === "implementer" && row.taskReportJson !== null && row.state === "blocked" && ownerQuestion(row.taskReportJson)) continue;
     if (row.taskReportJson !== null && (row.state === "blocked" || row.state === "done")) {
@@ -105,8 +105,8 @@ export function leadTeamEvents(db: Database.Database, runId: string): LeadTeamEv
         note: `Task "${row.name}" used every review round the plan allows and none of them approved it. ` +
           "Decide whether to add a follow-up task, narrow the work, or ask the owner." });
     }
-    // U7 — a patch that does not apply to the integration branch is the lead's conflict to
-    // resolve. U7 records it the way every other failure is recorded: the work was approved and
+    // A patch that does not apply to the integration branch is the lead's conflict to
+    // resolve. records it the way every other failure is recorded: the work was approved and
     // closed, the patch could not land, and the observed failure names `integration_conflict` in
     // the task's evidence — so the queue row is `failed`, not a state of its own. The queue state
     // and the closure reason are read too, so a host that records either signal is heard.

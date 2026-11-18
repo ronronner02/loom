@@ -1,7 +1,7 @@
 import { chmodSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { canonicalJson, parseAssignment, parsePlanBinding, text, type PlanBinding, type ScopedAssignment, type TeamRole } from "../../contracts/team-control.js";
-// T053: the role configuration and the freeze helper live in a dependency-free module, so
+// The role configuration and the freeze helper live in a dependency-free module, so
 // the governance owner can validate a task's permissions without importing this one back.
 import { immutable, roleConfiguration } from "../../domain/role-configuration.js";
 import { hashBinding, hashBytes } from "../../domain/plan-governance.js";
@@ -17,7 +17,7 @@ export interface ContextMountPolicy {
 }
 export interface ContextInput {
   soul?: SpecialistSoul;
-  /** Plan KTD9 — the team's prompt sections, projected after the charter. */
+  /** the team's prompt sections, projected after the charter. */
   teamSections?: string;
   workflow?: PreparedFrameworkInvocation;
   projection: { worker: string; attemptId: string; controlUid: number; workerGid: number; policy: ContextMountPolicy };
@@ -45,7 +45,7 @@ export function instructionVersion(content: string): string {
   return version;
 }
 /**
- * KTD28: conduct shared by every role, and one charter per role. The Lead's charter is its protocol.
+ * Conduct shared by every role, and one charter per role. The Lead's charter is its protocol.
  * Read on every call, so a new attempt picks up a charter edit without a daemon restart; an
  * existing attempt keeps the bytes its projection recorded.
  */
@@ -250,7 +250,7 @@ function buildContextManifest(input: ContextInput, mode: "create" | "recorded"):
     charter: charterFile ? instructionVersion(readFileSync(charterFile.path, "utf8")) : "" };
   if (spec.role === "lead") {
     if (!spec.lead || !["protocol", "roster", "run"].every(k => kinds.filter(v => v === k).length === 1)) throw new Error("Lead activation context is incomplete");
-    // C3 — run instructions are prose the lead reads, so they may span lines; every other
+    // Run instructions are prose the lead reads, so they may span lines; every other
     // lead field is an identifier or an address and keeps `text`'s stricter rule. Control
     // characters other than a line break and a tab are still refused.
     if (typeof spec.lead.instructions !== "string" || !spec.lead.instructions.trim()
@@ -272,7 +272,7 @@ function buildContextManifest(input: ContextInput, mode: "create" | "recorded"):
 /**
  * The instruction files an attempt must read before it works, at the path its client can open.
  *
- * KTD28 puts the core and the role's charter in the projection rather than in the task brief,
+ * puts the core and the role's charter in the projection rather than in the task brief,
  * so the brief cannot displace them; the Lead's protocol, roster and run instructions are the
  * same kind of entry. The projection is the only place those bytes live, and the launch is the
  * only place a client can be told where they are, so this is the one list the prompt names.

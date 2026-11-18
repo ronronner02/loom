@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { integer, object, TeamContractError } from "../contracts/team-control.js";
 
 /**
- * Plan R13–R15 / KTD9 — the three team prompt sections the owner may edit.
+ * The three team prompt sections the owner may edit.
  *
  * The built-in text lives in `engine/config/team/sections/`. A save stores only the sections the
  * owner overrode, each with the built-in text it was based on, as one immutable revision per

@@ -4,7 +4,7 @@ import type { ControlReceipt } from "../contracts/team-control.js";
 import { readHandback } from "./task-thread.js";
 
 /**
- * Plan R18 / R19 / KTD11 / KTD12 — the team's open pull request feeds its own work.
+ * The team's open pull request feeds its own work.
  *
  * Each open team pull request is polled as the agent account. A review comment on a file goes to
  * the task whose write paths own that file, as a comment on its thread; everything else, and a
@@ -47,7 +47,7 @@ const POLL_MS = 60_000;
 const BACKOFF_MAX_MS = 900_000;
 const WRITERS = new Set(["admin", "maintain", "write"]);
 const FAILED = new Set(["failure", "timed_out"]);
-/** Plan R19 — the review rounds an automated reviewer gets on one pull request. */
+/** the review rounds an automated reviewer gets on one pull request. */
 export const AUTOMATED_ROUNDS = 3;
 /** The tries a thread reply gets before it is recorded as failed. */
 const REPLY_ATTEMPTS = 3;

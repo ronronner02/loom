@@ -13,7 +13,7 @@ import type {
 } from "./types.js";
 
 /**
- * OPR.0.3.3.19 - multi-agent archive read filter. Default daemon reads EXCLUDE archived
+ * Multi-agent archive read filter. Default daemon reads EXCLUDE archived
  * rigs; explicit modes opt in. Mirrors the stream-items `--include-archived`
  * precedent (stream-store.list).
  */
@@ -465,7 +465,7 @@ export class RigRepository {
   }
 
   /**
-   * OPR.0.3.3.19 - soft-archive a rig: sets `archived_at`. The rigs row,
+   * Soft-archive a rig: sets `archived_at`. The rigs row,
    * topology rows are all RETAINED (this is NOT the delete
    * path - contrast deleteRig). Returns false if the rig was already archived.
    */

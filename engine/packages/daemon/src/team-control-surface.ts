@@ -22,7 +22,7 @@ export type { AttemptActivity, ToolActivityRecord, TurnUsage, TurnProgress } fro
 export type TeamAnalytics = ReturnType<import("./domain/attempt-telemetry.js").AttemptTelemetry["analytics"]>;
 
 /**
- * T052 — the managed owner read projections.
+ * The managed owner read projections.
  *
  * Every field is read from a durable owner that already holds it; this module
  * composes and correlates, and never writes. The plan is explicit that a route
@@ -131,7 +131,7 @@ export class TeamReadModel {
         && typeof evidence.manifestDigest === "string" ? evidence.manifestDigest : null);
       const criteria = this.criteria(row.qitemId, currentCandidateDigest);
       const identity = identities.get(row.qitemId)!;
-      // U9 — built from these same rows above, so every task has a name.
+      // Built from these same rows above, so every task has a name.
       const name = names.get(row.taskId)!;
       const report = evidence?.taskReport as unknown as TaskReport | undefined;
       const reportBody = report ? boundedLogBody(report.evidence) : null;
@@ -182,7 +182,7 @@ export class TeamReadModel {
         currentCandidateDigest,
         rounds: state.rounds.length + state.verdicts.length,
         openP0P1: state.openP0P1,
-        // C2 — the run's own review rounds, so a client can show the verdict that sent the
+        // The run's own review rounds, so a client can show the verdict that sent the
         // task back or approved it. A run that never used the loop publishes `[]`.
         verdicts: state.verdicts.map(verdict => ({ round: verdict.round, reviewerTaskId: verdict.reviewerTaskId,
           verdict: verdict.verdict, candidateDigest: verdict.candidateDigest, findings: verdict.findings.length,
@@ -238,7 +238,7 @@ export class TeamReadModel {
   }
 
   /**
-   * U9 — every task's name, from the row it was recorded with.
+   * Every task's name, from the row it was recorded with.
    *
    * A stored name is used as recorded. A row recorded before names existed is named from itself:
    * its body's first line, or for a reviewer task the task it reviews and the round. Reviewer
@@ -272,7 +272,7 @@ export class TeamReadModel {
   }
 
   /**
-   * U9 — the rig's seats, named from the role and client each runs.
+   * The rig's seats, named from the role and client each runs.
    *
    * A seat is a session on a node that declares a team role and a client runtime; a terminal
    * node is not an agent seat. The latest session is the address a launch resolves, so it is the
@@ -475,7 +475,7 @@ export class TeamReadModel {
       session: row.session,
       createdAt: row.createdAt,
       usage: parseUsage(JSON.parse(row.usageJson)),
-      // T033 — the recorded KTD20 decision, published as it was stored. A row with no code is
+      // The recorded decision, published as it was stored. A row with no code is
       // an attempt that is still running or that ended cleanly; the reader is told null, not
       // given an invented reason.
       failure: row.failureJson === null ? null : JSON.parse(row.failureJson) as TeamAttemptView["failure"],

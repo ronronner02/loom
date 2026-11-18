@@ -130,7 +130,7 @@ export type RigEvent =
   | { type: "binding.updated"; rigId: string; nodeId: string }
   | { type: "session.status_changed"; rigId: string; nodeId: string; status: string }
   | { type: "session.detached"; rigId: string; nodeId: string; sessionName: string }
-  // S5 (OPR.0.5.4.7) — seat-lifecycle audit trail: the three supported seat verbs each persist
+  // Seat-lifecycle audit trail: the three supported seat verbs each persist
   // their mutation with actor + reason in the same transaction as the mutation itself.
   | { type: "node.model_changed"; rigId: string; nodeId: string; logicalId: string; from: string | null; to: string; reason: string; operator: string | null }
   | { type: "node.permissions_changed"; rigId: string; nodeId: string; from: unknown; to: unknown; actor: string; reason: string; source: "seat_selection"; effect: "future_launches_only" }
@@ -138,7 +138,7 @@ export type RigEvent =
   | { type: "session.cleaned"; rigId: string; nodeId: string; sessionName: string | null; reason: string; operator: string | null; actions: { sessionsExited: string[]; bindingCleared: boolean } }
   | { type: "node.launched"; rigId: string; nodeId: string; logicalId: string; sessionName: string }
   | { type: "topology.roster_recorded"; rigId: string; intendedNodeIds: string[]; source: "materialized_topology" }
-  // OPR.0.7.0.5 — in-place restart (same conversation, same pane). Started is persisted before any signal, so
+  // In-place restart (same conversation, same pane). Started is persisted before any signal, so
   // a request that waited behind it, or a restart that never recorded a result, is refused rather than repeated.
   | { type: "seat.restart_in_place_started"; rigId: string; nodeId: string; logicalId: string; sessionName: string; pane: string; paneShape: "shell_backed" | "direct_native"; oldPid: number; oldStartedAt: string | null; codexHome: string; reason: string; operator: string | null }
   | { type: "seat.restart_in_place_finished"; rigId: string; nodeId: string; logicalId: string; sessionName: string; outcome: "restarted_account_unverified" | "not_started" | "incomplete" | "native_unknown"; newPid: number | null; newStartedAt: string | null; codexHome: string; paneHeld: boolean; accountLinesAtRestart: Record<string, number> | null; finishedAt: string }
@@ -155,14 +155,14 @@ export type RigEvent =
   // is preserved in the log; this event records the audit trail of the upgrade.
   | { type: "restore.outcome_reconciled"; rigId: string; nodeId: string; attemptId: number; from: "failed" | "attention_required"; to: "operator_recovered"; evidence: { tmux: boolean; fgProcess: "claude" | "codex" | string; resumeTokenUsed: boolean; paneState: "usable" } | { source: string; reason?: string; kind?: string; state?: string; runtimeCwdVerified?: boolean } }
   | { type: "agent.activity"; rigId: string; nodeId: string; sessionName: string; runtime: string | null; activity: AgentActivity }
-  // OPR.0.4.1.10 — audit record for a --dangerously-interact send that drove a target's interactive
+  // Audit record for a --dangerously-interact send that drove a target's interactive
   // prompt / permission block. overrideReason = caller's --reason; detectedReason/evidenceSource =
   // what the classifier saw (kept distinct so permission_prompt vs selection_prompt vs unknown stays visible).
   | { type: "transport.prompt_override"; rigId: string; nodeId: string; sessionName: string; actorSession: string | null; detectedState: string; detectedReason: string; evidenceSource: string; overrideReason: string | null }
   // OPR.0.4.6.PI1 FR-5 — "rpc" provenance is ADDITIVE: Pi session identity comes
   // from a native worker's typed events, never pane scraping.
   | { type: "agent.session_identity"; rigId: string; nodeId: string; sessionName: string; runtime: string; sessionId: string; provenance: "hook" | "scrape" | "rpc" }
-  // OPR.0.4.0.22 — append-only audit of a managed resume-token write. Emitted
+  // Append-only audit of a managed resume-token write. Emitted
   // on an operator set (`operator_set`) and on reconcile capture-on-adopt
   // (`reconcile_capture`). NEVER carries the raw token (credential-class);
   // `redacted: true` marks that the token value is intentionally omitted.
@@ -199,7 +199,7 @@ export type RigEvent =
   | { type: "session.discovered"; discoveredId: string; tmuxSession: string; tmuxPane: string; runtimeHint: string; confidence: string }
   | { type: "session.vanished"; tmuxSession: string; tmuxPane: string }
   | { type: "node.claimed"; rigId: string; nodeId: string; logicalId: string; discoveredId: string }
-  // OPR.0.3.4.3 — a live (hand-resumed) canonical session adopted back into its
+  // A live (hand-resumed) canonical session adopted back into its
   // persisted node WITHOUT launch/relaunch/input. Distinct from node.claimed so
   // the operator is never misled about which op happened.
   | { type: "node.reconciled"; rigId: string; nodeId: string; logicalId: string; sessionName: string }
@@ -214,7 +214,7 @@ export type RigEvent =
   | { type: "bundle.created"; bundleName: string; bundleVersion: string; archiveHash: string }
   // Teardown events
   | { type: "rig.stopped"; rigId: string }
-  // OPR.0.3.3.19 - multi-agent archive affordance (soft, reversible; NOT a delete)
+  // Multi-agent archive affordance (soft, reversible; NOT a delete)
   | { type: "rig.archived"; rigId: string }
   | { type: "rig.unarchived"; rigId: string }
   // AgentSpec reboot events — pods + startup + continuity
@@ -223,14 +223,14 @@ export type RigEvent =
   | { type: "node.startup_pending"; rigId: string; nodeId: string }
   | { type: "node.startup_ready"; rigId: string; nodeId: string; submission?: { status: "unverified" | "staged"; reasons: string[]; warning?: string; diagnostics?: StartupSubmissionDiagnostic[] } }
   | { type: "node.startup_failed"; rigId: string; nodeId: string; error: string; sessionId?: string; freshContextPending?: boolean; submissionDiagnostics?: StartupSubmissionDiagnostic[] }
-  // T047 — the exact receipt a successful managed launch returned. A native-token resume must
-  // present this receipt again (U5), and the launch-intent check compares its hash, so the bytes
+  // The exact receipt a successful managed launch returned. A native-token resume must
+  // present this receipt again, and the launch-intent check compares its hash, so the bytes
   // are recorded verbatim and never reconstructed. Append-only run evidence. The run id is carried
   // on the event itself because a run's own replay is read by that field: a launch is that run's
   // evidence, not only its seat's.
   | { type: "managed.attempt.receipt"; rigId: string; nodeId: string; sessionId: string; runId: string;
       sessionName: string; requestedModel?: string | null; receipt: import("./runtime-adapter.js").ManagedSessionReceipt }
-  // OPR.0.4.3.06 — startup proof (challenge-verified orientation). Append-only.
+  // Startup proof (challenge-verified orientation). Append-only.
   // `node.startup_challenged` freezes this launch's challenge ground truth
   // (challengeId + contractHash; the expected answer is recomputed, never
   // stored). `node.startup_proof_verified`/`_rejected` are the verified/rejected
@@ -462,7 +462,7 @@ export interface RestoreNodeResult {
   // outcome after `restore.outcome_reconciled`; never produced directly by
   // the orchestrator's restore pipeline (only by reconcileNodeRuntimeTruth).
   //
-  // OPR.0.3.4.2 — the ratified five-term restore vocabulary:
+  // The ratified five-term restore vocabulary:
   // `resumed` (original session resumed) / `fresh-primed` (deliberate
   // blank-slate launch, policy- or --fresh-driven; replaces the old `fresh`
   // for launches) / `awaiting-decision` (original unresumable + no --fresh:

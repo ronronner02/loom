@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 import { integer, object, TeamContractError } from "../contracts/team-control.js";
 
 /**
- * Plan R20 / KTD14 — what a team may start on its own.
+ * What a team may start on its own.
  *
  * The accept mode and the owner's rules are one versioned policy per team, `observe` until the
  * owner saves one. Every item the GitHub intake sees is recorded here with the state it reached,

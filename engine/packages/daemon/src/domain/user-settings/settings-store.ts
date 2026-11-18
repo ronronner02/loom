@@ -165,9 +165,9 @@ export const SETTINGS_VALID_KEYS = [
   "snapshots.periodic.enabled",
   "snapshots.periodic.interval_seconds",
   "snapshots.periodic.retention_keep",
-  // Slice 15 (OPR.0.7.0.15) — compact command-output defaults; CLI-read, twin of the CLI key.
+  // Slice 15 — compact command-output defaults; CLI-read, twin of the CLI key.
   "output.compact",
-  // Slice 01 (OPR.0.7.0.1) — Codex usage windows in the provider view; daemon-read, twin of the CLI key.
+  // Slice 01 — Codex usage windows in the provider view; daemon-read, twin of the CLI key.
   "provider.usage_windows",
   // OPR.0.4.6.FS-1 W2 — queue-retention maintenance knobs (arch D3; closed-set,
   // arch-safe defaults BAKED in getDefaultValue, bounded validation in
@@ -175,12 +175,12 @@ export const SETTINGS_VALID_KEYS = [
   // VALID_KEYS (each side's exact-equality parity test pins its own list). A
   // flip is read at the next daily maintenance tick — never retroactive to an
   // in-flight sweep.
-  // S04 (OPR.0.5.5.4) — pickup-receipt stall threshold; net-new key, MULTI_AGENT_* only,
+  // Pickup-receipt stall threshold; net-new key, MULTI_AGENT_* only,
   // CLI-settable twin lockstep with cli/src/config-store.ts VALID_KEYS. Fresh-read per
   // derivation (a flip applies to the next projection read; never retroactive).
-  // S02 (OPR.0.5.5.2) — standing stuck sweep: cadence + the A1 unclaimed-obligation age.
+  // Standing stuck sweep: cadence + the A1 unclaimed-obligation age.
   // Same lockstep contract as the pickup key.
-  // S01 (OPR.0.5.5.1) — wake-or-escalate ladder: retry cadence + cap, the F1
+  // Wake-or-escalate ladder: retry cadence + cap, the F1
   // unconfirmed-confirmation window, and the F2 post-swap grace. Same lockstep contract.
   // #811 — whether the operator rung posts agent-to-agent escalations to a person.
   // Under explicit-only, an ask that needs a person must be addressed to the person;
@@ -258,7 +258,7 @@ const ENV_MAP: Partial<Record<SettingsValidKey, { primary: string }>> = {
   "output.compact": { primary: "MULTI_AGENT_OUTPUT_COMPACT" },
   "provider.usage_windows": { primary: "MULTI_AGENT_PROVIDER_USAGE_WINDOWS" },
   // OPR.0.4.6.FS-1 W2 — retention knobs; net-new keys, MULTI_AGENT_* primary only.
-  // S04 — net-new key; MULTI_AGENT_* primary only.
+  // Net-new key; MULTI_AGENT_* primary only.
   "team.leadClient": { primary: "MULTI_AGENT_TEAM_LEAD_CLIENT" },
   "team.maxSeats": { primary: "MULTI_AGENT_TEAM_MAX_SEATS" },
   "team.maxConcurrentAgents": { primary: "MULTI_AGENT_TEAM_MAX_CONCURRENT_AGENTS" },

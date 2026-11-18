@@ -28,7 +28,7 @@ import { controlErrorHandler } from "../middleware/control-error.js";
 import type { TeamControlOptions } from "./team-control.js";
 
 /**
- * MVP slice 2 — the owner starts team work.
+ * The owner starts team work.
  *
  * One collection resource: `POST /runs` creates a run and the task that puts one agent on
  * the owner's goal, and `GET /runs` lists the runs that already exist so no client has to
@@ -127,8 +127,8 @@ function summarise(rigRepo: RigRepository, run: TeamRun): TeamRunSummary {
 /**
  * The seat a rig records for a role, when a start names none.
  *
- * U3 — `multi-agent team create` records one lead and one reviewer, so a start that names the team's rig
- * already names every seat a run needs. A rig with no seat for the role keeps the pre-U3
+ * `multi-agent team create` records one lead and one reviewer, so a start that names the team's rig
+ * already names every seat a run needs. A rig with no seat for the role keeps the earlier
  * behaviour: no lead, or no reviewer.
  */
 function seatForRole(rigRepo: RigRepository, rig: Rig, role: "lead" | "reviewer"): string | null {
@@ -176,7 +176,7 @@ export type StartStatus = 201 | 400 | 403 | 404 | 409 | 500 | 503;
 export interface StartOutcome { status: StartStatus; body: Record<string, unknown> }
 
 /**
- * Plan KTD14 — one owner start, shared by `POST /runs` and the GitHub intake. The outcome keeps
+ * One owner start, shared by `POST /runs` and the GitHub intake. The outcome keeps
  * the route's response shape, so both callers see the same refusals. A malformed request throws
  * `TeamContractError`.
  */
@@ -220,15 +220,15 @@ export async function startTeamRun(
   }
   const attachments = resolveProjectAttachments(rigRepo.db, rig.id, v.attachments);
   const node = firstAgentNode(rigRepo, rig.id);
-  // C3 — an opt-in lead. Without a lead seat the start is exactly the pre-C3 start: one
+  // An opt-in lead. Without a lead seat the start is exactly the pre-C3 start: one
   // implementer task on the named (or default) seat. With one, the run's first task is the
   // lead's, and the lead's context carries the protocol, roster and run instructions the
   // manifest owner builds; the implementer seats then come from the lead's own proposal, so
   // this request names none and there is no single implementer seat to compare against.
   //
-// U3 — a rig created by `multi-agent team create` records its seats, so naming the team is enough:
+// A rig created by `multi-agent team create` records its seats, so naming the team is enough:
   // the lead and the reviewer come from the roles it recorded unless this request names them.
-  // U5 — a planning start is a lead start by definition: its first task is the conversation
+  // A planning start is a lead start by definition: its first task is the conversation
   // with the owner, so it needs one of those seats to exist.
   if (v.planning !== undefined && typeof v.planning !== "boolean") throw new TeamContractError("planning");
   const planning = v.planning === true;
@@ -249,7 +249,7 @@ export async function startTeamRun(
     ? `/${workflow.entrypoint}${workflow.readOnly ? " --read-only" : ""}\n${workflow.input ?? chatBody(goal, "workflow.input")}` : null;
   const seat = v.seat === undefined ? (node ? defaultSeat(rigRepo, node, rig.name) : null) : text(v.seat, "seat", 256);
   if (leadSeat === null && !seat) return c.json({ code: "seat_required", error: "The rig has no agent seat; name the seat to route the task to." }, 400);
-  // C2 — the seat every review round of this run routes to. A start that names none keeps
+  // The seat every review round of this run routes to. A start that names none keeps
   // the pre-C2 behaviour: an implementer completes and the run creates no review.
   const reviewerSeat = v.reviewerSeat === undefined
     ? seatForRole(rigRepo, rig, "reviewer") : text(v.reviewerSeat, "reviewerSeat", 256);
@@ -277,7 +277,7 @@ export async function startTeamRun(
     ? (planning ? ["."] : [...DEFAULT_WRITE_PATHS]) : writePaths(v.writePaths, planning);
   const planningPaths = planning ? [...new Set([planRef, leadRosterPath(planRef), LEAD_ESCALATION_PATH,
     ...(documentWorkflow ? Object.values(documentPaths(planRef)) : [])])] : [planRef];
-  // U5 — the run id exists before the binding does, because a planning run's binding is
+  // The run id exists before the binding does, because a planning run's binding is
   // established in the daemon's own worktree for that run, not in the owner's checkout.
   const responseLanguage = parseResponseLanguage(v.responseLanguage);
   const runId = randomUUID();
@@ -301,7 +301,7 @@ export async function startTeamRun(
       binding = { ...recorded, readPaths: [...new Set([...planningPaths, ...scope])] };
     } catch (error) {
       if (error instanceof TeamContractError) throw error;
-      // KTD10 — a root or run id that Git cannot take is a named refusal the owner can fix by
+      // A root or run id that Git cannot take is a named refusal the owner can fix by
       // choosing a shorter worktree root, not a generic persistence failure.
       if (error instanceof WorktreePathError) return c.json({ code: error.code, error: error.message }, 400);
       return c.json({ code: "planning_worktree_unavailable",
@@ -316,7 +316,7 @@ export async function startTeamRun(
         error: "The plan artifact or the repository's commit could not be read: " + (error as Error).message }, 400);
     }
   }
-  // U9 — the run is named from the goal the owner started it with, so no client ever has to
+  // The run is named from the goal the owner started it with, so no client ever has to
   // show the run id. The goal is already required to be non-blank above.
   const run = governance.createRun({ id: runId, rigId: rig.id, binding, reviewerSeat, displayName,
     phase: planning ? "planning" : "delivery", documentWorkflow, responseLanguage });

@@ -19,7 +19,7 @@ import { observeIdentity } from "./process-termination.js";
 import type { SupervisorExitFacts } from "../adapters/child-process-supervisor.js";
 
 /**
- * MVP — the completion path's observation half.
+ * The completion path's observation half.
  *
  * A direct launch records a receipt naming the client process the pane runs under, but nothing
  * wrote that attempt into `team_attempts` and nothing ever closed it. A task could therefore
@@ -56,7 +56,7 @@ export interface AttemptCompletionDependencies {
   readLeadProposal?: (runId: string, taskId: string) => readonly unknown[];
   readTaskReport?: (runId: string, attemptId: string) => TaskReport | null;
   /**
-   * U6 — the runtime's reader of a delivery lead's escalation.
+   * The runtime's reader of a delivery lead's escalation.
    *
    * Present means this daemon reads the second file a lead may deliver, and it turns on the
    * manager rule: a delivery lead turn that writes neither file is still a turn the owner asked
@@ -74,7 +74,7 @@ export interface AttemptCompletionDependencies {
    */
   turnExit?: (attemptId: string) => SupervisorExitFacts | null;
   /**
-   * MVP — start the run's next pending task now that this attempt's seat and slot are free.
+   * Start the run's next pending task now that this attempt's seat and slot are free.
    *
    * Absent means nothing dispatches on a freed slot, which is what a caller without a
    * dispatcher (a test) wants.
@@ -83,7 +83,7 @@ export interface AttemptCompletionDependencies {
   /** Persist native-turn documents before the stop write, while an interrupted capture can still be swept. */
   captureTurnDocuments?: (attempt: import("../contracts/team-control.js").TeamAttempt) => void;
   /**
-   * U5 — the end of one turn, after its stop is recorded and before the next task starts.
+   * The end of one turn, after its stop is recorded and before the next task starts.
    *
    * A lead's turn ends with its final message, and that message is the reply the owner reads in
    * the run's chat. Reading it and storing it belongs to the owner of that conversation, not to
@@ -95,7 +95,7 @@ export interface AttemptCompletionDependencies {
   /** Each owner is acknowledged separately after its idempotent durable effects complete. */
   stoppedOwners?: readonly { name: string; complete: (attempt: import("../contracts/team-control.js").TeamAttempt) => void | Promise<void> }[];
   /**
-   * U7 — land a task whose review just approved on the run's integration branch.
+   * Land a task whose review just approved on the run's integration branch.
    *
    * The approval is the trigger: the outcome command records it, and this is the observation
    * that it happened. Awaited so the branch has the commit before the sweep offers the slot
@@ -103,7 +103,7 @@ export interface AttemptCompletionDependencies {
    */
   integrateTask?: (runId: string, taskId: string) => Promise<unknown>;
   /**
-   * U6 — the tick after every observation, for the owner of facts no single attempt produces.
+   * The tick after every observation, for the owner of facts no single attempt produces.
    *
    * The lead is woken by what its whole team did — a task that failed after its retry, a review
    * allowance that ran out, a task that conflicts on the integration branch, every task done —
@@ -113,7 +113,7 @@ export interface AttemptCompletionDependencies {
    */
   onSweep?: () => Promise<void>;
   /**
-   * U4 — reconcile every running or unknown attempt once, before the first sweep.
+   * Reconcile every running or unknown attempt once, before the first sweep.
    *
    * A daemon that stopped while a turn was running left `team_attempts` rows whose processes
    * it can no longer observe. This runs once at `start()`, ahead of the ordinary sweep, so the
@@ -266,7 +266,7 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
    * forever for work nobody was doing. The session's `status` is left alone — it is the
    * presence record of the terminal, not of the agent.
    *
-   * T033 — the stop carries the attempt's one KTD20 classification. The evidence is read here,
+   * The stop carries the attempt's one classification. The evidence is read here,
    * once, at the moment the sweep observes the process gone: the run's own cancel state, the
    * exit status the seat's terminal recorded, and the last lines it held. Nothing later
    * re-derives it, and nothing here adds an attempt or a unit of budget.
@@ -278,7 +278,7 @@ export function composeAttemptCompletion(dependencies: AttemptCompletionDependen
       try {
         const attempt = governance.getAttempt(row.id);
         if (!attempt?.identity) continue;
-        // U3 — a native turn's exit facts are written by the supervisor as soon as the child
+        // A native turn's exit facts are written by the supervisor as soon as the child
         // ends, so they are the direct proof of an end. Without them the recorded identity
         // decides, exactly as before: a live process keeps the attempt open.
         if (dependencies.turnExit?.(attempt.id) == null && await alive(attempt.identity)) continue;

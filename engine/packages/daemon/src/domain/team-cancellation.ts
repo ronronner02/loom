@@ -5,7 +5,7 @@ import type { PlanGovernance } from "./plan-governance.js";
 import { runningAttemptIdentities, terminateProcessGroup, type ProcessIdentity, type TerminationResult } from "./process-termination.js";
 
 /**
- * T017 (cancellation half) — the owner's cancel actually stops the work.
+ * The owner's cancel actually stops the work.
  *
  * On `main` the cancel command recorded `cancel_requested` and nothing else happened: the
  * client kept running, the queue row stayed open, and the run never left that state. This is

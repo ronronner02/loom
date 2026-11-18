@@ -373,7 +373,7 @@ async function performBootstrap(db: Database.Database, input: ProjectInput, opti
     }
     await options.github.push(repository, state.remote_url, `${state.commit_oid}:${state.branch_ref}`, state.github_login);
 
-    // KTD12: create the team row only after a successful push. Leave no normal
+    // Create the team row only after a successful push. Leave no normal
     // team row when the remote or upload fails.
     if (!state.team_id) {
       const team = createTeam(db, { repository, name: state!.name, leadClient: state!.lead_client });
@@ -400,7 +400,7 @@ async function readFileBytes(path: string): Promise<Buffer> {
 /**
  * Build the initial snapshot and point the branch at it.
  *
- * KTD12 — one bounded external operation. Git hashes every accepted file in one
+ * One bounded external operation. Git hashes every accepted file in one
  * `hash-object --stdin-paths` process and reads each of them from the working tree itself, so this
  * module never holds a regular file's bytes and the work does not scale with one process per file.
  * The two contents Git cannot take from a path — a symlink's target and the default ignore file —

@@ -3,7 +3,7 @@ import { delimiter, isAbsolute, join, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * U1 / KTD2 — the one place that turns a client name into a real executable.
+ * The one place that turns a client name into a real executable.
  *
  * `claude`, `codex`, `gemini`, `gh` and `git` are all resolved here, in one order:
  *

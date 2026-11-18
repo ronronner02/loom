@@ -1,7 +1,7 @@
 import { parseFindings, type ReviewFinding } from "./review-evidence.js";
 
 /**
- * MVP slice C2 — the review loop's pure half.
+ * The review loop's pure half.
  *
  * `plan-governance.ts` owns the writes: the reviewer task is admitted through the same
  * `writeTask` path C1 built, and the rework counter is the run's existing

@@ -1,7 +1,7 @@
 import { monitorEventLoopDelay, performance, type EventLoopUtilization } from "node:perf_hooks";
 
 /**
- * OPR.0.4.3.21 — daemon event-loop health instrumentation.
+ * Daemon event-loop health instrumentation.
  *
  * A daemon can be alive + listening (PID up, port bound) yet have a WEDGED /
  * starved event loop (~100% CPU) so it cannot service requests — `/healthz`

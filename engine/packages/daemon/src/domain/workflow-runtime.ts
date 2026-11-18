@@ -59,7 +59,7 @@ export interface WorkflowRuntimeDeps {
   queueRepo: QueueRepository;
   now?: () => Date;
   /**
-   * T039 / KTD8: where a task's candidate tree is materialized. Must sit outside
+   * Where a task's candidate tree is materialized. Must sit outside
    * every repository the run can write to, because a candidate inside its own
    * repository would let git discovery in the snapshot lane find the parent repo
    * and hide an isolation bug. Supplied by startup; absent disables candidate
@@ -71,14 +71,14 @@ export interface WorkflowRuntimeDeps {
    */
   candidateRoot?: (runId: string, taskId: string, worker: string) => string;
   /**
-   * T039: the control-private root the kernel will mount as an assignment tree
+   * The control-private root the kernel will mount as an assignment tree
    * (`paths.assignment_root` in the installed worker policy). A candidate is
    * only launchable from here; a candidate anywhere else is not admissible.
    * A function so a re-installed policy is read at launch, not at boot.
    */
   assignmentRoot?: () => string;
   /**
-   * T048: where a snapshot-lane candidate's control-owned creation record is written. The
+   * Where a snapshot-lane candidate's control-owned creation record is written. The
    * snapshot lane has no git registry, so this record is the only proof that a directory at a
    * candidate path was created by this runtime; it must sit in the control state directory, which
    * only the daemon can reach. Absent, the snapshot lane refuses to create or adopt a candidate
@@ -87,13 +87,13 @@ export interface WorkflowRuntimeDeps {
    */
   candidateRecordsRoot?: () => string;
   /**
-   * T039: the worker whose assignment directory holds a candidate when the caller
+   * The worker whose assignment directory holds a candidate when the caller
    * does not name one. Only the non-launch accessors (identity, packet, source
    * check) fall back to it; the launch path always passes the attempt's own worker.
    */
   defaultWorker?: () => string;
   /**
-   * T042 — where the daemon may create an attempt's context projection and mailbox
+   * Where the daemon may create an attempt's context projection and mailbox
    * endpoint, read from the installed worker policy.
    *
    * Supplied as one object rather than three callbacks because all of it has to come
@@ -124,7 +124,7 @@ export interface WorkflowRuntimeDeps {
    */
   sameIdentity?: boolean;
   /**
-   * T053 — the owners that supply the producer's per-attempt inputs, so an attempt can be
+   * The owners that supply the producer's per-attempt inputs, so an attempt can be
    * produced from production state rather than from whatever a call site happens to hold.
    *
    * Issuance and reading are separate: the endpoint authenticates every request by *reading*
@@ -143,19 +143,19 @@ export interface WorkflowRuntimeDeps {
     workerIdentity: (worker: string) => { uid: number; gid: number; groupIds: number[] };
   };
   /**
-   * T053 — an attempt's worker credential lives exactly as long as its endpoint, so it is
-   * revoked on the same retirement T042 already owns. Synchronous: the row and the live
+   * An attempt's worker credential lives exactly as long as its endpoint, so it is
+   * revoked on the same retirement already owns. Synchronous: the row and the live
    * token both go, and the bridge is already closed by the time this runs.
    */
   onManagedAttemptRetired?: (attempt: { runId: string; sessionId: string }) => void;
 }
 
 /**
- * T042 — what the producer hands back: the attempt object for the binding, the live
+ * What the producer hands back: the attempt object for the binding, the live
  * endpoint, and the candidate the assignment will run in. Frozen so a caller cannot
  * substitute a different attempt after it was registered.
  */
-/** T042 — what the producer hands back: the attempt object for the binding, the live
+/** What the producer hands back: the attempt object for the binding, the live
  * endpoint, and the candidate the assignment will run in. Frozen so a caller cannot
  * substitute a different attempt after it was registered.
  */
@@ -166,7 +166,7 @@ export interface ProducedManagedAttempt {
   readonly manifestDigest: string;
 }
 
-/** T042/T053 — everything `produceManagedAttempt` takes. */
+/** Everything `produceManagedAttempt` takes. */
 export interface ProduceManagedAttemptInput {
   attemptId: string;
   worker: string;
@@ -179,7 +179,7 @@ export interface ProduceManagedAttemptInput {
     | "workerUid" | "workerGroups"> & { workerUid?: number; workerGroups?: number[] };
   role: TeamRole;
   client: "claude-code" | "codex" | "gemini";
-  /** The workspace the assignment will actually run in, from T039's candidate. */
+  /** The workspace the assignment will actually run in, candidate. */
   candidate: string;
   /** The session whose capability the mailbox accepts, and the seat it belongs to. */
   sessionId: string;
@@ -203,7 +203,7 @@ export interface ProduceManagedAttemptInput {
 }
 
 /**
- * T011 — does `taskId` satisfy a dependency, following handoff custody?
+ * Does `taskId` satisfy a dependency, following handoff custody?
  *
  * A `done` task satisfies only with validated evidence: an exit code or a
  * completed process is not a result (R18). A `handed-off` task satisfies
@@ -250,9 +250,9 @@ export function dependencySatisfied(
 }
 
 /**
- * T011 — the run's declared work graph, checked before any task launches.
+ * The run's declared work graph, checked before any task launches.
  *
- * Three rejections KTD4 needs up front, because each one otherwise surfaces as
+ * Three rejections needs up front, because each one otherwise surfaces as
  * work that can never finish: an edge to a task the run does not contain, a
  * dependency cycle, and two tasks that claim the same write path. Paths are
  * directories or files in the binding, so a claim overlaps when it is the same
@@ -319,7 +319,7 @@ export function validateDependencyGraph(tasks: readonly GraphTask[]): GraphVerdi
   }
   const claimed = new Map<string, string>();
   for (const task of tasks) {
-    // C3 — the lead writes no assigned tree: its permission vocabulary has no
+    // The lead writes no assigned tree: its permission vocabulary has no
     // `write-assigned-tree`, and its one output is its own decomposition. C2's reviewer is
     // exempt for the same reason, so neither contributes a claim another task could conflict
     // with; their dependency edges still count.
@@ -524,7 +524,7 @@ export class WorkflowRuntime {
   private readonly startingAttempts = new Map<string, { runId: string; sessionId: string }>();
 
   /**
-   * T039 / KTD8 — one candidate tree per task, created or resumed exactly once.
+   * One candidate tree per task, created or resumed exactly once.
    *
    * The candidate is resolved before the launch preflight, because the control
    * reads the assigned tree out of the policy's `assignment_root` and refuses a
@@ -583,7 +583,7 @@ export class WorkflowRuntime {
         // adopt-only caller is not launching yet, so it leaves the record as it found it
         // and the real launch does the recording.
         if (samePlace && !options?.adoptOnly) this.candidateWorker.set(key, worker!);
-        // T039: a candidate is only usable while the source checkout it was staged
+        // A candidate is only usable while the source checkout it was staged
         // from is unmoved. Handing one back after the owner's tree changed would
         // present a tree as evidence of work the source no longer supports, so this
         // refuses rather than returning it — and every packet, identity and delivery
@@ -622,7 +622,7 @@ export class WorkflowRuntime {
     // worktree registry for the commit lane, and the creation record the control wrote under its
     // own state directory for the snapshot lane. Nothing on or in the candidate is consulted.
     //
-    // U7 — the delivery base is the run's integration worktree once it has one. That worktree
+    // The delivery base is the run's integration worktree once it has one. That worktree
     // carries exactly the commits earlier tasks landed, so a later task builds on their work;
     // the binding's own root is the base before the first integration.
     const sourceRoot = this.deliverySource(run);
@@ -635,7 +635,7 @@ export class WorkflowRuntime {
     if (adopted && basePath && existsSync(basePath)) {
       adopted.base = JSON.parse(readFileSync(basePath, "utf8")) as WorkspaceBase;
     }
-    // T043: a review launch may adopt the tree a restart left behind, but must never
+    // A review launch may adopt the tree a restart left behind, but must never
     // create one. Staging here would hand the reviewer a checkout nobody wrote — the
     // defect this task exists to close — so absence is a refusal, not a cue to build.
     if (options?.adoptOnly) {
@@ -688,7 +688,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T039 — re-enter a candidate this runtime already staged, before a restart.
+   * Re-enter a candidate this runtime already staged, before a restart.
    *
    * A directory at the candidate path is adopted only when a control-owned record accounts for it:
    * the source's worktree registry for the commit lane, the creation record under the control state
@@ -711,7 +711,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * U7 — where a task's candidate is staged from.
+   * Where a task's candidate is staged from.
    *
    * Once the run has an integration worktree, that worktree is the delivery base: it carries
    * exactly the commits earlier tasks landed, so a later task builds on their work. Before the
@@ -724,7 +724,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T048 — move an unaccounted directory off a candidate path, keeping everything in it.
+   * Move an unaccounted directory off a candidate path, keeping everything in it.
    *
    * The candidate path sits under `assignments/<worker>`, which the worker owns, so a worker can
    * put a directory of its choosing there before its task launches. Leaving it in place would
@@ -739,12 +739,12 @@ export class WorkflowRuntime {
     renameSync(workspaceRoot, `${workspaceRoot}.rejected-${Date.now()}-${this.quarantineSeq}`);
   }
 
-  /** T048 — whether anything occupies a path. A broken link counts: it still blocks creation. */
+  /** Whether anything occupies a path. A broken link counts: it still blocks creation. */
   private present(path: string): boolean {
     try { lstatSync(path); return true; } catch { return false; }
   }
 
-  /** T048 — the control-owned record path for one task's snapshot candidate. */
+  /** The control-owned record path for one task's snapshot candidate. */
   private snapshotRecordPath(runId: string, taskId: string): string {
     const root = this.candidateRecordsRoot?.();
     if (!root) throw new Error("Snapshot candidate provenance is not configured");
@@ -752,7 +752,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T039 — the identity a candidate contributes to the T012 review packet.
+   * The identity a candidate contributes to the review packet.
    *
    * The candidate's own manifest is the identity; nothing about the launch can
    * name a different tree afterward.
@@ -799,7 +799,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * C3 — the decomposition a lead wrote, read at the boundary that owns worker-written data.
+   * The decomposition a lead wrote, read at the boundary that owns worker-written data.
    *
    * The lead's only output is this one file in its own candidate tree, so the read goes
    * through `readWorkspacePath` — the same pinned, no-follow, size-bounded reader every other
@@ -824,7 +824,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * U6 — the decision a lead asked the owner for, read at the same boundary as its proposal.
+   * The decision a lead asked the owner for, read at the same boundary as its proposal.
    *
    * One file, one reader: the escalation goes through `readWorkspacePath` exactly as the
    * proposal does, so a lead cannot reach the owner with anything but bytes the daemon itself
@@ -841,7 +841,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * U5 — the plan the lead wrote, read at the same boundary as its proposal.
+   * The plan the lead wrote, read at the same boundary as its proposal.
    *
    * A planning lead's one deliverable is the plan file in its own candidate tree, so the owner's
    * approval reads it through `readWorkspacePath` like every other read of worker output. The
@@ -886,7 +886,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * U5 — let a task's candidate be adopted again after its source moved.
+   * Let a task's candidate be adopted again after its source moved.
    *
    * Approving a plan commits those bytes to the run's own branch, which moves the source
    * worktree's HEAD. The tree the lead worked in is untouched, but the source-moved check reads
@@ -932,7 +932,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T039 — release one candidate tree, but only when this caller still owns it.
+   * Release one candidate tree, but only when this caller still owns it.
    *
    * A candidate is shared by every attempt that launches into it: a resume reuses
    * the recorded tree, and a second attempt for the same task must not delete work
@@ -957,7 +957,7 @@ export class WorkflowRuntime {
     this.removeWorkspace(workspace);
   }
 
-  /** T039 — record that this attempt holds the task's candidate. Idempotent per attempt. */
+  /** Record that this attempt holds the task's candidate. Idempotent per attempt. */
   private retainCandidate(key: string, attemptId: string): void {
     const owners = this.candidateOwners.get(key);
     if (owners) owners.add(attemptId);
@@ -965,7 +965,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T039 — the read-only packet a reviewer receives for the exact candidate.
+   * The read-only packet a reviewer receives for the exact candidate.
    *
    * `destination` must not overlap the candidate or the source checkout; the
    * packet builder enforces that itself rather than trusting this call site.
@@ -975,7 +975,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T039 — proof that staging the candidate did not move the owner's checkout.
+   * Proof that staging the candidate did not move the owner's checkout.
    *
    * Called by the delivery boundary: a candidate whose source tree changed while
    * the task ran is not evidence that the task's own work is complete.
@@ -985,7 +985,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T039 — release one candidate tree, but only when this caller still owns it.
+   * Release one candidate tree, but only when this caller still owns it.
    *
    * A candidate is shared by every attempt that launches into it: a resume reuses
    * the recorded tree, and a second attempt for the same task must not delete work
@@ -998,7 +998,7 @@ export class WorkflowRuntime {
    * case — it reads the implementer's tree and never owns it, so this is the no-op that
 
   /**
-   * T039 — admit one assignment for launch and place its candidate.
+   * Admit one assignment for launch and place its candidate.
    *
    * The launcher must know the assigned tree before the control preflights it, because the
    * control reads that tree out of the policy's `assignment_root` and refuses a tree anywhere
@@ -1021,7 +1021,7 @@ export class WorkflowRuntime {
     const documentError = documentDispatchRefusal(this.db, run, assignment.role, assignment.taskId, input.context.binding);
     if (documentError) throw new Error(documentError);
     if (assignment.role !== input.context.role || !binding.roles.includes(assignment.role)) throw new Error("Assignment role is outside the approval");
-    // Plan U5: the link is checked against the run's own recorded rows, never against the
+    // The link is checked against the run's own recorded rows, never against the
     // launch's claim. A reviewer naming a task this run did not record as an implementer is
     // refused before any tree is touched. The role gate is repeated here rather than left to
     // `parseAssignment`, because admission is what decides which tree a launch enters and what
@@ -1035,7 +1035,7 @@ export class WorkflowRuntime {
     const allowed = assignment.role === "reviewer" || readOnly ? [...binding.readPaths, ...binding.writePaths] : binding.writePaths;
     const covered = (path: string) => bindingCovers(path, allowed);
     for (const path of [...assignment.paths, ...input.outputs]) if (!covered(path)) throw new Error("Assignment or output expands the approved scope");
-    // T053: the task's own record is the store for outputs and permissions, so admission is
+    // The task's own record is the store for outputs and permissions, so admission is
     // where a caller's claim is checked — both the producer and a direct launch pass through
     // here, and neither should be able to declare production inputs the run never recorded.
     // A row that predates the record has nothing to disagree with.
@@ -1047,13 +1047,13 @@ export class WorkflowRuntime {
       throw new Error("Assignment inputs disagree with the recorded task");
     }
     if (assignment.dependencies.some(id => !this.dependencySatisfied(governance, runId, id))) throw new Error("Dependency lacks validated success");
-    // T039's done signal requires a cyclic or over-limit graph and overlapping write
+    // done signal requires a cyclic or over-limit graph and overlapping write
     // claims to refuse the launch, so the graph is derived from the run's own
     // authority rows rather than taken from the caller. A caller cannot skip this by
     // omitting an argument: the run is the only source of what its tasks claim.
     const verdict = validateDependencyGraph(this.runGraph(runId, run.bindingDigest, assignment));
     if (!verdict.ok) throw new Error(`Dependency graph refused: ${verdict.reason}`);
-    // T043: a reviewer enters the candidate under review; every other assignment gets its own.
+    // A reviewer enters the candidate under review; every other assignment gets its own.
     // The reviewer path is lookup-only on purpose — see `reviewedCandidateFor`.
     const candidate = assignment.reviewOf === undefined
       ? this.candidateFor(runId, assignment.taskId, input.worker)
@@ -1065,7 +1065,7 @@ export class WorkflowRuntime {
     // received anything, and the reference count would then hold the tree forever
     // because nothing knows to release it.
     //
-    // T043: a review attempt takes no claim. It reads a tree another task owns, so a
+    // A review attempt takes no claim. It reads a tree another task owns, so a
     // claim from it would make the reviewer the owner — a refused review would then be
     // allowed to delete the implementer's work, and a completed one would keep the tree
     // alive past the implementer's own release. Its release is the no-op that ownership
@@ -1076,7 +1076,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T043 — the tree a managed launch of this assignment mounts.
+   * The tree a managed launch of this assignment mounts.
    *
    * The production composition asks this before the control's policy check sees the path,
    * so it is the one place that decides "my own candidate" versus "the candidate I review".
@@ -1092,7 +1092,7 @@ export class WorkflowRuntime {
       : this.reviewedCandidateFor(runId, assignment.reviewOf)).root;
   }
 
-  /** T043 — whether this run recorded the task as an implementer. */
+  /** Whether this run recorded the task as an implementer. */
   private isRunImplementer(runId: string, taskId: string): boolean {
     const row = this.db.prepare(
       `SELECT assignment_json AS assignment FROM team_queue_authority WHERE run_id = ? AND task_id = ?`)
@@ -1102,7 +1102,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T043 — enter the candidate a reviewer reviews, or refuse.
+   * Enter the candidate a reviewer reviews, or refuse.
    *
    * The reviewed tree is the one its own task would enter, so this goes through the same
    * lookup-and-adopt path `candidateFor` owns. It differs in exactly one way: it passes
@@ -1114,19 +1114,19 @@ export class WorkflowRuntime {
     return this.candidateFor(runId, reviewedTaskId, worker, { adoptOnly: true });
   }
 
-  /** T039 — the worker a non-launch accessor falls back to when it has no attempt. */
+  /** The worker a non-launch accessor falls back to when it has no attempt. */
   private defaultWorkerName(): string {
     if (!this.defaultWorker) throw new Error("Candidate isolation is not configured");
     return this.defaultWorker();
   }
 
   /**
-   * T042 — produce the attempt an admitted assignment launches from.
+   * Produce the attempt an admitted assignment launches from.
    *
    * Composes the three things the composed launch chain expects but nothing produced:
-   * the KTD24 context projection under the policy's `context_root`, the per-attempt
+   * the context projection under the policy's `context_root`, the per-attempt
    * mailbox endpoint in the control-private `mailbox_root`, and the bootstrap written
-   * beside that socket. T047 attaches the result to a seat.
+   * beside that socket. attaches the result to a seat.
    *
    * Order matters for the same reason it does in `admitForLaunch`. Admission is the
    * only thing that may say no, and it is asked first: a refused assignment must
@@ -1171,8 +1171,8 @@ export class WorkflowRuntime {
     if (![worker, runId, attemptId].every(id => /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(id))) {
       throw new Error("Invalid managed attempt identity");
     }
-    // T053: the composition is the authority for every input it owns. A caller may still name
-    // them, as T042's contract allows, but only a value that agrees with the owner is accepted:
+    // The composition is the authority for every input it owns. A caller may still name
+    // them, as contract allows, but only a value that agrees with the owner is accepted:
     // silently preferring either side would let a caller pick a seat, capability or identity the
     // run never recorded, which is exactly the grant this task exists to stop issuing twice.
     const owned = this.managedAttemptInputs;
@@ -1328,7 +1328,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T053 — revoke a seat's credential only when no other produced attempt of that seat remains.
+   * Revoke a seat's credential only when no other produced attempt of that seat remains.
    *
    * A seat has one credential, so a retirement or a failed production must not take the token a
    * live attempt is authenticating with. `except` names the attempt being removed, which is still
@@ -1343,14 +1343,14 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T042 — retire a produced attempt: close its endpoint and forget the projection.
+   * Retire a produced attempt: close its endpoint and forget the projection.
    *
    * Closing is what removes the bootstrap and unlinks the socket, so a retired
    * attempt cannot be relaunched against a stale endpoint. The projection stays on
    * disk as run evidence, exactly as `projectContext` documents for failed attempts.
    */
   /**
-   * T042 — retire a produced attempt: close its endpoint and forget the projection.
+   * Retire a produced attempt: close its endpoint and forget the projection.
    *
    * Closing is what removes the bootstrap and unlinks the socket, so a retired
    * attempt cannot be relaunched against a stale endpoint. The projection stays on
@@ -1363,22 +1363,22 @@ export class WorkflowRuntime {
     try {
       await produced.bridge.close();
     } finally {
-      // T053: the attempt's worker credential is revoked on the same retirement that closes its
+      // The attempt's worker credential is revoked on the same retirement that closes its
       // endpoint, so the two never outlive each other. In `finally` because a throwing close
       // must not strand the token: by here the entry is gone and nothing else can reach it.
       this.revokeSeatCredential(produced.bridge.binding.runId, produced.bridge.binding.sessionId, attemptId);
     }
   }
 
-  /** T042 — the attempt a seat's launch should attach, if this daemon produced one. */
+  /** The attempt a seat's launch should attach, if this daemon produced one. */
   managedAttemptFor(attemptId: string): ProducedManagedAttempt | undefined {
     return this.managedAttempts.get(attemptId);
   }
 
   /**
-   * T042 — close every endpoint this daemon owns; a restart owns none of the old ones.
+   * Close every endpoint this daemon owns; a restart owns none of the old ones.
    *
-   * T053: a production that is still inside `listen` is not in `managedAttempts` yet, so it has
+   * A production that is still inside `listen` is not in `managedAttempts` yet, so it has
    * to be drained first — otherwise this returns while an endpoint is still coming up, and that
    * endpoint then publishes and keeps its credential alive past a close that reported success.
    * Awaiting each production settles it either way: a success lands in `managedAttempts` and the
@@ -1413,7 +1413,7 @@ export class WorkflowRuntime {
     const context = { ...input.context };
     const frameworkRoot = roots.frameworkRoot;
     // The projection holds more than instructions: the plan the approval bound, the
-    // role configuration, the pinned framework entries, and — KTD28 — the shared core
+    // role configuration, the pinned framework entries, and the shared core
     // and this role's own charter. `createContextManifest` refuses a projection missing
     // any of them, which is the point: the producer cannot quietly omit what a worker
     // is supposed to follow, or substitute today's bytes for the approved ones.
@@ -1468,7 +1468,7 @@ export class WorkflowRuntime {
         ...(context.soul ? [write("soul", canonicalJson(context.soul), "soul")] : []),
         ...(context.teamSections ? [write("team", context.teamSections, "team")] : []),
         ...(context.workflow ? [write("workflow", canonicalJson(context.workflow), "workflow")] : []),
-        // C3 — a lead activation's roster and run instructions. The protocol entry is already
+        // A lead activation's roster and run instructions. The protocol entry is already
         // written above: `roleInstructionEntries("lead")` projects it as this role's charter,
         // and the manifest requires exactly one. A member role adds nothing here.
         ...(input.context.lead ? [
@@ -1529,13 +1529,13 @@ export class WorkflowRuntime {
     return manifest;
   }
 
-  /** T039 — release a workspace this runtime owns, whichever path handed it back. */
+  /** Release a workspace this runtime owns, whichever path handed it back. */
   private removeWorkspace(workspace: CandidateWorkspace): void {
     try { removeCandidateWorkspace(workspace); } catch { /* A removed tree is already released. */ }
   }
 
   /**
-   * T039 — the run's declared work graph, read from its own authority rows.
+   * The run's declared work graph, read from its own authority rows.
    *
    * The task being admitted contributes its approved assignment; every other task
    * the run recorded contributes what its row says it claims. A run with more than
@@ -1582,13 +1582,13 @@ export class WorkflowRuntime {
     return this.reviewEvidence.state(runId, taskId);
   }
 
-  /** T012 — record the candidate the daemon issued; the only writer that moves the current candidate. */
+  /** Record the candidate the daemon issued; the only writer that moves the current candidate. */
   issueReviewCandidate(runId: string, rigId: string, taskId: string, identity: CandidateIdentity) {
     return this.events.withNotifyEnvelope(register => this.reviewEvidence.issue({ runId, rigId, taskId, identity, register }));
   }
 
   /**
-   * T012 — record a reviewer's findings.
+   * Record a reviewer's findings.
    *
    * The reviewer is named by its queue item and resolved against the run's own
    * authority rows. The write itself consults the progress gate, so a round the
@@ -1600,18 +1600,18 @@ export class WorkflowRuntime {
     return this.events.withNotifyEnvelope(register => this.reviewEvidence.record({ ...input, runId, rigId, register }));
   }
 
-  /** T012 — record integrated acceptance for the candidate the task currently holds. */
+  /** Record integrated acceptance for the candidate the task currently holds. */
   recordReviewAcceptance(runId: string, rigId: string, taskId: string, manifestDigest: string, passed: boolean, reason: string) {
     return this.events.withNotifyEnvelope(register =>
       this.reviewEvidence.accept({ runId, rigId, taskId, manifestDigest, passed, reason, register }));
   }
 
-  /** T012 — record that the candidate moved, retiring every earlier review. */
+  /** Record that the candidate moved, retiring every earlier review. */
   recordReviewRework(runId: string, rigId: string, taskId: string, identity: CandidateIdentity) {
     return this.events.withNotifyEnvelope(register => this.reviewEvidence.rework({ runId, rigId, taskId, identity, register }));
   }
 
-  /** T012 — KTD9's single diagnosed recoverable retry, counted from durable state. */
+  /** single diagnosed recoverable retry, counted from durable state. */
   recordReviewRetry(runId: string, rigId: string, taskId: string, reasonCode: string, resumeSafe: boolean) {
     return this.events.withNotifyEnvelope(register => this.reviewEvidence.retry({ runId, rigId, taskId, reasonCode, resumeSafe, register }));
   }
@@ -1619,7 +1619,7 @@ export class WorkflowRuntime {
   /**
 
   /**
-   * T012 — the two decisions a task's delivery depends on: may another review
+   * The two decisions a task's delivery depends on: may another review
    * round start, and is the task deliverable at all. Both are computed here so a
    * caller cannot take a lenient answer from one and cite the other.
    *
@@ -1634,7 +1634,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T012 — the gate, with its clock derived from the run's own accounting.
+   * The gate, with its clock derived from the run's own accounting.
    *
    * `active_ms` advances only when a control command runs, so the interval since
    * the last accounting point must be deducted too; otherwise a live attempt
@@ -1650,7 +1650,7 @@ export class WorkflowRuntime {
 
 
   /**
-   * T039 — the launcher's full preparation path.
+   * The launcher's full preparation path.
    *
    * The launcher holds the post-preflight assignment, but it must not call
    * `prepareTeamAssignment` itself: the runtime is what supplies the approved
@@ -1669,7 +1669,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T011 — admit a task onto the run's work graph.
+   * Admit a task onto the run's work graph.
    *
    * The caller declares what this task claims and depends on plus the claims of
    * the run's other live tasks. The merged graph must hold before the task is
@@ -1698,7 +1698,7 @@ export class WorkflowRuntime {
   }
 
   /**
-   * T011 — a dependency is satisfied only by evidence-backed completion.
+   * A dependency is satisfied only by evidence-backed completion.
    *
 
   /** A dependency is satisfied only by evidence-backed completion: the same test the

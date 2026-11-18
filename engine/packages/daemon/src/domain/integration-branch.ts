@@ -12,10 +12,10 @@ import { ensurePlanWorktree, planWorktreePath, runSlug } from "./plan-branch.js"
 import { checkedOutBranch, type SourceRefMove } from "./team-workspace.js";
 
 /**
- * U7 / KTD7 — the branch the run's approved work lands on, and the owner's one merge.
+ * The branch the run's approved work lands on, and the owner's one merge.
  *
  * Every task whose review approves lands as one commit on `team/<run-slug>`, in the
- * daemon-owned worktree U5 already created for the run. The owner's checkout is never written
+ * daemon-owned worktree already created for the run. The owner's checkout is never written
  * here; the merge is the only step that goes back into it, and it is the owner's own action.
  *
  * The hard part is what an in-flight candidate means once the branch moves. Two tasks start
@@ -54,6 +54,12 @@ export interface MergeOutcome {
   status: "merged" | "refused";
   code: string | null;
   reason: string | null;
+  /**
+   * On a refusal, whether waiting can clear it. A delivery still landing is transient; a dirty
+   * checkout, a detached head or a conflict is the owner's to act on. Every outcome names one,
+   * so a caller never has to decode `code` itself.
+   */
+  transient: boolean;
   branch: string;
   mode: "fast-forward" | "merge-commit" | "up-to-date" | "pull-request" | null;
   head: string | null;
@@ -69,7 +75,7 @@ export interface IntegrationResult {
 export interface IntegrationDeps {
   db: Database.Database;
   governance: PlanGovernance;
-  /** Where the daemon's per-run worktrees live: the same root U5's plan worktree uses. */
+  /** Where the daemon's per-run worktrees live: the same root plan worktree uses. */
   worktreeRoot: () => string;
   /** The candidate's own patch and manifest, the way `multi-agent team apply` and the result read take it. */
   candidateManifest: (runId: string, taskId: string) => {
@@ -93,7 +99,7 @@ export interface Integration {
   merge(runId: string): MergeOutcome;
 }
 
-/** The daemon's own commit identity on the integration branch, as U5's plan commits use. */
+/** The daemon's own commit identity on the integration branch, as plan commits use. */
 const DAEMON_GIT_ENV = { GIT_AUTHOR_NAME: "multi-agent", GIT_AUTHOR_EMAIL: "multi-agent@localhost",
   GIT_COMMITTER_NAME: "multi-agent", GIT_COMMITTER_EMAIL: "multi-agent@localhost" };
 
@@ -425,10 +431,10 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
     merge(runId) {
       const run = governance.getRun(runId);
       const branch = branchOf(run);
-      const refuse = (code: string, reason: string): MergeOutcome =>
-        ({ status: "refused", code, reason, branch, mode: null, head: null });
+      const refuse = (code: string, reason: string, transient = false): MergeOutcome =>
+        ({ status: "refused", code, reason, transient, branch, mode: null, head: null });
       const delivery = deliveryReadiness(deps.db, run, governance.integrationRecord(runId).commits.length);
-      if (!delivery.possible) return refuse(delivery.code, delivery.reason);
+      if (!delivery.possible) return refuse(delivery.code, delivery.reason, delivery.transient);
       let repository: string;
       try { repository = repositoryOf(run); } catch (error) { return refuse("merge_unavailable", (error as Error).message); }
       if (!existsSync(repository)) return refuse("merge_unavailable", "The owner's repository is not on this machine.");
@@ -444,10 +450,10 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
         const head = headOf(repository);
         try { deps.sourceRefMoved?.(repository, { ref: `refs/heads/${current}`, before, after: head }); }
         catch (error) { log(`team integration: candidate source refresh failed: ${(error as Error).message}`); }
-        return { status: "merged", code: null, reason: null, branch, mode, head };
+        return { status: "merged", code: null, reason: null, transient: false, branch, mode, head };
       };
       if (isAncestor(repository, branch, before)) {
-        return { status: "merged", code: null, reason: null, branch, mode: "up-to-date", head: before };
+        return { status: "merged", code: null, reason: null, transient: false, branch, mode: "up-to-date", head: before };
       }
       // Fast-forward when the owner's branch has not moved past the run's base, which is the
       // ordinary case; otherwise the work needs one merge commit to join the two histories.

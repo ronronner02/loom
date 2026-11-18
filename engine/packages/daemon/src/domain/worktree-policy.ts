@@ -5,7 +5,7 @@ import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { canonicalPath, isWindows, samePath } from "./platform.js";
 
 /**
- * KTD10 — one policy for every worktree the daemon creates.
+ * One policy for every worktree the daemon creates.
  *
  * Three call sites add worktrees: the run's plan branch (`plan-branch.ts`), the integration
  * worktree that reuses it (`integration-branch.ts`), and each task's candidate
@@ -46,7 +46,7 @@ export const WORKTREE_ADMIN_CEILING = process.platform === "win32" ? 249 : null;
  * Where the daemon's per-run and per-task worktrees live.
  *
  * On Windows the default is `%LOCALAPPDATA%\Multi-Agent\wt`: `%LOCALAPPDATA%` is the per-user
- * mutable-state location KTD7 names, and the two short segments keep the default root near
+ * mutable-state location names, and the two short segments keep the default root near
  * 40 characters so a run id and a task id still fit under the ceiling. Elsewhere the default
  * stays `~/.multi-agent/wt`, which is where the existing plan worktrees already are.
  *

@@ -9,7 +9,7 @@ import type { PlanGovernance } from "./plan-governance.js";
 import { ATTEMPT_REASON_CODES, failureClassFor, type AttemptReasonCode } from "./attempt-failure.js";
 
 /**
- * U5 — the owner↔lead conversation, and the two facts a turn needs from it.
+ * The owner↔lead conversation, and the two facts a turn needs from it.
  *
  * The conversation is durable rows, one per message, ordered by insertion. Two questions are
  * asked of it, and each has one answer:
@@ -144,7 +144,7 @@ export function listRunActivity(db: Database.Database, runId: string): TeamChatM
 }
 
 /**
- * Whether a lead turn's message is worth the owner's attention (plan KTD3). It is when the turn
+ * Whether a lead turn's message is worth the owner's attention. It is when the turn
  * answered an owner message, when every task of the run is done (the result), or when a task
  * failed for a reason only the owner can repair (the blocker). A decision is always shown; the
  * caller decides that before asking. Everything else is activity.
@@ -220,9 +220,9 @@ export function takeOwnerMessages(db: Database.Database, runId: string, attemptI
  */
 export function recordLeadReply(db: Database.Database, input: {
   id: string; runId: string; attemptId: string; body: string; createdAt: string;
-  /** U6 — a turn that asked for a decision records that decision as its message. */
+  /** A turn that asked for a decision records that decision as its message. */
   decision?: { options: readonly string[] } | null;
-  /** Plan KTD3 — a message that needs no owner attention is kept as run activity. A decision is always chat. */
+  /** a message that needs no owner attention is kept as run activity. A decision is always chat. */
   visibility?: "chat" | "activity";
 }): boolean {
   const decision = input.decision ?? null;
@@ -235,7 +235,7 @@ export function recordLeadReply(db: Database.Database, input: {
 }
 
 /**
- * U6 — record the owner's message as the answer to one decision.
+ * Record the owner's message as the answer to one decision.
  *
  * The decision row is the one place the pending state lives: `answered_by` set means answered,
  * null means the run is still waiting. A decision another message already answered keeps its
@@ -318,9 +318,9 @@ export interface LeadTurnEndDependencies {
    */
   turnStateRoot?: string;
   /**
-   * U6 — the decision this turn asked the owner for, read from the lead's own tree.
+   * The decision this turn asked the owner for, read from the lead's own tree.
    *
-   * Absent means this daemon does not read escalations, which is what every pre-U6 caller
+   * Absent means this daemon does not read escalations, which is what every pre-caller
    * wants: the turn is then only its final message. A throw means the lead wrote something the
    * boundary refuses, and the turn's message is still stored.
    */

@@ -10,7 +10,7 @@ import { loadTurnTelemetry, type TurnTelemetry } from "../domain/turn-telemetry.
 import { WorkerEventNormalizer } from "./worker-event-normalizer.js";
 
 /**
- * U3 / KTD1 — one managed turn is one piped child process.
+ * One managed turn is one piped child process.
  *
  * A pane was the old transport: the launcher typed a command line into tmux, read the screen for
  * readiness, and recovered the exit status from the pane's dead flag. Both clients already expose
@@ -31,7 +31,7 @@ import { WorkerEventNormalizer } from "./worker-event-normalizer.js";
  * - **One exit fact.** The exit code and signal are recorded once, into `exit.json` beside the
  *   attempt's other output, so a later process reads the same facts this one observed.
  *
- * The process identity is captured at spawn, through U1: on Windows the pid plus the CIM creation
+ * The process identity is captured at spawn: on Windows the pid plus the CIM creation
  * time, on POSIX the pid plus the `/proc` start tick. Cancellation closes stdin first — a headless
  * client leaves on EOF — and then ends the recorded tree, so a grandchild cannot outlive the
  * daemon's intent.

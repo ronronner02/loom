@@ -6,7 +6,7 @@ import {
 } from "./team-policy.js";
 
 /**
- * Plan R20 / KTD14 — GitHub issues and the owner's rules can start work.
+ * GitHub issues and the owner's rules can start work.
  *
  * Each team whose project has a GitHub origin is polled as the agent account once a minute, from
  * the moment it was first polled, so older issues never flood the inbox. Two things become items:

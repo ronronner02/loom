@@ -3,7 +3,7 @@ import type Database from "better-sqlite3";
 import type { TeamControlCredentials } from "../middleware/auth-bearer-token.js";
 
 /**
- * T053 — the worker control credential owner.
+ * The worker control credential owner.
  *
  * One token per `(runId, sessionId)`, which is the pair every consumer of a worker
  * credential already keys on: `resolveManagedWorkerScope` matches the task's queue
@@ -15,7 +15,7 @@ import type { TeamControlCredentials } from "../middleware/auth-bearer-token.js"
  * an endpoint can authenticate with it — an attempt that outlived the daemon has no
  * bootstrap, because the bootstrap sits beside a socket the daemon closed. A restart
  * therefore starts with no worker token to honour and revokes every row it inherits
- * (`reconcile`), which is the same lifetime T042 gives an endpoint.
+ * (`reconcile`), which is the same lifetime gives an endpoint.
  *
  * Issuance and reading are separate on purpose. The endpoint authenticates every request
  * against `readCredentials()`, so a read must never write: a "read" that minted would let a

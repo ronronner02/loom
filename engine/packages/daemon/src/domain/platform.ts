@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { resolve, sep } from "node:path";
 
 /**
- * U1 — the daemon's one boundary for the facts that differ between POSIX and Windows.
+ * The daemon's one boundary for the facts that differ between POSIX and Windows.
  *
  * Everything the kept team path needs to know about the host is decided here, once, so no other
  * module branches on `process.platform` for an execution fact. The list is deliberately short:

@@ -8,7 +8,7 @@ import { teamControlAuthentication, type TeamControlCredentials, type TeamContro
 import { controlErrorHandler } from "../middleware/control-error.js";
 
 /**
- * MVP — the owner's completion read.
+ * The owner's completion read.
  *
  * The owner completion read exposes the same two facts the daemon uses for automatic outcomes:
  * which attempt was observed to stop, and what the daemon can verify about the candidate. Both
@@ -28,13 +28,13 @@ export function teamCompletionRoutes(governance: PlanGovernance, options: {
   /** The runtime that owns the candidate trees; absent leaves the evidence unavailable. */
   runtime?: { candidateManifestFor(runId: string, taskId: string): CandidateFacts };
   /**
-   * C3 — the daemon's own reading of a lead's decomposition. Separate from `runtime` so a host
+   * The daemon's own reading of a lead's decomposition. Separate from `runtime` so a host
    * that composes candidate reads still says truthfully that it cannot read a proposal, rather
    * than reporting every lead completion as unvalidated.
    */
   readLeadProposal?: (runId: string, taskId: string) => readonly unknown[];
   /**
-   * U6 — the daemon's own reading of a delivery lead's escalation, kept separate for the same
+   * The daemon's own reading of a delivery lead's escalation, kept separate for the same
    * reason as the proposal: a host that cannot read one says so instead of reporting every
    * escalation turn as unvalidated.
    */
@@ -52,7 +52,7 @@ export function teamCompletionRoutes(governance: PlanGovernance, options: {
       return tasks ? { taskCount: tasks.length } : null;
     } catch { return null; }
   };
-  /** U6 — a lead's escalation the same way: whether the boundary accepts it, or null. */
+  /** A lead's escalation the same way: whether the boundary accepts it, or null. */
   const escalationFor = (runId: string, taskId: string) => {
     try { return options.readLeadEscalation?.(runId, taskId) ?? null; }
     catch { return null; }
@@ -78,10 +78,10 @@ export function teamCompletionRoutes(governance: PlanGovernance, options: {
       const manifest = options.runtime ? options.runtime.candidateManifestFor(runId, subject) : null;
       const workflowOutcome = task.workflow ? governance.workflowOutcomes(runId).find(row =>
         row.attemptId === attempt?.id && row.generation === attempt?.identity?.generation)?.outcome : null;
-      // C3 — a lead's deliverable is its decomposition, not a code change, so its evidence is
+      // A lead's deliverable is its decomposition, not a code change, so its evidence is
       // its own rule: the only path the candidate moves must be the proposal, and that file
       // must be one the boundary accepts. The read is the daemon's, never the owner's claim.
-      // U6 — a delivery lead's turn may deliver an escalation instead of a decomposition, and a
+      // A delivery lead's turn may deliver an escalation instead of a decomposition, and a
       // management turn that wrote neither is still the answer the daemon asked for.
       const delivery = governance.getRun(runId).phase === "delivery";
       evidence = task.assignment.role === "lead"

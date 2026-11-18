@@ -5,7 +5,7 @@ import { join, dirname } from "node:path";
 import { chatBody, pendingOwnerMessages } from "./lead-chat.js";
 
 /**
- * Plan KTD5 — a task thread is the owner's chat scoped to one task.
+ * A task thread is the owner's chat scoped to one task.
  *
  * An owner comment is a `team_chat_messages` row carrying the task id. The task's next turn
  * takes it the way a lead turn takes the run's chat, and marks it delivered to that attempt. A
@@ -58,7 +58,7 @@ export function handbackPath(taskReportPath: string): string {
   return join(dirname(taskReportPath), "handback.json");
 }
 
-/** Plan R19 — the GitHub review comments a turn declines sit beside its hand-back file, in the same shape. */
+/** the GitHub review comments a turn declines sit beside its hand-back file, in the same shape. */
 export function declinePath(taskReportPath: string): string {
   return join(dirname(taskReportPath), "declined.json");
 }
@@ -95,7 +95,7 @@ export function readHandback(file: string): Handback[] {
 }
 
 /**
- * Plan R9 — a handed-back comment becomes the run's owner message, so the lead reads it as the
+ * A handed-back comment becomes the run's owner message, so the lead reads it as the
  * owner speaking. Only a comment of this task that this attempt took can be handed back.
  */
 export function handBackComments(db: Database.Database, runId: string, taskId: string, attemptId: string,
@@ -167,7 +167,7 @@ export function composeTaskThreads(dependencies: TaskThreadDependencies) {
   };
 }
 
-/** Plan KTD4 — the lead's copy of the questions workers asked the owner, which the owner answers. */
+/** the lead's copy of the questions workers asked the owner, which the owner answers. */
 export function ownerQuestionNotices(db: Database.Database, runId: string): string | null {
   const rows = db.prepare(`SELECT a.task_id AS taskId, json_extract(a.evidence_json, '$.taskReport.question') AS question
     FROM team_queue_authority a JOIN queue_items q ON q.qitem_id = a.qitem_id
@@ -180,7 +180,7 @@ export function ownerQuestionNotices(db: Database.Database, runId: string): stri
     ...rows.map(row => `- ${row.taskId}: ${row.question.slice(0, 500)}`)].join("\n");
 }
 
-/** Plan KTD7 — the lead's context, not a wake: the latest owner comments on tasks. */
+/** the lead's context, not a wake: the latest owner comments on tasks. */
 export function taskCommentNotices(db: Database.Database, runId: string, limit = 10): string | null {
   const rows = db.prepare(`SELECT task_id AS taskId, body, delivered_attempt AS deliveredAttempt FROM team_chat_messages
     WHERE run_id = ? AND sender = 'owner' AND task_id IS NOT NULL ORDER BY rowid DESC LIMIT ?`).all(runId, limit) as

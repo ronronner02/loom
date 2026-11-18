@@ -324,7 +324,7 @@ export class AgentActivityStore {
  *  an OMP runner signal, and a hook claiming OMP on another runtime's seat must not escalate it. */
 export function hookEventState(rawEvent: string | null | undefined, rawSubtype: string | null | undefined, seatRuntime: string | null): AgentActivity["state"] {
   if (rawEvent === "UserPromptSubmit" || rawEvent === "PreToolUse" || rawEvent === "active") return "running";
-  // OPR.0.4.1.10 — Codex's official approval hook (openai/codex PR #17563). A PermissionRequest
+  // Codex's official approval hook (openai/codex PR #17563). A PermissionRequest
   // means the agent is BLOCKED waiting on a command / patch / network approval = needs_input. This is
   // the HOOK-PRIMARY signal for Codex, which emits no Claude-style Notification; classifySendReadiness
   // already prefers a fresh runtime_hook needs_input runtime-agnostically, so wiring this event makes
