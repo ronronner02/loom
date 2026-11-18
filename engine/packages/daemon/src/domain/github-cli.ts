@@ -367,7 +367,6 @@ export class GithubCli {
     if (!result.ok) throw new GithubCliError("github_pr_failed", redactCredentials(result.stderr));
   }
 
-  /** Check whether the remote is visible and private. Returns null on transient not-found. */
   /**
    * The created repository as GitHub reports it, or `null` when it is not visible yet.
    *
