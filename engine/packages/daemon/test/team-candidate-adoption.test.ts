@@ -10,7 +10,8 @@ import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
 import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
 import { hashBinding, hashBytes } from "../src/domain/plan-governance.js";
-import { candidateManifest, removeCandidateWorkspace } from "../src/domain/team-workspace.js";
+import { candidateManifest, isSourceWorktree, removeCandidateWorkspace } from "../src/domain/team-workspace.js";
+import { shortPath } from "./helpers/short-path.js";
 import { symlinkRefusal } from "./helpers/symlink.js";
 
 // T048 — a resumed candidate is adopted only when a control-owned record accounts for it, and a
@@ -138,6 +139,25 @@ describe("candidate adoption and release use control-owned provenance", () => {
     const adopted = runtimeFor().candidateFor("run-1", "T048", "ma-worker1");
     expect(adopted.root).toBe(created.root);
     expect(candidateManifest(adopted).files.map(file => file.path)).toContain("src/work.ts");
+  });
+
+  it("adopts a candidate whose path git reports in the 8.3 short form", () => {
+    // GitHub's Windows runner hands `%TEMP%` as a short name, and git answers `worktree list`
+    // and the registration pointer in the long one. The two spellings name one tree, so the
+    // registry comparison must canonicalise both rather than compare the strings.
+    if (process.platform !== "win32") return;
+    const repo = repository();
+    insertRun("run-1", repo);
+    const created = runtimeFor().candidateFor("run-1", "T048", "ma-worker1");
+    writeFileSync(join(created.root, "src", "work.ts"), "export const work = 1;\n");
+    const short = shortPath(created.root);
+    if (short === null) return; // This volume does not generate 8.3 names; the CI runner's does.
+    expect(short).not.toBe(created.root);
+    // A restart adopts the tree it staged, reached through either spelling.
+    const adopted = runtimeFor().candidateFor("run-1", "T048", "ma-worker1");
+    expect(adopted.root).toBe(created.root);
+    expect(candidateManifest(adopted).files.map(file => file.path)).toContain("src/work.ts");
+    expect(isSourceWorktree(repo, short)).toBe(true);
   });
 
   it("refuses a plain directory at the candidate path and leaves the task launchable", () => {
