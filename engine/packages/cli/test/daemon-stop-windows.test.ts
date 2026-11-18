@@ -143,6 +143,40 @@ it("posix: status keeps the existing connection error on refusal", async () => {
   expect(result.err).toMatch(/Cannot connect/);
 });
 
+it("win32: a daemon that serves the owner's stop is asked to drain instead of signalled", async () => {
+  vi.useFakeTimers();
+  const { deps, removed } = fixture({ platform: "win32" });
+  // The daemon answers 202 to the owner's stop and then goes away. That is the whole point of
+  // the request: a signal there ends the process outright, while the request runs the shutdown
+  // that also ends the workers, so the receipt proves a clean drain rather than a kill.
+  let stopping = false;
+  (deps as unknown as { ownerToken: () => string }).ownerToken = () => "owner-credential";
+  (deps as unknown as { fetch: ReturnType<typeof vi.fn> }).fetch.mockImplementation(async (url: string, init?: { method?: string }) => {
+    if (url.endsWith("/api/team-control/daemon/shutdown")) {
+      expect(init).toMatchObject({ method: "POST", headers: { authorization: "Bearer owner-credential" } });
+      stopping = true;
+      (deps as unknown as { isProcessAlive: ReturnType<typeof vi.fn> }).isProcessAlive.mockReturnValue(false);
+      return { ok: true };
+    }
+    if (!url.includes(":17434/") || !stopping) return { ok: true };
+    // After the request the daemon is still draining: the listener is closed before the workers it
+    // ends, so the probe sees a refusal rather than a response.
+    throw Object.assign(new Error("fetch failed"), { cause: { code: "ECONNREFUSED" } });
+  });
+  // The shutdown writes its own receipt, which is what the stop reads to prove the drain.
+  const clean = JSON.stringify({ schema: "multi-agent.daemon-shutdown/v1", pid: 987,
+    startedAt: new Date().toISOString(), completedAt: new Date().toISOString(),
+    outcome: "clean", phase: "complete", failures: [] });
+  (deps as unknown as { readFile: (p: string) => string | null }).readFile = (p: string) =>
+    p === STATE_FILE ? JSON.stringify({ pid: 987, host: "127.0.0.1", port: 17434, db: "private.db",
+      startedAt: "2026-01-01T00:00:00Z" }) : p === RECEIPT ? clean : null;
+  (deps as unknown as { exists: (p: string) => boolean }).exists = (p: string) => p === STATE_FILE || p === RECEIPT;
+
+  await expect(settle(stopDaemon(deps))).resolves.toBe("stopped");
+  expect(deps.kill).not.toHaveBeenCalled();
+  expect(removed()).toBe(true);
+});
+
 it("posix: an absent PID with a refused listener still demands the matching receipt", async () => {
   vi.useFakeTimers();
   const { deps, removed } = fixture({ platform: "linux", cleanup: "none", afterKill: "refused" });

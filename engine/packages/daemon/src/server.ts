@@ -30,6 +30,7 @@ import { teamStartRoutes } from "./routes/team-start.js";
 import { teamSetupRoutes } from "./routes/team-setup.js";
 import { teamGithubRoutes } from "./routes/team-github.js";
 import { teamSettingsRoutes } from "./routes/team-settings.js";
+import { daemonLifecycleRoutes } from "./routes/daemon-lifecycle.js";
 import { setupRoutes } from "./routes/setup.js";
 import { GithubCli } from "./domain/github-cli.js";
 import { teamLeadRoutes } from "./routes/team-lead.js";
@@ -110,6 +111,15 @@ export interface AppDeps {
   integration?: import("./domain/integration-branch.js").Integration;
   /** User Settings v0 — daemon-side settings store (env > file > default). */
   settingsStore?: import("./domain/user-settings/settings-store.js").SettingsStore;
+  /**
+   * The owner's stop, for a host whose signal cannot drain the daemon.
+   *
+   * Windows ends a process outright on SIGTERM, so the entry composes this instead: the route
+   * answers the owner, then runs the same bounded shutdown the signal handlers run. Absent where
+   * no shutdown is wired (tests, embedders), and the route then answers 503 rather than
+   * pretending a stop it cannot perform.
+   */
+  requestShutdown?: (signal: string) => void;
   /**
    * PL-005 Phase B: bearer token (or null for loopback-only mode).
    * Retained routes accept the daemon bearer token alongside their scoped credentials.
@@ -440,6 +450,10 @@ export function createApp(deps: AppDeps): Hono {
     [deps.legacyBearerToken]));
   app.route("/api/team-control", teamSettingsRoutes(deps.settingsStore, teamOptions.credentials,
     [deps.legacyBearerToken]));
+  // The owner's stop, for a host where a signal cannot drain the daemon. Same owner credential as
+  // the settings surface it sits beside.
+  app.route("/api/team-control", daemonLifecycleRoutes(teamOptions.credentials, [deps.legacyBearerToken],
+    deps.requestShutdown));
   // First-run setup reads tools, agent sign-in and the one network proxy. It sits on the same
   // owner surface as settings because it precedes GitHub sign-in, which the settings read does not.
   app.route("/api/team-control", setupRoutes(deps.settingsStore, teamOptions.credentials,

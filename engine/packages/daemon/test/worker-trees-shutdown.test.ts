@@ -7,13 +7,14 @@ import { initializeDatabase } from "../src/db/baseline.js";
 import { endRunningWorkerTrees } from "../src/domain/process-termination.js";
 
 /**
- * U12 — what a desktop-owned daemon does at shutdown.
+ * What a daemon does to its workers at shutdown.
  *
- * The Electron app owns the daemon and stops it when the app quits, so the workers the daemon
- * started have to end with it. Every attempt's own process pair is the target, and a tree that
- * cannot be proved gone is reported rather than claimed as stopped.
+ * A daemon owns every worker it started, so when it stops — whether the desktop asked it to
+ * or it was launched from a CLI — the workers have to end with it. Every attempt's own process
+ * pair is the target, and a tree that cannot be proved gone is reported rather than claimed as
+ * stopped.
  */
-describe("U12 ending the worker trees of a desktop-owned daemon", () => {
+describe("ending the worker trees of a daemon at shutdown", () => {
   let db: ReturnType<typeof createDb>;
   let directory: string;
 
