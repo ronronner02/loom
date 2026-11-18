@@ -830,12 +830,19 @@ function commitLaneManifest(workspace: CandidateWorkspace & { base: { kind: "com
     const baseRulePaths = [...base.keys()].filter(path => isRulePath(path) && base.get(path)!.mode !== GITLINK_MODE);
     const baseRuleTree = join(scratch, "base-rules");
     writeBaseRules(store, baseRuleTree, base, autocrlf);
+    // A gitlink's rule paths are exempt below, so their committed objects are not read here.
+    const baseRuleBlobs = readStoreBlobs(store, baseRulePaths
+      .filter(path => ![...gitlinks].some(root => path.startsWith(`${root}/`)))
+      .map(path => base.get(path)!.objectId));
     const baseRules = new Map<string, Buffer>();
     for (const path of baseRulePaths) {
       const checkedOut = join(baseRuleTree, path);
       const entry = base.get(path)!;
+      // A link is compared by its blob, the way git compares one: reading the checkout would
+      // depend on how this host spells a link target, and a runner that hands out a worktree as a
+      // `gitdir` file is exactly where that read is not a link at all.
       baseRules.set(path, entry.mode === "120000"
-        ? gitLinkText(readlinkSync(checkedOut, { encoding: "buffer" }))
+        ? (baseRuleBlobs.get(entry.objectId) ?? Buffer.alloc(0))
         : readFileSync(checkedOut));
     }
 

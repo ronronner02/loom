@@ -1454,7 +1454,7 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
      * own files, so no candidate rule can be read by `add -A` at all.
      */
     /** A candidate whose only edit is the given one, run against a committed base. */
-    const ruleFixture = (base: (root: string) => void, edit: (root: string) => void): { ok: boolean; paths: string[]; patch: string; message: string } => {
+    const ruleFixture = (base: (root: string) => void, edit: (root: string) => void): { ok: boolean; paths: string[]; patch: string; message: string; root: string } => {
       const root = mkdtempSync(join(tmpdir(), "t054-rule-")); roots.push(root);
       git(root, "init", "--quiet", "--initial-branch=main");
       git(root, "config", "user.email", "test@example.invalid"); git(root, "config", "user.name", "test");
@@ -1465,9 +1465,9 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
       edit(workspace.root);
       try {
         const manifest = candidateManifest(workspace);
-        return { ok: true, paths: manifest.files.map(file => file.path), patch: manifest.patch, message: "" };
+        return { ok: true, paths: manifest.files.map(file => file.path), patch: manifest.patch, message: "", root: workspace.root };
       } catch (error) {
-        return { ok: false, paths: [], patch: "", message: (error as Error).message };
+        return { ok: false, paths: [], patch: "", message: (error as Error).message, root: workspace.root };
       }
     };
 
@@ -1529,10 +1529,13 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
      * mode-only rule edit is refused rather than discarded.
      */
     describe("round-7 findings", () => {
-      it("accepts an unchanged candidate with a directory named like pathspec magic", () => {
+      it.skipIf(process.platform === "win32")("accepts an unchanged candidate with a directory named like pathspec magic", () => {
         // R7-1: `check-ignore --stdin` parses every record as a pathspec, so `:(literal)src` was
         // rejected as unsupported magic and even an unchanged candidate failed. A `./` prefix
         // keeps the record out of the magic branch, and the echoed match loses it again.
+        //
+        // POSIX only, for the same reason as the file-name case below: Windows refuses `:` in a
+        // directory name, so this shape cannot exist on the checkout git writes there.
         const root = richRepository();
         mkdirSync(join(root, ":(literal)src"), { recursive: true });
         writeFileSync(join(root, ":(literal)src", "keep.ts"), "export const keep = 1;\n");
@@ -1567,17 +1570,25 @@ describe.skipIf(symlinkRefusal !== null)("T044 commit-lane manifest without a gi
         const r = ruleFixture(root => writeFileSync(join(root, ".gitignore"), "node_modules/\n"), root => {
           chmodSync(join(root, ".gitignore"), 0o755);
         });
+        // The fixture is only meaningful where `chmod` can grant the owner bit. Windows keeps no
+        // such bit on an ordinary file, so the edit it asks for never happened and the case would
+        // be asserting nothing; a host that can hold the bit runs it in full.
+        if ((statSync(join(r.root, ".gitignore")).mode & 0o100) === 0) return;
         expect(r.ok, "a mode-only rule edit is refused rather than discarded").toBe(false);
         expect(r.message).toMatch(/changes a rule file/);
       });
     });
 
     describe("round-3 findings", () => {
-      it("keeps a tracked file whose name looks like a pathspec, and gives it no patch", () => {
+      it.skipIf(process.platform === "win32")("keeps a tracked file whose name looks like a pathspec, and gives it no patch", () => {
         // R3-1: the round-2 `check-ignore` pass sent `:keep.txt` to a pathspec parser, which read
         // the leading colon as magic and reported it ignored, so an *unchanged* tracked file was
         // removed from the index and appeared in the patch as a deletion. Ignore decisions now
         // come from `add -A`, which has no such pass.
+        //
+        // POSIX only: Windows refuses `:` in a file name, so the shape cannot exist on a checkout
+        // git would ever produce there. The product is host-independent here — `add -A` has no
+        // pathspec pass — but the fixture cannot be made on that host.
         const root = richRepository();
         writeFileSync(join(root, ".gitignore"), "keep.txt\n");
         writeFileSync(join(root, ":keep.txt"), "literal colon name\n");
