@@ -149,6 +149,33 @@ export const STATUS_LABEL_KEYS = {
 } as const satisfies Record<string, Record<string, MessageKey>>;
 export type StatusDomain = keyof typeof STATUS_LABEL_KEYS;
 
+/**
+ * The three team roles and the clients a seat can run, as one vocabulary.
+ *
+ * The daemon stores a name in English and a client localises from the role or client field; a
+ * new role or client added to one side has to be added to the other, so both read this table.
+ * `MESSAGE_PARAMETERS` and the catalogs are parity-checked, so a key here that no catalog has
+ * fails the i18n tests rather than rendering a raw key in the UI.
+ */
+export const ROLE_LABEL_KEYS = {
+  lead: "role.lead", implementer: "role.implementer", reviewer: "role.reviewer",
+} as const satisfies Record<string, MessageKey>;
+export const CLIENT_LABEL_KEYS = {
+  "claude-code": "team.client.claude-code", codex: "team.client.codex", gemini: "team.client.gemini",
+} as const satisfies Record<string, MessageKey>;
+export type TeamRoleName = keyof typeof ROLE_LABEL_KEYS;
+export type TeamClientName = keyof typeof CLIENT_LABEL_KEYS;
+
+/** A role's owned key, or undefined for a role this vocabulary does not name. */
+export function roleLabelKey(role: string): MessageKey | undefined {
+  return Object.hasOwn(ROLE_LABEL_KEYS, role) ? ROLE_LABEL_KEYS[role as TeamRoleName] : undefined;
+}
+
+/** A client's owned key, or undefined for a client this vocabulary does not name. */
+export function clientLabelKey(client: string): MessageKey | undefined {
+  return Object.hasOwn(CLIENT_LABEL_KEYS, client) ? CLIENT_LABEL_KEYS[client as TeamClientName] : undefined;
+}
+
 /** The single lookup over the status table, for callers that already hold a translator. */
 export function statusLabelKey(domain: StatusDomain, code: string): MessageKey | undefined {
   if (!Object.hasOwn(STATUS_LABEL_KEYS, domain)) return undefined;
