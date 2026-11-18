@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -7,6 +8,7 @@ import {
   candidateManifest, createCandidateWorkspace, resolveWorkspaceBase,
 } from "../src/domain/team-workspace.js";
 import { readWorkspacePath } from "../src/domain/workspace-read.js";
+import { symlinkRefusal } from "./helpers/symlink.js";
 
 /**
  * U1 — the worker-written-file boundary on Windows.
@@ -104,5 +106,25 @@ describe.skipIf(process.platform !== "win32")("U1 Windows worker-written-file bo
     expect(manifest.files.map(file => file.path)).not.toContain("src/linked/secret.txt");
     expect(JSON.stringify(manifest)).not.toContain("VAULT SECRET");
     expect(manifest.patch).toContain("120000");
+  });
+
+  it.skipIf(symlinkRefusal !== null)("records an untouched link in the form git stores, so it reads as unchanged", () => {
+    // Git stores a link's target as it was authored, and Windows reports a relative target with
+    // its own separators. A host that recorded the Windows form made every untouched link read as
+    // an edit: the manifest hash disagreed with the base's blob and the patch wrote a link that
+    // named the same target in a different spelling. The host skips when it denies `symlink()`;
+    // the runner's volume, which is where this case has a defect to catch, creates one.
+    const root = repository();
+    mkdirSync(join(root, "docs"));
+    writeFileSync(join(root, "docs", "target.md"), "target\n");
+    symlinkSync("../docs/target.md", join(root, "src", "link.md"));
+    git(root, "add", "-A"); git(root, "commit", "--quiet", "-m", "link");
+    const workspace = createCandidateWorkspace({ root, base: resolveWorkspaceBase(root),
+      workspaceRoot: temporary("u1-candidate-"), label: "windows-link-text" });
+    const manifest = candidateManifest(workspace);
+    // The manifest hashes git's own bytes for the target, and the patch is empty: nothing changed.
+    expect(manifest.files.find(file => file.path === "src/link.md")?.hash)
+      .toBe(`sha256:${createHash("sha256").update("../docs/target.md").digest("hex")}`);
+    expect(manifest.patch, "an untouched link needs no patch").toBe("");
   });
 });
