@@ -162,10 +162,18 @@ class ByteTail {
  * the unobserved marker rather than inventing a time.
  */
 export async function readSpawnCreationTime(processId: number): Promise<string | null> {
-  try {
-    const row = (await queryWindowsProcesses([processId])).get(processId);
-    return row?.state === "present" ? row.creationTime : null;
-  } catch { return null; }
+  // The pid was just spawned, and the OS can answer "absent" for a process that exists but has
+  // not been registered yet. A short bounded retry closes that window; a query that still cannot
+  // answer stays null, and the caller records the unobserved marker rather than inventing a time.
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try {
+      const row = (await queryWindowsProcesses([processId])).get(processId);
+      if (row?.state === "present") return row.creationTime;
+      if (row?.state === "unknown") return null;
+    } catch { return null; }
+    await new Promise<void>(resolve => setTimeout(resolve, 50));
+  }
+  return null;
 }
 
 /** The child's start tick from `/proc`, or null when the host has no such file. */

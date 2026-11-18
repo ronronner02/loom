@@ -571,10 +571,14 @@ function snapshotCandidateByPath(directory: string, destination: string, relativ
     const source = join(directory, name);
     const target = join(destination, path);
     if (entry.isSymbolicLink()) {
-      // The text is the whole entry. The copy gets no placeholder: a link cannot be recreated on
-      // a host whose checkout would turn it into a plain file, and the staging step writes this
-      // text as the link's own blob and index entry.
-      entries.set(path, { kind: "link", text: readlinkSync(source, { encoding: "buffer" }) });
+      // The text is the whole entry, and the target is never read. A placeholder link is also
+      // created where this host allows one, so every later containment check sees the link at
+      // the path it occupies; a host that refuses it (Windows needs a privilege for a file
+      // symlink) still records the text, and the staging step writes it as the index entry.
+      mkdirSync(dirname(target), { recursive: true });
+      const text = readlinkSync(source, { encoding: "buffer" });
+      try { symlinkSync(text, target); } catch { /* staged from the text instead */ }
+      entries.set(path, { kind: "link", text });
       continue;
     }
     if (entry.isDirectory()) {
@@ -829,13 +833,11 @@ function commitLaneManifest(workspace: CandidateWorkspace & { base: { kind: "com
       rmSync(join(snapshot, path), { force: true });
     }
     writeBaseRules(store, snapshot, base, autocrlf);
-    // A link is staged from its own text, not from the placeholder the copy holds. On a host
-    // whose checkout would turn a link into a plain file, `add -A` records that file's bytes and
-    // mode instead of the `120000` entry the base commit and the patch use, so the link's blob
-    // is written here and its index entry set directly.
-    const links = [...candidateEntries].filter((entry): entry is [string, SnapshotEntryLink] => entry[1].kind === "link");
-    for (const [path, entry] of links) rmSync(join(snapshot, path), { force: true });
+    // A link is staged from its own text. Where the copy holds a placeholder link, `add -A`
+    // already records the `120000` entry; where the host refused one, the text is written as the
+    // link's blob and its index entry set here, so both hosts stage the same entry.
     storeGit(store, snapshot, ["add", "-A"], { autocrlf });
+    const links = [...candidateEntries].filter((entry): entry is [string, SnapshotEntryLink] => entry[1].kind === "link");
     for (const [path, entry] of links) {
       const objectId = storeGit(store, null, ["hash-object", "-w", "--stdin"], { input: entry.text }).toString("utf8").trim();
       storeGit(store, snapshot, ["update-index", "--add", "--cacheinfo", `120000,${objectId},${path}`]);
