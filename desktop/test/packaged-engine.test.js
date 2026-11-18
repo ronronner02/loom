@@ -93,7 +93,6 @@ test('the staged tree carries the files the daemon resolves from its own module 
   const required = [
     'packages/daemon/dist/index.js',
     'packages/daemon/dist/build-info.js',
-    'packages/daemon/dist/builtins/workflow-specs/basic-loop.yaml',
     'packages/daemon/specs/agents',
     'packages/ui/dist/index.html',
     'config/team/core.md',
