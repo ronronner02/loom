@@ -52,8 +52,10 @@ describe("resolveDaemonDbPath — D15: db derives from MULTI_AGENT_HOME, never C
         message = err instanceof Error ? err.message : String(err);
       }
       expect(message).toMatch(/outside|escape|MULTI_AGENT_HOME/i);
-      expect(message).toContain(realpathSync(home));
-      expect(message).toContain(realpathSync(outsideDb));
+      // The daemon canonicalises with the OS's long spelling; plain `realpathSync` can answer
+      // with the 8.3 short form of the same directory on Windows.
+      expect(message).toContain(realpathSync.native(home));
+      expect(message).toContain(realpathSync.native(outsideDb));
       expect(readFileSync(outsideDb, "utf-8")).toBe("shared fleet sentinel");
     } finally {
       rmSync(root, { recursive: true, force: true });

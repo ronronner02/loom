@@ -5,7 +5,7 @@ import { closeSync, chmodSync, copyFileSync, fstatSync, lstatSync, mkdirSync, mk
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import type { CandidateIdentity } from "./review-evidence.js";
-import { isRedirectingEntry, isWindows } from "./platform.js";
+import { canonicalPath, isRedirectingEntry, isWindows } from "./platform.js";
 import type { ScopeProjection } from "../contracts/team-control.js";
 import type { CandidateScopeEvidence } from "./scope-extension.js";
 import { addWorktree } from "./worktree-policy.js";
@@ -1075,7 +1075,7 @@ export function createCandidateWorkspace(input: {
  * The repository's own worktree is included, because it is registered the same way.
  */
 export function sourceWorktrees(sourceRoot: string): Set<string> {
-  const repository = realpathSync(sourceRoot);
+  const repository = canonicalPath(sourceRoot);
   const registered = new Set<string>();
   registered.add(repository);
   const adminPath = gitOrNull(repository, ["rev-parse", "--git-path", "worktrees"])?.trim();
@@ -1087,7 +1087,9 @@ export function sourceWorktrees(sourceRoot: string): Set<string> {
     const pointer = registrationPointer(admin, entry);
     if (pointer === null) continue;
     const named = dirname(pointer);
-    try { registered.add(realpathSync(named)); } catch { /* A registration whose tree is gone still names a path; it is kept. */ }
+    // The long spelling on both sides: Windows also keeps an 8.3 name for a directory, and a
+    // registration git wrote and this walk resolves can come back in either one.
+    try { registered.add(canonicalPath(named)); } catch { /* A registration whose tree is gone still names a path; it is kept. */ }
     // The unresolved parent is kept too: a worktree whose directory was temporarily unmounted is
     // still a registration, and forgetting it would be the same defect in a quieter form.
     registered.add(named);
@@ -1115,7 +1117,7 @@ function registrationPointer(admin: string, entry: string): string | null {
 /** Whether the source repository's registry holds a worktree at exactly this path. */
 export function isSourceWorktree(sourceRoot: string, workspaceRoot: string): boolean {
   let canonical: string;
-  try { canonical = realpathSync(workspaceRoot); } catch { return false; }
+  try { canonical = canonicalPath(workspaceRoot); } catch { return false; }
   return sourceWorktrees(sourceRoot).has(canonical) || sourceWorktrees(sourceRoot).has(resolve(workspaceRoot));
 }
 
