@@ -352,9 +352,10 @@ export class ChildProcessSupervisor implements SupervisedTurn {
     this.telemetry?.finish();
     const exit = this.exit ?? { exitCode: null, signal: null };
     const normalized = this.normalizer.result();
-    // A Claude turn's final message is the `result` record's text; Codex writes the same file
-    // through its own `-o`, so only the client that does not write it is recorded here.
-    if (this.launch.provider === "claude" && normalized.finalMessage !== null) {
+    // Codex writes this file through its own `-o`; the other clients' normalized answers need the
+    // same readable copy. It is written only when there is one, so a failed turn leaves the file
+    // absent rather than describing an earlier one.
+    if (this.launch.provider !== "codex" && normalized.finalMessage !== null) {
       try { writeFileSync(this.outputPaths().lastMessage, normalized.finalMessage, { mode: 0o600 }); }
       catch { /* The turn's outcome does not depend on the readable copy. */ }
     }
@@ -434,7 +435,8 @@ function readThreadId(path: string | undefined): string | null {
 export function readSupervisorExit(mutableStateRoot: string, attemptId: string): SupervisorExitFacts | null {
   try {
     const raw = JSON.parse(readFileSync(agentTurnOutputPaths(mutableStateRoot, attemptId).exit, "utf8")) as Partial<SupervisorExitFacts>;
-    if (raw.version !== 1 || raw.attemptId !== attemptId || (raw.provider !== "claude" && raw.provider !== "codex")) return null;
+    if (raw.version !== 1 || raw.attemptId !== attemptId
+      || (raw.provider !== "claude" && raw.provider !== "codex" && raw.provider !== "gemini")) return null;
     if (raw.exitCode !== null && !Number.isSafeInteger(raw.exitCode)) return null;
     if (raw.signal !== null && typeof raw.signal !== "string") return null;
     return {

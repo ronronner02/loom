@@ -9,6 +9,8 @@ function createTurnProgress(directory, redact) {
   const path = join(directory, "progress.json"), blocks = new Map();
   let status = "working", sequence = 0, nextBlock = 0, message = "initial", truncated = false;
   let previous = "", timer = null, lastWrite = 0;
+  // Gemini streams one answer per assistant turn, and a tool call ends the commentary before it.
+  let gemini = false, geminiBlock = 0;
   const publish = () => {
     timer = null;
     try {
@@ -54,6 +56,15 @@ function createTurnProgress(directory, redact) {
     flush,
     observe(event) {
       const item = event.item;
+      if (event.type === "init") gemini = true;
+      if (gemini && event.type === "message" && event.role === "assistant") {
+        put(`gemini:${geminiBlock}`, event.content, event.delta === true, event.delta !== true);
+      }
+      if (gemini && event.type === "tool_use") {
+        const block = blocks.get(`gemini:${geminiBlock++}`);
+        if (block && !block.clipped) block.complete = true;
+        status = "working";
+      }
       if (["item.started", "item.updated", "item.completed"].includes(event.type) && item) {
         if (item.type === "agent_message" && typeof item.id === "string") {
           put(`codex:${item.id}`, item.text, false, event.type === "item.completed");
@@ -82,14 +93,18 @@ function createTurnProgress(directory, redact) {
         }
       }
       if (event.type === "result") {
+        if (gemini) {
+          for (const block of blocks.values()) if (!block.clipped) block.complete = true;
+        }
         if (typeof event.result === "string" && event.result) {
           const texts = [...blocks.values()].map(block => block.text), result = event.result.trim();
           if (![texts.at(-1)?.trim(), texts.join("").trim(), texts.join("\n\n").trim()].includes(result)) put("result", event.result, false, true);
         }
-        status = event.is_error ? "failed" : "completed";
+        status = (gemini ? event.status === "error" : event.is_error) ? "failed" : "completed";
       }
       if (event.type === "turn.completed") status = "completed";
-      if (event.type === "error" || event.type === "turn.failed") status = "failed";
+      // A warning is the client saying it retried something, not the turn failing.
+      if ((event.type === "error" && !(gemini && event.severity === "warning")) || event.type === "turn.failed") status = "failed";
       schedule();
     },
     finish() {
@@ -135,8 +150,13 @@ export function createTurnTelemetry(resultFile, args, redact) {
   function observe(event) {
     if (finished) return;
     progress.observe(event);
+    if (event.type === "init") {
+      client = "gemini"; nativeSessionId ??= sessionId(event.session_id);
+      if (typeof event.model === "string") model = clean(event.model, 128);
+    }
     if (event.type === "thread.started") { client = "codex"; nativeSessionId ??= sessionId(event.thread_id); }
-    if (event.type === "assistant" || event.type === "user" || event.type === "result") {
+    // Gemini's own `init` already named the client; its later records must not be read as Claude's.
+    if (client !== "gemini" && (event.type === "assistant" || event.type === "user" || event.type === "result")) {
       client = "claude-code"; nativeSessionId ??= sessionId(event.session_id);
       if (event.message?.model) model = clean(event.message.model, 128);
       for (const block of event.message?.content ?? []) {
@@ -145,6 +165,21 @@ export function createTurnTelemetry(resultFile, args, redact) {
           // A result carries tool output, which is deliberately not retained in telemetry.
           if (open.has(block.tool_use_id)) end(block.tool_use_id, block.is_error ? "failed" : "completed");
         }
+      }
+    }
+    if (client === "gemini") {
+      if (event.type === "tool_use" && typeof event.tool_id === "string") {
+        start(event.tool_id, event.tool_name, JSON.stringify(event.parameters ?? {}));
+      }
+      if (event.type === "tool_result" && typeof event.tool_id === "string" && open.has(event.tool_id)) {
+        end(event.tool_id, event.status === "error" ? "failed" : "completed");
+      }
+      // A turn that mixed models has no single model to attribute; the usage is still recorded.
+      if (event.type === "result" && event.stats) {
+        const stats = event.stats, models = Object.keys(stats.models ?? {});
+        if (models.length > 0) model = models.length === 1 ? clean(models[0], 128) : null;
+        usage = { mode: "turn", counts: { inputTokens: count(stats.input), cacheReadInputTokens: count(stats.cached),
+          cacheWriteInputTokens: null, outputTokens: count(stats.output_tokens), reasoningOutputTokens: null } };
       }
     }
     if ((event.type === "item.started" || event.type === "item.completed") && event.item && typeof event.item.id === "string") {
@@ -156,7 +191,7 @@ export function createTurnTelemetry(resultFile, args, redact) {
           ? "failed" : "completed", ...call);
       }
     }
-    if (event.type === "result" && event.usage) {
+    if (client !== "gemini" && event.type === "result" && event.usage) {
       const u = event.usage;
       // Recorded resume: result.usage is this invocation; modelUsage instead carries session totals.
       usage = { mode: "turn", counts: { inputTokens: count(u.input_tokens), cacheReadInputTokens: count(u.cache_read_input_tokens),

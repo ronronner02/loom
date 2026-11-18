@@ -21,7 +21,7 @@ export interface ContextInput {
   teamSections?: string;
   workflow?: PreparedFrameworkInvocation;
   projection: { worker: string; attemptId: string; controlUid: number; workerGid: number; policy: ContextMountPolicy };
-  runId: string; assignment: ScopedAssignment; outputs: string[]; permissions: string[]; role: TeamRole; client: "claude-code" | "codex"; binding: PlanBinding;
+  runId: string; assignment: ScopedAssignment; outputs: string[]; permissions: string[]; role: TeamRole; client: "claude-code" | "codex" | "gemini"; binding: PlanBinding;
   root: string; mutableStateRoot: string; frameworkRoot: string; frameworkRevision: string;
   workerUid: number; workerGroups: number[]; discoveryRoots: string[]; files: ContextFile[];
   /**
@@ -188,7 +188,10 @@ function buildContextManifest(input: ContextInput, mode: "create" | "recorded"):
   const spec = structuredClone(input); spec.binding = parsePlanBinding(spec.binding); spec.assignment = parseAssignment(spec.assignment);
   text(spec.runId, "runId");
   if (spec.root !== projectionRoot(spec) || spec.frameworkRoot !== spec.projection.policy.paths.framework_dir) throw new Error("Context projection path mismatch");
-  if (!spec.binding.roles.includes(spec.role) || spec.assignment.role !== spec.role || !["claude-code", "codex"].includes(spec.client) || spec.frameworkRevision !== FRAMEWORK_PIN.revision) throw new Error("Context role, client or framework mismatch");
+  if (!spec.binding.roles.includes(spec.role) || spec.assignment.role !== spec.role
+    || !["claude-code", "codex", "gemini"].includes(spec.client)
+    || (spec.client === "gemini" && !spec.sameIdentity)
+    || spec.frameworkRevision !== FRAMEWORK_PIN.revision) throw new Error("Context role, client or framework mismatch");
   if (!Number.isSafeInteger(spec.workerUid) || (spec.workerUid <= 0 && !spec.sameIdentity) || !spec.workerGroups.every(g => Number.isSafeInteger(g) && g >= 0)) throw new Error("Invalid worker identity");
   for (const p of [spec.root, spec.mutableStateRoot, spec.frameworkRoot, ...spec.discoveryRoots]) if (!isAbsolute(p) || realpathSync(p) !== p) throw new Error("Non-canonical context root");
   privateProjection(spec);

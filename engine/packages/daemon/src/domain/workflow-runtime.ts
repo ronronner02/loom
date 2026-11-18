@@ -178,7 +178,7 @@ export interface ProduceManagedAttemptInput {
     | "outputs" | "permissions" | "role" | "frameworkRoot" | "frameworkRevision" | "nativePolicy"
     | "workerUid" | "workerGroups"> & { workerUid?: number; workerGroups?: number[] };
   role: TeamRole;
-  client: "claude-code" | "codex";
+  client: "claude-code" | "codex" | "gemini";
   /** The workspace the assignment will actually run in, from T039's candidate. */
   candidate: string;
   /** The session whose capability the mailbox accepts, and the seat it belongs to. */
@@ -1399,7 +1399,7 @@ export class WorkflowRuntime {
   private projectAttemptContext(input: {
     runId: string; root: string; worker: string; attemptId: string; workerGid: number;
     roots: NonNullable<ReturnType<NonNullable<WorkflowRuntimeDeps["managedAttemptRoots"]>>>;
-    binding: PlanBinding; role: TeamRole; client: "claude-code" | "codex";
+    binding: PlanBinding; role: TeamRole; client: "claude-code" | "codex" | "gemini";
     assignment: AssignmentInput["assignment"]; outputs: string[]; permissions: string[];
     context: Omit<ContextInput, "root" | "projection" | "runId" | "files" | "binding" | "assignment"
       | "outputs" | "permissions" | "role" | "frameworkRoot" | "frameworkRevision" | "nativePolicy">;

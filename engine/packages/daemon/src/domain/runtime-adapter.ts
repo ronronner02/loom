@@ -33,13 +33,21 @@ export interface ManagedAttempt {
   deadline: number;
   context: import("../integrations/framework/context-manifest.js").ContextManifest;
   previous?: ManagedSessionReceipt;
+  /**
+   * The evidence directory startup selected for this assignment, when there is one.
+   *
+   * It is where an implementer saves UI captures and where a reviewer reads them. A client whose
+   * file tools only see directories it is handed needs it admitted by name; it is not a new
+   * source-write grant.
+   */
+  evidenceDirectory?: string | null;
 }
 
 export interface ManagedSessionReceipt {
   identity: import("../contracts/team-control.js").NativeAttemptIdentity;
   attemptId: string;
   runId: string;
-  client: "claude-code" | "codex";
+  client: "claude-code" | "codex" | "gemini";
   contextHash: string;
   workerUid: number;
   processGroupId: number;

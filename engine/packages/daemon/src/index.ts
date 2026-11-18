@@ -322,7 +322,7 @@ function replyOnParentPort(port: { postMessage: (message: unknown) => void }, me
 /**
  * U12 — answer one `dependencies` request over the parent port.
  *
- * The answer is U1's resolver output for `claude`, `codex`, `git` and `gh`, unchanged: the
+ * The answer is U1's resolver output for `claude`, `codex`, `gemini`, `git` and `gh`, unchanged: the
  * desktop's first-run page shows what this daemon resolved, so its paths are the paths a launch
  * will use. A resolver failure is reported as a named error, never as an empty "all good" list.
  */
