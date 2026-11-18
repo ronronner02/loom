@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
 export type SignInState = "signed-in" | "signed-out" | "unknown";
 
 export interface SignInProbe {
-  client: "claude" | "codex";
+  client: "claude" | "codex" | "gemini";
   state: SignInState;
   /** The command the owner runs to sign in, or null when the client is already signed in. */
   signIn: string | null;
@@ -26,7 +26,11 @@ const OUTPUT_LIMIT = 64 * 1024;
 interface ClientProbe {
   /** What the owner types to sign in; the one command the setup screen may tell them to run. */
   signIn: string;
-  args: string[];
+  /**
+   * The status subcommand, or null for a client that has none. A client with none answers
+   * "unknown" without being started: its only way to find out would be a turn that costs quota.
+   */
+  args: string[] | null;
   parse: (result: { code: number | null; stdout: string; stderr: string }) => SignInState;
 }
 
@@ -50,6 +54,10 @@ const PROBES: Record<SignInProbe["client"], ClientProbe> = {
       if (code === 0 && /logged in/i.test(said)) return "signed-in";
       return "unknown";
     } },
+  // Gemini's headless mode is the only non-interactive entry it has, and it answers a turn rather
+  // than a status question: a signed-out client fails only when asked to run one. Its sign-in is
+  // the `/auth` choice inside the interactive client, so the command is the client itself.
+  gemini: { signIn: "gemini", args: null, parse: () => "unknown" },
 };
 
 /** Ask one installed client whether it is signed in. Never throws: an unanswered probe is unknown. */
@@ -58,6 +66,7 @@ export function probeAgentSignIn(client: SignInProbe["client"], executable: stri
   const probe = PROBES[client];
   return new Promise(resolve => {
     const done = (state: SignInState) => resolve({ client, state, signIn: state === "signed-in" ? null : probe.signIn });
+    if (probe.args === null) { done("unknown"); return; }
     try {
       execFile(executable, probe.args, { windowsHide: true, timeout: options.timeoutMs ?? SIGN_IN_TIMEOUT_MS,
         killSignal: "SIGKILL", encoding: "utf8", maxBuffer: OUTPUT_LIMIT,

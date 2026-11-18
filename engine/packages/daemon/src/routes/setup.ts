@@ -25,8 +25,10 @@ export const SETUP_COMPLETE_KEY = "ui.setup_complete";
 interface ToolRow { client: Resolution["client"]; ok: boolean; path?: string; reason?: string }
 
 function toolRows(resolutions: Resolution[]): ToolRow[] {
+  // A client that runs through Node is installed where its JavaScript entry is, which is the path
+  // the owner can recognize; the program that runs it is the daemon's own Node.
   return resolutions.map(resolution => resolution.ok
-    ? { client: resolution.client, ok: true, path: resolution.path }
+    ? { client: resolution.client, ok: true, path: resolution.args?.[0] ?? resolution.path }
     : { client: resolution.client, ok: false, reason: resolution.reason });
 }
 
@@ -88,7 +90,7 @@ async function read(store: SettingsStore) {
   const env = { ...process.env, ...proxyEnvironment(proxy) };
   const installed = new Map(resolutions.filter((r): r is Extract<Resolution, { ok: true }> => r.ok)
     .map(resolution => [resolution.client, resolution.path]));
-  const clients = (["claude", "codex"] as const).filter(client => installed.has(client));
+  const clients = (["claude", "codex", "gemini"] as const).filter(client => installed.has(client));
   const signIn = await Promise.all(clients.map(client => probeAgentSignIn(client, installed.get(client)!, { env })));
   return { tools: toolRows(resolutions), signIn, proxy, complete: store.resolveOne(SETUP_COMPLETE_KEY).value === true };
 }

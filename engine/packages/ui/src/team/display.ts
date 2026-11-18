@@ -27,7 +27,8 @@ export function isFinished(task: Pick<TeamReviewView, "queueState">): boolean {
 }
 
 export function clientLabel(client: string, t: TFunction): string {
-  return client === "codex" ? t("team.client.codex") : client === "claude-code" ? t("team.client.claude-code") : client;
+  return client === "codex" ? t("team.client.codex") : client === "claude-code" ? t("team.client.claude-code")
+    : client === "gemini" ? t("team.client.gemini") : client;
 }
 
 /** "刚刚 / 3 分钟前 / 昨天 22:06" — relative inside a day, then a date. */

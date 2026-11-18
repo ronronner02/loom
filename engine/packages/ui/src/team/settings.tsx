@@ -20,7 +20,7 @@ export const SETTINGS_SECTIONS = ["general", "setup", "github", "appearance", "s
 const AGENTS_TABS = ["models", "prompts", "seats"] as const;
 const THEME_ICONS = { dark: Moon, light: Sun, system: Monitor };
 const settingsKey = ["team", "settings"] as const;
-interface SettingsReply { settings: { "team.leadClient": { value: "claude-code" | "codex"; source: string } } }
+interface SettingsReply { settings: { "team.leadClient": { value: "claude-code" | "codex" | "gemini"; source: string } } }
 
 function General({ language, onLanguage }: { language: InterfaceI18n; onLanguage: (next: "en" | "zh-CN") => void }) {
   const { t } = useTranslation();
@@ -46,7 +46,7 @@ function General({ language, onLanguage }: { language: InterfaceI18n; onLanguage
     </select></label>
     <label className="field">{t("settings.leadClient")}<select className="input" value={lead?.value ?? "claude-code"}
       disabled={busy || !lead || settings.isError || lead.source === "env"} onChange={event => void save(event.target.value)}>
-      <option value="claude-code">Claude Code</option><option value="codex">Codex</option>
+      <option value="claude-code">Claude Code</option><option value="codex">Codex</option><option value="gemini">Gemini CLI</option>
     </select></label>
     {lead?.source === "env" && <p className="muted">{t("settings.managedByEnvironment")}</p>}
     {(settings.isError || failed) && <p role="alert">{t("settings.saveFailed")}</p>}
