@@ -79,18 +79,23 @@ export function mailboxEndpoint(directory: string, generation: string, platform:
 }
 
 /**
- * The mailbox fact: the socket file at the worker's `mailbox_root` for this
- * worker, run and attempt, owned by the control user and pinned by dev/ino.
+ * The mailbox fact: the socket file under the worker's `mailbox_root`, for this attempt, owned by
+ * the control user and pinned by dev/ino.
+ *
+ * The path is `mailbox_root/<worker>/<segments...>/<attemptId>`, and the segments in between are
+ * the caller's: the producer adds the run when the layout keeps a socket path short enough for
+ * AF_UNIX, and the unisolated layout leaves it out because an attempt id already identifies the
+ * attempt and the extra directory can push the path past the limit. So the fact is stated over the
+ * whole tail rather than over one fixed depth.
  *
  * A pipe endpoint can never satisfy it, and must not be compared as though a pipe path were a
  * socket path: a POSIX mailbox is a Unix socket, while a Windows host binds a named pipe.
  */
 export function admitsPosixMailboxEndpoint(endpoint: MailboxEndpoint | null | undefined,
-  input: { mailboxRoot?: string; worker: string; runId: string; attemptId: string; controlUid: number; controlGid?: number }):
+  input: { mailboxRoot?: string; worker: string; segments: readonly string[]; controlUid: number; controlGid?: number }):
   endpoint is Extract<MailboxEndpoint, { transport: "unix" }> {
   if (!endpoint || endpoint.transport !== "unix" || input.mailboxRoot === undefined) return false;
-  return endpoint.path === input.mailboxRoot + "/" + input.worker + "/" + input.runId + "/" + input.attemptId
-      + "/" + MAILBOX_SOCKET_NAME
+  return endpoint.path === [input.mailboxRoot, input.worker, ...input.segments, MAILBOX_SOCKET_NAME].join("/")
     && Number.isSafeInteger(input.controlUid) && input.controlUid >= 0
     && Number.isSafeInteger(input.controlGid) && (input.controlGid ?? -1) >= 0
     && endpoint.uid === input.controlUid && endpoint.gid === input.controlGid
