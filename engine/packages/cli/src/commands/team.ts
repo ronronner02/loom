@@ -6,6 +6,9 @@ import { readFileSync } from "node:fs";
 import { isAbsolute, join, resolve, win32 } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { DaemonClient } from "../client.js";
+import { ownerToken } from "../owner-credential.js";
+
+export { ownerToken, readOwnerTokenFile } from "../owner-credential.js";
 
 /**
  * Owner actions and result reads use the daemon HTTP API.
@@ -41,24 +44,6 @@ interface TeamTaskResult {
 }
 
 const BASE = "/api/team-control";
-
-/** Read the owner credential from the per-user configuration. */
-export function readOwnerTokenFile(env: NodeJS.ProcessEnv = process.env): string | null {
-  const configHome = resolveDataRoots({ env }).config;
-  try {
-    for (const line of readFileSync(join(configHome, "owner.env"), "utf8").split("\n")) {
-      const match = /^\s*MULTI_AGENT_OWNER_TOKEN\s*=\s*(.*?)\s*$/.exec(line);
-      if (match?.[1]) return match[1].replace(/^["']|["']$/g, "") || null;
-    }
-  } catch { /* No setup yet, or an unreadable file: the caller reports the missing credential. */ }
-  return null;
-}
-
-/** The one credential resolution every verb uses: explicit dep, then the environment, then setup's file. */
-export function ownerToken(deps: TeamStartDeps, env: NodeJS.ProcessEnv = process.env): string | null {
-  return deps.ownerToken === undefined
-    ? env.MULTI_AGENT_OWNER_TOKEN?.trim() || readOwnerTokenFile(env) : deps.ownerToken;
-}
 
 class TeamCommandError extends Error {
   readonly code: string;

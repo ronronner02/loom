@@ -6,6 +6,7 @@ import { acquireDaemonStartLock } from "../daemon-start-lock.js";
 import { DaemonClient, DaemonConnectionError } from "../client.js";
 import { execFileSync, spawn } from "node:child_process";
 import { fetchWithTimeout } from "../fetch-with-timeout.js";
+import { ownerToken } from "../owner-credential.js";
 import {
   startDaemon,
   stopDaemon,
@@ -90,10 +91,11 @@ export function realDeps(): LifecycleDeps {
   return {
     processLiveness,
     platform: process.platform,
+    ownerToken: () => ownerToken({}),
     acquireStartLock: () => acquireDaemonStartLock(MULTI_AGENT_DIR),
     spawn: (cmd, args, opts) => spawn(cmd, args, { ...opts, windowsHide: true } as Parameters<typeof spawn>[2]),
-    fetch: async (url) => {
-      const res = await fetchWithTimeout(globalThis.fetch, url, {}, {
+    fetch: async (url, init) => {
+      const res = await fetchWithTimeout(globalThis.fetch, url, init ?? {}, {
         timeoutMs: 1_500,
         timeoutMessage: `Daemon health probe timed out for ${url}`,
       });

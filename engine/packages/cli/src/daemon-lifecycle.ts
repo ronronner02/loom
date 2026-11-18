@@ -68,7 +68,9 @@ export interface LifecycleDeps {
   }) => ChildProcess;
   /** Optional `json` lets getDaemonStatus read the enriched /healthz body (event-loop
    *  evidence). Optional so existing mocks that return `{ ok }` are unchanged. */
-  fetch: (url: string) => Promise<{ ok: boolean; json?: () => Promise<unknown> }>;
+  /** `init` carries the one write the stop path makes: the owner's stop request. */
+  fetch: (url: string, init?: { method: string; headers: Record<string, string> }) =>
+    Promise<{ ok: boolean; json?: () => Promise<unknown> }>;
   /** Exclusive bind check used only after a no-state health probe times out. */
   isPortOccupied?: (host: string, port: number) => Promise<boolean>;
   kill: (pid: number, signal: string) => boolean;
@@ -98,6 +100,9 @@ export interface LifecycleDeps {
    *  lists a directory (production: fs.readdirSync). */
   homeDir?: string;
   listDir?: (path: string) => string[];
+  /** The owner credential a stop request authenticates with. Absent = read at stop time from the
+   *  environment or the recorded owner file, like every other owner verb. */
+  ownerToken?: () => string | null;
 }
 
 export const MULTI_AGENT_DIR = MULTI_AGENT_HOME;
@@ -649,6 +654,34 @@ function removeMatchingState(deps: LifecycleDeps, stateFile: string, state: Daem
     && current.host === state.host && current.db === state.db) deps.removeFile(stateFile);
 }
 
+/**
+ * Ask a daemon to run its own bounded shutdown.
+ *
+ * A POSIX signal does this, but on Windows a process ends outright on SIGTERM and no handler
+ * runs, so the workers it started outlive it. The daemon serves the owner's stop for exactly
+ * that case. A refusal (an older daemon, a missing owner credential) answers false and the
+ * caller falls back to the one signal it already sends.
+ */
+async function requestOwnerStop(deps: LifecycleDeps, target: string, state: DaemonState): Promise<boolean> {
+  const token = deps.ownerToken ? deps.ownerToken() : null;
+  if (!token) return false;
+  try {
+    const response = await fetchDaemonProbe(deps, `${target}/api/team-control/daemon/shutdown`,
+      HEALTHZ_PROBE_TIMEOUT_MS, { method: "POST", headers: { authorization: `Bearer ${token}` } });
+    // The daemon answers 202 before it starts stopping, so an accepted request is the proof it
+    // reached this daemon. A 404 is an older daemon; anything else was refused and the caller
+    // falls back to the one signal.
+    if (!response.ok) return false;
+    // A daemon drains in its own order: it stops the listener before it ends the workers, so an
+    // answered request is followed by the process going away rather than by an instant exit.
+    const deadline = Date.now() + DAEMON_STOP_WAIT_MS;
+    while (deps.isProcessAlive(state.pid) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return true;
+  } catch { return false; }
+}
+
 export async function stopDaemon(deps: LifecycleDeps): Promise<"stopped" | "no-target" | "terminated"> {
   const state = readState(deps);
   const configured = resolveConfiguredDaemonTarget();
@@ -704,10 +737,17 @@ export async function stopDaemon(deps: LifecycleDeps): Promise<"stopped" | "no-t
   }
 
   let notBefore = Date.parse(state.startedAt);
+  // True when the owner's stop was requested instead of a signal: the daemon then runs the same
+  // bounded shutdown on every host.
+  let requested = false;
   if (pidState !== "dead") {
     notBefore = Date.now();
-    deps.kill(state.pid, "SIGTERM");
-    // One signal. An already-exited target goes straight to the same judgment.
+    // A POSIX signal drains the daemon; hosts where it does not get the owner's stop, which
+    // requests the same bounded shutdown. A daemon that cannot offer it gets the one signal,
+    // and then the receipt below decides whether its drain was proved.
+    requested = deps.platform === "win32" && await requestOwnerStop(deps, target, state);
+    if (!requested) deps.kill(state.pid, "SIGTERM");
+    // One request or signal. An already-exited target goes straight to the same judgment.
     const deadline = Date.now() + DAEMON_STOP_WAIT_MS;
     while (deps.isProcessAlive(state.pid) && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 100));
@@ -720,11 +760,11 @@ export async function stopDaemon(deps: LifecycleDeps): Promise<"stopped" | "no-t
     throw new Error(`Daemon did not exit after SIGTERM within ${DAEMON_STOP_WAIT_MS}ms; ${observation}` +
       (effect === "responding" ? " (still listening)" : "") + "; state file preserved.");
   }
-  if (deps.platform === "win32") {
-    // Windows has no drain to verify: SIGTERM terminates the process outright, so the daemon
-    // writes no shutdown receipt. Identity was confirmed before the single signal; an absent
-    // PID with a listener that is not responding is the strongest evidence this platform
-    // offers. A still-responding listener stays an error.
+  if (deps.platform === "win32" && !requested) {
+    // Windows ends a process outright on SIGTERM, so this stop ran no drain and there is no
+    // receipt to read. Identity was confirmed before the one signal; an absent PID with a
+    // listener that is not responding is the strongest evidence this platform offers. A
+    // still-responding listener stays an error.
     if (effect === "responding") throw new Error(`Daemon stop verification is unverified: ${observation}; state preserved.`);
     removeMatchingState(deps, stateFile, state);
     return "terminated";
@@ -898,11 +938,12 @@ async function readHealthEvidence(
   return { healthy: true };
 }
 
-async function fetchDaemonProbe(deps: LifecycleDeps, url: string, timeoutMs: number): Promise<{ ok: boolean; json?: () => Promise<unknown> }> {
+async function fetchDaemonProbe(deps: LifecycleDeps, url: string, timeoutMs: number,
+  init?: { method: string; headers: Record<string, string> }): Promise<{ ok: boolean; json?: () => Promise<unknown> }> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
-      deps.fetch(url),
+      init ? deps.fetch(url, init) : deps.fetch(url),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new HealthProbeTimeoutError(url)), timeoutMs);
       }),

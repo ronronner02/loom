@@ -87,6 +87,8 @@ interface DaemonOptions {
   /** U3: a stand-in for the supervised child, so a test can drive the launch without spawning. */
   directLaunchSupervise?: (launch: import("./adapters/child-process-supervisor.js").SupervisorLaunch,
     deps: { onEvent: (event: WorkerEvent) => void }) => import("./adapters/child-process-supervisor.js").SupervisedTurn;
+  /** The owner's stop, where a signal cannot drain the daemon (Windows). See `AppDeps`. */
+  requestShutdown?: (signal: string) => void;
 }
 
 interface DaemonResult {
@@ -898,6 +900,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   deps.routeTimingRecorder = routeTimingRecorder;
   // S20 — bind provenance rides the health surface (absent = legacy healthz body).
   deps.bindPlan = opts?.bindPlan;
+  deps.requestShutdown = opts?.requestShutdown;
 
   // `ui.enabled` (default off): read once at start.
   deps.webUiEnabled = opts?.webUiEnabled ?? new ContextPackSettingsStore().resolveOne("ui.enabled").value === true;

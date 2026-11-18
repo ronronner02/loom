@@ -79,6 +79,27 @@ export async function drainSlowOpRecorderOnShutdown(
   return 0;
 }
 
+/**
+ * End every worker process tree this daemon started, and refuse a clean shutdown when one
+ * could not be proved gone.
+ *
+ * A daemon's shutdown is the end of the run: no supervisor remains to close a turn, and a
+ * worker left running is an agent nobody can see, still holding its candidate, its endpoint
+ * and the owner's provider spend. Each live attempt recorded its own process pair, and the
+ * tree kill cancellation and boot recovery already use ends it — `taskkill /T /F` on Windows,
+ * the process group signal on POSIX. An identity that cannot be proved is never signalled as
+ * though it were dead; a surviving tree makes the shutdown receipt say `failed` instead of
+ * claiming a stop it did not observe.
+ */
+async function endWorkerChildren(db: {
+  prepare(sql: string): { all(...parameters: string[]): unknown[] };
+}): Promise<void> {
+  const result = await endRunningWorkerTrees(db);
+  if (result.unresolved > 0) {
+    throw new Error(`${result.unresolved} of ${result.attempted} worker process tree(s) could not be proved stopped`);
+  }
+}
+
 export async function startServer(port?: number) {
   // Consume control credentials before bootstrap or discovery can spawn a child.
   const ownerToken = process.env.MULTI_AGENT_OWNER_TOKEN?.trim() || null;
@@ -169,6 +190,9 @@ export async function startServer(port?: number) {
   // routes, the managed launch chain and the mailbox endpoint — reads the same tokens, and
   // the owner credential it started with is never replaced by a second copy.
   const teamControlCredentials: TeamControlCredentials = { ownerToken: resolvedOwnerToken };
+  // The bounded shutdown is composed below, after every phase it stops exists. The route only
+  // needs to reach it once the daemon is listening, so it is handed a thunk resolved late.
+  let runningShutdown = (_signal: string): void => {};
   const { app, deps, eventLoopMonitor } = await createDaemon({
     dbPath,
     teamControl: { credentials: teamControlCredentials },
@@ -176,6 +200,7 @@ export async function startServer(port?: number) {
     // S20 — the effective bind plan rides the health surface so adoption gates verify
     // listeners from BINDING EVIDENCE (probe each host) instead of config echo.
     bindPlan,
+    requestShutdown: signal => runningShutdown(signal),
   });
 
   // Multi-bind via N serve() instances sharing the same Hono app.
@@ -229,6 +254,9 @@ export async function startServer(port?: number) {
     ["github-login", () => deps.github?.stop()],
     ["event-loop-monitor", () => eventLoopMonitor.stop()],
     ["connections", () => Promise.all(servers.map((srv) => closeHttpServer(srv)))],
+    // After the sweep and the listener are stopped nothing can launch another turn, so every
+    // worker that is still running is one this daemon must end before it goes.
+    ["worker-processes", () => endWorkerChildren(deps.rigRepo.db)],
     ["recorder", async () => {
       deps.requestPhaseObserver?.close();
       if (await drainSlowOpRecorderOnShutdown(deps.slowOpRecorder) !== 0) {
@@ -242,6 +270,7 @@ export async function startServer(port?: number) {
     // A service failure, open connection, or lost recorder drain is never clean.
     markClean: () => deps.daemonLifecycleStore.recordStop(deps.daemonBootEpoch, new Date().toISOString()),
   });
+  runningShutdown = shutdown;
   // Repeated signals join the first shutdown instead of bypassing its evidence.
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
@@ -255,27 +284,6 @@ export async function startServer(port?: number) {
       postMessage: (message: unknown) => void;
     };
   }).parentPort;
-  /**
-   * U12 — ending the workers of a desktop-owned daemon.
-   *
-   * The desktop app owns this daemon's lifetime, so when it asks for a shutdown the agents it
-   * started must not survive it. Each live attempt recorded its own process pair, and the same
-   * tree kill cancellation and boot recovery use ends them: `taskkill /T /F` on Windows, the
-   * process group on POSIX. An identity that cannot be proved is never signalled as if it were
-   * dead; a tree that survives makes this phase fail, so the shutdown receipt does not claim a
-   * clean stop and the next boot reconciles what is left.
-   *
-   * A daemon that was not started by the desktop keeps its workers: the legacy path treats
-   * agents as durable across daemon restarts, and recovery reconciles them on the next boot.
-   */
-  const endWorkerChildren = async (): Promise<void> => {
-    const result = await endRunningWorkerTrees(deps.rigRepo.db);
-    if (result.unresolved > 0) {
-      throw new Error(`${result.unresolved} of ${result.attempted} worker process tree(s) could not be proved stopped`);
-    }
-  };
-  // The phase joins the existing bounded shutdown so its receipt says how it ended.
-  if (parentPort) shutdownPhases.push(["worker-processes", endWorkerChildren]);
   if (parentPort) {
     parentPort.on("message", (message: unknown) => {
       const envelope = message as { data?: unknown };
