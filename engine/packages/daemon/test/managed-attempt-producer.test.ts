@@ -11,7 +11,7 @@ import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
 import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
 import { hashBinding, hashBytes } from "../src/domain/plan-governance.js";
-import { ChatRepository } from "../src/domain/chat-repository.js";
+import { MailboxRepository } from "../src/domain/mailbox-repository.js";
 import { MailboxDelivery } from "../src/domain/mailbox-delivery.js";
 import type { AssignmentInput } from "../src/domain/team-assignment.js";
 import type { ManagedSessionReceipt } from "../src/domain/runtime-adapter.js";
@@ -92,7 +92,7 @@ describe("the managed attempt a seat launches from", () => {
     // value rather than mint a fresh one, or the worker's mailbox reads empty.
     mailboxCapability: "mailbox:" + "c".repeat(43),
     deadline: Date.now() + 60_000, isCurrent: () => true,
-    delivery: new MailboxDelivery(new ChatRepository(db)), chat: new ChatRepository(db),
+    delivery: new MailboxDelivery(new MailboxRepository(db)), chat: new MailboxRepository(db),
     // A real worker credential: the bootstrap carries it as `Bearer`, and the endpoint
     // authenticates with it. A constant here would make every request 401.
     readCredentials: () => ({ ownerToken: "owner-fixture",

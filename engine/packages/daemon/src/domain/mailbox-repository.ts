@@ -3,16 +3,6 @@ import { monotonicFactory } from "ulid";
 
 const ulid = monotonicFactory();
 
-export interface ChatMessage {
-  id: string;
-  rigId: string;
-  sender: string;
-  kind: string;
-  body: string;
-  topic: string | null;
-  createdAt: string;
-}
-
 export interface MailboxConsumptionReceipt {
   receiptId: string;
   messageId: string;
@@ -33,20 +23,26 @@ export interface MailboxAttachment {
   hash: string;
 }
 
-export interface MailboxMessage extends ChatMessage {
-  kind: "mailbox";
+/**
+ * One addressed message as the mailbox publishes it.
+ *
+ * The projection carries no capability: the secret a seat's poll authenticates with is the
+ * mail server's business, and a sender that learned it could read the seat's queue.
+ */
+export interface MailboxMessage {
+  id: string;
   messageId: string;
-  projectId: string;
+  rigId: string;
+  sender: string;
+  kind: "mailbox";
+  body: string;
+  createdAt: string;
   recipient: string;
   taskId: string;
   runId: string;
   replyTo: string | null;
   attachment: MailboxAttachment[] | null;
   receipt: MailboxConsumptionReceipt | null;
-}
-
-export interface MailboxSendResult extends MailboxMessage {
-  capability?: string;
 }
 
 interface StoredMailboxMessage extends MailboxMessage {
@@ -84,7 +80,7 @@ interface MailboxEnvelope {
   receipt: MailboxConsumptionReceipt | null;
 }
 
-export class ChatRepositoryError extends Error {
+export class MailboxError extends Error {
   readonly code: string;
 
   constructor(code: string, message: string) {
@@ -103,39 +99,18 @@ interface ChatMessageRow {
   created_at: string;
 }
 
-export interface HistoryOptions {
-  topic?: string;
-  limit?: number;
-  after?: string;
-  since?: string;
-  sender?: string;
-}
-
 const MAILBOX_ENVELOPE_PREFIX = "mailbox:v1:";
 
-export class ChatRepository {
+export class MailboxRepository {
   readonly db: Database.Database;
 
   constructor(db: Database.Database) {
     this.db = db;
   }
 
-  send(rigId: string, sender: string, body: string): ChatMessage {
-    const id = ulid();
-    this.db
-      .prepare(
-        "INSERT INTO chat_messages (id, rig_id, sender, kind, body) VALUES (?, ?, ?, 'message', ?)"
-      )
-      .run(id, rigId, sender, body);
-
-    return this.rowToMessage(
-      this.db.prepare("SELECT * FROM chat_messages WHERE id = ?").get(id) as ChatMessageRow
-    );
-  }
-
-  sendMailbox(rigId: string, sender: string, input: MailboxSendInput): MailboxSendResult {
+  sendMailbox(rigId: string, sender: string, input: MailboxSendInput): MailboxMessage {
     if (!MAILBOX_CAPABILITY_PATTERN.test(input.capability)) {
-      throw new ChatRepositoryError(
+      throw new MailboxError(
         "invalid_mailbox_input",
         "capability must be mailbox: followed by 32 random bytes in base64url",
       );
@@ -160,7 +135,7 @@ export class ChatRepository {
         .get(id) as ChatMessageRow | undefined;
       if (existing) {
         if (existing.kind !== "mailbox") {
-          throw new ChatRepositoryError(
+          throw new MailboxError(
             "mailbox_id_conflict",
             `message id ${id} already names a non-mailbox chat message`,
           );
@@ -177,7 +152,7 @@ export class ChatRepository {
           stored.capability !== input.capability ||
           stableJson(stored.attachment) !== stableJson(input.attachment ?? null)
         ) {
-          throw new ChatRepositoryError(
+          throw new MailboxError(
             "mailbox_id_conflict",
             `message id ${id} already names different mailbox content`,
           );
@@ -191,9 +166,9 @@ export class ChatRepository {
         )
         .run(id, rigId, sender, input.body, topic);
 
-      return this.rowToMailboxMessage(
+      return mailboxProjection(this.rowToMailboxMessage(
         this.db.prepare("SELECT * FROM chat_messages WHERE id = ?").get(id) as ChatMessageRow,
-      );
+      ));
     })();
   }
 
@@ -232,7 +207,7 @@ export class ChatRepository {
       .prepare("SELECT * FROM chat_messages WHERE id = ? AND kind = 'mailbox'")
       .get(scope.messageId) as ChatMessageRow | undefined;
     if (!row) {
-      throw new ChatRepositoryError("mailbox_not_found", `mailbox message ${scope.messageId} not found`);
+      throw new MailboxError("mailbox_not_found", `mailbox message ${scope.messageId} not found`);
     }
     const message = this.rowToMailboxMessage(row);
     assertMailboxScope(message, scope);
@@ -247,7 +222,7 @@ export class ChatRepository {
         .prepare("SELECT * FROM chat_messages WHERE id = ? AND kind = 'mailbox'")
         .get(scope.messageId) as ChatMessageRow | undefined;
       if (!row) {
-        throw new ChatRepositoryError(
+        throw new MailboxError(
           "mailbox_not_found",
           `mailbox message ${scope.messageId} not found`,
         );
@@ -274,7 +249,7 @@ export class ChatRepository {
         .prepare("UPDATE chat_messages SET topic = ? WHERE id = ? AND kind = 'mailbox'")
         .run(encodeMailboxEnvelope(envelope), message.id);
       if (result.changes !== 1) {
-        throw new ChatRepositoryError(
+        throw new MailboxError(
           "mailbox_receipt_not_recorded",
           `mailbox message ${message.id} did not record its consumption receipt`,
         );
@@ -286,160 +261,15 @@ export class ChatRepository {
     })();
   }
 
-  sendTopic(rigId: string, sender: string, topic: string, body?: string): ChatMessage {
-    const id = ulid();
-    this.db
-      .prepare(
-        "INSERT INTO chat_messages (id, rig_id, sender, kind, body, topic) VALUES (?, ?, ?, 'topic', ?, ?)"
-      )
-      .run(id, rigId, sender, body ?? "", topic);
-
-    return this.rowToMessage(
-      this.db.prepare("SELECT * FROM chat_messages WHERE id = ?").get(id) as ChatMessageRow
-    );
-  }
-
-  /** Whether a topic marker exists for this rig, i.e. history for it can return rows. */
-  topicStarted(rigId: string, topic: string): boolean {
-    return this.topicMarker(rigId, topic) !== undefined;
-  }
-
-  private topicMarker(rigId: string, topic: string): { id: string } | undefined {
-    return this.db
-      .prepare(
-        "SELECT id FROM chat_messages WHERE rig_id = ? AND kind = 'topic' AND topic = ? ORDER BY id DESC LIMIT 1"
-      )
-      .get(rigId, topic) as { id: string } | undefined;
-  }
-
-  history(rigId: string, opts?: HistoryOptions): ChatMessage[] {
-    const limit = opts?.limit ?? 100;
-    const after = opts?.after;
-    const topic = opts?.topic;
-    const since = opts?.since;
-    const sender = opts?.sender;
-
-    // Build composable WHERE clauses
-    const conditions: string[] = ["rig_id = ?", "kind <> 'mailbox'"];
-    const params: unknown[] = [rigId];
-
-    // Topic windowing: find the topic marker and constrain to its window
-    if (topic) {
-      const topicMarker = this.topicMarker(rigId, topic);
-
-      if (!topicMarker) return [];
-
-      const nextMarker = this.db
-        .prepare(
-          "SELECT id FROM chat_messages WHERE rig_id = ? AND kind = 'topic' AND id > ? ORDER BY id ASC LIMIT 1"
-        )
-        .get(rigId, topicMarker.id) as { id: string } | undefined;
-
-      conditions.push("id >= ?");
-      params.push(topicMarker.id);
-
-      if (nextMarker) {
-        conditions.push("id < ?");
-        params.push(nextMarker.id);
-      }
-    }
-
-    // Cursor-based pagination
-    if (after) {
-      conditions.push("id > ?");
-      params.push(after);
-    }
-
-    // Timestamp filter
-    if (since) {
-      // SQLite datetime('now') stores a space separator; ISO callers use T
-      // and may carry a UTC offset. Compare instants, not mixed text formats.
-      conditions.push("julianday(created_at) >= julianday(?)");
-      params.push(since);
-    }
-
-    // Sender filter
-    if (sender) {
-      conditions.push("sender = ?");
-      params.push(sender);
-    }
-
-    params.push(limit);
-    // With a starting point, page forward from it; without one, keep the newest rows.
-    const forward = Boolean(after || since);
-    const sql = `SELECT * FROM chat_messages WHERE ${conditions.join(" AND ")} ORDER BY id ${forward ? "ASC" : "DESC"} LIMIT ?`;
-    const rows = this.db.prepare(sql).all(...params) as ChatMessageRow[];
-    if (!forward) rows.reverse();
-    return rows.map((r) => this.rowToMessage(r));
-  }
-
-  /** True when SQLite's date functions parse the value as a timestamp — the
-   *  same parse the julianday() comparison in history() applies. An
-   *  unparseable value silently matches no rows, so callers can refuse it
-   *  up front instead of reporting an empty history. */
-  timestampParses(value: string): boolean {
-    const row = this.db.prepare("SELECT julianday(?) AS j").get(value) as { j: number | null };
-    return row.j != null;
-  }
-
-  latest(rigId: string, count: number): ChatMessage[] {
-    const rows = this.db
-      .prepare(
-        "SELECT * FROM chat_messages WHERE rig_id = ? AND kind <> 'mailbox' ORDER BY id DESC LIMIT ?"
-      )
-      .all(rigId, count) as ChatMessageRow[];
-
-    // Reverse to return chronological order
-    return rows.reverse().map((r) => this.rowToMessage(r));
-  }
-
-  searchChat(rigId: string, pattern: string): ChatMessage[] {
-    // Split pipe-joined keywords into OR conditions for SQL LIKE
-    const keywords = pattern.split("|").map((k) => k.trim()).filter(Boolean);
-    if (keywords.length === 0) return [];
-
-    const conditions = keywords.map(() => "body LIKE ?").join(" OR ");
-    const params = [rigId, ...keywords.map((k) => `%${k}%`)];
-
-    const rows = this.db
-      .prepare(
-        `SELECT * FROM chat_messages WHERE rig_id = ? AND kind <> 'mailbox' AND (${conditions}) ORDER BY id ASC LIMIT 50`
-      )
-      .all(...params) as ChatMessageRow[];
-
-    return rows.map((r) => this.rowToMessage(r));
-  }
-
-  clear(rigId: string): { deleted: number } {
-    const result = this.db
-      .prepare("DELETE FROM chat_messages WHERE rig_id = ? AND kind <> 'mailbox'")
-      .run(rigId);
-    return { deleted: result.changes };
-  }
-
-  private rowToMessage(row: ChatMessageRow): ChatMessage {
-    return {
-      id: row.id,
-      rigId: row.rig_id,
-      sender: row.sender,
-      kind: row.kind,
-      body: row.body,
-      topic: row.topic,
-      createdAt: row.created_at,
-    };
-  }
-
   private rowToMailboxMessage(row: ChatMessageRow): StoredMailboxMessage {
     const envelope = decodeMailboxEnvelope(row.topic);
     return {
       id: row.id,
       messageId: row.id,
       rigId: row.rig_id,
-      projectId: row.rig_id,
       sender: row.sender,
       kind: "mailbox",
       body: row.body,
-      topic: null,
       createdAt: row.created_at,
       recipient: envelope.recipient,
       taskId: envelope.taskId,
@@ -455,17 +285,17 @@ export class ChatRepository {
 function validateMailboxAttachment(value: unknown, taskId: string, runId: string): MailboxAttachment[] | null {
   if (value == null) return null;
   if (!Array.isArray(value)) {
-    throw new ChatRepositoryError("invalid_mailbox_input", "attachment must be null or an array of artifact references");
+    throw new MailboxError("invalid_mailbox_input", "attachment must be null or an array of artifact references");
   }
   const keys = ["taskId", "runId", "artifactId", "hash"];
   for (const entry of value) {
     if (!entry || typeof entry !== "object" || Array.isArray(entry) ||
         Object.keys(entry).length !== keys.length ||
         !keys.every(key => Object.hasOwn(entry, key) && typeof entry[key] === "string")) {
-      throw new ChatRepositoryError("invalid_mailbox_input", "attachment entries must contain only taskId, runId, artifactId and hash strings");
+      throw new MailboxError("invalid_mailbox_input", "attachment entries must contain only taskId, runId, artifactId and hash strings");
     }
     if (entry.taskId !== taskId || entry.runId !== runId) {
-      throw new ChatRepositoryError("attachment_scope_mismatch", "attachment taskId and runId must match the mailbox message");
+      throw new MailboxError("attachment_scope_mismatch", "attachment taskId and runId must match the mailbox message");
     }
   }
   return value as MailboxAttachment[];
@@ -482,16 +312,16 @@ function encodeMailboxEnvelope(envelope: MailboxEnvelope): string {
 
 function decodeMailboxEnvelope(value: string | null): MailboxEnvelope {
   if (!value?.startsWith(MAILBOX_ENVELOPE_PREFIX)) {
-    throw new ChatRepositoryError("mailbox_corrupt", "mailbox row has no valid envelope");
+    throw new MailboxError("mailbox_corrupt", "mailbox row has no valid envelope");
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(value.slice(MAILBOX_ENVELOPE_PREFIX.length));
   } catch {
-    throw new ChatRepositoryError("mailbox_corrupt", "mailbox row has invalid envelope JSON");
+    throw new MailboxError("mailbox_corrupt", "mailbox row has invalid envelope JSON");
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new ChatRepositoryError("mailbox_corrupt", "mailbox envelope is not an object");
+    throw new MailboxError("mailbox_corrupt", "mailbox envelope is not an object");
   }
   const envelope = parsed as Partial<MailboxEnvelope>;
   if (
@@ -503,7 +333,7 @@ function decodeMailboxEnvelope(value: string | null): MailboxEnvelope {
     typeof envelope.capability !== "string" ||
     (envelope.receipt !== null && typeof envelope.receipt !== "object")
   ) {
-    throw new ChatRepositoryError("mailbox_corrupt", "mailbox envelope fields are invalid");
+    throw new MailboxError("mailbox_corrupt", "mailbox envelope fields are invalid");
   }
   return {
     version: 1,
@@ -528,7 +358,7 @@ function assertMailboxScope(message: StoredMailboxMessage, scope: MailboxScope):
     message.runId !== scope.runId ||
     message.capability !== scope.capability
   ) {
-    throw new ChatRepositoryError(
+    throw new MailboxError(
       "mailbox_scope_mismatch",
       `mailbox message ${message.id} is outside the requested recipient, task, run or capability`,
     );
