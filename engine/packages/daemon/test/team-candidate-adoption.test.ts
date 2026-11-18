@@ -164,7 +164,7 @@ describe("candidate adoption and release use control-owned provenance", () => {
     expect(isSourceWorktree(repo, short)).toBe(true);
   });
 
-  it("recognises a registration written with separators and a spelling this walk did not enumerate", () => {
+  it("recognises a registration written in a spelling this walk did not enumerate", () => {
     // Git writes a `gitdir` pointer with the separators it was handed: on the CI runner a
     // candidate under a `%TEMP%` given as `C:/Users/…` is registered with that prefix and
     // backslashes after it. A registry compared as a set of enumerated strings misses exactly
@@ -175,11 +175,17 @@ describe("candidate adoption and release use control-owned provenance", () => {
     const repo = repository();
     insertRun("run-1", repo);
     const created = runtimeFor().candidateFor("run-1", "T048", "ma-worker1");
-    const mixed = created.root.replace(/^([A-Za-z]:)([\\/])/, "$1/").replaceAll("/", "\\").replace(/^([A-Za-z]:)\\/, "$1/");
-    expect(mixed, "the fixture is the mixed spelling, not the recorded one").not.toBe(created.root);
+    // The alternative spelling this host has: mixed separators where Windows accepts them, and
+    // the 8.3 short name of the leaf where the volume keeps one. POSIX names one path one way,
+    // so there is no second spelling to build and the comparison is exercised by the other cases.
+    if (process.platform !== "win32") return;
+    const mixed = created.root.replace(/^([A-Za-z]:)[\\/]/, "$1/").replaceAll("/", "\\").replace(/^([A-Za-z]:)\\/, "$1/");
+    const short = shortPath(created.root);
+    expect(mixed, "the fixture is the alternative spelling, not the recorded one").not.toBe(created.root);
     expect(sameWorktreePath(mixed, created.root)).toBe(true);
     expect(sameWorktreePath(created.root, created.root)).toBe(true);
     expect(isSourceWorktree(repo, mixed)).toBe(true);
+    if (short !== null) expect(isSourceWorktree(repo, short)).toBe(true);
     // A different tree is still a different tree: resolving must not make the comparison loose.
     const elsewhere = join(directory, "not-a-registration");
     mkdirSync(elsewhere, { recursive: true });

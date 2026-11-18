@@ -70,7 +70,12 @@ describe("a daemon's SIGTERM ends its worker process trees", () => {
 const grandchild = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
 console.log('grandchild=' + grandchild.pid);
 setInterval(() => {}, 1000);`;
-      const worker = spawn(process.execPath, ["-e", script], { stdio: ["ignore", "pipe", "ignore"], windowsHide: true });
+      // Spawned the way the supervisor spawns a turn: `detached` on POSIX puts the worker in its
+      // own process group, which is the group the tree kill signals. A worker left in the test
+      // runner's group is not this run's to end, and the production kill refuses it by name
+      // rather than signalling a group it did not create.
+      const worker = spawn(process.execPath, ["-e", script],
+        { stdio: ["ignore", "pipe", "ignore"], windowsHide: true, detached: process.platform !== "win32" });
       children.push(worker);
       const grandchildPid = await new Promise<number>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error("the worker printed no grandchild pid")), 15_000);

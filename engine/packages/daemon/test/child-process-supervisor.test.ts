@@ -5,8 +5,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   CANCEL_GRACE_MS, ChildProcessSupervisor, OUTPUT_TAIL_LIMIT, STDERR_TAIL_LIMIT, UNOBSERVED_PROCESS_START,
-  readSpawnCreationTime, readSupervisorExit, type SupervisorLaunch,
+  readSupervisorExit, type SupervisorLaunch,
 } from "../src/adapters/child-process-supervisor.js";
+import { observeIdentity } from "../src/domain/process-termination.js";
 import { workerArgv } from "../src/adapters/worker-launch-argv.js";
 import { agentTurnOutputPaths } from "../src/domain/agent-turn.js";
 import { setHostPlatformForTests } from "../src/domain/platform.js";
@@ -329,9 +330,10 @@ setInterval(() => {}, 1000);
     expect(identity.processId).toBeGreaterThan(0);
     const result = await supervisor.cancel();
     expect(result.outcome).toBe("stopped");
-    // The recorded identity is gone, and so is everything it started.
-    expect(await readSpawnCreationTime(identity.processId)).toBeNull();
-    expect(await readSpawnCreationTime(grandchild)).toBeNull();
+    // The recorded identity is gone, and so is everything it started: what this proves is the
+    // pair `observeIdentity` reads, not that a creation-time read cannot answer.
+    expect(await observeIdentity(identity)).toBe("dead");
+    expect(await observeIdentity({ processId: grandchild, processStart: identity.processStart })).not.toBe("alive");
   }, 60_000);
 
   it("runs a compiled stub .exe with shell:false and reads its JSONL", async () => {
