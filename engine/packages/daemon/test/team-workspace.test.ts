@@ -785,7 +785,9 @@ it.skipIf(posixShapesOnly)("records an escaping, dangling or directory symlink a
       git(root, "init", "--quiet", "--initial-branch=main");
       git(root, "config", "user.email", "test@example.invalid"); git(root, "config", "user.name", "test");
       // Rows compare bytes, so this repository must not rewrite them: a runner whose global config
-      // says `core.autocrlf=true` otherwise checks out CRLF where the row wrote LF.
+      // says `core.autocrlf=true` otherwise checks out CRLF where the row wrote LF. The setting is
+      // written into the source repository because a clone copies it, and the checkout compared
+      // below is a clone of this one.
       git(root, "config", "core.autocrlf", "false");
       writeFileSync(join(root, "anchor.txt"), "anchor\n");
       git(root, "add", "-A"); git(root, "commit", "--quiet", "-m", "base");
