@@ -22,7 +22,12 @@ export function reviewerOutput(message: string | null): Record<string, unknown> 
   }
 }
 
-/** The final JSON report a reviewer turn must return for automatic verdict recording. */
+/**
+ * A reviewer's findings report, or null when its final message holds none.
+ *
+ * `prepareAutomaticOutcome` reads the same message through `reviewerOutput` and decides from the
+ * unshaped block, so this is the narrower question "was this a findings report at all".
+ */
 export function extractReviewerReport(message: string | null): Record<string, unknown> | null {
   const value = reviewerOutput(message);
   return value && "findings" in value ? value : null;

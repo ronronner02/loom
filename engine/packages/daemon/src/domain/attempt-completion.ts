@@ -10,11 +10,8 @@ import { classifyAttemptFailure, classificationFor, type AttemptClassification, 
 import { agentTurnOutputPaths, readAgentTurnThreadId } from "./agent-turn.js";
 import type { CandidateFacts } from "./task-completion.js";
 import { prepareAutomaticOutcome } from "./attempt-outcome.js";
-import { reviewerOutput } from "./reviewer-report.js";
-import { recordedFindings } from "./review-loop.js";
 import type { AttemptTelemetry } from "./attempt-telemetry.js";
 import type { TaskReport } from "./task-report.js";
-import { recordWorkflowTurn } from "./team-workflows.js";
 import { observeIdentity } from "./process-termination.js";
 import type { SupervisorExitFacts } from "../adapters/child-process-supervisor.js";
 
