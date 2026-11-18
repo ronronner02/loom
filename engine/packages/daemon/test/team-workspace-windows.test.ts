@@ -89,7 +89,7 @@ describe.skipIf(process.platform !== "win32")("U1 Windows worker-written-file bo
       .toThrow("Candidate path became a symlink while it was read: src/linked/secret.txt");
   });
 
-  it("refuses a junction in the candidate instead of staging what it points at", () => {
+  it("records a junction in the candidate as its own link text instead of staging what it points at", () => {
     const root = repository();
     const vault = temporary("u1-vault-");
     writeFileSync(join(vault, "secret.txt"), "VAULT SECRET\n");
@@ -97,8 +97,12 @@ describe.skipIf(process.platform !== "win32")("U1 Windows worker-written-file bo
       workspaceRoot: temporary("u1-candidate-"), label: "windows-links" });
     // The worker writes into its own candidate; a junction there is what the copy must not follow.
     symlinkSync(vault, join(workspace.root, "src", "linked"), "junction");
-    // A junction cannot be recreated as a link without elevation and Git would descend it, so the
-    // boundary refuses it by name rather than putting the vault's bytes in the manifest.
-    expect(() => candidateManifest(workspace)).toThrow("Candidate path is a link this host cannot stage without following it: src/linked");
+    // The entry is the junction's own text, as a POSIX host records a symlink: the target is
+    // never read, so the vault's bytes reach neither the manifest nor the patch.
+    const manifest = candidateManifest(workspace);
+    expect(manifest.files.map(file => file.path), "the junction is a manifest entry").toContain("src/linked");
+    expect(manifest.files.map(file => file.path)).not.toContain("src/linked/secret.txt");
+    expect(JSON.stringify(manifest)).not.toContain("VAULT SECRET");
+    expect(manifest.patch).toContain("120000");
   });
 });

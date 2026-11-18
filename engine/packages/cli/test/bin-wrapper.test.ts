@@ -34,7 +34,8 @@ describe("bin-wrapper", () => {
 
     const wrapperSource = fileURLToPath(new URL("../src/bin-wrapper.ts", import.meta.url));
     const rigPath = path.join(binDir, "rig");
-    const siblingNodePath = path.join(binDir, "node");
+    // The wrapper looks for the platform's own node name next to the invoked binary.
+    const siblingNodePath = path.join(binDir, process.platform === "win32" ? "node.exe" : "node");
     fs.symlinkSync(wrapperSource, rigPath);
     fs.writeFileSync(siblingNodePath, "");
 
@@ -57,7 +58,8 @@ describe("bin-wrapper", () => {
 
     const wrapperSource = fileURLToPath(new URL("../src/bin-wrapper.ts", import.meta.url));
     const rigPath = path.join(binDir, "rig");
-    const siblingNodePath = path.join(binDir, "node");
+    // The wrapper looks for the platform's own node name next to the invoked binary.
+    const siblingNodePath = path.join(binDir, process.platform === "win32" ? "node.exe" : "node");
     fs.symlinkSync(wrapperSource, rigPath);
     fs.writeFileSync(siblingNodePath, "");
 
