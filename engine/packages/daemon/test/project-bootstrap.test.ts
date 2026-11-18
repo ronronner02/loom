@@ -232,6 +232,9 @@ describeOnPosix("project creation through the owner route — GitHub push flow",
     calls = s.calls;
     writeFileSync(join(directory, "account"), "octocat");
     openApp();
+    // `openApp` builds the app over the shared setup so its later cases can reopen it; the
+    // cases here read that same handle.
+    db = s.state.db;
   });
   afterEach(async () => {
     await github.stop();

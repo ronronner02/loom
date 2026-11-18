@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { spawn } from "node:child_process";
 import { queryWindowsProcesses, setHostPlatformForTests } from "../src/domain/platform.js";
-import {
-  identityAlive, observeIdentity, processIdentityAlive, terminateProcessGroup,
-} from "../src/domain/process-termination.js";
+import { observeIdentity, processIdentityAlive, terminateProcessGroup } from "../src/domain/process-termination.js";
+import { identityAlive } from "../src/domain/attempt-completion.js";
 
 /**
  * U1 / KTD5 — a recorded process identity is pid *plus* a start marker, and an unproved identity is
