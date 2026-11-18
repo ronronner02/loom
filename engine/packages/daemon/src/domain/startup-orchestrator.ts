@@ -64,7 +64,9 @@ export class StartupOrchestrator {
       const evidenceDirectory = this.evidenceDirectory(attempt.context.mutableStateRoot, runId, assignment, attempt.attemptId);
       binding.managedAttempt = { ...attempt, evidenceDirectory };
       const prompt = managedTurnPrompt({ identity: "", bundle: "", runId, assignment,
-        taskBody: this.taskBody(runId, assignment.taskId), outputs: attempt.context.outputs, permissions: attempt.context.permissions,
+        taskBody: this.taskBody(runId, assignment.taskId),
+        reviewedTaskBody: assignment.reviewOf === undefined ? null : this.taskBody(runId, assignment.reviewOf),
+        outputs: attempt.context.outputs, permissions: attempt.context.permissions,
         instructions: turnInstructions(attempt.context),
         continuation: this.continuation(runId, assignment.taskId, assignment.role, attempt.attemptId, Boolean(input.continueSessionId),
           attempt.context.mutableStateRoot),
