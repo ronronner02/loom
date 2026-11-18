@@ -12,7 +12,7 @@ import type { EventBus } from "./domain/event-bus.js";
 import { teamEventsRoutes } from "./routes/events.js";
 import type { AgentActivityStore } from "./domain/agent-activity-store.js";
 import { jsonBodyErrorHandler, trackJsonBodyParseErrors } from "./middleware/json-body-error.js";
-import type { ChatRepository } from "./domain/chat-repository.js";
+import { ChatRepository } from "./domain/chat-repository.js";
 import { MailboxDelivery, createMailboxPromptStateReader, type NativeChannelStateReader } from "./domain/mailbox-delivery.js";
 import { workspaceBrowseRoutes } from "./routes/workspace.js";
 import { projectFilesRoutes } from "./routes/project-files.js";
@@ -48,67 +48,55 @@ import { isIP } from "node:net";
 const MANAGED_ROUTE_PREFIXES = ["/api/team-control"] as const;
 
 export interface AppDeps {
+  /**
+   * The governance owner every run, task and attempt command goes through.
+   *
+   * Composed by the daemon's composition root, not here: the same owner serves the launch chain
+   * and the routes, and a second instance would be a second authority over one database.
+   */
+  teamGovernance: PlanGovernance;
   teamControl?: TeamControlOptions;
-  github?: GithubCli;
-  /** Plan KTD10 — the dedicated agent account, signed in to its own gh config directory. */
-  githubAgent?: GithubCli;
-  /** Plan KTD13 — the pull-request delivery for GitHub projects, composed once both GitHub accounts exist. */
-  pullRequestDelivery?: import("./domain/pull-request-delivery.js").PullRequestDelivery;
-  /** Plan KTD12 — the poller that routes the team pull request's reviews and CI to the owning work. */
-  githubSource?: import("./domain/github-source.js").GithubSource;
-  githubIntake?: import("./domain/github-intake.js").GithubIntake;
-  ownerSessions?: OwnerSessions;
-  /** The one governance owner, shared with the managed launch control when startup composes it. */
-  teamGovernance?: PlanGovernance;
-  attemptTelemetry?: AttemptTelemetry;
-  /** KTD19 channel state from the launch control's own verified observations; absent means never adopted. */
-  nativeChannelState?: NativeChannelStateReader;
-  /** The single mailbox owner. Built by createApp when absent and published here for endpoint registration. */
+  /**
+   * The single mailbox owner.
+   *
+   * Optional only so a fixture that does not exercise messaging can leave it out; production
+   * always supplies it, because nothing else may mint a seat's capability.
+   */
   mailboxDelivery?: MailboxDelivery;
   /**
-   * T053 — the persisted per-seat mailbox capability. When supplied, a send that names no
-   * capability uses the seat's recorded value instead of minting a second one, which is what
-   * keeps a managed seat's poll and its senders agreeing on one value. Absent in legacy
-   * callers, where a send keeps minting as before.
+   * The persisted per-seat mailbox capability. A send that names no capability uses the seat's
+   * recorded value instead of minting a second one, which is what keeps a managed seat's poll
+   * and its senders agreeing on one value.
    */
   readSeatMailboxCapability?: (runId: string, sessionId: string) => string | null;
-  /** The managed launch chain injected into the fresh and resume adapters. */
-  managedLaunch?: {
-    launcher: import("./adapters/worker-launcher.js").WorkerLauncher;
-    /** Per-attempt mailbox endpoints; an unregistered attempt cannot launch. */
-    endpoints: Map<string, Pick<import("./adapters/worker-mailbox-bridge.js").WorkerMailboxBridge, "binding" | "endpoint">>;
-  };
   /** S20 — effective bind plan for the health surface (absent = legacy body). */
   bindPlan?: { mode: "explicit" | "default"; hosts: string[]; tailscaleDetected: boolean; ignoredRoutingHost?: string };
+  /** The control database. Every composed owner above must read and write this one handle. */
+  db: import("better-sqlite3").Database;
+  /** The rig and seat inventory the setup and start routes read. */
   rigRepo: RigRepository;
-  sessionRegistry: SessionRegistry;
   /** P7 — daemon lifecycle record store + this boot's epoch (heartbeat + clean-shutdown). */
   daemonLifecycleStore: DaemonLifecycleStore;
   daemonBootEpoch: string;
   eventBus: EventBus;
-  /** Retained route dependencies are composed by startup; the old seat/terminal launch services are gone. */
-  runtimeAdapters?: Record<string, import("./domain/runtime-adapter.js").RuntimeAdapter>;
-  startupOrchestrator?: import("./domain/startup-orchestrator.js").StartupOrchestrator;
-  chatRepo?: ChatRepository;
-  slowOpRecorder?: SlowOperationInstrumentation;
-  requestPhaseObserver?: import("./domain/request-phase-observer.js").RequestPhaseObserver;
-  queueRepo?: QueueRepository;
-  shadowCapture?: import("./domain/shadow-capture.js").ShadowCapture;
-  shadowCaptureError?: string;
+  /** The candidate runtime: candidates, lead documents and reviewer packets a route reads. */
   workflowRuntime?: WorkflowRuntime;
   /**
-   * MVP — the owner of "an attempt ended". A direct launch records a receipt and nothing closed
-   * the attempt, so no task could be observed to finish. Startup composes it; index.ts starts
-   * its sweep after the HTTP surface is ready. Absent (tests, legacy callers) leaves attempts
-   * exactly as they were recorded.
+   * The owner of "an attempt ended". A direct launch records a receipt and nothing closed the
+   * attempt, so no task could be observed to finish. The composition root composes it; index.ts
+   * starts its sweep after the HTTP surface is ready. Absent (tests) leaves attempts exactly as
+   * they were recorded.
    */
   attemptCompletion?: import("./domain/attempt-completion.js").AttemptCompletion;
   /**
-   * U7 — the run's integration branch and the owner's merge. Startup composes it when a
-   * managed run can be delivered; absent leaves the read and the merge unavailable rather
-   * than answering as if nothing had landed.
+   * The run's integration branch and the owner's merge. Composed when a managed run can be
+   * delivered; absent leaves the read and the merge unavailable rather than answering as if
+   * nothing had landed.
    */
   integration?: import("./domain/integration-branch.js").Integration;
+  pullRequestDelivery?: import("./domain/pull-request-delivery.js").PullRequestDelivery;
+  githubSource?: import("./domain/github-source.js").GithubSource;
+  githubIntake?: import("./domain/github-intake.js").GithubIntake;
   /** User Settings v0 — daemon-side settings store (env > file > default). */
   settingsStore?: import("./domain/user-settings/settings-store.js").SettingsStore;
   /**
@@ -121,6 +109,19 @@ export interface AppDeps {
    */
   requestShutdown?: (signal: string) => void;
   /**
+   * The GitHub accounts. Composed here when absent so a fixture needs no gh install; production
+   * passes the two the composition root already built for delivery.
+   */
+  github?: GithubCli;
+  /** The dedicated agent account, signed in to its own gh config directory. */
+  githubAgent?: GithubCli;
+  ownerSessions?: OwnerSessions;
+  attemptTelemetry?: AttemptTelemetry;
+  /** Channel state from the launch control's own verified observations; absent means never adopted. */
+  nativeChannelState?: NativeChannelStateReader;
+  slowOpRecorder?: SlowOperationInstrumentation;
+  requestPhaseObserver?: import("./domain/request-phase-observer.js").RequestPhaseObserver;
+  /**
    * PL-005 Phase B: bearer token (or null for loopback-only mode).
    * Retained routes accept the daemon bearer token alongside their scoped credentials.
    */
@@ -132,27 +133,11 @@ export interface AppDeps {
   selfNameDiscovery?: () => Promise<string[]>;
   /** Test hook: one call per /api browser-boundary decision. */
   browserBoundaryObserver?: BrowserBoundaryOptions["onDecision"];
-  /**
-   * GHOST-STAGE (e/Class-B) — the canonical OccupantInvalidator, constructed once in startup and
-   * injected so SeatHandoverService.commit()'s re-key call actually FIRES (dev-driver's fold added
-   * the optional call but no concrete impl was wired — the invalidation was dead until this).
-   */
-  occupantInvalidator?: import("./domain/occupant-invalidator.js").OccupantInvalidator;
-  agentActivityStore?: AgentActivityStore;
   uiDistDir?: string | null;
-  /**
-   * OPR.0.4.3.21 — daemon event-loop health monitor. Optional: when absent
-   * (e.g. direct-construction test harnesses) `/healthz` keeps its exact
-   * `{ status: "ok" }` body. Constructed once per daemon in startup.ts and
-   * surfaced on the enriched `/healthz` payload as the wedge-detection
-   * evidence (loop lag / last-tick age / utilization / healthy verdict).
-   */
+  /** Daemon event-loop health monitor. Absent keeps the minimal `/healthz` body. */
   eventLoopMonitor?: import("./domain/event-loop-monitor.js").EventLoopMonitor;
-  /**
-   * OPR.0.4.3.21 — request-duration recorder for the expensive topology
-   * routes. Optional (same rationale). When present, one timing middleware is
-   * registered and the rolling last/max per route is surfaced on `/healthz`.
-   */
+  /** Request-duration recorder. When present, one timing middleware is registered and the
+   *  rolling last/max per route is surfaced on `/healthz`. */
   routeTimingRecorder?: import("./domain/route-timing-recorder.js").RouteTimingRecorder;
 }
 
@@ -234,12 +219,10 @@ function isTeamUiRequestPath(requestPath: string): boolean {
 }
 
 export function createApp(deps: AppDeps): Hono {
-  // Hard runtime invariant: all domain services must share the same db handle.
-  if (deps.rigRepo.db !== deps.eventBus.db) {
-    throw new Error("createApp: rigRepo and eventBus must share the same db handle");
-  }
-  if (deps.rigRepo.db !== deps.sessionRegistry.db) {
-    throw new Error("createApp: rigRepo and sessionRegistry must share the same db handle");
+  // One database, one control surface: every composed owner reads and writes the same handle,
+  // and a second one would be a second authority over the same rows.
+  if (deps.db !== deps.eventBus.db) {
+    throw new Error("createApp: the control database and eventBus must share the same handle");
   }
 
   const teamOptions: TeamControlOptions = deps.teamControl ?? { credentials: { ownerToken: null } };
@@ -247,13 +230,10 @@ export function createApp(deps: AppDeps): Hono {
     || (isIP(host) === 4 && host.startsWith("127."))))) {
     throw new Error("The owner surfaces require a loopback-only listener.");
   }
-  const ownerSessions = deps.ownerSessions ?? new OwnerSessions(deps.rigRepo.db);
-  if (ownerSessions && ownerSessions.db !== deps.rigRepo.db) throw new Error("Owner sessions must use the control database.");
-  deps.ownerSessions = ownerSessions;
+  const ownerSessions = deps.ownerSessions ?? new OwnerSessions(deps.db);
+  if (ownerSessions.db !== deps.db) throw new Error("Owner sessions must use the control database.");
   const github = deps.github ?? new GithubCli();
   const githubAgent = deps.githubAgent ?? new GithubCli({ env: { ...process.env, GH_CONFIG_DIR: getStatePath("github-agent") } });
-  deps.githubAgent = githubAgent;
-  deps.github = github;
   // The owner's one network proxy is read at each gh/git spawn, so a change applies to the next
   // upload without a restart; an empty setting falls back to the daemon environment.
   const settingsStore = deps.settingsStore;
@@ -262,42 +242,22 @@ export function createApp(deps: AppDeps): Hono {
     return typeof value === "string" ? value : undefined;
   });
   const app = new Hono();
-  if (ownerSessions) app.use("/api/*", async (c, next) => { c.set("ownerSessions" as never, ownerSessions); await next(); });
+  // The owner session a request came in on. The authentication middleware reads it from the
+  // context the browser boundary filled, so it is the one dependency every /api request needs.
+  app.use("/api/*", async (c, next) => { c.set("ownerSessions" as never, ownerSessions); await next(); });
   if (deps.requestPhaseObserver) app.use("*", deps.requestPhaseObserver.middleware());
   // A malformed request body is a 400, not the default 500.
   app.use("*", trackJsonBodyParseErrors);
   app.onError(jsonBodyErrorHandler);
-  // Inject dependencies into context for all routes
-  // One mailbox owner per daemon, admitted only by the daemon's own seat evidence (KTD11).
+  // One mailbox owner per daemon, admitted only by the daemon's own seat evidence.
   if (deps.mailboxDelivery && deps.nativeChannelState) throw new Error("A supplied mailbox owner already fixes its channel reader");
-  // A managed daemon resolves the seat's recorded capability; a legacy one reads none, so a
-  // send keeps its existing mint-on-omit behaviour byte for byte.
   const managedSeatCapability = deps.readSeatMailboxCapability;
-  const mailboxDelivery = deps.mailboxDelivery ?? (deps.chatRepo
-    ? new MailboxDelivery(deps.chatRepo, createMailboxPromptStateReader({
-        db: deps.rigRepo.db,
-        agentActivityStore: deps.agentActivityStore,
+  const mailboxDelivery = deps.mailboxDelivery ?? (deps.db
+    ? new MailboxDelivery(new ChatRepository(deps.db), createMailboxPromptStateReader({
+        db: deps.db,
         observedSince: new Date().toISOString(),
       }), deps.nativeChannelState, managedSeatCapability)
     : undefined);
-  deps.mailboxDelivery = mailboxDelivery;
-  app.use("*", async (c, next) => {
-    c.set("rigRepo" as never, deps.rigRepo);
-    c.set("sessionRegistry" as never, deps.sessionRegistry);
-    c.set("eventBus" as never, deps.eventBus);
-    c.set("runtimeAdapters" as never, deps.runtimeAdapters ?? {});
-    c.set("chatRepo" as never, deps.chatRepo);
-    c.set("mailboxDelivery" as never, mailboxDelivery);
-    c.set("queueRepo" as never, deps.queueRepo);
-    c.set("shadowCapture" as never, deps.shadowCapture);
-    c.set("shadowCaptureError" as never, deps.shadowCaptureError);
-    c.set("workflowRuntime" as never, deps.workflowRuntime);
-    c.set("settingsStore" as never, deps.settingsStore);
-    c.set("occupantInvalidator" as never, deps.occupantInvalidator);
-    c.set("agentActivityStore" as never, deps.agentActivityStore);
-    c.set("db" as never, deps.rigRepo.db);
-    await next();
-  });
 
   // OPR.0.4.3.21 — ONE request-duration middleware for the expensive topology
   // routes (rigs summary/graph, nodes, ps). Registered only when a recorder is
@@ -338,7 +298,7 @@ export function createApp(deps: AppDeps): Hono {
   // The only /api gate. Each route a later unit adds joins this allowlist with its own
   // authenticated control check.
   app.use("/api/*", async (c, next) => {
-    if (isGovernedDatabase(deps.rigRepo.db)
+    if (isGovernedDatabase(deps.db)
       && !MANAGED_ROUTE_PREFIXES.some(prefix => c.req.path === prefix || c.req.path.startsWith(prefix + "/"))) {
       const poll = c.req.method === "GET" && /^\/api\/rigs\/[^/]+\/chat\/mailbox(?:\/poll)?$/.test(c.req.path);
       const consume = c.req.method === "POST" && /^\/api\/rigs\/[^/]+\/chat\/mailbox\/[^/]+\/consume$/.test(c.req.path);
@@ -369,43 +329,29 @@ export function createApp(deps: AppDeps): Hono {
     }
     await next();
   });
-  const teamGovernance = deps.teamGovernance ?? new PlanGovernance(deps.rigRepo.db, deps.eventBus,
-    deps.queueRepo ?? new QueueRepository(deps.rigRepo.db, deps.eventBus), undefined, teamOptions.readPolicyCapability);
-  // The owner read projections. Composed here from the owners the
-  // daemon already holds: governance for run/task/attempt authority, the queue
-  // for each task's destination seat, and the event bus for the committed
-  // review and exit evidence.
-  //
-  // The composed options are a prototype-linked view of the caller's object
-  // rather than a spread copy: a host that supplies `teamControl` owns a live
-  // object (tests and embedders replace `resolveBinding` or `readSystemHealth`
-  // after construction), and a snapshot would freeze the old callbacks. The
-  // view only ever adds `readModel`, so every caller-supplied value still wins.
-  let teamOptionsWithRead: TeamControlOptions = teamOptions;
-  if (!teamOptions.readModel) {
-    const composed = new TeamReadModel({
-      db: deps.rigRepo.db,
+  const teamGovernance = deps.teamGovernance;
+  // The owner read projection a host did not supply. Composed here rather than by every caller
+  // because it is the same three-row join the read model has always needed, and a host that has
+  // no candidate runtime still publishes the run, its tasks and their seats.
+  const teamOptionsWithRead: TeamControlOptions = teamOptions.readModel ? teamOptions : {
+    ...teamOptions,
+    readModel: new TeamReadModel({
+      db: deps.db,
       governance: teamGovernance,
       events: deps.eventBus,
-      // The queue owns the task's seat; the read model joins through its rows
-      // rather than re-deriving an assignment from the queue item body.
-      readTaskRows: (runId: string) => (deps.rigRepo.db.prepare(
-        `SELECT a.qitem_id AS qitemId, a.task_id AS taskId,
-          json_extract(a.assignment_json, '$.role') AS role,
-          q.state AS queueState, q.destination_session AS session
-          FROM team_queue_authority a JOIN queue_items q ON q.qitem_id = a.qitem_id
-          WHERE a.run_id = ? ORDER BY a.task_id`).all(runId) as Array<{
-            qitemId: string; taskId: string; role: string; queueState: string; session: string | null }>),
-    });
-    teamOptionsWithRead = Object.create(teamOptions, {
-      readModel: { value: composed, enumerable: true, writable: true, configurable: true },
-    }) as TeamControlOptions;
-  }
+      readTaskRows: (runId: string) => deps.db.prepare(`SELECT a.qitem_id AS qitemId, a.task_id AS taskId,
+        json_extract(a.assignment_json, '$.role') AS role,
+        q.state AS queueState, q.destination_session AS session
+        FROM team_queue_authority a JOIN queue_items q ON q.qitem_id = a.qitem_id
+        WHERE a.run_id = ? ORDER BY a.task_id`).all(runId) as Array<{
+          qitemId: string; taskId: string; role: string; queueState: string; session: string | null }>,
+    }),
+  };
 
   app.use("/api/team-control/*", requireLocalTarget);
   if (ownerSessions) app.route("/api/team-control/owner-session", ownerSessionRoutes(ownerSessions, () => teamOptions.credentials,
     [deps.legacyBearerToken]));
-  app.route("/api/team-control", projectFilesRoutes(deps.rigRepo.db, teamOptions.credentials, [deps.legacyBearerToken]));
+  app.route("/api/team-control", projectFilesRoutes(deps.db, teamOptions.credentials, [deps.legacyBearerToken]));
   app.route("/api/team-control", teamControlRoutes(teamGovernance, teamOptionsWithRead,
     [deps.legacyBearerToken]));
   // T052 — the managed replay transport. Mounted separately from the legacy
@@ -436,11 +382,12 @@ export function createApp(deps: AppDeps): Hono {
       } } : {}),
   }));
   app.route("/api/team-control", teamTelemetryRoutes(teamGovernance,
-    deps.attemptTelemetry ?? new AttemptTelemetry(deps.rigRepo.db), {
+    deps.attemptTelemetry ?? new AttemptTelemetry(deps.db), {
       credentials: teamOptions.credentials, legacyTokens: [deps.legacyBearerToken],
     }));
   app.route("/api/team-control", teamEventsRoutes({
     credentials: teamOptions.credentials,
+    events: deps.eventBus,
     legacyTokens: [deps.legacyBearerToken],
     ...(teamOptionsWithRead.readModel ? { readModel: teamOptionsWithRead.readModel } : {}),
   }));
@@ -511,7 +458,7 @@ export function createApp(deps: AppDeps): Hono {
     // running-state index on team_attempts is a narrow lookup.
     let runningAttempts: number | undefined;
     try {
-      const row = deps.rigRepo.db.prepare("SELECT count(*) AS count FROM team_attempts WHERE state = 'running'").get() as { count: number } | undefined;
+      const row = deps.db.prepare("SELECT count(*) AS count FROM team_attempts WHERE state = 'running'").get() as { count: number } | undefined;
       runningAttempts = row ? row.count : 0;
     } catch { runningAttempts = undefined; }
     const attemptCount = runningAttempts !== undefined ? { runningAttempts } : {};
@@ -547,7 +494,7 @@ export function createApp(deps: AppDeps): Hono {
       return c.notFound();
     }
 
-    if (isGovernedDatabase(deps.rigRepo.db) && !isTeamUiRequestPath(requestPath)) {
+    if (isGovernedDatabase(deps.db) && !isTeamUiRequestPath(requestPath)) {
       c.header("X-Multi-Agent-Web-UI", "off");
       return c.text("Only the team pages are served here; open the desktop app for them.", 404);
     }

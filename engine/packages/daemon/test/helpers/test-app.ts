@@ -7,6 +7,7 @@ import { EventBus } from "../../src/domain/event-bus.js";
 import { QueueRepository } from "../../src/domain/queue-repository.js";
 import { AgentActivityStore } from "../../src/domain/agent-activity-store.js";
 import { createApp } from "../../src/server.js";
+import { PlanGovernance } from "../../src/domain/plan-governance.js";
 import type { RuntimeAdapter } from "../../src/domain/runtime-adapter.js";
 
 /** Create the retained team-product schema for a test. */
@@ -39,14 +40,17 @@ export function createTestApp(
     isRegisteredOccupantGeneration: (nodeId, generation) => sessionRegistry.isOccupantGenerationRegistered(nodeId, generation),
   });
   const testAppDeps: Record<string, unknown> = {
-    rigRepo,
-    sessionRegistry,
+    db,
+    // The composition root supplies one governance owner; a fixture gets the plain one over the
+    // same handles, and a test that needs the recorded capability passes its own.
+    teamGovernance: new PlanGovernance(db, eventBus, queueRepo),
     eventBus,
-    queueRepo,
-    agentActivityStore,
+    rigRepo,
+    // The event transport reads the bus from its options, so the fixture composes no context
+    // entry of its own; the shared `eventBus` here is the same bus every route reads.
+    
     eventLoopMonitor: opts?.eventLoopMonitor,
     routeTimingRecorder: opts?.routeTimingRecorder,
-    runtimeAdapters: opts?.wireRuntimeAdapters ? opts?.adapters as Record<string, RuntimeAdapter> | undefined : opts?.adapters as Record<string, RuntimeAdapter> | undefined,
     ...opts?.appDeps,
   };
   const built = { app: createApp(testAppDeps as never) };
