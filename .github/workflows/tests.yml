@@ -16,9 +16,24 @@ jobs:
   daemon:
     strategy:
       fail-fast: false
+      # The shard count is per host. Windows runs the git-heavy files slowly enough that a
+      # smaller count puts two of them in one job, and a job whose worker runs longer than
+      # vitest's 60 s reporting deadline exits 1 with every test passing. Linux stays at three:
+      # the whole suite finishes in about a minute per shard there, and extra jobs would only
+      # add runners.
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        shard: [1, 2, 3]
+        include:
+          - { os: ubuntu-latest, shard: 1, total: 3 }
+          - { os: ubuntu-latest, shard: 2, total: 3 }
+          - { os: ubuntu-latest, shard: 3, total: 3 }
+          - { os: windows-latest, shard: 1, total: 8 }
+          - { os: windows-latest, shard: 2, total: 8 }
+          - { os: windows-latest, shard: 3, total: 8 }
+          - { os: windows-latest, shard: 4, total: 8 }
+          - { os: windows-latest, shard: 5, total: 8 }
+          - { os: windows-latest, shard: 6, total: 8 }
+          - { os: windows-latest, shard: 7, total: 8 }
+          - { os: windows-latest, shard: 8, total: 8 }
     runs-on: ${{ matrix.os }}
     steps:
       # No `symlinks` input: actions/checkout has none, and the repository tracks no symlink at
@@ -41,8 +56,8 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: engine
-      - name: Daemon suite (shard ${{ matrix.shard }}/3)
-        run: npx vitest run --maxWorkers=2 --shard=${{ matrix.shard }}/3
+      - name: Daemon suite (shard ${{ matrix.shard }}/${{ matrix.total }})
+        run: npx vitest run --maxWorkers=2 --shard=${{ matrix.shard }}/${{ matrix.total }}
         working-directory: engine/packages/daemon
 
   suites:
