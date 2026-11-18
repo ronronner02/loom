@@ -111,11 +111,8 @@ jobs:
       - name: Install
         run: npm ci --no-audit --no-fund --ignore-scripts
         working-directory: engine
-      - name: Typecheck daemon
-        run: npx tsc --noEmit --project packages/daemon/tsconfig.json
-        working-directory: engine
-      # The CLI imports @multi-agent/daemon/daemon-shutdown through its package exports, which point
-      # at dist, and this job installs with --ignore-scripts, so the build is explicit.
+      # The build compiles every workspace in dependency order (i18n before the daemon that imports
+      # it), so it is also this job's typecheck; the CLI's package exports point at that dist.
       - name: Build engine
         run: npm run build
         working-directory: engine
