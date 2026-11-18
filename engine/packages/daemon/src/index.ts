@@ -10,10 +10,7 @@ import { resolveClientDependencies } from "./domain/executable-resolver.js";
 import { endRunningWorkerTrees } from "./domain/process-termination.js";
 import { resolveBindPlan } from "./domain/bind-plan.js";
 import type { TeamControlCredentials } from "./middleware/auth-bearer-token.js";
-import {
-  assertBindAuthInvariant,
-  detectTailscaleInterface,
-} from "./middleware/auth-bearer-token.js";
+import { assertBindAuthInvariant } from "./middleware/auth-bearer-token.js";
 import type { SlowOperationInstrumentation } from "./domain/slow-op-recorder.js";
 import { SettingsStore } from "./domain/user-settings/settings-store.js";
 import {
@@ -145,23 +142,15 @@ export async function startServer(port?: number) {
     throw new Error(`Multi-Agent instance initialization blocked: ${formatInstanceInitializationConflicts(initialization)}`);
   }
 
-  // bug-fix slice auth-bearer-tailscale-trust: distinguish "explicit
-  // operator opt-in" from "default" by treating an undefined env as
-  // default. When explicit, the operator takes responsibility (and the
-  // bearer invariant applies to their chosen host). When default, the
-  // daemon always binds loopback and ALSO binds the active tailscale
-  // interface (if present) — both accepted paths in the invariant.
-  // Bind intent rides ONLY the dedicated MULTI_AGENT_BIND_HOST surface.
-  // The overloaded routing env (MULTI_AGENT_HOST) is observed for the
-  // provenance line below and NEVER selects the bind branch: a managed environment's
-  // injected endpoint is byte-indistinguishable from opt-in, and the parent daemon
-  // silently lost its Tailscale listener to exactly that (operator baton
-  // qitem-20260827070400). The auth-bearer-tailscale-trust ruling rides the new
-  // surface unchanged.
+  // OPR.0.5.5.20 — bind intent rides ONLY the dedicated MULTI_AGENT_BIND_HOST surface.
+  // The overloaded routing env (MULTI_AGENT_HOST) is observed for the provenance line below
+  // and NEVER selects the bind branch: a managed environment's injected endpoint is
+  // byte-indistinguishable from opt-in. With no declared host the plan is loopback-only, so a
+  // host that also runs Tailscale binds loopback rather than publishing the owner surfaces on
+  // the tailnet.
   const bindPlan = resolveBindPlan({
     bindHostEnv: process.env.MULTI_AGENT_BIND_HOST,
     routingHostEnv: process.env.MULTI_AGENT_HOST,
-    tailscaleIp: detectTailscaleInterface(),
   });
   if (bindPlan.ignoredRoutingHost) {
     console.error(
@@ -176,12 +165,12 @@ export async function startServer(port?: number) {
 
   let bindHosts: string[];
   if (explicitHost) {
-    // Operator opt-in path — invariant enforces bearer requirement for
-    // genuinely public/LAN binds; loopback/tailscale binds short-circuit.
+    // Operator opt-in path — the invariant requires a bearer for a genuinely public/LAN bind;
+    // a loopback bind short-circuits.
     await assertBindAuthInvariant({ host: explicitHost, bearerToken });
     bindHosts = [explicitHost];
   } else {
-    // Default path — the plan already computed loopback + tailscale-when-active.
+    // Default path — the plan is loopback-only.
     bindHosts = bindPlan.hosts;
   }
 
@@ -214,8 +203,8 @@ export async function startServer(port?: number) {
   for (const host of bindHosts) {
     const srv = serve({ fetch: app.fetch, port: p, hostname: host }, (info) => {
       console.log(`Multi-Agent daemon listening on http://${host}:${info.port}`);
-      // Report readiness to the Electron parent process over parentPort.
-      // Only the loopback bind reports (not a secondary tailscale bind).
+      // U5 — report readiness to the Electron parent process over parentPort. Only the
+      // loopback bind reports, because the desktop only ever binds loopback.
       if (host === "127.0.0.1") {
         try {
           (process as { parentPort?: { postMessage: (msg: unknown) => void } }).parentPort?.postMessage({

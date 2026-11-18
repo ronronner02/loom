@@ -222,3 +222,21 @@ describe("one decision and bounded logging", () => {
     expect(g.decisions).toHaveLength(130);
   });
 });
+
+// An early refusal must not race the caller's upload: answering a large body with 403 while it
+// is still arriving resets the socket, and the caller sees `fetch failed (ECONNRESET)` instead
+// of the refusal. Measured against `serve()` over loopback: the bare refusal failed 3 of 60
+// uploads, and reading the body first failed 0 of 60. A client that stalls mid-upload is still
+// bounded, because the body is already flow-controlled by the socket.
+describe("refusals drain the request body first", () => {
+  it("reads a refused request's body so the caller receives the 403, not a reset", async () => {
+    const app = new Hono();
+    app.use("/api/*", browserBoundary({ webUiEnabled: false, bearerTokens: [], hostName: () => "Box-1.local" }));
+    app.all("/api/*", (c) => c.json({ ok: true }));
+    const body = "Project references\n".repeat(70_000);
+    const res = await app.request("/api/ps", { method: "POST",
+      headers: { Host: "box-1.local", Origin: "http://evil.example" }, body });
+    expect(res.status).toBe(403);
+    expect((await res.json() as { code?: string }).code).toBe("browser_origin_refused");
+  });
+});

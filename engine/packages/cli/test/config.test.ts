@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, basename } from "node:path";
 import { tmpdir } from "node:os";
 import http from "node:http";
 import { Command } from "commander";
@@ -56,9 +56,12 @@ describe("ConfigStore", () => {
     const config = store.resolve();
     expect(config.daemon.port).toBe(7433);
     expect(config.daemon.host).toBe("127.0.0.1");
-    expect(config.db.path).toContain(".multi-agent/multi-agent.sqlite");
+    // The defaults live under the per-user state root, whose spelling is the host's: POSIX
+    // keeps `~/.multi-agent`, Windows keeps `Multi-Agent` under LOCALAPPDATA.
+    expect(basename(config.db.path)).toBe("multi-agent.sqlite");
+    expect(isAbsolute(config.db.path)).toBe(true);
     expect(config.transcripts.enabled).toBe(true);
-    expect(config.transcripts.path).toContain(".multi-agent/transcripts");
+    expect(basename(config.transcripts.path)).toBe("transcripts");
   });
 
   // Test 2

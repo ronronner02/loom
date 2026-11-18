@@ -13,7 +13,7 @@ function fixture() {
   const child = Object.assign(new EventEmitter(), { pid: 12345, exitCode: null as number | null, signalCode: null, unref: vi.fn() }) as unknown as ChildProcess;
   let spawned = false;
   const lock = { recordChild: vi.fn(), release: vi.fn() };
-  const body = { pid: child.pid, bind: { mode: "explicit" as const, hosts: ["127.0.0.1"], tailscaleDetected: false } };
+  const body = { pid: child.pid, bind: { mode: "explicit" as const, hosts: ["127.0.0.1"] } };
   const deps: LifecycleDeps = {
     acquireStartLock: vi.fn(() => lock),
     spawn: vi.fn(() => { spawned = true; return child; }),

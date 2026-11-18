@@ -70,7 +70,7 @@ export interface AppDeps {
    */
   readSeatMailboxCapability?: (runId: string, sessionId: string) => string | null;
   /** S20 — effective bind plan for the health surface (absent = legacy body). */
-  bindPlan?: { mode: "explicit" | "default"; hosts: string[]; tailscaleDetected: boolean; ignoredRoutingHost?: string };
+  bindPlan?: { mode: "explicit" | "default"; hosts: string[]; ignoredRoutingHost?: string };
   /** The control database. Every composed owner above must read and write this one handle. */
   db: import("better-sqlite3").Database;
   /** The rig and seat inventory the setup and start routes read. */
@@ -233,6 +233,10 @@ export function createApp(deps: AppDeps): Hono {
   }
 
   const teamOptions: TeamControlOptions = deps.teamControl ?? { credentials: { ownerToken: null } };
+  // The owner surfaces are reachable from the owner's own machine only: loopback, and nothing
+  // else. The default bind plan is loopback-only for the same reason; an owner who declares
+  // another host through MULTI_AGENT_BIND_HOST gets this refusal rather than a published
+  // owner surface.
   if (deps.bindPlan?.hosts.some(host => !(host === "localhost" || host === "::1"
     || (isIP(host) === 4 && host.startsWith("127."))))) {
     throw new Error("The owner surfaces require a loopback-only listener.");

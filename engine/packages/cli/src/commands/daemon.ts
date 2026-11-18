@@ -180,8 +180,8 @@ export function daemonCommand(depsOverride?: LifecycleDeps, httpDeps?: { baseUrl
         if (Number.isNaN(effectivePort) || effectivePort < 0 || effectivePort > 65535) {
           throw new Error(`Invalid --port: must be an integer in [0, 65535], got "${opts.port}"`);
         }
-        // Distinguish an operator-explicit host from the default fallback so the daemon
-        // can multi-bind (loopback + tailscale auto-detect) when no bind host was declared.
+        // Distinguish an operator-explicit host from the default: with no declared host the
+        // daemon binds loopback only.
         const hostResolution = configStore.resolveWithSource("daemon.host");
         // Bind intent comes ONLY from the dedicated surfaces: the --host flag, a
         // FILE-sourced daemon.host, or MULTI_AGENT_BIND_HOST. An env-sourced daemon.host

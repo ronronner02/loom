@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolveBinEntry, resolveNodeReexecBinary } from "../src/bin-wrapper.js";
+import { symlinkRefusal } from "./symlink.js";
 
 describe("bin-wrapper", () => {
   let tempDir: string | null = null;
@@ -15,7 +16,7 @@ describe("bin-wrapper", () => {
     }
   });
 
-  it("resolves the real dist entry from a symlinked wrapper path", () => {
+  it.skipIf(symlinkRefusal !== null)("resolves the real dist entry from a symlinked wrapper path", () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "multi-agent-bin-wrapper-"));
     const wrapperSource = fileURLToPath(new URL("../src/bin-wrapper.ts", import.meta.url));
     const symlinkPath = path.join(tempDir, "rig");
@@ -25,7 +26,7 @@ describe("bin-wrapper", () => {
     expect(entry).toBe(path.resolve(path.dirname(wrapperSource), "../dist/index.js"));
   });
 
-  it("prefers the sibling node next to the invoked rig binary when current node comes from elsewhere", () => {
+  it.skipIf(symlinkRefusal !== null)("prefers the sibling node next to the invoked rig binary when current node comes from elsewhere", () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "multi-agent-bin-wrapper-"));
     const prefixDir = path.join(tempDir, "prefix");
     const binDir = path.join(prefixDir, "bin");
@@ -48,7 +49,7 @@ describe("bin-wrapper", () => {
     expect(reexecNode).toBe(siblingNodePath);
   });
 
-  it("does not re-exec when already running under the sibling node", () => {
+  it.skipIf(symlinkRefusal !== null)("does not re-exec when already running under the sibling node", () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "multi-agent-bin-wrapper-"));
     const prefixDir = path.join(tempDir, "prefix");
     const binDir = path.join(prefixDir, "bin");
