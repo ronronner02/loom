@@ -64,8 +64,6 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          symlinks: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -96,11 +94,9 @@ jobs:
   windows-native:
     runs-on: windows-latest
     steps:
-      # The skill and reference packs are symlinked into the repo. Without this a Windows checkout
-      # writes each link target as a plain file, and the pack checks fail.
+      # No `symlinks` input: actions/checkout has none, and the repository tracks no symlink at all, so
+      # a Windows checkout writes exactly what the index holds.
       - uses: actions/checkout@v4
-        with:
-          symlinks: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
