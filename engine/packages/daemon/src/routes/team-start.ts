@@ -80,7 +80,7 @@ export function bindingForGoal(input: { root: string; planRef: string; writePath
  * dispatch decision needs to know.
  */
 export function unisolatedPolicyCapability(policyRevision: number): ProviderPolicyCapability {
-  return { policyRevision, policyFingerprint: hashBytes("workers.isolation:none"), verifiedProviders: ["claude", "codex"] };
+  return { policyRevision, policyFingerprint: hashBytes("workers.isolation:none"), verifiedProviders: ["claude", "codex", "gemini"] };
 }
 
 /** Re-read source and policy without replacing the scope or limits the owner approved. */

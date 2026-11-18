@@ -760,7 +760,7 @@ const KEY_CONSTRAINTS: Partial<Record<SettingsValidKey, (raw: string, coerced: s
     if (Number(coerced) > 3) throw new Error("Invalid value for team.maxConcurrentAgents: use 1, 2 or 3.");
   },
   "team.leadClient": raw => {
-    if (raw !== "claude-code" && raw !== "codex") throw new Error("Invalid value for team.leadClient: use claude-code or codex.");
+    if (raw !== "claude-code" && raw !== "codex" && raw !== "gemini") throw new Error("Invalid value for team.leadClient: use claude-code, codex or gemini.");
   },
   // Lockstep with cli/src/config-store.ts KEY_CONSTRAINTS: the value is handed to gh, git and
   // every agent CLI, so anything that is not a proxy URL is refused rather than passed on.

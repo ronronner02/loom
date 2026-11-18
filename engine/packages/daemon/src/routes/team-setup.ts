@@ -164,7 +164,7 @@ export function teamSetupRoutes(
         preview: { repository: root, name, action: "open", fileCount: 0, excludedPaths: [] } });
       const configured = options.settingsStore?.resolveOne("team.leadClient").value ?? "claude-code";
       const leadClient = typeof configured === "string" ? parseTeamClient(configured) : null;
-      if (!leadClient) throw new TeamSetupError("team_seats_invalid", "Set the lead client to claude-code or codex before opening a project.");
+      if (!leadClient) throw new TeamSetupError("team_seats_invalid", "Set the lead client to claude-code, codex or gemini before opening a project.");
       const team = createTeam(rigRepo.db, { repository: root, name, seats: [{ role: "lead", client: leadClient }] });
       return c.json({ protocolVersion: TEAM_CONTROL_VERSION, team }, 201);
     }
@@ -174,7 +174,7 @@ export function teamSetupRoutes(
         preview: await previewProject(input, undefined, rigRepo.db) });
       const configured = options.settingsStore?.resolveOne("team.leadClient").value ?? "claude-code";
       const leadClient = typeof configured === "string" ? parseTeamClient(configured) : null;
-      if (!leadClient) throw new TeamSetupError("team_seats_invalid", "Set the lead client to claude-code or codex before creating a project.");
+      if (!leadClient) throw new TeamSetupError("team_seats_invalid", "Set the lead client to claude-code, codex or gemini before creating a project.");
       const team = await bootstrapProject(rigRepo.db, input, { github: options.github, leadClient });
       return c.json({ protocolVersion: TEAM_CONTROL_VERSION, team }, 201);
     }
