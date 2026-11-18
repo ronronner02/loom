@@ -82,6 +82,13 @@ export interface AppDeps {
   /** The candidate runtime: candidates, lead documents and reviewer packets a route reads. */
   workflowRuntime?: WorkflowRuntime;
   /**
+   * The launcher a managed seat launches through.
+   *
+   * Exposed because a boot-wiring test has to reach the composed chain itself: the refusal it
+   * makes before a candidate is resolved is the wiring, and nothing else observes it.
+   */
+  workerLauncher?: import("./adapters/worker-launcher.js").WorkerLauncher;
+  /**
    * The owner of "an attempt ended". A direct launch records a receipt and nothing closed the
    * attempt, so no task could be observed to finish. The composition root composes it; index.ts
    * starts its sweep after the HTTP surface is ready. Absent (tests) leaves attempts exactly as

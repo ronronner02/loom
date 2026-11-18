@@ -60,7 +60,7 @@ describe("startup finalization admission wiring", () => {
         throw new Error("direct_launch_fixture_reached");
       });
       try {
-        const launcher = deps.managedLaunch!.launcher;
+        const launcher = deps.workerLauncher!;
         await expect(launcher.launch(input)).resolves.toMatchObject({
           ok: false, error: "Direct launch blocked: direct_launch_fixture_reached",
         });
