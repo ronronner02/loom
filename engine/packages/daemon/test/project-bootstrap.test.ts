@@ -349,13 +349,16 @@ describeOnPosix("project creation through the owner route — GitHub push flow",
     expect(git(repository, "config", "--get", "remote.origin.url")).toBe("https://github.com/octocat/another-project.git");
   });
 
-  it("resumes a failed push after database reopen using the same team, remote, branch and commit", async () => {
+  it("resumes a failed push after database reopen using the same remote, branch and commit", async () => {
     const hook = join(remote, "hooks", "pre-receive");
     writeFileSync(hook, "#!/bin/sh\nexit 1\n", { mode: 0o755 });
     expect(await (await create()).json()).toMatchObject({ code: "github_push_failed" });
     const receipt = db.prepare("SELECT team_id, commit_oid, remote_url, branch_ref, last_error_code FROM team_bootstraps").get() as Record<string, string>;
     expect(receipt.last_error_code).toBe("github_push_failed");
-    expect(receipt.team_id).toBeTruthy();
+    // KTD12: no team row exists until the upload succeeds, so the retry adopts the recorded
+    // checkpoint rather than a half-created team.
+    expect(receipt.team_id).toBeNull();
+    expect(receipt.commit_oid).toBe(git(repository, "rev-parse", "HEAD"));
     writeFileSync(join(repository, "later.txt"), "keep local\n");
     git(repository, "add", "--", "later.txt");
     git(repository, "-c", "user.name=Owner", "-c", "user.email=owner@example.invalid", "commit", "--quiet", "-m", "Later owner work");
@@ -365,7 +368,8 @@ describeOnPosix("project creation through the owner route — GitHub push flow",
     unlinkSync(hook);
     const response = await create();
     expect(response.status, await response.clone().text()).toBe(201);
-    expect((await response.json()).team.id).toBe(receipt.team_id);
+    expect((await response.json()).team.id).toBeTruthy();
+    // The retry pushes the recorded snapshot, not the owner's later local commit.
     expect(git(remote, "rev-parse", "refs/heads/main")).toBe(receipt.commit_oid);
     expect(git(repository, "rev-parse", "HEAD")).toBe(later);
     expect(calls().filter(args => args[1] === "create")).toHaveLength(1);
