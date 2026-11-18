@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 /**
  * U1 / KTD2 — the one place that turns a client name into a real executable.
  *
- * `claude`, `codex`, `gh` and `git` are all resolved here, in one order:
+ * `claude`, `codex`, `gemini`, `gh` and `git` are all resolved here, in one order:
  *
  * 1. an explicit configured path (an operator override, or a test fixture);
  * 2. the bundled resource, for `gh` only, because the installer ships `gh.exe`;
@@ -16,18 +16,24 @@ import { fileURLToPath } from "node:url";
  * installer's tree, `engine/plugins/github-cli` in a checkout where it does not exist). A caller
  * may name other roots instead, which is how a test proves the order without a real install.
  *
- * Two things are Windows-specific and both are load-bearing. npm installs `claude` and `codex` as
+ * Two things are Windows-specific and both are load-bearing. npm installs clients as
  * `.cmd`/`.ps1` shims, and Node refuses to spawn a `.cmd` with `shell: false` (EINVAL, its
  * CVE-2024-27980 mitigation), so a shim is never a launch target: it is *followed* to the real
- * `.exe` it forwards to, and a client whose install is only a script is refused with a reason. And
- * an npm shim names its program without an extension, so PATH probing must append `PATHEXT` —
- * `join(path, "gh")` never matches `gh.exe`.
+ * `.exe` it forwards to. Gemini ships no platform binary, so its JavaScript entry is the target
+ * and runs through this process's own Node. And an npm shim names its program without an
+ * extension, so PATH probing must append `PATHEXT` — `join(path, "gh")` never matches `gh.exe`.
  *
  * A resolution never throws for a missing client: the first-run check reports what was found and
  * what was not, so a missing dependency is a value, not an exception.
  */
 
-export type ResolverClient = "claude" | "codex" | "gh" | "git";
+export type ResolverClient = "claude" | "codex" | "gemini" | "gh" | "git";
+
+interface ExecutableTarget {
+  path: string;
+  /** A JavaScript client runs through Node; these arguments precede the client's own flags. */
+  args?: string[];
+}
 
 export type ResolutionFailure =
   /** Nothing by that name on PATH, in the bundled resources, or at the configured path. */
@@ -38,7 +44,7 @@ export type ResolutionFailure =
   | "not-executable";
 
 export type Resolution =
-  | { ok: true; client: ResolverClient; path: string; source: "configured" | "bundled" | "path" | "shim" }
+  | ({ ok: true; client: ResolverClient; source: "configured" | "bundled" | "path" | "shim" } & ExecutableTarget)
   | { ok: false; client: ResolverClient; reason: ResolutionFailure; tried: string[] };
 
 export interface ResolverOptions {
@@ -67,7 +73,7 @@ const CMD_SHIM_TARGET = /%dp0%[^"\r\n]*?[\\/]([^"\r\n]+?\.(?:exe|com))"/i;
 /** `%dp0%\node_modules\...\codex.js` — the cmd shim's forward target, when it names a JS entry. */
 const CMD_SHIM_TARGET_SCRIPT = /%dp0%[^"\r\n]*?[\\/]([^"\r\n]+?\.(?:js|mjs|cjs))"/i;
 
-/** `"$basedir/node_modules/.../codex.js"` — the ps1 shim's forward target. */
+/** The ps1 shim's forward target: `"$basedir/node_modules/.../codex.js"`. */
 const PS1_SHIM_TARGET = /\$basedir[/\\]([^"\r\n]+?)"/i;
 
 export function resolveExecutable(client: ResolverClient, options: ResolverOptions = {}): Resolution {
@@ -80,8 +86,8 @@ export function resolveExecutable(client: ResolverClient, options: ResolverOptio
   // hide a misconfiguration.
   const configured = options.configuredPath?.trim();
   if (configured) {
-    const resolved = resolveConfigured(configured, windows);
-    if (resolved) return { ok: true, client, path: resolved, source: "configured" };
+    const resolved = resolveConfigured(configured, windows, client);
+    if (resolved) return { ok: true, client, ...resolved, source: "configured" };
     return { ok: false, client, reason: "not-executable", tried: [configured] };
   }
 
@@ -113,13 +119,14 @@ export function resolveExecutable(client: ResolverClient, options: ResolverOptio
     }
   }
 
-  // A script shim on PATH is how npm installs both clients on Windows, so follow it to the
+  // A script shim on PATH is how npm installs clients on Windows, so follow it to the
   // executable it forwards to. The shim itself is never the answer.
   for (const shim of shims) {
-    const target = followShim(shim, windows);
+    const target = followShim(shim, windows, client);
     if (target === null) continue;
-    tried.push(target);
-    if (isLaunchableFile(target, windows)) return { ok: true, client, path: target, source: "shim" };
+    tried.push(target.args?.[0] ?? target.path);
+    // A JavaScript entry runs through this process's Node, which is launchable by definition.
+    if (target.path === process.execPath || isLaunchableFile(target.path, windows)) return { ok: true, client, ...target, source: "shim" };
   }
 
   return { ok: false, client, reason: shims.length > 0 ? "shim-without-executable" : "not-found", tried };
@@ -132,7 +139,7 @@ export function resolveExecutable(client: ResolverClient, options: ResolverOptio
  * missing dependency with the paths it actually looked at.
  */
 export function resolveClientDependencies(options: ResolverOptions = {}): Resolution[] {
-  return (["claude", "codex", "git", "gh"] as const).map(client => resolveExecutable(client, options));
+  return (["claude", "codex", "gemini", "git", "gh"] as const).map(client => resolveExecutable(client, options));
 }
 
 /**
@@ -181,6 +188,8 @@ const extensionOf = (path: string): string => {
 
 const isScript = (path: string): boolean => SCRIPT_EXTENSIONS.includes(extensionOf(path));
 
+const isJavaScript = (path: string): boolean => [".js", ".mjs", ".cjs"].includes(extensionOf(path));
+
 /**
  * The configured path, as a launchable file.
  *
@@ -189,11 +198,13 @@ const isScript = (path: string): boolean => SCRIPT_EXTENSIONS.includes(extension
  * deliberately named launcher working. A script shim is still followed rather than launched,
  * because Node refuses to spawn one with `shell: false`.
  */
-function resolveConfigured(configured: string, windows: boolean): string | null {
+function resolveConfigured(configured: string, windows: boolean, client: ResolverClient): ExecutableTarget | null {
   const path = isAbsolute(configured) || win32.isAbsolute(configured) ? configured : join(process.cwd(), configured);
   if (!isExistingFile(path)) return null;
-  if (!isScript(path)) return path;
-  return followShim(path, windows);
+  // A JavaScript entry is a Node program, not a shell target: Gemini ships only this shape.
+  if (client === "gemini" && isJavaScript(path)) return { path: process.execPath, args: [realpathOrSelf(path)] };
+  if (!isScript(path)) return { path };
+  return followShim(path, windows, client);
 }
 
 /**
@@ -204,9 +215,10 @@ function resolveConfigured(configured: string, windows: boolean): string | null 
  * the same shape. Both name their target relative to the shim's own directory (`%dp0%`,
  * `$basedir`), so the target is read from the shim's text and resolved next to it. A JS entry is
  * then followed through the package it lives in to the vendored executable, because a Node
- * launcher is a script too.
+ * launcher is a script too — unless the client has no Node to hand it to, in which case the
+ * entry itself is the program and this process's Node runs it.
  */
-function followShim(shim: string, windows: boolean): string | null {
+function followShim(shim: string, windows: boolean, client: ResolverClient): ExecutableTarget | null {
   let text: string;
   try {
     if (statSync(shim).size > MAX_SHIM_BYTES) return null;
@@ -214,20 +226,25 @@ function followShim(shim: string, windows: boolean): string | null {
   } catch { return null; }
   const directory = shim.slice(0, Math.max(shim.lastIndexOf("/"), shim.lastIndexOf("\\")));
   // The `.cmd` launcher names an executable when the package ships one (Claude Code) and a JS entry
-  // when it does not (Codex); the `.ps1` launcher always names the JS entry. Both are tried, because
-  // which shape a package uses is the package's decision, and an executable match is preferred only
-  // when it is not Node's own launcher (which the `.cmd` header names first).
+  // when it does not (Codex, Gemini); the `.ps1` launcher always names the JS entry. Both are tried,
+  // because which shape a package uses is the package's decision, and an executable match is
+  // preferred only when it is not Node's own launcher (which the `.cmd` header names first).
   const relative = extensionOf(shim) === ".ps1"
-    ? PS1_SHIM_TARGET.exec(text)?.[1]
+    // An `.ps1` launcher names its Node launcher first and its JavaScript entry second; a candidate
+    // that still interpolates a shim variable names no file at all.
+    ? [...text.matchAll(new RegExp(PS1_SHIM_TARGET.source, "gi"))].map(match => match[1])
+      .find(candidate => candidate !== undefined && !candidate.includes("$") && !/(^|[\\/])node(?:\.exe)?$/i.test(candidate))
     : [CMD_SHIM_TARGET.exec(text)?.[1], CMD_SHIM_TARGET_SCRIPT.exec(text)?.[1]]
       .find(candidate => candidate !== undefined && !/(^|[\\/])node\.exe$/i.test(candidate));
   if (!relative) return null;
   const target = join(directory, ...relative.split(/[/\\]+/).filter(Boolean));
   if (!existsSync(target)) return null;
-  if (isLaunchableFile(target, windows)) return realpathOrSelf(target);
+  if (isLaunchableFile(target, windows)) return { path: realpathOrSelf(target) };
+  if (client === "gemini" && isJavaScript(target)) return { path: process.execPath, args: [realpathOrSelf(target)] };
   // A Node launcher (Codex's `bin/codex.js`) resolves its own vendored binary; the vendor path is
   // the package's platform-specific `vendor/<triple>/bin/<name>.exe`, which is what this looks for.
-  return isScript(target) ? vendoredExecutable(target, windows) : null;
+  const executable = isScript(target) ? vendoredExecutable(target, windows) : null;
+  return executable ? { path: executable } : null;
 }
 
 /**
