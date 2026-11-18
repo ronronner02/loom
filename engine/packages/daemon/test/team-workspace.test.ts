@@ -673,7 +673,9 @@ it.skipIf(posixShapesOnly)("records an escaping, dangling or directory symlink a
 
     const checkout = candidateRoot(root);
     git(tmpdir(), "clone", "--quiet", root, checkout);
-    git(checkout, "checkout", "--quiet", (workspace.base as { commit: string }).commit);
+    // `git clone` does not copy `core.autocrlf`; the clone reads the global config, so the checkout
+    // that applies the patch pins the value the bytes were written with.
+    git(checkout, "-c", "core.autocrlf=false", "checkout", "--quiet", (workspace.base as { commit: string }).commit);
     const patchFile = join(checkout, "..", `${Date.now()}-link.patch`);
     writeFileSync(patchFile, manifest.patch);
     execFileSync("git", ["-C", checkout, "apply", "--binary", patchFile], { stdio: ["ignore", "pipe", "pipe"] });
@@ -731,6 +733,10 @@ it.skipIf(posixShapesOnly)("records an escaping, dangling or directory symlink a
     chmodSync(join(workspace.root, "src", "base.ts"), 0o755);
     const manifest = candidateManifest(workspace);
     expect(manifest.files.map(file => file.path)).toContain("src/base.ts");
+    // Windows keeps no owner-executable bit on an ordinary file, so the edit this case asks for
+    // never happened there and there is no mode change to record. The host that can hold the bit
+    // runs the whole assertion.
+    if ((statSync(join(workspace.root, "src", "base.ts")).mode & 0o100) === 0) return;
     expect(manifest.patch).toContain("old mode 100644");
     expect(manifest.patch).toContain("new mode 100755");
   });
@@ -800,11 +806,11 @@ it.skipIf(posixShapesOnly)("records an escaping, dangling or directory symlink a
     function applied(root: string, commit: string, patch: string, submodule: boolean): string {
       const checkout = candidateRoot(root);
       git(tmpdir(), "clone", "--quiet", root, checkout);
-      // The clone reads the source's own repository config, which names no `core.autocrlf`; the
-      // checkout that produces the bytes to compare sets it explicitly, so the runner's global
-      // setting cannot turn this comparison into a line-ending question.
-      git(checkout, "config", "core.autocrlf", "false");
-      git(checkout, "checkout", "--quiet", commit);
+      // `git clone` does not copy `core.autocrlf` from the repository it clones — the clone reads
+      // the global config — so the checkout that produces the bytes compared below pins it here.
+      // A runner whose global config says `true` otherwise writes CRLF where the row wrote LF, and
+      // every row fails with `anchor.txt: patch does not apply`.
+      git(checkout, "-c", "core.autocrlf=false", "checkout", "--quiet", commit);
       if (submodule) git(checkout, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--quiet");
       const file = join(candidateRoot(root), "candidate.patch");
       writeFileSync(file, patch);
