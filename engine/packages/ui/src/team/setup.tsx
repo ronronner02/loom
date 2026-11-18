@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Check, Info, RotateCw, X } from "lucide-react";
+import { Check, CircleDashed, Info, RotateCw, X } from "lucide-react";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 
 export interface ToolRow { client: "git" | "gh" | "claude" | "codex" | "gemini"; ok: boolean; path?: string; reason?: string }
@@ -17,6 +17,16 @@ const TOOL_LABELS = { git: "Git", gh: "GitHub CLI", claude: "Claude Code", codex
 const SIGN_IN_KEYS = { "signed-in": "setup.signedIn", "signed-out": "setup.signedOut", unknown: "setup.unknown" } as const;
 /** The order the tools read in: the two every project needs, then the clients. */
 const TOOL_ORDER = ["git", "gh", "claude", "codex", "gemini"] as const;
+
+/**
+ * A sign-in row's mark. Only a client that answered "signed out" is a failure; one that did not
+ * answer is a gap in the evidence, so it gets a neutral mark rather than the same red cross.
+ */
+function SignInMark({ state }: { state: SignInRow["state"] }) {
+  if (state === "signed-in") return <Check className="setup-mark" aria-hidden="true" />;
+  if (state === "signed-out") return <X className="setup-mark" aria-hidden="true" />;
+  return <CircleDashed className="setup-mark" aria-hidden="true" />;
+}
 
 /** The setup read: tools, agent sign-in and the proxy, as the daemon just observed them. */
 export function useSetup(enabled = true) {
@@ -90,8 +100,9 @@ function SignIn() {
   if (!setup.data?.signIn.length) return null;
   return <section className="setup-block" aria-label={t("setup.agents")}>
     <h2 className="setup-block-title">{t("setup.agents")}</h2>
-    <ul className="setup-rows">{setup.data.signIn.map(row => <li key={row.client} data-ok={row.state === "signed-in"}>
-      {row.state === "signed-in" ? <Check className="setup-mark" aria-hidden="true" /> : <X className="setup-mark" aria-hidden="true" />}
+    <ul className="setup-rows">{setup.data.signIn.map(row => <li key={row.client} data-ok={row.state === "signed-in"}
+      data-state={row.state}>
+      <SignInMark state={row.state} />
       <strong>{TOOL_LABELS[row.client]}</strong>
       <span className="setup-state">{t(SIGN_IN_KEYS[row.state])}</span>
       {row.signIn && <span className="mono setup-command">{row.signIn}</span>}

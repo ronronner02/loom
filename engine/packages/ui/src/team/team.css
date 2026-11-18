@@ -714,6 +714,8 @@ html[data-desktop="true"] .team-shell .ui-entry-header :is(button, a, input, sel
 .team-shell .setup-rows strong { font-weight: 500; }
 .team-shell .setup-mark { width: 15px; height: 15px; flex-shrink: 0; color: var(--ui-error); }
 .team-shell .setup-rows li[data-ok="true"] .setup-mark { color: var(--ui-ok); }
+/* An unanswered probe is a gap in the evidence, not a failure: it reads muted, never red. */
+.team-shell .setup-rows li[data-state="unknown"] .setup-mark { color: var(--ui-faint); }
 .team-shell .setup-state { color: var(--ui-muted); font-size: 12px; }
 .team-shell .setup-path { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-sm); color: var(--ui-faint); cursor: help; }
 .team-shell .setup-path svg { width: 14px; height: 14px; }
