@@ -77,65 +77,47 @@ describe("S20 — the restored listener gate: adoption fails loudly on a dropped
   const probeUp = (up: Set<string>) => async (url: string) =>
     [...up].some((h) => url.includes(h)) ? ("healthy" as const) : ("unhealthy" as const);
 
-  it("0.5.3 REGRESSION SHAPE: default mode with tailscale detected but only loopback bound → LOUD failure naming the missing listener", async () => {
+  it("default mode: the loopback listener is required and proved by its own healthz", async () => {
     const r = await verifyRequiredListeners({
-      bind: { mode: "default", hosts: ["127.0.0.1"], tailscaleDetected: true },
+      bind: { mode: "default", hosts: ["127.0.0.1"] },
       port: 7433,
       probe: probeUp(new Set(["127.0.0.1"])),
     });
-    expect(r.ok).toBe(false);
-    if (r.ok) return;
-    expect(r.reason).toMatch(/listener/i);
-    expect(r.reason).toMatch(/tailscale/i);
+    expect(r).toEqual({ ok: true, verified: ["127.0.0.1"] });
   });
 
-  it("default mode, both listeners bound and probed → pass with each verified by its own healthz", async () => {
+  it("default mode: a reported host whose probe fails is a missing listener — binding evidence beats config echo", async () => {
     const r = await verifyRequiredListeners({
-      bind: { mode: "default", hosts: ["127.0.0.1", "100.95.124.60"], tailscaleDetected: true },
+      bind: { mode: "default", hosts: ["127.0.0.1"] },
       port: 7433,
-      probe: probeUp(new Set(["127.0.0.1", "100.95.124.60"])),
-    });
-    expect(r).toEqual({ ok: true, verified: ["127.0.0.1", "100.95.124.60"] });
-  });
-
-  it("a REPORTED host whose probe fails is a missing listener — binding evidence beats config echo", async () => {
-    const r = await verifyRequiredListeners({
-      bind: { mode: "default", hosts: ["127.0.0.1", "100.95.124.60"], tailscaleDetected: true },
-      port: 7433,
-      probe: probeUp(new Set(["127.0.0.1"])), // reported but unreachable
+      probe: probeUp(new Set()),
     });
     expect(r.ok).toBe(false);
-    if (r.ok) return;
-    expect(r.missing).toContain("100.95.124.60");
+    if (r.ok !== false) return;
+    expect(r.missing).toContain("127.0.0.1");
   });
 
   it("r2 REPAIR: a one-shot probe EXCEPTION is INDETERMINATE — never promoted to missing-listener evidence", async () => {
-    let tailAttempts = 0;
+    let attempts = 0;
     const r = await verifyRequiredListeners({
-      bind: { mode: "default", hosts: ["127.0.0.1", "100.64.0.9"], tailscaleDetected: true },
+      bind: { mode: "default", hosts: ["127.0.0.1"] },
       port: 7433,
-      probe: async (url) => {
-        if (url.includes("100.64.0.9")) {
-          tailAttempts++;
-          return "indeterminate"; // the wiring maps a thrown timeout here — provenance preserved
-        }
-        return "healthy";
-      },
+      probe: async () => { attempts++; return "indeterminate"; },
     });
-    expect(tailAttempts).toBe(1);
+    expect(attempts).toBe(1);
     expect(r.ok).toBe("indeterminate"); // NOT false — no SIGTERM evidence exists
     if (r.ok === "indeterminate") expect(r.reason).toMatch(/indeterminate|could not be checked/i);
   });
 
   it("explicit mode requires exactly the declared host", async () => {
     const ok = await verifyRequiredListeners({
-      bind: { mode: "explicit", hosts: ["100.95.124.51"], tailscaleDetected: true },
+      bind: { mode: "explicit", hosts: ["100.95.124.51"] },
       port: 7433,
       probe: probeUp(new Set(["100.95.124.51"])),
     });
     expect(ok.ok).toBe(true);
     const bad = await verifyRequiredListeners({
-      bind: { mode: "explicit", hosts: ["100.95.124.51"], tailscaleDetected: false },
+      bind: { mode: "explicit", hosts: ["100.95.124.51"] },
       port: 7433,
       probe: probeUp(new Set()),
     });
@@ -150,20 +132,25 @@ import { startDaemon, type LifecycleDeps } from "../src/daemon-lifecycle.js";
 import { vi } from "vitest";
 import { EventEmitter } from "node:events";
 
-function gateDeps(tailBehavior: (attempt: number) => "ok" | "throw-timeout" | "throw-refused") {
-  let tailAttempts = 0;
+// The daemon reports two listeners here so the gate has a second host to prove: the identity
+// read always answers on 127.0.0.1, and the probe of the second host is what varies. A real
+// daemon would only report one, so this is the gate's own contract under test.
+const SECOND_HOST = "127.0.0.2";
+
+function gateDeps(secondHostBehavior: (attempt: number) => "ok" | "throw-timeout" | "throw-refused") {
+  let secondHostAttempts = 0;
   let spawned = false;
   const child = Object.assign(new EventEmitter(), { pid: 4242, exitCode: null as number | null, signalCode: null, unref: vi.fn() });
   const kill = vi.fn(() => { child.exitCode = 0; child.emit("exit", 0, "SIGTERM"); return true; });
-  const bindBody = { pid: 4242, bind: { mode: "default", hosts: ["127.0.0.1", "100.64.0.9"], tailscaleDetected: true } };
+  const bindBody = { pid: 4242, bind: { mode: "default", hosts: ["127.0.0.1", SECOND_HOST] } };
   const deps: LifecycleDeps = {
     acquireStartLock: () => ({ recordChild: vi.fn(), release: vi.fn() }),
     spawn: vi.fn(() => { spawned = true; return child as never; }),
     fetch: vi.fn(async (url: string) => {
       if (!spawned) throw new Error("connect ECONNREFUSED (nothing on the port yet)");
-      if (url.includes("100.64.0.9")) {
-        tailAttempts++;
-        const behavior = tailBehavior(tailAttempts);
+      if (url.includes(SECOND_HOST)) {
+        secondHostAttempts++;
+        const behavior = secondHostBehavior(secondHostAttempts);
         if (behavior === "throw-timeout") throw new Error("fetch timeout while probing");
         if (behavior === "throw-refused") {
           const err = new Error("fetch failed") as Error & { cause?: { code: string } };
@@ -182,7 +169,7 @@ function gateDeps(tailBehavior: (attempt: number) => "ok" | "throw-timeout" | "t
     openForAppend: vi.fn(() => 3),
     isProcessAlive: vi.fn(() => child.exitCode === null),
   };
-  return { deps, kill, tailAttempts: () => tailAttempts };
+  return { deps, kill, secondHostAttempts: () => secondHostAttempts };
 }
 
 describe("S20 r2 repair — startDaemon gate: transient probe failure never kills a healthy daemon", () => {
@@ -193,7 +180,7 @@ describe("S20 r2 repair — startDaemon gate: transient probe failure never kill
     expect(kill).not.toHaveBeenCalled(); // the reviewer's reproduction: candidate killed here
   });
 
-  it("positive evidence still kills: a REFUSED tailscale listener SIGTERMs and fails loudly", async () => {
+  it("positive evidence still kills: a REFUSED listener SIGTERMs and fails loudly", async () => {
     const { deps, kill } = gateDeps(() => "throw-refused");
     await expect(startDaemon({ port: 7433, db: "/tmp/t.db" }, deps)).rejects.toThrow(/listener adoption gate/);
     expect(kill).toHaveBeenCalled();

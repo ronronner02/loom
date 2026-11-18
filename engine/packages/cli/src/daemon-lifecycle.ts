@@ -292,7 +292,7 @@ export function buildDaemonEnv(
     port: number;
     /**
      * Operator-explicit bind host. When undefined the daemon falls through to its default
-     * loopback+tailscale-auto multi-bind path; there is NO env fallback, because an inherited
+     * loopback-only plan; there is NO env fallback, because an inherited
      * MULTI_AGENT_HOST is routing state and is scrubbed by ROUTING_ENV_SCRUB (an injected
      * routing env is byte-indistinguishable from opt-in). MULTI_AGENT_BIND_HOST is the only
      * env opt-in and passes through.
@@ -350,12 +350,11 @@ export function resolveBindIntent(input: {
 }
 
 /** The restored adoption/upgrade gate: derive the REQUIRED listener set from the
- *  daemon's reported effective bind mode (default ⇒ loopback AND
- *  tailscale-when-detected; explicit ⇒ exactly the declared host) and prove each by
- *  probing its own /healthz — binding evidence, never config echo. A silently dropped
- *  listener (the 0.5.3-receipt regression shape) fails LOUDLY. */
+ *  daemon's reported effective bind mode (default ⇒ loopback only; explicit ⇒ exactly the
+ *  declared host) and prove each by probing its own /healthz — binding evidence, never config
+ *  echo. A silently dropped listener (the 0.5.3-receipt regression shape) fails LOUDLY. */
 export async function verifyRequiredListeners(input: {
-  bind: { mode: "explicit" | "default"; hosts: string[]; tailscaleDetected: boolean };
+  bind: { mode: "explicit" | "default"; hosts: string[] };
   port: number;
   /** TRI-STATE probe (r2 repair): "healthy" | "unhealthy" | "indeterminate".
    *  Refused/explicitly-unhealthy is POSITIVE bad-bind evidence; a transient probe
@@ -367,19 +366,10 @@ export async function verifyRequiredListeners(input: {
   | { ok: "indeterminate"; reason: string }
 > {
   const required = new Set(input.bind.hosts);
-  required.add("127.0.0.1"); // loopback is required in EVERY mode's floor... except explicit
-  if (input.bind.mode === "explicit") {
+  if (input.bind.mode === "default") required.add("127.0.0.1");
+  else {
     required.clear();
     for (const h of input.bind.hosts) required.add(h);
-  } else if (input.bind.tailscaleDetected && input.bind.hosts.length < 2) {
-    // The 0.5.3-receipt regression shape: default mode, tailscale present, but the
-    // daemon reports only one listener — the tailscale listener was silently dropped.
-    return {
-      ok: false,
-      missing: ["<tailscale interface>"],
-      reason:
-        `required listener missing: default bind mode with a tailscale interface detected must bind loopback AND tailscale, but the daemon reports only [${input.bind.hosts.join(", ")}] — a silently dropped listener (the 0.5.3 receipt regression shape).`,
-    };
   }
   const missing: string[] = [];
   const verified: string[] = [];
@@ -436,8 +426,8 @@ async function startOwnedDaemon(opts: StartOptions, deps: LifecycleDeps, lock: D
   const db = opts.db ?? DEFAULT_DB;
   // Preserve the user-explicit-vs-default distinction. `opts.host` is undefined when the
   // owner declared no bind host; healthz probes then use the loopback default, but
-  // buildDaemonEnv must NOT export MULTI_AGENT_HOST so the daemon falls through to the
-  // multi-bind default (loopback + tailscale auto-detect).
+  // buildDaemonEnv must NOT export MULTI_AGENT_HOST so the daemon falls through to its
+  // default plan, which is loopback-only.
   const explicitHost = opts.host;
   const probeHost = explicitHost ?? DEFAULT_HOST;
 
@@ -523,7 +513,7 @@ async function startOwnedDaemon(opts: StartOptions, deps: LifecycleDeps, lock: D
     if (hasExited()) throw new Error(`Daemon child ${pid} exited before startup completed`);
   };
   const healthzUrl = `http://${formatDaemonHostForUrl(probeHost)}:${port}/healthz`;
-  type StartHealth = { pid?: unknown; bind?: { mode: "explicit" | "default"; hosts: string[]; tailscaleDetected: boolean } };
+  type StartHealth = { pid?: unknown; bind?: { mode: "explicit" | "default"; hosts: string[] } };
   const readOwnedHealth = async (url: string): Promise<StartHealth | null> => {
     assertChild();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -562,8 +552,7 @@ async function startOwnedDaemon(opts: StartOptions, deps: LifecycleDeps, lock: D
         if (body) {
           const bind = body.bind;
           if (!bind || !["explicit", "default"].includes(bind.mode) || !Array.isArray(bind.hosts)
-            || bind.hosts.length === 0 || !bind.hosts.every((host) => typeof host === "string" && host.length > 0)
-            || typeof bind.tailscaleDetected !== "boolean") {
+            || bind.hosts.length === 0 || !bind.hosts.every((host) => typeof host === "string" && host.length > 0)) {
             throw new StartupIdentityError(`Daemon startup listener identity unavailable for child PID ${pid}; state not published`);
           }
           const gate = await verifyRequiredListeners({ bind, port, probe: async (url) => {

@@ -34,7 +34,7 @@ function neverFetch(): Promise<{ ok: boolean }> {
 }
 
 function startupHealth() {
-  return { ok: true, json: async () => ({ pid: 12345, bind: { mode: "explicit", hosts: ["127.0.0.1"], tailscaleDetected: false } }) };
+  return { ok: true, json: async () => ({ pid: 12345, bind: { mode: "explicit", hosts: ["127.0.0.1"] } }) };
 }
 
 function mockDeps(overrides?: Partial<LifecycleDeps>): LifecycleDeps {
@@ -95,7 +95,8 @@ describe("Daemon Lifecycle", () => {
     const [cmd, args, opts] = spawnMock.mock.calls[0]!;
     expect(cmd).toBe(process.execPath);
     expect(args[0]).toContain("daemon");
-    expect(args[0]).toContain("dist/index.js");
+    // The entry is joined for this host, so assert its own spelling rather than a POSIX one.
+    expect(args[0]).toContain(path.join("dist", "index.js"));
     expect(opts.env).toMatchObject({
       MULTI_AGENT_PORT: "7433",
       MULTI_AGENT_DB: "multi-agent.sqlite",
@@ -1250,10 +1251,10 @@ describe("buildDaemonEnv", () => {
     expect(result["MULTI_AGENT_DB"]).toBe("/new/path.db");
   });
 
-  // bug-fix slice auth-bearer-tailscale-trust forward-fix:
-  // Default-product-launch must NOT export MULTI_AGENT_HOST so daemon's
-  // index.ts falls through to the loopback+tailscale multi-bind path.
-  describe("auth-bearer-tailscale-trust: explicit-vs-default host signal", () => {
+  // A default product launch must NOT export MULTI_AGENT_HOST, so the daemon falls through to
+  // its own default plan — loopback-only — instead of taking an inherited routing value as
+  // bind intent.
+  describe("explicit-vs-default host signal", () => {
     it("omits MULTI_AGENT_HOST when opts.host is undefined (default-product-launch)", () => {
       const baseEnv: Record<string, string> = { HOME: "/Users/tester", PATH: "/usr/bin" };
       const result = buildDaemonEnv(baseEnv, {
@@ -1335,10 +1336,12 @@ describe("buildDaemonEnv", () => {
         process.env["MULTI_AGENT_HOME"] = "/Users/example/.multi-agent-populated";
         const populatedState = getStatePath("daemon.json");
         const populatedLog = getStatePath("daemon.log");
-        expect(blankState).toBe("/Users/example/.multi-agent-blank/daemon.json");
-        expect(populatedState).toBe("/Users/example/.multi-agent-populated/daemon.json");
-        expect(blankLog).toBe("/Users/example/.multi-agent-blank/daemon.log");
-        expect(populatedLog).toBe("/Users/example/.multi-agent-populated/daemon.log");
+        // The state directory is real on this host, and the derived names are joined here.
+        const blank = "/Users/example/.multi-agent-blank", populated = "/Users/example/.multi-agent-populated";
+        expect(blankState).toBe(path.join(blank, "daemon.json"));
+        expect(populatedState).toBe(path.join(populated, "daemon.json"));
+        expect(blankLog).toBe(path.join(blank, "daemon.log"));
+        expect(populatedLog).toBe(path.join(populated, "daemon.log"));
         expect(blankState).not.toBe(populatedState);
         expect(blankLog).not.toBe(populatedLog);
       } finally {
@@ -1353,8 +1356,11 @@ describe("buildDaemonEnv", () => {
       const saved = process.env["MULTI_AGENT_HOME"];
       try {
         process.env["MULTI_AGENT_HOME"] = "";
-        const result = getMultiAgentHome();
-        expect(result).toBe(`${homedir()}/.multi-agent`);
+        const { resolveDataRoots } = await import("@multi-agent/daemon/data-paths");
+        // The fallback is the host's per-user state root: `~/.multi-agent` on POSIX and the
+        // `Multi-Agent` folder under the locator on Windows. Empty means absent, not the path "".
+        expect(getMultiAgentHome()).toBe(resolveDataRoots({ env: {} }).state);
+        expect(getMultiAgentHome()).not.toBe("");
       } finally {
         if (saved === undefined) delete process.env["MULTI_AGENT_HOME"];
         else process.env["MULTI_AGENT_HOME"] = saved;
@@ -1392,13 +1398,14 @@ describe("buildDaemonEnv", () => {
         const populated = await import("../src/daemon-lifecycle.js");
 
         // MULTI_AGENT_DIR — direct snapshot of getMultiAgentHome() at module load
-        expect(blank.MULTI_AGENT_DIR).toBe("/Users/example/.multi-agent-vm-blank-fresh");
-        expect(populated.MULTI_AGENT_DIR).toBe("/Users/example/.multi-agent-vm-populated-fresh");
+        const blankRoot = "/Users/example/.multi-agent-vm-blank-fresh", populatedRoot = "/Users/example/.multi-agent-vm-populated-fresh";
+        expect(blank.MULTI_AGENT_DIR).toBe(blankRoot);
+        expect(populated.MULTI_AGENT_DIR).toBe(populatedRoot);
         expect(blank.MULTI_AGENT_DIR).not.toBe(populated.MULTI_AGENT_DIR);
 
         // STATE_FILE — derived as path.join(MULTI_AGENT_DIR, "daemon.json")
-        expect(blank.STATE_FILE).toBe("/Users/example/.multi-agent-vm-blank-fresh/daemon.json");
-        expect(populated.STATE_FILE).toBe("/Users/example/.multi-agent-vm-populated-fresh/daemon.json");
+        expect(blank.STATE_FILE).toBe(path.join(blankRoot, "daemon.json"));
+        expect(populated.STATE_FILE).toBe(path.join(populatedRoot, "daemon.json"));
         expect(blank.STATE_FILE).not.toBe(populated.STATE_FILE);
       } finally {
         if (saved === undefined) delete process.env["MULTI_AGENT_HOME"];

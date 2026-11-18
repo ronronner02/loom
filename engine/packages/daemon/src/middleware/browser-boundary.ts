@@ -280,9 +280,23 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
     warn(`[multi-agent] browser boundary refused ${code}: ${value} (${c.req.method} ${shown(c.req.path)})`);
   };
 
-  const refuse = (c: Context, code: BoundaryCode, value: string, error: string) => {
+  /**
+   * Answer a refused request without reading its body.
+   *
+   * A client that is still uploading when the response lands has its write reset by the socket,
+   * and the caller sees `fetch failed (ECONNRESET)` instead of the refusal it was sent. Reading
+   * the body first lets the upload finish and the refusal arrive.
+   */
+  const discardBody = async (c: Context): Promise<void> => {
+    const body = c.req.raw.body;
+    if (!body || c.req.raw.bodyUsed) return;
+    try { await c.req.raw.text(); } catch { /* a truncated or stalled upload is refused either way */ }
+  };
+
+  const refuse = async (c: Context, code: BoundaryCode, value: string, error: string) => {
     logRefusal(c, code, value);
     options.onDecision?.({ outcome: "refuse", code });
+    await discardBody(c);
     return c.json({ error, code }, 403);
   };
 
@@ -293,21 +307,22 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
       || (c.req.header("Upgrade")?.toLowerCase() === "websocket" && c.req.header("Authorization") === undefined);
     // Native bearer clients retain the existing Host boundary and all downstream token/peer checks.
     if (options.pairedOwnerBoundary && browser) {
-      const deny = (code: string, status: 401 | 403 = 403) => {
+      const deny = async (code: string, status: 401 | 403 = 403) => {
         options.onDecision?.({ outcome: "refuse", code: "browser_origin_refused" });
+        await discardBody(c);
         return c.json({ code }, status);
       };
       const rawHost = rawHeader(c, "host");
       const host = typeof rawHost === "string" ? parseHostHeader(rawHost) : { kind: "malformed" as const };
       if (host.kind !== "ok" || !(host.hostname === "localhost" || host.hostname === "::1"
-        || (isIP(host.hostname) === 4 && host.hostname.startsWith("127.")))) return deny("untrusted_host");
+        || (isIP(host.hostname) === 4 && host.hostname.startsWith("127.")))) return await deny("untrusted_host");
       if ([...new URL(c.req.url).searchParams.keys()].some(k => /^(token|code|access_token|session_token|csrf)$/i.test(k))) {
-        return deny("owner_query_credentials_refused", c.req.path.startsWith("/api/team-control/") ? 401 : 403);
+        return await deny("owner_query_credentials_refused", c.req.path.startsWith("/api/team-control/") ? 401 : 403);
       }
       if (browser) {
         let peer: string | undefined;
         try { peer = getConnInfo(c).remote.address?.replace(/^::ffff:/i, ""); } catch { /* Missing peer identity fails closed. */ }
-        if (!peer || !(peer === "::1" || (isIP(peer) === 4 && peer.startsWith("127.")))) return deny("local_control_required");
+        if (!peer || !(peer === "::1" || (isIP(peer) === 4 && peer.startsWith("127.")))) return await deny("local_control_required");
         const requestOrigin = new URL(c.req.url).origin;
         // Browsers omit Origin on same-origin GET/HEAD. Fetch Metadata is browser-controlled;
         // mutation and upgrade admission still require an explicit matching Origin.
@@ -318,7 +333,7 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
         const origin = typeof presentedOrigin === "string" ? parseOrigin(presentedOrigin) : { kind: "malformed" as const };
         if (origin.kind !== "ok" || origin.scheme + ":" !== new URL(c.req.url).protocol
           || origin.hostname !== host.hostname || origin.port !== host.port
-          || ![undefined, "same-origin", "none"].includes(c.req.header("Sec-Fetch-Site"))) return deny("browser_origin_refused");
+          || ![undefined, "same-origin", "none"].includes(c.req.header("Sec-Fetch-Site"))) return await deny("browser_origin_refused");
         c.set("ownerBrowserOrigin" as never, new URL(presentedOrigin!).origin);
         c.set("ownerCookieHeader" as never, cookie);
         const header = rawHeader(c, "x-multi-agent-csrf");
@@ -326,12 +341,12 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
         const offered = typeof protocols === "string" ? protocols.split(",").map(p => p.trim())
           .filter(p => p.startsWith("multi-agent-csrf.")).map(p => p.slice("multi-agent-csrf.".length)) : [];
         if (header === null || protocols === null || offered.length > 1
-          || (header !== undefined && offered.length === 1 && header !== offered[0])) return deny("owner_anti_forgery_required");
+          || (header !== undefined && offered.length === 1 && header !== offered[0])) return await deny("owner_anti_forgery_required");
         c.set("ownerAntiForgery" as never, header ?? offered[0]);
         if (c.req.path !== "/api/team-control/owner-session/exchange") {
-          if (c.req.header("Authorization") !== undefined) return deny("owner_browser_bearer_refused");
+          if (c.req.header("Authorization") !== undefined) return await deny("owner_browser_bearer_refused");
           const refusal = options.authenticateOwnerCookie?.(c);
-          if (!options.authenticateOwnerCookie) return deny("owner_session_required");
+          if (!options.authenticateOwnerCookie) return await deny("owner_session_required");
           if (refusal) return refusal;
         }
       }
@@ -344,7 +359,7 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
     if ((c.req.path === "/api/team-control" || c.req.path.startsWith("/api/team-control/"))
       && (rawHeader(c, "origin") !== undefined || c.req.header("Cookie") !== undefined
         || c.req.header("Sec-Fetch-Site") !== undefined)) {
-      return refuse(c, "browser_origin_refused", "(unpaired control client)", "Browser control requires a paired owner session.");
+      return await refuse(c, "browser_origin_refused", "(unpaired control client)", "Browser control requires a paired owner session.");
     }
     const hostHeader = rawHeader(c, "host");
     // A duplicated (ambiguous) Host is malformed; an explicitly empty one fails parsing.
@@ -352,7 +367,7 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
     let hostAccepted = false;
     if (host.kind === "malformed") {
       const value = shown(hostHeader === null ? "(duplicate Host)" : hostHeader ?? "");
-      return refuse(c, "untrusted_host", value,
+      return await refuse(c, "untrusted_host", value,
         `This Multi-Agent daemon refused a request with an unusable Host header ("${value}"). Address the daemon by localhost, an IP address or this machine's own name.`);
     }
     if (host.kind === "ok") {
@@ -362,7 +377,7 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
         const tokenValid = presented !== null && tokens.some((token) => constantTimeEqual(presented, token));
         if (!tokenValid) {
           const value = shown(host.hostname);
-          return refuse(c, "untrusted_host", value,
+          return await refuse(c, "untrusted_host", value,
             `This Multi-Agent daemon does not accept requests addressed to "${value}". Use localhost, an IP address or this machine's own name, or add this name to MULTI_AGENT_ALLOWED_HOSTS in the daemon's environment and restart the daemon.`);
         }
       }
@@ -377,7 +392,7 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
         && origin.hostname === host.hostname && origin.port === host.port;
       if (!ownUi && !explicitlyAllowedOrigin(originHeader, origin)) {
         const value = shown(originHeader);
-        return refuse(c, "browser_origin_refused", value,
+        return await refuse(c, "browser_origin_refused", value,
           `This Multi-Agent daemon refuses browser requests from origin "${value}". Open the Multi-Agent UI from the daemon's own address with the web UI enabled (MULTI_AGENT_UI_ENABLED=true, then restart the daemon), or add this exact origin to MULTI_AGENT_ALLOWED_ORIGINS in the daemon's environment and restart. Web pages on other origins cannot read this response.`);
       }
     }

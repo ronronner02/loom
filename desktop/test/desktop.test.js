@@ -198,7 +198,7 @@ test('the window may navigate only to the current dynamic origin', () => {
 test('only the engine this app forked is trusted, not any 200', () => {
   const body = JSON.stringify({
     status: 'ok', pid: 42, eventLoop: { healthy: true }, routeTimings: {}, slowOperations: { healthy: true },
-    bind: { mode: 'explicit', hosts: ['127.0.0.1'], tailscaleDetected: false },
+    bind: { mode: 'explicit', hosts: ['127.0.0.1'] },
   });
   assert.equal(originRules.isDaemonHealth(body, 42), true);
   assert.equal(originRules.isDaemonHealth(body, 43), false, 'another daemon on the port is refused');

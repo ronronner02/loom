@@ -67,7 +67,7 @@ import { GithubCli } from "./domain/github-cli.js";
 interface DaemonOptions {
   dbPath?: string;
   teamControl?: AppDeps["teamControl"];
-  /** S20 — the effective bind plan (mode/hosts/tailscaleDetected/ignoredRoutingHost),
+  /** S20 — the effective bind plan (mode/hosts/ignoredRoutingHost),
    *  computed once in index.ts and exposed on /healthz so adoption gates verify
    *  listeners by binding evidence. Absent (tests/legacy) = healthz body unchanged. */
   bindPlan?: import("./domain/bind-plan.js").BindPlan;

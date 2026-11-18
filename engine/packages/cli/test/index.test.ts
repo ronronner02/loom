@@ -5,9 +5,10 @@ import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createProgram, isDirectRun } from "../src/index.js";
 import { CLI_VERSION } from "../src/version.js";
+import { symlinkRefusal } from "./symlink.js";
 
 describe("CLI entrypoint direct-run detection", () => {
-  it("treats a symlinked bin path as direct execution", () => {
+  it.skipIf(symlinkRefusal !== null)("treats a symlinked bin path as direct execution", () => {
     const actualPath = fileURLToPath(new URL("../src/index.ts", import.meta.url));
     const tmpDir = mkdtempSync(join(tmpdir(), "removed-index-"));
     const symlinkPath = join(tmpDir, "rig");

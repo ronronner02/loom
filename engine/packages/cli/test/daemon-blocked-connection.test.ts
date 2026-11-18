@@ -15,6 +15,7 @@ import { renderDaemonTransportError } from "../src/cli-error.js";
 import { getDaemonStatus, type LifecycleDeps } from "../src/daemon-lifecycle.js";
 import { resolveOfflineHelpPath } from "../src/daemon-reachability.js";
 import { createProcessLiveness, signalProbe } from "../src/commands/daemon.js";
+import path from "node:path";
 
 const URL = "http://127.0.0.1:7433";
 const DOWN_ADVICE = /multi-agent daemon start|'multi-agent up'|if it is down/i;
@@ -114,7 +115,8 @@ describe("transport render: blocked is not down", () => {
     expect(err).toMatch(/help\.md/);
     expect(err).toMatch(/cannot change its own sandbox/);
     expect(err).toContain("The agent is waiting for permission or can't reach the daemon");
-    expect(err).toMatch(/docs\/reference\/help\.md/);
+    // The guide path is the one this install has, spelled with the host's separator.
+    expect(err).toContain(path.join("docs", "reference", "help.md"));
     expect(err).not.toMatch(DOWN_ADVICE);
     expect(err).not.toMatch(WIDENING);
   });
@@ -179,22 +181,25 @@ describe("status probe keeps the cause", () => {
 });
 
 describe("offline help guide path (reachable without the daemon)", () => {
+  // The resolver joins with `path.resolve`, so every path here is spelled for this host and
+  // the injected `exists` is asked about exactly the candidates the resolver derives.
+  const checkoutDocs = path.resolve(path.join("/r", "packages", "cli", "src"), "..", "..", "..", "docs", "reference", "help.md");
+  const checkoutBundled = path.resolve(path.join("/r", "packages", "cli", "src"), "..", "daemon", "docs", "reference", "help.md");
+  const installedBase = path.join("/p", "lib", "node_modules", "@multi-agent", "cli", "dist");
+  const installedBundled = path.resolve(installedBase, "..", "daemon", "docs", "reference", "help.md");
+  const installedOutside = path.resolve(path.join("/p", "lib", "node_modules"), "docs", "reference", "help.md");
+
   it("prefers the source checkout's docs, then the copy bundled in the package", () => {
-    const checkout = "/r/packages/cli/src";
-    expect(resolveOfflineHelpPath(checkout, (p) => p === "/r/docs/reference/help.md" || p === "/r/packages/cli/daemon/docs/reference/help.md"))
-      .toBe("/r/docs/reference/help.md");
-    const installed = "/p/lib/node_modules/@multi-agent/cli/dist";
-    expect(resolveOfflineHelpPath(installed, (p) => p === "/p/lib/node_modules/@multi-agent/cli/daemon/docs/reference/help.md"))
-      .toBe("/p/lib/node_modules/@multi-agent/cli/daemon/docs/reference/help.md");
-    expect(resolveOfflineHelpPath(installed, () => false)).toBeUndefined();
+    const checkout = path.join("/r", "packages", "cli", "src");
+    expect(resolveOfflineHelpPath(checkout, (p) => p === checkoutDocs || p === checkoutBundled))
+      .toBe(checkoutDocs);
+    expect(resolveOfflineHelpPath(installedBase, (p) => p === installedBundled)).toBe(installedBundled);
+    expect(resolveOfflineHelpPath(installedBase, () => false)).toBeUndefined();
   });
 
   it("never resolves outside an installed package, even if a file sits there", () => {
-    const installed = "/p/lib/node_modules/@multi-agent/cli/dist";
-    const outside = "/p/lib/node_modules/docs/reference/help.md";
-    const bundled = "/p/lib/node_modules/@multi-agent/cli/daemon/docs/reference/help.md";
-    expect(resolveOfflineHelpPath(installed, (p) => p === outside || p === bundled)).toBe(bundled);
-    expect(resolveOfflineHelpPath(installed, (p) => p === outside)).toBeUndefined();
+    expect(resolveOfflineHelpPath(installedBase, (p) => p === installedOutside || p === installedBundled)).toBe(installedBundled);
+    expect(resolveOfflineHelpPath(installedBase, (p) => p === installedOutside)).toBeUndefined();
   });
 });
 
