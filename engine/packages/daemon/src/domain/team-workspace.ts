@@ -5,7 +5,7 @@ import { closeSync, chmodSync, copyFileSync, fstatSync, lstatSync, mkdirSync, mk
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import type { CandidateIdentity } from "./review-evidence.js";
-import { canonicalPath, isRedirectingEntry, isWindows } from "./platform.js";
+import { canonicalPath, isRedirectingEntry, isWindows, samePath } from "./platform.js";
 import type { ScopeProjection } from "../contracts/team-control.js";
 import type { CandidateScopeEvidence } from "./scope-extension.js";
 import { addWorktree } from "./worktree-policy.js";
@@ -1074,33 +1074,97 @@ export function createCandidateWorkspace(input: {
  *
  * The repository's own worktree is included, because it is registered the same way.
  */
-export function sourceWorktrees(sourceRoot: string): Set<string> {
+export function sourceWorktrees(sourceRoot: string): string[] {
+  const registered = [canonicalPath(sourceRoot)];
+  const admin = sourceAdminDirectory(sourceRoot);
+  if (admin === null) return registered;
+  for (const workspaceRoot of registeredWorktreePaths(admin)) {
+    let canonical: string;
+    try { canonical = canonicalPath(workspaceRoot); } catch {
+      // A registration whose tree is gone still names a path; the path it names is kept.
+      canonical = resolve(workspaceRoot);
+    }
+    registered.push(canonical);
+  }
+  return registered;
+}
+
+/**
+ * Whether two spellings of a path name the same worktree.
+ *
+ * Equality is asked by resolving, not by matching a spelling this walk happened to enumerate.
+ * Windows has a second, 8.3 name for a directory (`C:\Users\RUNNER~1\…` for
+ * `C:\Users\runneradmin\…`), a registration's pointer can hold either one, and Git writes the
+ * separators it was given — a runner's `%TEMP%` reaches this as `C:/Users/runneradmin/…\probe-wt`.
+ * A set of strings missed exactly those cases: a genuine candidate went unrecognised, so it was
+ * never adopted and its source's ref proof never moved, and the next Merge refused a readable
+ * result. Resolving both sides and comparing the result is the same answer without depending on
+ * which spelling either side used.
+ */
+export function sameWorktreePath(left: string, right: string): boolean {
+  if (resolve(left) === resolve(right)) return true;
+  let canonicalLeft: string | null = null;
+  let canonicalRight: string | null = null;
+  try { canonicalLeft = canonicalPath(left); } catch { /* a vanished tree keeps its resolved spelling */ }
+  try { canonicalRight = canonicalPath(right); } catch { /* as above */ }
+  return canonicalLeft !== null && canonicalRight !== null && samePath(canonicalLeft, canonicalRight);
+}
+
+/** The admin directory holding this repository's worktree registrations, if it has one. */
+function sourceAdminDirectory(sourceRoot: string): string | null {
   const repository = canonicalPath(sourceRoot);
-  const registered = new Set<string>();
-  // Both spellings of the source itself: callers hold a `sourceRoot` from either resolver.
-  let physical = repository;
-  try { physical = realpathSync(sourceRoot); } catch { /* the canonical spelling stands alone */ }
-  registered.add(repository);
-  registered.add(physical);
-  registered.add(resolve(sourceRoot));
   const adminPath = gitOrNull(repository, ["rev-parse", "--git-path", "worktrees"])?.trim();
-  if (!adminPath) return registered;
-  const admin = isAbsolute(adminPath) ? adminPath : join(repository, adminPath);
+  if (!adminPath) return null;
+  return isAbsolute(adminPath) ? adminPath : join(repository, adminPath);
+}
+
+/** The worktree path each registration in one admin directory names. */
+function registeredWorktreePaths(admin: string): string[] {
   let entries: string[];
-  try { entries = readdirSync(admin); } catch { return registered; }
+  try { entries = readdirSync(admin); } catch { return []; }
+  const named: string[] = [];
+  for (const entry of entries) {
+    const pointer = registrationPointer(admin, entry);
+    if (pointer !== null) named.push(dirname(pointer));
+  }
+  return named;
+}
+
+/**
+ * Whether the source repository's registry holds a worktree at exactly this path.
+ *
+ * An unreadable registry is a refusal, not "not registered": the caller uses this to decide
+ * provenance, and a missing answer must never become an adoption.
+ */
+export function isSourceWorktree(sourceRoot: string, workspaceRoot: string): boolean {
+  const admin = sourceAdminDirectory(sourceRoot);
+  if (admin === null) return false;
+  return registeredWorktreePaths(admin).some(named => sameWorktreePath(named, workspaceRoot));
+}
+
+/**
+ * Drop this candidate's registration, and only this candidate's.
+ *
+ * Git's own `worktree prune` is repository-wide: it deletes every administrative entry it judges
+ * prunable, which includes the owner's own missing worktrees and any other task's candidate whose
+ * `.git` a worker removed. Releasing one task must not destroy registry state it does not own, so
+ * the entry is matched here by the `gitdir` pointer that names this exact tree and removed
+ * directly. No git process runs, so no candidate path is ever passed to one.
+ */
+export function forgetSourceWorktree(sourceRoot: string, workspaceRoot: string): void {
+  const admin = sourceAdminDirectory(sourceRoot);
+  if (admin === null) return;
+  let entries: string[];
+  try { entries = readdirSync(admin); } catch { return; }
   for (const entry of entries) {
     const pointer = registrationPointer(admin, entry);
     if (pointer === null) continue;
-    const named = dirname(pointer);
-    // The long spelling on both sides: Windows also keeps an 8.3 name for a directory, and a
-    // registration git wrote and this walk resolves can come back in either one.
-    try { registered.add(canonicalPath(named)); } catch { /* A registration whose tree is gone still names a path; it is kept. */ }
-    try { registered.add(realpathSync(named)); } catch { /* as above: the unresolved spelling is kept below */ }
-    // The unresolved parent is kept too: a worktree whose directory was temporarily unmounted is
-    // still a registration, and forgetting it would be the same defect in a quieter form.
-    registered.add(named);
+    // The entry belongs to this candidate when its pointer names this tree, whether the pointer
+    // was written through a symlink, in relative form, in the short spelling or with mixed
+    // separators.
+    if (!sameWorktreePath(dirname(pointer), workspaceRoot)) continue;
+    rmSync(join(admin, entry), { recursive: true, force: true });
   }
-  return registered;
 }
 
 /**
@@ -1118,44 +1182,6 @@ function registrationPointer(admin: string, entry: string): string | null {
   try { pointer = readFileSync(join(directory, "gitdir"), "utf8").trim(); } catch { return null; }
   if (!pointer) return null;
   return isAbsolute(pointer) ? pointer : resolve(directory, pointer);
-}
-
-/** Whether the source repository's registry holds a worktree at exactly this path. */
-export function isSourceWorktree(sourceRoot: string, workspaceRoot: string): boolean {
-  let canonical: string;
-  try { canonical = canonicalPath(workspaceRoot); } catch { return false; }
-  return sourceWorktrees(sourceRoot).has(canonical) || sourceWorktrees(sourceRoot).has(resolve(workspaceRoot));
-}
-
-/**
- * Drop this candidate's registration, and only this candidate's.
- *
- * Git's own `worktree prune` is repository-wide: it deletes every administrative entry it judges
- * prunable, which includes the owner's own missing worktrees and any other task's candidate whose
- * `.git` a worker removed. Releasing one task must not destroy registry state it does not own, so
- * the entry is matched here by the `gitdir` pointer that names this exact tree and removed
- * directly. No git process runs, so no candidate path is ever passed to one.
- */
-export function forgetSourceWorktree(sourceRoot: string, workspaceRoot: string): void {
-  const repository = realpathSync(sourceRoot);
-  const adminPath = gitOrNull(repository, ["rev-parse", "--git-path", "worktrees"])?.trim();
-  if (!adminPath) return;
-  const admin = isAbsolute(adminPath) ? adminPath : join(repository, adminPath);
-  let canonical: string;
-  try { canonical = realpathSync(workspaceRoot); } catch { canonical = resolve(workspaceRoot); }
-  let entries: string[];
-  try { entries = readdirSync(admin); } catch { return; }
-  for (const entry of entries) {
-    const pointer = registrationPointer(admin, entry);
-    if (pointer === null) continue;
-    const named = dirname(pointer);
-    let resolved: string;
-    try { resolved = realpathSync(named); } catch { resolved = resolve(named); }
-    // The entry belongs to this candidate when its pointer names this tree, whether the pointer
-    // was written through a symlink, in relative form or not.
-    if (resolved !== canonical && resolve(named) !== resolve(workspaceRoot)) continue;
-    rmSync(join(admin, entry), { recursive: true, force: true });
-  }
 }
 
 /**

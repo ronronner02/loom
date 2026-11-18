@@ -10,7 +10,7 @@ import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
 import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
 import { hashBinding, hashBytes } from "../src/domain/plan-governance.js";
-import { candidateManifest, isSourceWorktree, removeCandidateWorkspace } from "../src/domain/team-workspace.js";
+import { candidateManifest, isSourceWorktree, removeCandidateWorkspace, sameWorktreePath } from "../src/domain/team-workspace.js";
 import { shortPath } from "./helpers/short-path.js";
 import { symlinkRefusal } from "./helpers/symlink.js";
 
@@ -162,6 +162,29 @@ describe("candidate adoption and release use control-owned provenance", () => {
     expect(adopted.root).toBe(created.root);
     expect(candidateManifest(adopted).files.map(file => file.path)).toContain("src/work.ts");
     expect(isSourceWorktree(repo, short)).toBe(true);
+  });
+
+  it("recognises a registration written with separators and a spelling this walk did not enumerate", () => {
+    // Git writes a `gitdir` pointer with the separators it was handed: on the CI runner a
+    // candidate under a `%TEMP%` given as `C:/Users/…` is registered with that prefix and
+    // backslashes after it. A registry compared as a set of enumerated strings misses exactly
+    // that spelling, and the miss is not cosmetic: the candidate is never adopted after a
+    // restart, its source ref proof never follows the owner's Merge, and the next merge refuses
+    // a result the owner can already read. Membership is therefore asked by resolving both
+    // sides, which is what this case pins.
+    const repo = repository();
+    insertRun("run-1", repo);
+    const created = runtimeFor().candidateFor("run-1", "T048", "ma-worker1");
+    const mixed = created.root.replace(/^([A-Za-z]:)([\\/])/, "$1/").replaceAll("/", "\\").replace(/^([A-Za-z]:)\\/, "$1/");
+    expect(mixed, "the fixture is the mixed spelling, not the recorded one").not.toBe(created.root);
+    expect(sameWorktreePath(mixed, created.root)).toBe(true);
+    expect(sameWorktreePath(created.root, created.root)).toBe(true);
+    expect(isSourceWorktree(repo, mixed)).toBe(true);
+    // A different tree is still a different tree: resolving must not make the comparison loose.
+    const elsewhere = join(directory, "not-a-registration");
+    mkdirSync(elsewhere, { recursive: true });
+    expect(sameWorktreePath(elsewhere, created.root)).toBe(false);
+    expect(isSourceWorktree(repo, elsewhere)).toBe(false);
   });
 
   it("refuses a plain directory at the candidate path and leaves the task launchable", () => {

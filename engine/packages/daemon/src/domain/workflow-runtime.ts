@@ -27,6 +27,7 @@ import {
   recordSnapshotCandidate,
   removeCandidateWorkspace,
   resolveWorkspaceBase,
+  sameWorktreePath,
   snapshotCandidateRecorded,
   sourceFingerprint,
   sourceWorktrees,
@@ -879,7 +880,10 @@ export class WorkflowRuntime {
   acceptOwnerMerge(repository: string, move: SourceRefMove): void {
     const sources = sourceWorktrees(repository);
     for (const [key, workspace] of this.candidates) {
-      if (this.invalidCandidates.has(key) || !sources.has(workspace.sourceRoot)) continue;
+      // The registration and the candidate's recorded source can be spelled differently for
+      // the same tree, so membership is asked by resolving rather than by string equality.
+      if (this.invalidCandidates.has(key)
+        || !sources.some(source => sameWorktreePath(source, workspace.sourceRoot))) continue;
       try { acceptSourceRefMove(workspace, move); }
       catch { /* An unreadable source keeps its old proof and stays unavailable. */ }
     }
