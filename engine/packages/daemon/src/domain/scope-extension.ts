@@ -187,14 +187,14 @@ export class ScopeExtensions {
       let canonicalPath: string;
       try { canonicalPath = canonical(evidence.root, change.path); }
       catch { throw new ScopeExtensionError("plan-change-required", "path-escape"); }
-      // C3 — a lead's one output is its decomposition, at the root of its own tree. Its
+      // A lead's one output is its decomposition, at the root of its own tree. Its
       // assignment paths are the run's scope, which is what the proposed tasks must stay
       // inside, so the proposal is legitimately outside them. The completion path already
       // reads it as the lead's deliverable; staging it as an out-of-scope write instead
       // refuses every lead revision, whose candidate still holds the proposal the earlier
       // attempt wrote. Only this exact path, and only for the lead, is exempt.
       //
-      // U6 — the escalation is the second file the same rule covers: it is how the lead asks
+      // The escalation is the second file the same rule covers: it is how the lead asks
       // the owner for a decision, it lives at the same root for the same reason, and a later
       // launch would otherwise be refused for the question the lead is still waiting on.
       if (task.assignment.role === "lead" && change.path === canonicalPath

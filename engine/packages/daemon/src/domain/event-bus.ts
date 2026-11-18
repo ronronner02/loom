@@ -210,7 +210,7 @@ export class EventBus {
   }
 
   /**
-   * T052 — replay one run's events from a durable cursor.
+   * Replay one run's events from a durable cursor.
    *
    * The managed read boundary needs one run's events, not one rig's: a rig may
    * host several runs, and a run may be projected onto a rig the reader is not
@@ -230,7 +230,7 @@ export class EventBus {
   }
 
   /**
-   * T052 — the durable replay window.
+   * The durable replay window.
    *
    * `retainedFrom` is the oldest sequence still present, so a cursor older than
    * it is a real gap the reader must report rather than silently backfilling.

@@ -303,7 +303,7 @@ export class SessionRegistry {
     }
   }
 
-  // OPR.0.4.0.22 — resume-token provenance precedence. A deliberate
+  // Resume-token provenance precedence. A deliberate
   // operator/attested set is authoritative and OUTRANKS the runtime hook, the
   // adoption-boundary capture, and the pane scrape (hook > adoption > scrape).
   // A lower-rank write must never clobber a higher-rank persisted token.

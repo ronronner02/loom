@@ -147,12 +147,12 @@ interface Result {
   reviewTaskId?: string;
   /** MVP — the lead task a rejected proposal reopened, which the route dispatches next. */
   revisionTaskId?: string;
-  /** U8 — pending work a resumed run should offer to the dispatcher. */
+  /** Pending work a resumed run should offer to the dispatcher. */
   resumeTaskIds?: string[];
 }
 
 /**
- * C2 — one review round's recorded verdict, as the durable `review.verdict` event carries it.
+ * One review round's recorded verdict, as the durable `review.verdict` event carries it.
  *
  * `taskId` is the implementer under review and `reviewerTaskId` is the run's own reviewer
  * task, so a reader can tell the two apart without joining the assignment rows.
@@ -266,13 +266,13 @@ export class PlanGovernance {
     const id = text(input.id, "runId", 256);
     const rigId = text(input.rigId, "rigId", 256);
     const binding = parsePlanBinding(input.binding);
-    // C2 — the seat every review round of this run routes to. A start that names none keeps
+    // The seat every review round of this run routes to. A start that names none keeps
     // the pre-C2 behaviour: an implementer task completes and no review task is created.
     const reviewerSeat = input.reviewerSeat === undefined || input.reviewerSeat === null ? null : text(input.reviewerSeat, "reviewerSeat", 256);
-    // U9 — the run's name from its goal. A caller that names none records no name, and `getRun`
+    // The run's name from its goal. A caller that names none records no name, and `getRun`
     // falls back to the run's creation order on the rig.
     const displayName = input.displayName?.trim() || null;
-    // U5 — a planning run's work is the lead's conversation with the owner; every other run
+    // A planning run's work is the lead's conversation with the owner; every other run
     // starts in delivery, which is what every row recorded before the phase existed is.
     const phase: TeamRunPhase = input.phase === "planning" ? "planning" : "delivery";
     const bindingDigest = hashBinding(binding);
@@ -294,7 +294,7 @@ export class PlanGovernance {
   }
 
   /**
-   * MVP slice 2 — every recorded run, newest first.
+   * Every recorded run, newest first.
    *
    * A read for the owner's run picker: a client that has no run id cannot discover one from
    * the per-run routes, and asking the owner to remember a UUID is not a flow. It writes
@@ -324,7 +324,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U8 — refresh the run's implementation approval immediately before a launch.
+   * Refresh the run's implementation approval immediately before a launch.
    *
    * There is deliberately no timer. Dispatch is the boundary that needs the authority, so a
    * dispatch close to (or just after) the old expiry extends the grant for another 24-hour
@@ -358,7 +358,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U7 — the run's integration branch, where it lives, and the commits landed on it.
+   * The run's integration branch, where it lives, and the commits landed on it.
    *
    * A run that has not integrated anything yet has no record, and the caller derives the branch
    * name from the run itself. The commits are returned in the order they landed, which is the
@@ -379,7 +379,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U9 — the name a task was admitted with, or null when its row recorded none.
+   * The name a task was admitted with, or null when its row recorded none.
    *
    * The integration commit's subject is the task's display name, so the reader here is the
    * integration owner rather than any part of the task contract.
@@ -391,7 +391,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U9 — a run recorded before names existed is named by its creation order on its rig.
+   * A run recorded before names existed is named by its creation order on its rig.
    *
    * `rowid` is the insertion order, which is what "created" means for rows whose `created_at`
    * can tie at millisecond resolution; the row's own position is what makes the ordinal stable.
@@ -435,7 +435,7 @@ export class PlanGovernance {
       evidence: evidenceJson === null ? null : JSON.parse(evidenceJson) as JsonObject };
   }
 
-  /** T053 — the run's recorded task for a plan task id, or null when `task.created` never ran for it. */
+  /** The run's recorded task for a plan task id, or null when `task.created` never ran for it. */
   workflowOutcomes(runId: string) {
     this.getRun(runId);
     return readRunWorkflows(this.db, runId);
@@ -458,7 +458,7 @@ export class PlanGovernance {
   }
 
   /**
-   * MVP — attempts of a task that are not observed stopped.
+   * Attempts of a task that are not observed stopped.
    *
    * The owner outcome command refuses while any attempt of the task is unresolved, so the
    * completion read states the same number instead of leaving the owner to infer it.
@@ -585,7 +585,7 @@ export class PlanGovernance {
   }
 
   /**
-   * C3 — whether a seat on this rig declares the implementer role.
+   * Whether a seat on this rig declares the implementer role.
    *
    * The seat is the latest session registered for a node, which is the address a launch
    * resolves; the role is that node's. A seat the rig does not have, or one that declares
@@ -599,7 +599,7 @@ export class PlanGovernance {
   }
 
   /**
-   * C3 — record the owner decision a lead's decomposition becomes.
+   * Record the owner decision a lead's decomposition becomes.
    *
    * The lead cannot admit work, and nothing it writes is admitted by the daemon: this records
    * one pending approval carrying the exact task batch the daemon read from the lead's own
@@ -641,7 +641,7 @@ export class PlanGovernance {
   }
 
   /**
-   * C3 — admit an owner-approved lead decomposition.
+   * Admit an owner-approved lead decomposition.
    *
    * Runs inside the decision command, so the approval and every task it carries commit
    * together. The batch is re-validated against the run's own binding and rows here rather
@@ -663,7 +663,7 @@ export class PlanGovernance {
   }
 
   /**
-   * MVP — reopen the lead's task after the owner rejected its proposal.
+   * Reopen the lead's task after the owner rejected its proposal.
    *
    * The rejection is the reason the lead's next attempt exists, so it is recorded as the
    * decision's own event payload rather than a second table: the launch reads the newest
@@ -706,9 +706,9 @@ export class PlanGovernance {
   }
 
   /**
-   * U6 — admit the lead's decomposition at its turn end, with no owner approval.
+   * Admit the lead's decomposition at its turn end, with no owner approval.
    *
-   * After the plan is approved the owner is the board, not the dispatcher (KTD1): the lead's
+   * After the plan is approved the owner is the board, not the dispatcher: the lead's
    * task list is ordinary work inside a binding the owner already approved, so the daemon
    * admits it the way it would admit any work — through the same `growthTasks` validation and
    * the same one admission write — and no approval row is created. The owner-decided path
@@ -857,7 +857,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U6 — refuse a decomposition the boundary could not parse, and make the reason the lead's
+   * Refuse a decomposition the boundary could not parse, and make the reason the lead's
    * next piece of work.
    *
    * `admitLeadProposal` refuses a batch the approved plan does not cover, but only after the
@@ -881,7 +881,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U6 — refuse a decomposition and make the refusal the lead's next piece of work.
+   * Refuse a decomposition and make the refusal the lead's next piece of work.
    *
    * The reason reaches an agent's prompt, so it is the governance owner's own sentence and not
    * a stack trace. The lead task is reopened through the transition a rejected proposal already
@@ -907,7 +907,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U6 — wake the lead with the team events it has not been told about.
+   * Wake the lead with the team events it has not been told about.
    *
    * One command per wake, not one per event: the caller collects everything one sweep found and
    * the note lists them together, so a team that fails two tasks at once is one turn, not two.
@@ -971,7 +971,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U6 — put a failed lead task back in the queue when the owner resumes the run.
+   * Put a failed lead task back in the queue when the owner resumes the run.
    *
    * A lead failure the daemon will not retry blocks the run, and no wake can reach the lead:
    * it is the manager. Resume is the owner's one action for a blocked run, so it is also what
@@ -991,7 +991,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U6 — the chat message, and the decision it answers.
+   * The chat message, and the decision it answers.
    *
    * An owner message that names a decision answers it: the decision row keeps the message id,
    * which is what makes it no longer pending. The message itself is unchanged — it is the owner
@@ -1056,7 +1056,7 @@ export class PlanGovernance {
   }
 
   /**
-   * Plan R7/R8/KTD5 — the owner's comment on one task.
+   * The owner's comment on one task.
    *
    * The comment is stored on the task's thread and the task's own next turn reads it. A task that
    * can take a turn now is dispatched; a running or held task keeps the comment for later. A task
@@ -1095,7 +1095,7 @@ export class PlanGovernance {
     });
   }
 
-  /** Plan R10 — the owner holds or releases a task. Only the owner releases a hold. */
+  /** the owner holds or releases a task. Only the owner releases a hold. */
   holdTask(raw: ControlRequest<unknown>, actor: ControlActor): ControlReceipt {
     const owner = actorIdentity(actor, true);
     return this.command("task.held", raw, owner, (ctx) => {
@@ -1113,7 +1113,7 @@ export class PlanGovernance {
   }
 
   /**
-   * Plan KTD6 — a comment that waited for a task under review becomes a follow-up once the task's
+   * A comment that waited for a task under review becomes a follow-up once the task's
    * change lands. The sweep asks this once per waiting task; the follow-up id makes it idempotent.
    */
   promoteTaskComments(runId: string): string[] {
@@ -1301,32 +1301,32 @@ export class PlanGovernance {
     });
   }
 
-  /** U6 — the decision the run is waiting on, as the chat read publishes it. */
+  /** The decision the run is waiting on, as the chat read publishes it. */
   chatDecision(runId: string): TeamChatMessage | null {
     this.getRun(runId);
     return pendingDecision(this.db, runId);
   }
 
-  /** U5 — the run's conversation, in order. A read for the route; it writes nothing. */
+  /** The run's conversation, in order. A read for the route; it writes nothing. */
   chatMessages(runId: string): TeamChatMessage[] {
     this.getRun(runId);
     return listChatMessages(this.db, runId);
   }
 
-  /** Plan KTD3 — the lead messages that needed no owner attention, kept as the run's activity. */
+  /** the lead messages that needed no owner attention, kept as the run's activity. */
   activityMessages(runId: string): TeamChatMessage[] {
     this.getRun(runId);
     return listRunActivity(this.db, runId);
   }
 
-  /** U5 — the run's one lead task: the task a chat message and a plan approval address. */
+  /** The run's one lead task: the task a chat message and a plan approval address. */
   leadTask(runId: string): { taskId: string; qitemId: string } | null {
     this.getRun(runId);
     return runLeadTask(this.db, runId);
   }
 
   /**
-   * U5 — the owner approves the plan, and the run becomes delivery.
+   * The owner approves the plan, and the run becomes delivery.
    *
    * The plan's bytes were read from the lead's own candidate tree and committed to the
    * daemon-owned branch before this runs; what is left is the binding it establishes. The
@@ -1536,7 +1536,7 @@ export class PlanGovernance {
       const approval = this.getApproval(ctx.request.actionId);
       if (!approval || approval.runId !== ctx.run.id) throw new Error("Approval not found in this run");
       const growth = approval.action === "scope-change" && approval.payload.change === "run-growth";
-      // C3 — a lead's decomposition is a batch inside the binding the owner already approved,
+      // A lead's decomposition is a batch inside the binding the owner already approved,
       // so it is decided against the current binding exactly like any other decision; only its
       // admission differs from growth's, which also replaces the binding.
       const lead = approval.action === "scope-change" && approval.payload.change === "lead-proposal";
@@ -1573,7 +1573,7 @@ export class PlanGovernance {
       if (updated.changes !== 1) throw new Error("Approval version conflict");
       if (growth && v.decision === "approved") return this.applyRunGrowth(ctx, approval, owner);
       if (lead && v.decision === "approved") return this.applyLeadProposal(ctx, approval, owner);
-      // MVP — a rejected lead proposal is the lead's next piece of work, not the end of the
+      // A rejected lead proposal is the lead's next piece of work, not the end of the
       // conversation. With headless turns the owner can no longer type a revision request into
       // the lead's terminal, so the rejection itself carries the reason and reopens the lead
       // task; the dispatch that already follows an `effectMayStart` receipt starts its next
@@ -1606,7 +1606,7 @@ export class PlanGovernance {
   }
 
   /**
-   * T017 (cancellation half) — record that the cancellation came to rest, or say what did not.
+   * Record that the cancellation came to rest, or say what did not.
    *
    * `cancelRun` records the owner's intent and says in its own reason that termination has not
    * been observed. This is the observation: once every attempt the run recorded has ended and no
@@ -1687,7 +1687,7 @@ export class PlanGovernance {
           || this.db.prepare("SELECT id FROM team_attempts WHERE qitem_id = ? AND state <> 'stopped' LIMIT 1").get(task.qitemId)) {
           return deny("Retry requires a verified failed task with every attempt observed stopped");
         }
-        // T033 — KTD20 decides whether this failure may be retried, and this command never
+        // decides whether this failure may be retried, and this command never
         // re-derives that answer: it reads the code the classifier recorded with the stop. An
         // attempt with no classification is exactly "when uncertain, choose not retried", and a
         // code outside the eligible set is a blocker whose reason is the owner action.
@@ -1778,7 +1778,7 @@ export class PlanGovernance {
           return deny(eligibilityReason);
         }
         ctx.run.stateReason = null;
-        // U6 — a run blocked because its lead failed is restarted by the same click. The lead
+        // A run blocked because its lead failed is restarted by the same click. The lead
         // cannot wake itself, so Resume is what puts it back in the queue; the dispatcher then
         // gets it through `resumeTaskIds`, exactly as it gets any other pending task.
         this.reopenFailedLeadTask(ctx);
@@ -1803,7 +1803,7 @@ export class PlanGovernance {
   }
 
   /**
-   * C2 — the one admission write, for a definition the caller already validated.
+   * The one admission write, for a definition the caller already validated.
    *
    * `createTask` and run growth both reach it through `writeTask`; the review loop reaches
    * it with a reviewer assignment it derived from the run's own records, so there is one
@@ -1826,7 +1826,7 @@ export class PlanGovernance {
     const created = withQueueWrite(this.db, { operation: "create" }, () => this.queue.createWithinTransaction({
       sourceSession, destinationSession, body, targetRepo: ctx.run.binding.repository.root, nudge: false }));
     ctx.register(created.persistedEvent);
-    // U9 — the task's name, derived from the row it is admitted with: its own title, or for a
+    // The task's name, derived from the row it is admitted with: its own title, or for a
     // reviewer task the task it reviews. A body with nothing to name it by records none, and
     // the read model falls back to the task's order.
     const displayName = assignment.role === "reviewer" && assignment.reviewOf
@@ -1840,7 +1840,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U9 — a reviewer task's name from the task it reviews.
+   * A reviewer task's name from the task it reviews.
    *
    * The reviewed task's stored name is preferred; a row recorded before names existed is named
    * from its body by the rule `admitTask` applies to a plain task. The round is the count of
@@ -1874,7 +1874,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U7 — the daemon records a commit it landed on the run's integration branch.
+   * The daemon records a commit it landed on the run's integration branch.
    *
    * The commit is the run's delivery history, so it is recorded as one fact with the branch it
    * landed on, and the task's row is what says which work it carries. The only binding change
@@ -1957,7 +1957,7 @@ export class PlanGovernance {
     if (integer(v.expectedTaskVersion, "expectedTaskVersion", 1) !== task.entityVersion) throw new Error("Task version conflict");
     if (!TEAM_QUEUE_STATES.includes(v.state as QueueState)) throw new TeamContractError("task.state");
     const item = this.queue.getById(task.qitemId);
-    // U7 — one observed failure is decided after the task closed. A task's review approved its
+    // One observed failure is decided after the task closed. A task's review approved its
     // work and the patch could not land on the run's integration branch: the work exists, it was
     // accepted, and what failed is delivering it. That is the run's own recorded fact, so the
     // closed row is reopened and closed as failed in this command rather than left saying done.
@@ -2006,7 +2006,7 @@ export class PlanGovernance {
       if (v.state !== (report.status === "dropped" ? "done" : "blocked")) return deny("Task state differs from its report");
       evidence = jsonValue({ taskReport: report, reportedAttemptId: observedAttempt!.id, validated: false });
     } else if (observedOutcome && v.state === "blocked") return deny("A paused outcome requires a task report");
-    // C2 — a reviewer's completion is a review, not another reviewable candidate. Its
+    // A reviewer's completion is a review, not another reviewable candidate. Its
     // findings are validated before anything is written, so a P0/P1 with no failing scenario
     // refuses the whole outcome instead of recording a round nothing can act on. The verdict
     // itself is emitted with the rest of this command's writes, after the outcome is recorded.
@@ -2033,7 +2033,7 @@ export class PlanGovernance {
       state: v.state as QueueState, transitionNote, closureReason: optionalText("closureReason"),
       closureTarget: optionalText("closureTarget"), blockedOn: optionalText("blockedOn") }));
     for (const event of updated.persistedEvents) ctx.register(event);
-    // KTD3 — "failed with the classifier's code, which routes to one retry and then to the lead".
+    // "failed with the classifier's code, which routes to one retry and then to the lead".
     // The daemon's own observation spends the run's retry budget; an owner who records a failure
     // has the explicit retry command instead. A lead cannot wake itself, so a lead failure the
     // run will not retry — because the classifier forbids it, or because the budget is spent —
@@ -2054,7 +2054,7 @@ export class PlanGovernance {
         this.block(ctx, retryable ? "retry limit exhausted" : LEAD_FAILED_REASON);
       }
     }
-    // C2 — an implementer that completed with validated evidence gets its review task now,
+    // An implementer that completed with validated evidence gets its review task now,
     // through the same admission path a start and a run growth use. A run that named no
     // reviewer seat keeps the pre-C2 behaviour: the completion stands and no review exists,
     // and so does a refusal the loop itself decided (no second seat to route to).
@@ -2091,7 +2091,7 @@ export class PlanGovernance {
   }
 
   /**
-   * C2 — what a completed reviewer task's evidence says about the implementer it names.
+   * What a completed reviewer task's evidence says about the implementer it names.
    *
    * The reviewer task is the run's own row, so the implementer it reviews comes from that
    * row's `reviewOf` link, never from the request. Returns the round it will record, or the
@@ -2128,7 +2128,7 @@ export class PlanGovernance {
   }
 
   /**
-   * C2 — send a reviewed implementer task back for rework.
+   * Send a reviewed implementer task back for rework.
    *
    * The round was charged to `review_rounds_used` when the run admitted its reviewer task, so
    * this only reopens the implementer's terminal queue row. A review with no blocking finding
@@ -2149,7 +2149,7 @@ export class PlanGovernance {
   }
 
   /**
-   * C2 — create the reviewer task for an implementer that just completed with validated
+   * Create the reviewer task for an implementer that just completed with validated
    * evidence.
    *
    * Runs inside the outcome command, so the implementer's `done` and the reviewer task commit
@@ -2389,9 +2389,9 @@ export class PlanGovernance {
         if (previous !== null && (usage[key].value === null || usage[key].value! < previous)) throw new Error("Cumulative usage evidence must not decrease or disappear");
       }
       const unknownReason = state === "unknown" ? text(v.unknownReason, "unknownReason") : null;
-      // T033 — the classifier's decision travels with the stop, so a reader never re-derives it.
+      // The classifier's decision travels with the stop, so a reader never re-derives it.
       // It is accepted only on a stopped attempt, and only in the shape its own code implies:
-      // a stored `retryEligible` that disagrees with KTD20 would be authority this command does
+      // a stored `retryEligible` that disagrees with would be authority this command does
       // not have. The observation owner classifies; this command records what it said.
       const failure = state !== "stopped" || v.failure === undefined || v.failure === null
         ? null : parseAttemptClassification(v.failure);
@@ -2510,7 +2510,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U4 — record one durable lifecycle fact for an attempt.
+   * Record one durable lifecycle fact for an attempt.
    *
    * The turn lifecycle is a sequence of facts in the existing `team.control` log: `submitted`
    * before the spawn, `started` once the child identity is known, `acknowledged` at the first
@@ -2544,7 +2544,7 @@ export class PlanGovernance {
   }
 
   /**
-   * U4 — whether an attempt already recorded one lifecycle fact.
+   * Whether an attempt already recorded one lifecycle fact.
    *
    * The launch path asks before it appends, so a repeated observation of the same fact does
    * not grow the log. The query reads the same rows `recordAttemptLifecycle` writes.
@@ -2641,7 +2641,7 @@ export class PlanGovernance {
       .get(runId) as { count: number }).count + this.nativeLaunchIntents(runId).filter(intent => intent.state === "admitted").length;
   }
 
-  /** U8 — work a resumed run may offer to the dispatcher, in queue order. */
+  /** Work a resumed run may offer to the dispatcher, in queue order. */
   private pendingResumeTaskIds(runId: string): string[] {
     const rows = this.db.prepare(`SELECT a.task_id AS taskId
       FROM team_queue_authority a JOIN queue_items q ON q.qitem_id = a.qitem_id

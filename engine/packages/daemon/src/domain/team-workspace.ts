@@ -23,7 +23,7 @@ import type { CandidateScopeEvidence } from "./scope-extension.js";
 import { addWorktree } from "./worktree-policy.js";
 
 /**
- * T011 / KTD8 — isolated candidate ownership.
+ * Isolated candidate ownership.
  *
  * A task's changes live in its own candidate tree, never in the owner's
  * worktree. Where the repository has an owner-established base commit the
@@ -64,7 +64,7 @@ export interface SourceFingerprint {
 }
 
 /**
- * KTD7 — the branch namespace the daemon owns. U5 creates `team/<run-slug>` and U7 commits to
+ * The branch namespace the daemon owns. creates `team/<run-slug>` and commits to
  * it, so a ref under this prefix moves because the daemon moved it, not the owner.
  */
 export const TEAM_BRANCH_PREFIX = "team/";
@@ -84,7 +84,7 @@ export interface CandidateWorkspace {
   /** Source state captured immediately before isolation, for later comparison. */
   source: SourceFingerprint;
   /**
-   * U7 — whether this candidate's source is the run's own integration worktree.
+   * Whether this candidate's source is the run's own integration worktree.
    *
    * A worktree on the run's `team/` branch is the daemon's to advance: every approved task lands
    * a commit there, and new tasks are staged from the new head. A candidate staged there before
@@ -94,7 +94,7 @@ export interface CandidateWorkspace {
    */
   integrationSource?: boolean;
   /**
-   * T048 — the control-owned creation record of a snapshot-lane candidate. The snapshot lane has
+   * The control-owned creation record of a snapshot-lane candidate. The snapshot lane has
    * no git registry to prove where the tree came from, so this file is its provenance and is
    * deleted with it. Absent for the commit lane, whose provenance is the source's worktree
    * registry.
@@ -230,18 +230,17 @@ function walkFiles(root: string, prefix = ""): string[] {
 }
 
 /**
- * T054 — the commit lane reads the candidate through git, on a copy git is allowed to see.
+ * The commit lane reads the candidate through git, on a copy git is allowed to see.
  *
  * A candidate is worker-writable by design, so any git command that treats it as a working
  * directory, a work tree or a repository reads configuration the worker wrote. Git has more
- * program hooks than an argument can enumerate: T044's review rounds closed `core.fsmonitor`,
- * then `diff.external`, then `filter.<drv>.clean`. T044 answered by reimplementing git's
- * reading of a worktree by hand — enumeration, symlink chains, attribute cleaning, binary
- * detection, path quoting and patch rendering — and every review round added another edge
- * case, three of which T051 fixed.
+ * program hooks than an argument can enumerate: each review round closed `core.fsmonitor`, then
+ * `diff.external`, then `filter.<drv>.clean`. Reading a worker's tree by hand — enumeration,
+ * symlink chains, attribute cleaning, binary detection, path quoting and patch rendering — kept
+ * adding edge cases instead.
  *
- * T054 copies the candidate instead, and everything after that point runs against bytes the
- * worker can no longer change:
+ * Copying the candidate settles it: everything after the copy runs against bytes the worker can
+ * no longer change.
  *
  * - The copy keeps a symlink as a link and never follows one, and it skips every entry named
  *   `.git`, so no candidate repository, gitdir file or nested checkout is ever discovered.
@@ -333,7 +332,7 @@ function sourceAutocrlf(sourceRoot: string): string {
  * `ignoreBOM` keeps a name that begins with U+FEFF as that name. `TextDecoder` strips a
  * leading BOM by default, so `﻿anchor.txt` decoded to `anchor.txt`, collided with
  * the real one and the second path was dropped from the manifest — a completeness failure
- * on the candidate's own file (T051, R3-2).
+ * on the candidate's own file.
  */
 function strictUtf8(bytes: Buffer, what: string): string {
   try {
@@ -875,7 +874,7 @@ function excludedDirectories(store: string, workTree: string, gitlinks: Readonly
 /**
  * The commit lane's manifest and patch.
  *
- * The sequence is the one plan U5 records:
+ * The sequence is the one plan records:
  *
  * 1. The candidate is copied into a control-owned tree (descriptor-relative, so a directory
  *    swapped for a link during the read cannot redirect it).
@@ -889,7 +888,7 @@ function excludedDirectories(store: string, workTree: string, gitlinks: Readonly
  *    the base commit alone.
  * 5. `add -A` stages the copy against those rules. Every conversion git performs here (line
  *    endings, `ident`, encodings) is what the patch will write, and the manifest hashes those
- *    same stored bytes, so the two cannot disagree (T051).
+ *    same stored bytes, so the two cannot disagree.
  * 6. `diff --cached` renders the patch from that index, so the manifest and the patch are one
  *    reading. A gitlink is carried by object id and is not a manifest entry: it has no bytes of
  *    its own.
@@ -1091,8 +1090,8 @@ export function resolveWorkspaceBase(root: string): WorkspaceBase {
   // The index holds staged files even before the first commit, and a staged file
   // is part of the baseline whether or not history exists yet.
   if (head !== null) return { kind: "commit", commit: head, files: listFiles(repositoryRoot, { index: true }) };
-  // No commit exists. KTD8 forbids manufacturing one to make the worktree lane
-  // available, so the baseline is the hash of what the working tree holds now.
+  // No commit exists, and the daemon never manufactures one to make a lane available: the
+  // baseline is the hash of what the working tree holds now.
   const files = listFiles(repositoryRoot, { index: true });
   return { kind: "snapshot", baselineDigest: digestManifest(files), files };
 }
@@ -1107,7 +1106,7 @@ function sourceRefs(root: string): string[] {
  * file a change would move.
  *
  * The daemon's own `refs/heads/team/` namespace is excluded. That namespace is the integration
- * branch U5 creates and U7 commits to, and its ref moves every time the daemon lands an approved
+ * branch creates and commits to, and its ref moves every time the daemon lands an approved
  * task. Counting it would make every in-flight candidate look like it had been staged from a
  * source the owner changed, which is the one movement the daemon caused itself.
  */
@@ -1166,7 +1165,7 @@ export function createCandidateWorkspace(input: {
   }
   mkdirSync(dirname(input.workspaceRoot), { recursive: true });
   if (input.base.kind === "commit") {
-    // KTD10 — every worktree goes through the one policy helper: the ceiling is preflighted
+    // Every worktree goes through the one policy helper: the ceiling is preflighted
     // (the candidate's leaf is `<runId>-<taskId>`, the longest leaf the daemon writes) and
     // `core.longpaths=true` is passed, so a Windows host refuses a long candidate by name
     // instead of failing inside Git.
@@ -1183,7 +1182,7 @@ export function createCandidateWorkspace(input: {
 }
 
 /**
- * T048 — the source repository's registered worktrees, as the provenance of a commit-lane
+ * The source repository's registered worktrees, as the provenance of a commit-lane
  * candidate.
  *
  * The registry is the source's admin directory, which no worker can write, so an entry there was
@@ -1219,7 +1218,7 @@ export function sourceWorktrees(sourceRoot: string): Set<string> {
 }
 
 /**
- * T048 — the worktree path one admin registration names.
+ * The worktree path one admin registration names.
  *
  * A registration's `gitdir` file holds the path of the worktree's own `.git`. It is usually
  * absolute, but `worktree.useRelativePaths` and `git worktree add --relative-paths` make it
@@ -1243,7 +1242,7 @@ export function isSourceWorktree(sourceRoot: string, workspaceRoot: string): boo
 }
 
 /**
- * T048 — drop this candidate's registration, and only this candidate's.
+ * Drop this candidate's registration, and only this candidate's.
  *
  * Git's own `worktree prune` is repository-wide: it deletes every administrative entry it judges
  * prunable, which includes the owner's own missing worktrees and any other task's candidate whose
@@ -1274,7 +1273,7 @@ export function forgetSourceWorktree(sourceRoot: string, workspaceRoot: string):
 }
 
 /**
- * T048 — record a snapshot-lane candidate in the control state directory.
+ * Record a snapshot-lane candidate in the control state directory.
  *
  * The snapshot lane copies files into a plain directory, so after a restart nothing on disk
  * separates the daemon's candidate from a directory a worker planted at the same path. This
@@ -1339,7 +1338,7 @@ function candidateArtifact(workspace: CandidateWorkspace): {
     };
   }
   // The snapshot lane has no history to diff against; the hashed manifest IS its
-  // identity, which is exactly what KTD8's "complete file manifest" allows. The
+  // identity, which is exactly what a complete file manifest allows. The
   // copy is a plain directory with no Git metadata, so it is walked directly.
   // No base commit means no attributes, so nothing is cleaned.
   if (workspace.checkScope) {
@@ -1382,7 +1381,7 @@ export function candidateManifest(workspace: CandidateWorkspace): {
  * and refs are where they were and every dirty file still hashes the same, so
  * no commit or merge was manufactured by staging a candidate.
  *
- * U7 — one movement is not a side effect. When the source is the run's own integration
+ * One movement is not a side effect. When the source is the run's own integration
  * worktree, the daemon commits approved work there, and a candidate staged before that commit
  * is still valid: it keeps the base it recorded, and its patch is applied on top. So that
  * source's HEAD may be a descendant of the recorded one — and only that source, and only a
@@ -1429,19 +1428,19 @@ function descendsFrom(root: string, ancestor: string | null, descendant: string 
 }
 
 /**
- * T012 / KTD8 — the read-only review packet.
+ * The read-only review packet.
  *
  * A reviewer must see the exact candidate — every tracked and untracked file
  * with its bytes — and must not be able to change it (R17). The packet is
  * therefore a *copy*, written read-only, beside an identity that binds it to the
  * manifest digest the daemon holds. A reviewer reading a different tree than the
- * one the manifest names is exactly the false-independence case T012 exists to
- * prevent, so the two travel together.
+ * one the manifest names is exactly the false independence a review has to rule out, so the
+ * two travel together.
  *
  * Two readings meet here and are deliberately kept apart:
  *
  * - `root` and the files under it are the candidate's **own worktree bytes**, because
- *   "the reviewer sees the exact candidate" is what T012 asks for.
+ *   the reviewer has to see the exact candidate the manifest describes.
  * - `identity.manifestDigest` and `manifest` describe the **canonical reading** the patch
  *   carries. For a path the base commit's attributes clean, that reading is the stored
  *   form: an edited `eol=lf` file's worktree holds CRLF while the patch writes LF.
@@ -1485,7 +1484,7 @@ export function candidateIdentity(manifest: ReturnType<typeof candidateManifest>
  * from inside them too, which is why `removeReviewPacket` restores write bits
  * before removal. Mode bits are a second layer, not the independence guarantee:
  * the real boundary is the reviewer running under a different OS identity with
- * the packet mounted read-only (KTD24's worker policy).
+ * the packet mounted read-only.
  */
 export function createReviewPacket(workspace: CandidateWorkspace, destination: string): ReviewPacket {
   // One normalized path is used for the guard, the removal and every join below.
@@ -1522,12 +1521,12 @@ export function createReviewPacket(workspace: CandidateWorkspace, destination: s
       // Record each ancestor once so the final read-only pass reaches all of them.
       for (let current = parent; current !== root; current = dirname(current)) directories.add(current);
     }
-    // The reviewer gets the candidate's own bytes (T012). Where the base commit's
+    // The reviewer gets the candidate's own bytes. Where the base commit's
     // attributes clean a path, those bytes differ from the canonical reading the patch
     // writes, and `cleanedPaths` is what discloses the difference — the packet never
     // silently substitutes one reading for the other.
     //
-    // A symlink is written as a regular file holding its target text (T054). That is the
+    // A symlink is written as a regular file holding its target text. That is the
     // reading the manifest records and the patch writes, and a link in the packet would be
     // followed by every later read of it. The parent is resolved through the containment
     // rule; the leaf is not, because resolving it is exactly what would read the target.
@@ -1618,8 +1617,7 @@ export function verifyReviewPacket(packet: ReviewPacket): { unchanged: boolean; 
   // - the packet's bytes against `packetDigest`, which catches an edit to a file;
   // - the manifest's own hashes against `identity.manifestDigest`, which catches a
   //   tampered manifest entry — a packet whose recorded hashes no longer describe the
-  //   candidate is not evidence about it, and R2-1 showed this case slipping through
-  //   when only the first check ran;
+  //   candidate is not evidence about it, and checking only the first let that slip through;
   // - each path outside `cleanedPaths` against its recorded hash, which catches a
   //   non-shaped file that changed between being hashed and being copied, so the packet
   //   and the manifest cannot disagree without one of the first two noticing a moment
@@ -1670,9 +1668,9 @@ export function removeReviewPacket(packet: ReviewPacket): void {
 /**
  * Release the candidate tree. The source worktree was never written, so nothing restores it.
  *
- * T048 — the tree is deleted directly, never by handing its path to git. `worktree remove <path>`
+ * The tree is deleted directly, never by handing its path to git. `worktree remove <path>`
  * runs git with the candidate as the repository to operate on, which reopens the configuration
- * class T044 closed: a worker-written `.git` or `config` in the candidate would be read. Its
+ * class this lane exists to close: a worker-written `.git` or `config` would be read. Its
  * registration is then dropped by `forgetSourceWorktree`, which matches the one admin entry that
  * names this tree — not by a repository-wide `prune`, which would also delete every other
  * registration git happens to judge prunable. The snapshot lane has no registration; its

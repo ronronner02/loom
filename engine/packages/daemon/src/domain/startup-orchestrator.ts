@@ -134,7 +134,7 @@ export class StartupOrchestrator {
     const chat = role === "lead"
       ? leadChatTurnNote(takeOwnerMessages(this.db, runId, attemptId), listChatMessages(this.db, runId), unassignedOwnerWorkflows(this.db, runId))
       : null;
-    // Plan KTD5 — an implementer's turn carries the owner's comments on its own task.
+    // An implementer's turn carries the owner's comments on its own task.
     const comments = role === "implementer"
       ? taskCommentNote(takeTaskComments(this.db, runId, taskId, attemptId), handbackPath(agentTurnOutputPaths(root, attemptId).taskReport),
         declinePath(agentTurnOutputPaths(root, attemptId).taskReport))

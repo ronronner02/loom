@@ -1,4 +1,4 @@
-// OPR.0.4.6.FAC1 — the PURE role→seat selection policy (BR-1).
+// The PURE role→seat selection policy (BR-1).
 //
 // THE PURITY CONTRACT (arch Q1 = guard B4, binding): this module is a
 // pure function over an already-materialized fact array. It has ZERO

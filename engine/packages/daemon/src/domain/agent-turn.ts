@@ -8,7 +8,7 @@ import { blockingFindings } from "./review-loop.js";
 import type { ReviewFinding } from "./review-evidence.js";
 
 /**
- * MVP — one attempt is one headless turn.
+ * One attempt is one headless turn.
  *
  * Measured on the installed Claude Code 2.1.296 before this module existed: the managed
  * launch started the client *interactively* and the startup orchestrator typed the task
@@ -41,7 +41,7 @@ export function agentTurnOutputPaths(mutableStateRoot: string, attemptId: string
   const directory = join(mutableStateRoot, "turns", attemptId);
   return { directory, lastMessage: join(directory, "last-message.txt"), threadId: join(directory, "thread-id.txt"),
     activity: join(directory, "activity.jsonl"), usage: join(directory, "usage.json"), progress: join(directory, "progress.json"),
-    // U3 — the exit code and signal the supervisor observed, written once. A native turn has no
+    // The exit code and signal the supervisor observed, written once. A native turn has no
     // pane to read an exit status from, so this file is the turn's own end for a later process.
     exit: join(directory, "exit.json"),
     taskReport: join(directory, "report", "task-report.json") };
@@ -75,12 +75,12 @@ export function writeAgentTurnPrompt(manifest: ContextManifest, text: string): s
 export const TURN_MESSAGE_LIMIT = 65_536;
 
 /**
- * U5 — the final message of any managed attempt, whatever client ran it.
+ * The final message of any managed attempt, whatever client ran it.
  *
  * A turn's answer is one file per attempt, `last-message.txt`: Codex writes it through its own
  * `-o`, and a Claude turn's readable view records its stream-json `result` into the same file.
  * So a reader of the end of a turn asks this one question — "what did attempt X say?" — without
- * knowing which client it was, and without re-parsing a terminal's scrollback. U4 reads reviewer
+ * knowing which client it was, and without re-parsing a terminal's scrollback. reads reviewer
  * verdicts from the same answer; a lead's reply is stored in the chat from it.
  *
  * Null means the turn recorded nothing: a client that failed before answering, a command whose
@@ -140,7 +140,7 @@ export function boundedOwnerWords(text: string): string {
 /**
  * The text a managed attempt's client receives.
  *
- * KTD28 keeps the core and the role's charter out of the brief, so they reach the client only
+ * keeps the core and the role's charter out of the brief, so they reach the client only
  * through its projection; naming those files is therefore part of the launch, not a second
  * brief. The prompt states where the attempt's instructions are, never what they say.
  *
@@ -230,11 +230,11 @@ export function continuationNote(db: Database.Database, runId: string, taskId: s
     // The decision's own event carries the reason the owner gave; the payload is the event's
     // `payload` object, so the note and the task are one level down.
     //
-    // U5 — the owner's approval of the plan is the other thing a lead continuation can be. The
+    // The owner's approval of the plan is the other thing a lead continuation can be. The
     // two are the same question ("what happened to what I wrote?") asked of the newest answer,
     // so the newest of the two decides and one turn is never told both.
     //
-    // U6 — a refused proposal and a team event are the same question asked twice more, and every
+    // A refused proposal and a team event are the same question asked twice more, and every
     // one of these notes is news only until the lead has answered it: each is a fact about a
     // turn, so it is read only when it happened after the lead's last turn ended. Without that,
     // a plan approval or a wake would be restated in every later turn, and a lead that follows

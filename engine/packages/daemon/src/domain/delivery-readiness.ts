@@ -4,9 +4,16 @@ import { documentDispatchRefusal } from "./project-documents.js";
 import { runLeadTask } from "./lead-chat.js";
 import { pendingFinalization } from "./attempt-finalization.js";
 
+/**
+ * Whether the run can be delivered yet.
+ *
+ * A refusal carries whether waiting can clear it: tasks still open, a finalization in flight and
+ * an unpushed head are transient, while a failed task or an unrecorded repair is the owner's to
+ * act on. Naming that here is what keeps every caller from decoding the code itself.
+ */
 export type DeliveryReadiness =
   | { tasksDone: true; possible: true; code: null; reason: null }
-  | { tasksDone: boolean; possible: false; code: string; reason: string };
+  | { tasksDone: boolean; possible: false; code: string; reason: string; transient: boolean };
 
 interface DeliveryTask { taskId: string; role: string; state: string }
 
@@ -18,12 +25,13 @@ export function deliveryReadiness(db: Database.Database, run: TeamRun, commitCou
   const open = tasks.filter(task => (task.role === "implementer" || task.role === "reviewer")
     && !["done", "denied", "canceled"].includes(task.state));
   const tasksDone = open.length === 0;
-  const refuse = (code: string, reason: string): DeliveryReadiness => ({ tasksDone, possible: false, code, reason });
-  if (open.length) return refuse("merge_tasks_open", `Task(s) still open: ${open.map(task => task.taskId).join(", ")}`);
+  const refuse = (code: string, reason: string, transient = false): DeliveryReadiness =>
+    ({ tasksDone, possible: false, code, reason, transient });
+  if (open.length) return refuse("merge_tasks_open", `Task(s) still open: ${open.map(task => task.taskId).join(", ")}`, true);
   const repair = db.prepare("SELECT repair_reason AS reason FROM team_integration_intents WHERE run_id = ? AND repair_reason IS NOT NULL LIMIT 1")
     .get(run.id) as { reason: string } | undefined;
   if (repair) return refuse("merge_not_ready", `Integration requires repair: ${repair.reason}`);
-  if (pendingFinalization(db, run.id)) return refuse("merge_not_ready", "A stopped attempt is still being finalized.");
+  if (pendingFinalization(db, run.id)) return refuse("merge_not_ready", "A stopped attempt is still being finalized.", true);
   const documentError = documentDispatchRefusal(db, run, "implementer");
   if (documentError) return refuse("merge_not_ready", documentError);
   const failed = tasks.filter(task => task.state === "failed");
@@ -33,6 +41,6 @@ export function deliveryReadiness(db: Database.Database, run: TeamRun, commitCou
   if (lead && ["pending", "in-progress", "blocked"].includes(lead.state)) {
     return refuse("merge_not_ready", `Task(s) still open: ${lead.taskId}`);
   }
-  if (commitCount === 0) return refuse("merge_not_ready", "No task's work has landed on the integration branch yet.");
+  if (commitCount === 0) return refuse("merge_not_ready", "No task's work has landed on the integration branch yet.", true);
   return { tasksDone: true, possible: true, code: null, reason: null };
 }

@@ -15,7 +15,7 @@ import { teamControlAuthentication, type TeamControlCredentials, type TeamContro
 import { controlErrorHandler } from "../middleware/control-error.js";
 
 /**
- * C3 — the owner's read of a lead's decomposition, and the decision it becomes.
+ * The owner's read of a lead's decomposition, and the decision it becomes.
  *
  * The lead writes one file into its own candidate tree; this route is where the owner turns
  * that file into an approval. It is owner-only on both verbs: the read is worker-written
@@ -41,15 +41,15 @@ export interface LeadProposalRouteOptions {
   runtime?: {
     leadProposalFor(runId: string, taskId: string): LeadTask[];
     rosterFor?(runId: string, taskId: string, planRef: string): LeadRosterEvidence;
-    /** U5 — the plan a planning lead wrote in its own tree. */
+    /** The plan a planning lead wrote in its own tree. */
     planFor?(runId: string, taskId: string, planRef: string): { content: string; hash: string };
     documentsFor?(runId: string, taskId: string, planRef: string): DocumentEvidence;
-    /** U5 — let the lead's tree be adopted again after the plan commit moved its source. */
+    /** Let the lead's tree be adopted again after the plan commit moved its source. */
     forgetCandidate?(runId: string, taskId: string): void;
   };
   /** The current policy capability a decision reconciles against, as every command reads it. */
   readPolicyCapability?: () => ProviderPolicyCapability | null;
-  /** U5 — what starts the lead's next turn; the same dispatch a start and a growth use. */
+  /** What starts the lead's next turn; the same dispatch a start and a growth use. */
   dispatch?: (runId: string, taskId: string) => Promise<void>;
 }
 
@@ -185,10 +185,10 @@ export function teamLeadRoutes(governance: PlanGovernance, options: LeadProposal
   });
 
   /**
-   * U5 — the run's conversation, in order.
+   * The run's conversation, in order.
    *
    * The owner reads what they and the lead said, and the run's phase, so a client knows whether
-   * a plan is still being agreed. U6 adds two things a client needs to render a decision: the
+   * a plan is still being agreed. adds two things a client needs to render a decision: the
    * message kind with its options and its answer, and the one decision the run is waiting on.
    * Nothing here starts work or records a decision.
    */
@@ -230,7 +230,7 @@ export function teamLeadRoutes(governance: PlanGovernance, options: LeadProposal
         kind: message.kind, body: message.body, options: message.options,
         ...(message.attachments?.length ? { attachments: message.attachments } : {}),
         answeredBy: message.answeredBy, createdAt: message.createdAt })),
-      // Plan KTD3 — lead turns that needed no owner attention: readable on request, never a notification.
+      // Lead turns that needed no owner attention: readable on request, never a notification.
       activity: activity.map(message => ({ id: message.id, body: message.body, createdAt: message.createdAt })),
       // The run waits on this until the owner answers it through this same endpoint, naming it
       // in `answerTo`. Null means nothing is waiting.
@@ -239,9 +239,9 @@ export function teamLeadRoutes(governance: PlanGovernance, options: LeadProposal
   });
 
   /**
-   * U5 — the owner's message, and the lead's turn to answer it.
+   * The owner's message, and the lead's turn to answer it.
    *
-   * U6 adds one optional field to the payload: `answerTo` names the decision this message
+   * adds one optional field to the payload: `answerTo` names the decision this message
    * answers, and a message that names a decision also answers it (the decision stops being the
    * pending one, and the answer is the lead's next prompt like any other owner message). The
    * body is the answer's text whether the owner typed it or chose an option.
@@ -314,7 +314,7 @@ export function teamLeadRoutes(governance: PlanGovernance, options: LeadProposal
   });
 
   /**
-   * U5 — the owner approves the plan, and the run becomes delivery.
+   * The owner approves the plan, and the run becomes delivery.
    *
    * Three steps, in this order: the plan is read from the lead's own candidate tree through the
    * same pinned reader every worker-written file goes through; it is committed to the run's own

@@ -9,9 +9,9 @@ import { nextTeamSeatNames } from "./team-setup.js";
 import { object, relativePath, TeamContractError, text, type TeamRole } from "../contracts/team-control.js";
 
 /**
- * C3 — the lead's decomposition, and the boundary that reads it.
+ * The lead's decomposition, and the boundary that reads it.
  *
- * A lead agent cannot admit work: the plan's KTD21 gives it the protocol, the roster and the
+ * A lead agent cannot admit work: the plan's gives it the protocol, the roster and the
  * run instructions, and lets it request assignments, record one evaluation and yield. The
  * request has to reach the owner without a new agent credential and without an agent-callable
  * endpoint, so the lead writes one structured file into its own candidate tree — the same
@@ -28,7 +28,7 @@ import { object, relativePath, TeamContractError, text, type TeamRole } from "..
 export const LEAD_PROPOSAL_PATH = "lead-proposal.json";
 
 /**
- * U6 — the candidate holds no proposal at all.
+ * The candidate holds no proposal at all.
  *
  * A delivery lead's turn may deliver its answer in the chat and write nothing, which is a
  * complete turn rather than a refusal. The manager has to tell that case from a file the
@@ -40,7 +40,7 @@ export class LeadProposalMissingError extends Error {
 }
 
 /**
- * U6 — where a lead asks the owner for a decision it may not take itself.
+ * Where a lead asks the owner for a decision it may not take itself.
  *
  * The same boundary and the same file protocol as the proposal: the lead cannot call an
  * endpoint, so the one thing it can deliver is a file in its own tree, and the daemon reads it
@@ -208,7 +208,7 @@ export function leadRoster(db: Database.Database, input: { rigId: string; roles:
  *
  * The manifest projects these bytes read-only, so they are the one place the daemon can tell the
  * lead what to do without an agent-callable endpoint: where the proposal and the escalation go,
- * the exact shape the boundary will accept, what the lead decides alone (KTD1) and what only
+ * the exact shape the boundary will accept, what the lead decides alone and what only
  * the owner may decide. They are short on purpose — the plan, the roster and the charter carry
  * the rest, and a prompt nobody finishes reading decides nothing.
  */
@@ -289,7 +289,7 @@ function planningSeatContext(db: Database.Database, rigId: string): string {
 /** The activation one lead attempt runs under: its identity, its roster and its instructions. */
 export function leadActivation(db: Database.Database, input: {
   rigId: string; roles: readonly TeamRole[]; seat: string; goal: string; activationId: string; runId?: string;
-  /** U5 — a planning run's lead agrees a plan before any decomposition exists. */
+  /** A planning run's lead agrees a plan before any decomposition exists. */
   phase?: "planning" | "delivery";
   /** The run's plan artifact, named in the planning instructions. */
   planRef?: string;

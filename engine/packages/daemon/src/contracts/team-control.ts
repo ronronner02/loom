@@ -30,7 +30,7 @@ export type ApprovalAction = "implementation" | "commit" | "push" | "pr-create" 
 export type ApprovalState = "pending" | "approved" | "rejected" | "expired" | "invalidated";
 export type TeamRunState = "pending" | "approved" | "cancel_requested" | "canceled" | "invalidated" | "blocked";
 /**
- * U5 — what the run is doing, as opposed to what it is allowed to do.
+ * What the run is doing, as opposed to what it is allowed to do.
  *
  * `planning` is a run whose work is the lead's conversation with the owner; `delivery` is every
  * run that has an approved plan. It is a separate column because dispatch and eligibility read
@@ -68,7 +68,7 @@ export const TEAM_REASON_LABEL_KEYS = {
 } as const;
 
 /**
- * U6 — the reason a run is blocked when its lead failed and no retry will come.
+ * The reason a run is blocked when its lead failed and no retry will come.
  *
  * A lead cannot wake itself and the daemon only retries a failure the classifier allows, so a
  * lead failure the run will not retry is the owner's. Resume is the one action that restarts
@@ -98,7 +98,7 @@ export function teamReasonLabelKey(reason: string | null): TeamReasonLabelKey | 
   if (reason === "Provider policy capability is not verified for the current binding") return TEAM_REASON_LABEL_KEYS.providerPolicyUnverified;
   if (reason === "Live session limit reached") return TEAM_REASON_LABEL_KEYS.liveSessionLimit;
   if (reason === "Plan, repository or policy binding changed") return TEAM_REASON_LABEL_KEYS.planBindingChanged;
-  // U7 — the approved work could not be applied to the run's integration branch. The task
+  // The approved work could not be applied to the run's integration branch. The task
   // records it as `integration_conflict`, with the patch's own refusal as the reason.
   if (reason === "integration_conflict" || reason.startsWith("Integration conflict")) return TEAM_REASON_LABEL_KEYS.integrationConflict;
   if (reason === LEAD_FAILED_REASON) return TEAM_REASON_LABEL_KEYS.leadFailed;
@@ -153,7 +153,7 @@ export interface ScopedAssignment {
   taskId: string;
   role: TeamRole;
   /**
-   * A reviewer's link to the task whose candidate it reviews (plan U5).
+   * A reviewer's link to the task whose candidate it reviews.
    *
    * The reviewer enters that task's candidate read-only and takes no claim on it, so its
    * own `taskId` still keys everything it owns: its queue row, its attempt and its release.
@@ -197,7 +197,7 @@ export interface TeamRun {
   id: string;
   rigId: string;
   /**
-   * U9 / KTD8 — the run's readable name, derived from its goal when it was created. A run
+   * The run's readable name, derived from its goal when it was created. A run
    * recorded before names existed is named by its creation order on the rig ("Run 2") on
    * read, so this is never the id and never empty.
    */
@@ -205,7 +205,7 @@ export interface TeamRun {
   binding: PlanBinding;
   bindingDigest: string;
   /**
-   * MVP slice C2 — the seat this run's review tasks route to, or `null` when the start
+   * The seat this run's review tasks route to, or `null` when the start
    * named none. A null seat is not "no reviewer": it is the pre-C2 behaviour, where an
    * implementer task completes and the run creates no review.
    */
@@ -214,7 +214,7 @@ export interface TeamRun {
   stateReason: string | null;
   /** Stable i18n key for `stateReason`, or null when the run is not blocked. */
   stateReasonKey: TeamReasonLabelKey | null;
-  /** U5 — planning until the owner approves the lead's plan, delivery afterwards. */
+  /** Planning until the owner approves the lead's plan, delivery afterwards. */
   phase: TeamRunPhase;
   entityVersion: number;
   activeMs: number;
@@ -247,7 +247,7 @@ export interface TeamTaskAuthority {
   runId: string;
   assignment: ScopedAssignment;
   /**
-   * T053 — the task's declared production inputs, recorded beside the assignment at
+   * The task's declared production inputs, recorded beside the assignment at
    * `task.created` and read back by the launch path, so the attempt's projection is built
    * from one record instead of from whichever values its caller supplied.
    *
@@ -272,8 +272,8 @@ export interface TeamAttempt {
   usage: UsageEvidence;
   entityVersion: number;
   /**
-   * T033 — the KTD20 decision recorded when this attempt was observed stopped, or null for an
-   * attempt that ended without one (a clean exit, or a row written before T033). Its shape is
+   * The decision recorded when this attempt was observed stopped, or null for an
+   * attempt that ended without one (a clean exit, or a row written before it existed). Its shape is
    * owned by `domain/attempt-failure.ts`; the fields are repeated here because this is the
    * contract every reader consumes.
    */
@@ -325,16 +325,16 @@ export interface ControlActor {
 }
 
 /**
- * T052 — the managed run's owner read projections.
+ * The managed run's owner read projections.
  *
- * One read contract that U6's two clients consume. It publishes committed,
+ * One read contract that two clients consume. It publishes committed,
  * correlated evidence only; it holds no second store and derives nothing a
  * durable row does not already say. Every availability field is explicit
  * because "no evidence" and "zero" are different facts to a reader (AE12).
  */
 export const TEAM_READ_MODEL_VERSION = "1.0" as const;
 
-/** The seven-stage run stepper (U6). Stage order is the array order. */
+/** The seven-stage run stepper. Stage order is the array order. */
 export const TEAM_WORKFLOW_STAGES = [
   "setup-checks",
   "plan-approved",
@@ -367,7 +367,7 @@ export interface TeamRunStageView {
 }
 
 /**
- * Verified acceptance criteria, never an agent's self-report (U6). `verified` is
+ * Verified acceptance criteria, never an agent's self-report. `verified` is
  * `null` while no durable criteria record exists, so a reader cannot render
  * `0/0` as if everything were done.
  */
@@ -378,7 +378,7 @@ export interface TeamCriteriaProgress {
 }
 
 /**
- * U9 — what a task's name is made of, so a client can render it in its own language.
+ * What a task's name is made of, so a client can render it in its own language.
  *
  * A plain task is named by its own words. A reviewer task is named by the task it reviews and
  * the round, which is the part a client has to translate ("Review" / "Review 2"); `of` is the
@@ -389,7 +389,7 @@ export type TeamTaskNameParts =
   | { kind: "review"; round: number; of: string };
 
 /**
- * U9 — one seat of the run's rig, named for display.
+ * One seat of the run's rig, named for display.
  *
  * A seat is a session on a node that declares a team role and a client runtime. `seat` is the
  * address everything internal keys on; `role` and `client` are returned so a client can build
@@ -428,14 +428,14 @@ export interface TeamReviewView {
   queueState: TeamQueueState;
   /** One daemon-owned projection; consumers group this value without reclassifying queue rows. */
   stage: TeamTaskStage;
-  /** Plan R10 — the owner holds this task; nothing automatic starts it until the owner releases it. */
+  /** the owner holds this task; nothing automatic starts it until the owner releases it. */
   held?: boolean;
-  /** Plan KTD6 — the task whose landed change this follow-up continues. */
+  /** the task whose landed change this follow-up continues. */
   followUpOf?: string | null;
   seat: string | null;
   workerReport: TeamWorkerReportView | null;
   /**
-   * U9 / KTD8 — the task's readable name: its title, or for a reviewer task the task it
+   * The task's readable name: its title, or for a reviewer task the task it
    * reviews. Stored when the task was admitted; a task recorded before names existed is named
    * on read from the same rows. It is never the id.
    */
@@ -469,7 +469,7 @@ export interface TeamReviewView {
   rounds: number;
   openP0P1: number;
   /**
-   * MVP slice C2 — the run's own review rounds for this task, oldest first. A round's
+   * The run's own review rounds for this task, oldest first. A round's
    * `verdict` is what the loop acted on: `changes-required` reopened the task, `approved`
    * closed it. Empty for a run that never used the loop.
    */
@@ -513,7 +513,7 @@ export interface TeamAttemptView {
   createdAt: string;
   /** The attempt's own recorded usage. A metric is `null` with a reason until its producer observed it. */
   usage: UsageEvidence;
-  /** T033 — the KTD20 decision for this attempt, or null while it runs or when it ended cleanly. */
+  /** The decision for this attempt, or null while it runs or when it ended cleanly. */
   failure: AttemptFailure | null;
 }
 
@@ -552,7 +552,7 @@ export interface TeamOwnerRead {
   run: TeamRun;
   workflow: TeamRunStageView;
   tasks: TeamReviewView[];
-  /** U9 — the rig's seats, named, so a client never renders a seat address. */
+  /** The rig's seats, named, so a client never renders a seat address. */
   seats: TeamSeatView[];
   attempts: TeamAttemptView[];
   approvals: Array<TeamApproval & { awaitingDecision: boolean }>;
@@ -600,14 +600,14 @@ export interface ControlReceipt<T = unknown> {
   /** Stable i18n key for `reason`, when the action was denied or reports a blocker. */
   reasonKey?: TeamReasonLabelKey | null;
   /**
-   * MVP slice C2 — the task a completion just created and the route must dispatch: the
+   * The task a completion just created and the route must dispatch: the
    * reviewer task an implementer's validated completion admitted, or the implementer task a
    * review's blocking findings sent back. Absent on every other receipt.
    */
   reviewTaskId?: string;
   reworkTaskId?: string;
   /**
-   * MVP — the lead task a rejected proposal reopened and the route must dispatch: the lead's
+   * The lead task a rejected proposal reopened and the route must dispatch: the lead's
    * revision, resumed on the conversation that wrote the rejected proposal. Absent elsewhere.
    */
   revisionTaskId?: string;
@@ -638,7 +638,7 @@ export class TeamContractError extends Error {
 }
 
 /**
- * MVP slice 2 — one row of the owner's run picker.
+ * One row of the owner's run picker.
  *
  * A projection of the run's own durable columns plus its rig's name, so a client can list
  * runs and open one without a second read per row. It is not a second store: every field is
@@ -654,13 +654,13 @@ export interface TeamRunSummary {
   rigName: string;
   state: TeamRunState;
   planRef: string;
-  /** U9 — the run's readable name, so a run picker lists runs without showing an id. */
+  /** The run's readable name, so a run picker lists runs without showing an id. */
   displayName: string;
   createdAt: string;
 }
 
 /**
- * MVP slice 2 — what an owner start returns.
+ * What an owner start returns.
  *
  * The run, the approval that admitted it, and the one task that puts an agent on the goal.
  * A client opens the run from `runId` and needs nothing else; the remaining fields say what
@@ -677,7 +677,7 @@ export interface TeamStartReceipt {
   /** C2 — the seat review rounds route to, or `null` when the start named none. */
   reviewerSeat: string | null;
   /**
-   * C3 — the seat the run's first task belongs to, or `null` for a start with no lead.
+   * The seat the run's first task belongs to, or `null` for a start with no lead.
    * A non-null value means `taskId` is the lead's task, and `seat` names it too: there is
    * one task at start either way, and this says which role it carries.
    */
@@ -828,7 +828,7 @@ export function parsePlanBinding(value: unknown): PlanBinding {
     repository: { root, identity }, readPaths, writePaths, roles,
     ...(v.documentVersions === undefined ? {} : { documentVersions: parseDocumentPins(v.documentVersions) }),
     policyRevision: integer(v.policyRevision, "policyRevision", 1), policyFingerprint: digest(v.policyFingerprint, "policyFingerprint"),
-    // U8 allows an owner Resume action to add bounded budget. The original defaults remain
+    // allows an owner Resume action to add bounded budget. The original defaults remain
     // small; these ceilings keep an owner increase finite without making the action a new plan.
     limits: { maxSessions: integer(limits.maxSessions, "maxSessions", 1, 3), maxActiveMs: integer(limits.maxActiveMs, "maxActiveMs", 1, 7 * 24 * 3_600_000),
       maxRetries: integer(limits.maxRetries, "maxRetries", 0, 100), maxReviewRounds: integer(limits.maxReviewRounds, "maxReviewRounds", 0, 100) },
@@ -843,7 +843,7 @@ export function parseAssignment(value: unknown): ScopedAssignment {
   const paths = strings(v.paths, "paths", relativePath);
   if (!paths.length) throw new TeamContractError("paths");
   const parsed = role(v.role);
-  // Plan U5: only a reviewer reviews, and it cannot review itself — either would point a
+  // Only a reviewer reviews, and it cannot review itself — either would point a
   // launch at a tree the launching task does not own.
   if (v.reviewOf === undefined) return { taskId, role: parsed, paths, dependencies };
   const reviewOf = text(v.reviewOf, "reviewOf", 256);
@@ -852,7 +852,7 @@ export function parseAssignment(value: unknown): ScopedAssignment {
 }
 
 /**
- * T053 — the two arrays `task.created` now requires beside the assignment.
+ * The two arrays `task.created` now requires beside the assignment.
  *
  * Both are required rather than defaulted: the record is what the launch path compares a
  * caller's values against, so a task that recorded nothing could never refuse a
@@ -937,7 +937,7 @@ export function parseTeamEvent(value: unknown): TeamControlEvent {
 }
 
 /**
- * MVP slice 3 — one finished task's result, as the owner receives it.
+ * One finished task's result, as the owner receives it.
  *
  * The patch and the file manifest are the candidate's own computation
  * (`candidateManifest`); this contract only carries them to a client. `files`

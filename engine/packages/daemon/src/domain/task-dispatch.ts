@@ -53,7 +53,7 @@ export function composeTaskDispatch(deps: TaskDispatchDependencies): TaskDispatc
     if (!retryIsDue(timing?.notBefore, now())) return;
     const row = deps.sessions.db.prepare(`SELECT q.destination_session AS seat, a.qitem_id AS qitemId, a.task_id AS taskId, a.held_at AS heldAt, r.entity_version AS runVersion FROM team_queue_authority a JOIN queue_items q ON q.qitem_id = a.qitem_id JOIN team_runs r ON r.id = a.run_id WHERE a.run_id = ? AND a.task_id = ?`).get(runId, taskId) as { seat: string; qitemId: string; taskId: string; heldAt: string | null; runVersion: number } | undefined;
     if (!row || starting.has(row.seat)) return;
-    // Plan R10 — a held task waits for the owner; nothing automatic starts it.
+    // A held task waits for the owner; nothing automatic starts it.
     if (row.heldAt) return;
     if (refused.get(key) === row.runVersion) return;
     const backoff = failures.get(key);

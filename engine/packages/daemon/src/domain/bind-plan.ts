@@ -1,4 +1,4 @@
-// OPR.0.5.5.20 — DAEMON BIND PROVENANCE: the pure bind-plan resolver. Bind intent
+// DAEMON BIND PROVENANCE: the pure bind-plan resolver. Bind intent
 // reaches the daemon ONLY through the dedicated MULTI_AGENT_BIND_HOST surface; the
 // overloaded routing env (MULTI_AGENT_HOST — a client endpoint any managed
 // environment may inject) can NEVER select the single-bind branch. The lived cost of

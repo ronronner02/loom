@@ -23,7 +23,7 @@ import {
 import { controlErrorHandler, teamSetupErrorMap } from "../middleware/control-error.js";
 
 /**
- * U3 — the owner's teams.
+ * The owner's teams.
  *
  * One collection resource: `POST /teams` creates the rig and the seats a repository's team runs
  * on, and `GET /teams` lists the teams that exist so a client never asks the owner to type a rig
@@ -87,7 +87,7 @@ export function teamSetupRoutes(
     return c.json({ protocolVersion: TEAM_CONTROL_VERSION,
       profile: saveTeamSoul(rigRepo.db, c.req.param("teamId"), c.req.param("soulId"), await c.req.json()) });
   });
-  // Plan R13/R14 — the team's three editable prompt sections, versioned per team.
+  // The team's three editable prompt sections, versioned per team.
   app.get("/teams/:teamId/prompt-sections", c => {
     if (!owner(c)) return c.json({ code: "owner_control_required", error: "An authenticated owner read is required." }, 403);
     parseProtocolVersion(c.req.header("X-Team-Control-Version") ?? TEAM_CONTROL_VERSION);
@@ -100,7 +100,7 @@ export function teamSetupRoutes(
     c.header("Cache-Control", "no-store");
     return c.json({ protocolVersion: TEAM_CONTROL_VERSION, ...saveTeamSections(rigRepo.db, c.req.param("teamId"), await c.req.json()) });
   });
-  // Plan R20 / KTD14 — the team's intake policy and the inbox of GitHub items it has seen.
+  // The team's intake policy and the inbox of GitHub items it has seen.
   app.get("/teams/:teamId/intake", c => {
     if (!owner(c)) return c.json({ code: "owner_control_required", error: "An authenticated owner read is required." }, 403);
     parseProtocolVersion(c.req.header("X-Team-Control-Version") ?? TEAM_CONTROL_VERSION);

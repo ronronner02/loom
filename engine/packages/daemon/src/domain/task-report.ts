@@ -5,7 +5,7 @@ export interface TaskReport {
   question?: string;
   evidence: string;
   /**
-   * U4 — the attempt that wrote this report, when the worker named one.
+   * The attempt that wrote this report, when the worker named one.
    *
    * Completion requires the report's attempt id to match the current attempt, so a report left
    * in the per-attempt directory by an earlier generation cannot describe a later one. The

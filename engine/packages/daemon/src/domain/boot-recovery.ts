@@ -1,5 +1,5 @@
 /**
- * U4 / KTD5 — reconcile submitted and started attempts after a daemon restart.
+ * Reconcile submitted and started attempts after a daemon restart.
  *
  * On boot, every row in `team_attempts` with state `running` or `unknown` must be
  * reconciled against the recorded process identity. The host's observation is the

@@ -6,7 +6,7 @@ import { runName } from "./display-names.js";
 import { addWorktree, isWorktreeOf } from "./worktree-policy.js";
 
 /**
- * U5 — the branch the daemon owns, and the worktree the plan is recorded in.
+ * The branch the daemon owns, and the worktree the plan is recorded in.
  *
  * The owner approves a plan by agreeing to text the lead wrote in its own candidate tree. That
  * text has to become a durable artifact in the owner's repository, and the run's binding has to
@@ -14,15 +14,15 @@ import { addWorktree, isWorktreeOf } from "./worktree-policy.js";
  * working tree at a commit. Both facts are answered by one daemon-owned worktree of the owner's
  * repository on `team/<run-slug>`, created at the owner's HEAD and never in the owner's checkout.
  *
- * The same worktree is where KTD7's integration branch lives, so this is also the seam U7 needs:
+ * The same worktree is where integration branch lives, so this is also the seam needs:
  * an approved task's patch is applied here, and the commits that land are what the owner merges.
- * U5 only creates the branch and records the plan on it.
+ * only creates the branch and records the plan on it.
  *
  * Nothing here touches the owner's checked-out branch, index or working tree: the worktree is a
  * separate directory, and every git command names the repository it acts on.
  */
 
-/** KTD7's integration branch namespace. */
+/** integration branch namespace. */
 export const PLAN_BRANCH_PREFIX = "team/";
 
 /**
@@ -106,7 +106,7 @@ export function ensurePlanWorktree(input: {
   repositoryRoot: string; worktreeRoot: string; runId: string; name?: string | null;
   /**
    * The commit the branch starts at. Omitted, the owner's current HEAD is used, which is what a
-   * planning start wants. U7 passes the commit the run's plan was read at, so a run that
+   * planning start wants. passes the commit the run's plan was read at, so a run that
    * integrates before it ever had a worktree still lands on the history it approved.
    */
   base?: string;
@@ -118,7 +118,7 @@ export function ensurePlanWorktree(input: {
     if (!isWorktreeOf(repository, path)) throw new Error("The plan worktree path is occupied by something else");
     return { path, branch: git(path, ["symbolic-ref", "--quiet", "--short", "HEAD"]) };
   }
-  // KTD10 — the ceiling is checked before Git is asked, so a long root or a long run id is a
+  // The ceiling is checked before Git is asked, so a long root or a long run id is a
   // named refusal rather than `'$GIT_DIR' too big` from inside Git.
   addWorktree({ repository, worktree: path, args: branchExists(repository, branch)
     ? ["--quiet", path, branch]

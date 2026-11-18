@@ -210,7 +210,7 @@ export class QueueTransitionLog {
   }
 
   /**
-   * OPR.0.7.0.12 — the continuation `multi-agent queue block --continuation` recorded for the row's
+   * The continuation `multi-agent queue block --continuation` recorded for the row's
    * CURRENT park. The current park is the trailing run of `blocked` transitions: the daemon
    * appends its own later blocked transitions (e.g. "parked-owner episode closed"), so the latest
    * one is not the park, and an earlier park's plan must never resurface.

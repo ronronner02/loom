@@ -13,18 +13,18 @@ import { workerArgv } from "./worker-launch-argv.js";
 import type { WorkerClient, WorkerLauncher, WorkerLaunchInput } from "./worker-launcher.js";
 
 /**
- * U3 — the unisolated managed launch, as a direct child process.
+ * The unisolated managed launch, as a direct child process.
  *
  * What a person relies on has not changed: the client starts only in the tree the runtime
  * admitted, and the receipt names the process the kernel actually runs rather than repeating the
  * daemon's own. What changed is the transport. The old path typed a command line into the seat's
  * tmux pane, read the screen for readiness and recovered the exit status from the pane's dead
- * flag; KTD1 replaces all three with a piped child the daemon starts itself, because both clients
+ * flag. The direct child replaces all three, because both clients
  * already expose a headless JSONL mode and a PTY adds only lifecycle to scrape.
  *
  * The receipt is still the run's evidence, so it still names a pid *and* a start marker. On
  * Windows that pair is the CIM creation time, on POSIX the `/proc` start tick, and both come from
- * U1. `paneId`/`tmuxServer` are recorded as null: there is no pane, and a reader that needs one
+ * `paneId`/`tmuxServer` are recorded as null: there is no pane, and a reader that needs one
  * asks the identity, not the launch.
  */
 
@@ -32,8 +32,8 @@ export interface DirectWorkerLaunchDeps {
   /** The tree the runtime admitted for this assignment. */
   resolveAssignedTree: (runId: string, assignment: ManagedAttempt["context"]["assignment"]) => string;
   /**
-   * The client command to run. Production leaves this out and resolves the real executable
-   * through U1; tests inject a stub, which needs the attempt's own facts.
+   * The client command to run. Production leaves this out and resolves the real executable;
+   * a test injects a stub, which needs the attempt's own facts.
    */
   command?: (facts: DirectLaunchFacts) => string[];
   /**
@@ -55,7 +55,7 @@ export interface DirectWorkerLaunchDeps {
   /** Publish a normalized event. Absent means the launch records only its receipt. */
   onEvent?: (facts: DirectLaunchFacts, event: WorkerEvent) => void;
   /**
-   * U4 — the durable lifecycle recorder. Absent means this launcher records no lifecycle facts,
+   * The durable lifecycle recorder. Absent means this launcher records no lifecycle facts,
    * which is what a fixture without a governance store wants. Production supplies it so the
    * attempt's `submitted`, `started`, and `acknowledged` facts land in the existing event log.
    */
@@ -143,7 +143,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
       const argv = this.deps.command ? this.deps.command(facts) : this.nativeArgv(client, input, sessionId, tree, output, continuing, readOnly);
       // The client command is either an injected program or the resolved real executable. A bare
       // name is never a spawn target: `shell: false` cannot find it, and on Windows it would be a
-      // `.cmd` shim Node refuses to start (KTD2).
+      // `.cmd` shim Node refuses to start.
       const [executable, ...args] = argv;
       if (!executable) return this.refuse("managed_executable_unresolved");
       const resolved = this.deps.command ? { path: executable, args: [] as string[] } : this.resolveExecutable(client);
@@ -165,7 +165,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
         provider: client === "claude-code" ? "claude" : client,
         ...(client === "codex" ? { threadIdPath: output.threadId } : {}),
         ...(Object.keys(env).length ? { env } : {}) };
-      // U4 — the durable intent is recorded before the child exists. A daemon that stops between
+      // The durable intent is recorded before the child exists. A daemon that stops between
       // this fact and the spawn leaves a `submitted` attempt with no process, which boot recovery
       // records as interrupted rather than as an unobserved success.
       this.deps.lifecycle?.({ runId: facts.runId, attemptId: facts.attemptId, taskId: facts.taskId,
@@ -173,7 +173,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
       let acknowledged = false;
       const recordEvent = (event: WorkerEvent): void => {
         this.deps.onEvent?.(facts, event);
-        // U4 — acknowledgment is the first provider session or turn event, recorded once.
+        // Acknowledgment is the first provider session or turn event, recorded once.
         if (!acknowledged && (event.type === "session.started" || event.type === "turn.started")) {
           acknowledged = true;
           this.deps.lifecycle?.({ runId: facts.runId, attemptId: facts.attemptId, taskId: facts.taskId,
@@ -186,7 +186,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
       const identity = await turn.start();
       facts.processId = identity.processId;
       facts.processStart = identity.processStart;
-      // U4 — `started` is recorded only once the child identity is known.
+      // `started` is recorded only once the child identity is known.
       this.deps.lifecycle?.({ runId: facts.runId, attemptId: facts.attemptId, taskId: facts.taskId,
         fact: "attempt.started", evidence: { processId: identity.processId, processStart: identity.processStart } });
       // A turn that takes minutes must not block the launch that started it: `wait()` is what a
@@ -220,7 +220,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
   /**
    * The receipt for a turn that started.
    *
-   * The identity is the process pair U1 captured at spawn, which is what recovery reconciles and
+   * The identity is the process pair captured at spawn, which is what recovery reconciles and
    * cancellation aims at. `paneId`/`tmuxServer` are null: a direct child has no pane.
    */
   private receipt(facts: DirectLaunchFacts, attempt: ManagedAttempt, client: WorkerClient, sessionId: string,
@@ -258,7 +258,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
    * Stop a turn this launcher started.
    *
    * Cancellation is the owner's, and the run's own cancel route ends recorded identities through
-   * U1; this is the launch's own handle on the same child, used by a shutdown that is ending work
+   * this is the launch's own handle on the same child, used by a shutdown that is ending work
    * it started. Closing stdin first lets a headless client leave on its own.
    */
   async cancel(attemptId: string): Promise<SupervisorResult | null> {
@@ -278,7 +278,7 @@ export class DirectWorkerLauncher implements WorkerLauncher {
   }
 
   /**
-   * The real executable for one client, through U1's resolver.
+   * The real executable for one client, through the resolver.
    *
    * An explicit configured path wins (a fixture, or an operator override); otherwise the resolver
    * follows PATH and `PATHEXT` to a real `.exe`, following an npm shim when that is what is

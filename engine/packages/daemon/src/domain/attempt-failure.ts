@@ -1,9 +1,9 @@
 import { detectCodexLimitBanner } from "./provider/codex-limit-banner.js";
 
 /**
- * T033 — the one classifier for an attempt that ended.
+ * The one classifier for an attempt that ended.
  *
- * KTD20 gives every failed attempt exactly one reason code and a `resume_safe` flag. The retry
+ * gives every failed attempt exactly one reason code and a `resume_safe` flag. The retry
  * eligible set alone may use the run's bounded delayed retries. The decision has to be made in
  * one place: a consumer that re-derived eligibility could disagree with the owner's retry, and
  * the plan forbids that. This module is pure — evidence in, decision out — so the completion
@@ -23,7 +23,7 @@ import { detectCodexLimitBanner } from "./provider/codex-limit-banner.js";
  * already-counted retry may happen and when it becomes due.
  */
 
-/** Every KTD20 code, in the order the plan lists them. */
+/** Every code, in the order the plan lists them. */
 export const ATTEMPT_REASON_CODES = [
   // Platform codes.
   "runtime_offline", "daemon_recovery", "start_timeout", "run_timeout", "no_progress",
@@ -34,7 +34,7 @@ export const ATTEMPT_REASON_CODES = [
   "agent_error.model_unavailable", "agent_error.context_overflow", "agent_error.missing_config",
   "agent_error.missing_executable", "agent_error.unsupported_version", "agent_error.process_failure",
   "agent_error.unparseable_output", "agent_error.unknown", "evidence_invalid", "review_report_missing",
-  // U7 — not a reason an attempt ended: the attempt succeeded and its review approved, and the
+  // Not a reason an attempt ended: the attempt succeeded and its review approved, and the
   // patch could not be landed on the run's integration branch. It lives in this vocabulary
   // because it is the same kind of fact — a task that failed for a named reason, with a retry
   // the classifier decides — and it is deliberately outside the retry-eligible set: replaying
@@ -44,7 +44,7 @@ export const ATTEMPT_REASON_CODES = [
 export type AttemptReasonCode = (typeof ATTEMPT_REASON_CODES)[number];
 
 /**
- * KTD20's retry-eligible set, and nothing else. `agent_error.unknown` is deliberately absent:
+ * retry-eligible set, and nothing else. `agent_error.unknown` is deliberately absent:
  * an unclassified failure becomes an owner-visible blocker.
  */
 export const RETRY_ELIGIBLE_REASON_CODES: readonly AttemptReasonCode[] = [
@@ -52,7 +52,7 @@ export const RETRY_ELIGIBLE_REASON_CODES: readonly AttemptReasonCode[] = [
   "agent_error.provider_rate_limit", "agent_error.provider_server_error", "agent_error.provider_quota",
 ];
 
-// Rows written before U11 keep their original eligibility encoding; reads normalize them to the current policy.
+// Rows written keep their original eligibility encoding; reads normalize them to the current policy.
 const LEGACY_RETRY_ELIGIBLE: readonly AttemptReasonCode[] = ["runtime_offline", "daemon_recovery", "run_timeout",
   "no_progress", "agent_error.provider_network", "evidence_invalid", "review_report_missing"];
 
@@ -66,7 +66,7 @@ export function failureClassFor(code: AttemptReasonCode): FailureClass | null {
 }
 
 /**
- * KTD20's resume-unsafe set. A continuation after one of these starts a fresh native session on
+ * resume-unsafe set. A continuation after one of these starts a fresh native session on
  * the same isolated tree, preserving its files, instead of resuming the session that failed.
  */
 export const RESUME_UNSAFE_REASON_CODES: readonly AttemptReasonCode[] = [
@@ -204,7 +204,7 @@ export function classificationFor(reasonCode: AttemptReasonCode): AttemptClassif
  * Null is not "unknown": it means the daemon holds no evidence that the attempt failed — the
  * client exited cleanly, or no exit record exists at all. There is nothing to classify, the
  * attempt's owner read carries no code, and the owner's retry is refused because an
- * unclassified attempt is exactly KTD20's "when uncertain, choose not retried".
+ * unclassified attempt is exactly "when uncertain, choose not retried".
  *
  * An attempt that ended with a non-zero exit and printed nothing recognisable is
  * `agent_error.unknown` — a code, and never retried.
@@ -266,7 +266,7 @@ function insideFence(lines: readonly string[], index: number): boolean {
  * This is a real boundary — the row is durable state a later process reads — so the stored
  * shape is checked rather than trusted, and a row that disagrees with the code sets is refused
  * instead of being acted on. The derived fields are recomputed from the code, so a stored
- * `retryEligible` that disagrees with KTD20 cannot grant a retry.
+ * `retryEligible` that disagrees with cannot grant a retry.
  */
 export function parseAttemptClassification(value: unknown): AttemptClassification {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("attempt failure is not an object");

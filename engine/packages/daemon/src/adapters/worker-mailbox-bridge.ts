@@ -164,7 +164,7 @@ export class WorkerMailboxBridge {
   }
 
   /**
-   * T042 — the private bootstrap the attempt reads beside its mailbox socket.
+   * The private bootstrap the attempt reads beside its mailbox socket.
    *
    * The reader requires `bootstrap.json` beside the socket, mode 0600, at most 8192 bytes,
    * carrying exactly these seven string fields, with the socket directory already proven
@@ -339,4 +339,4 @@ export class WorkerMailboxBridge {
       runId: binding.runId, body: request.body as string, messageId: text(request.messageId, "messageId"),
       replyTo, attachment: request.attachment, capability });
   }
-}
+}

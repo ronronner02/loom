@@ -3,7 +3,7 @@ import { LEAD_ESCALATION_PATH, LEAD_PROPOSAL_PATH } from "./lead-proposal.js";
 import { leadRosterPath } from "./lead-roster.js";
 
 /**
- * MVP — the completion path's evidence half.
+ * The completion path's evidence half.
  *
  * The owner's outcome command needs evidence, and the owner cannot read a worker's tree: the
  * daemon can. This module states, from the candidate the runtime already computes for
@@ -124,7 +124,7 @@ export function taskCompletionEvidence(input: {
 }
 
 /**
- * C3 — what a lead's candidate is evidence of.
+ * What a lead's candidate is evidence of.
  *
  * A lead's deliverable is its decomposition, not a code change: its assignment paths are the
  * run's scope, which is what its proposed tasks must stay inside, and its one output is
@@ -141,7 +141,7 @@ export function leadCompletionEvidence(input: {
   manifest: CandidateFacts | null;
   proposal: { taskCount: number } | null;
   /**
-   * U6 — the escalation the turn asked the owner for, or null when it asked for none.
+   * The escalation the turn asked the owner for, or null when it asked for none.
    *
    * Present (even as null) means this caller reads a delivery lead's escalations, and turns on
    * the manager rule below. Absent keeps C3's rule exactly: the turn's one deliverable is the
@@ -149,7 +149,7 @@ export function leadCompletionEvidence(input: {
    */
   escalation?: { optionCount: number } | null;
   /**
-   * U6 — a delivery lead turn is a management turn, not a decomposition.
+   * A delivery lead turn is a management turn, not a decomposition.
    *
    * Its management files are the proposal and the escalation, and a turn that wrote neither is
    * still a turn the owner asked for: the daemon woke it for a team event and its answer is its
@@ -180,7 +180,7 @@ export function leadCompletionEvidence(input: {
   if (input.managementTurn === true) {
     // A management turn delivers whatever it was asked for. A proposal the boundary refuses is
     // not a turn that failed its evidence: the manager reads it, refuses it, and hands the reason
-    // to the lead as its next prompt (U6). Counting it as invalid evidence instead would spend a
+    // to the lead as its next prompt. Counting it as invalid evidence instead would spend a
     // retry on a recoverable refusal, and the lead would be retried without being told why. Only
     // an escalation is checked here, because an escalation the owner cannot answer is silence.
     if (wroteEscalation && (input.escalation ?? null) === null) reasons.push("The lead's escalation is missing or unreadable");

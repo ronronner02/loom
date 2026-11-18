@@ -110,7 +110,7 @@ export async function startServer(port?: number) {
   if (requestedMode !== "managed") {
     throw new Error(`MULTI_AGENT_MODE must be "managed", got "${requestedMode}"`);
   }
-  // U6 — a managed daemon hosted by the desktop (Electron's utility process, which has a
+  // A managed daemon hosted by the desktop (Electron's utility process, which has a
   // parent port) starts with no configured owner token. Pairing still needs a stable owner
   // identity inside this process, so mint one in memory. It never leaves the daemon: the
   // desktop mints a one-time code over the private parent channel instead, and nothing here
@@ -151,7 +151,7 @@ export async function startServer(port?: number) {
   // bearer invariant applies to their chosen host). When default, the
   // daemon always binds loopback and ALSO binds the active tailscale
   // interface (if present) — both accepted paths in the invariant.
-  // OPR.0.5.5.20 — bind intent rides ONLY the dedicated MULTI_AGENT_BIND_HOST surface.
+  // Bind intent rides ONLY the dedicated MULTI_AGENT_BIND_HOST surface.
   // The overloaded routing env (MULTI_AGENT_HOST) is observed for the
   // provenance line below and NEVER selects the bind branch: a managed environment's
   // injected endpoint is byte-indistinguishable from opt-in, and the parent daemon
@@ -185,7 +185,7 @@ export async function startServer(port?: number) {
     bindHosts = bindPlan.hosts;
   }
 
-  // T053: the process entry holds the one credential object the daemon fills. Startup
+  // The process entry holds the one credential object the daemon fills. Startup
   // writes its `workers` list in place as attempts are admitted, so every holder — control
   // routes, the managed launch chain and the mailbox endpoint — reads the same tokens, and
   // the owner credential it started with is never replaced by a second copy.
@@ -197,7 +197,7 @@ export async function startServer(port?: number) {
     dbPath,
     teamControl: { credentials: teamControlCredentials },
     bearerToken,
-    // S20 — the effective bind plan rides the health surface so adoption gates verify
+    // The effective bind plan rides the health surface so adoption gates verify
     // listeners from BINDING EVIDENCE (probe each host) instead of config echo.
     bindPlan,
     requestShutdown: signal => runningShutdown(signal),
@@ -214,7 +214,7 @@ export async function startServer(port?: number) {
   for (const host of bindHosts) {
     const srv = serve({ fetch: app.fetch, port: p, hostname: host }, (info) => {
       console.log(`Multi-Agent daemon listening on http://${host}:${info.port}`);
-      // U5 — report readiness to the Electron parent process over parentPort.
+      // Report readiness to the Electron parent process over parentPort.
       // Only the loopback bind reports (not a secondary tailscale bind).
       if (host === "127.0.0.1") {
         try {
@@ -225,7 +225,7 @@ export async function startServer(port?: number) {
       }
       if (!monitorsStarted) {
         monitorsStarted = true;
-        // MVP — observe the end of a direct-launched attempt. The sweep admits each launch
+        // Observe the end of a direct-launched attempt. The sweep admits each launch
         // receipt's attempt and records it stopped when the process it named is gone; it never
         // decides an outcome, which stays the owner's action.
         deps.attemptCompletion?.start();
@@ -274,7 +274,7 @@ export async function startServer(port?: number) {
   // Repeated signals join the first shutdown instead of bypassing its evidence.
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
-  /** U5 — parent-port bridge for Electron utility-process hosting. */
+  /** Parent-port bridge for Electron utility-process hosting. */
   // parentPort is injected by Electron's utilityProcess runtime; it is not
   // a standard Node.js Process property, so we access it via cast. Electron's
   // MessagePortMain delivers `{ data }`; worker_threads delivers the value.
@@ -289,12 +289,12 @@ export async function startServer(port?: number) {
       const envelope = message as { data?: unknown };
       const msg = (envelope && typeof envelope === "object" && "data" in envelope ? envelope.data : message) as Record<string, unknown> | null;
       if (msg?.type === "shutdown") shutdown("parent");
-      // U6 — native pairing. The desktop mints a one-time code over this private port
+      // Native pairing. The desktop mints a one-time code over this private port
       // instead of holding an owner token, then exchanges it over HTTP like a browser
       // would. Only the parent process can reach this listener, so no HTTP route changes.
       // The code goes back over the port and is never logged or written anywhere.
       if (msg?.type === "mint-pairing") replyToMintPairing(deps.ownerSessions, resolvedOwnerToken, parentPort);
-      // U12 — first-run dependency status. The desktop asks the daemon that will launch the
+      // First-run dependency status. The desktop asks the daemon that will launch the
       // workers, so the resolved paths it shows are the paths a launch will use.
       if (msg?.type === "dependencies") replyToDependencies(parentPort);
     });
@@ -305,7 +305,7 @@ export async function startServer(port?: number) {
   return servers[0]!;
 }
 
-/** U6 — answer one `mint-pairing` request over the parent port. */
+/** Answer one `mint-pairing` request over the parent port. */
 export function replyToMintPairing(
   sessions: import("./domain/owner-session.js").OwnerSessions | undefined,
   ownerToken: string | null,
@@ -328,9 +328,9 @@ function replyOnParentPort(port: { postMessage: (message: unknown) => void }, me
 }
 
 /**
- * U12 — answer one `dependencies` request over the parent port.
+ * Answer one `dependencies` request over the parent port.
  *
- * The answer is U1's resolver output for `claude`, `codex`, `gemini`, `git` and `gh`, unchanged: the
+ * The answer is resolver output for `claude`, `codex`, `gemini`, `git` and `gh`, unchanged: the
  * desktop's first-run page shows what this daemon resolved, so its paths are the paths a launch
  * will use. A resolver failure is reported as a named error, never as an empty "all good" list.
  */

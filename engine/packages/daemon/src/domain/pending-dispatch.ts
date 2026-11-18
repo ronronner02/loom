@@ -5,7 +5,7 @@ import type { TaskDispatch } from "./task-dispatch.js";
 import { ownerMessageSlot } from "./lead-chat.js";
 
 /**
- * MVP — a freed session slot starts the run's next task.
+ * A freed session slot starts the run's next task.
  *
  * The first live run found the gap this closes: a task admitted while the run was at its
  * `maxSessions` limit was refused once by the launch and never tried again. Nothing dispatched
@@ -54,7 +54,7 @@ export interface PendingDispatchDependencies {
  * attempt recorded after the reopen is that answer, and the task then waits for the owner's
  * outcome exactly as any finished turn does.
  *
- * A counted retry is the same question with a different name. KTD3 spends one retry on a
+ * A counted retry is the same question with a different name. spends one retry on a
  * retry-eligible daemon failure, and the owner's own retry command moves the row the same way:
  * failed to pending, with the count named in the note. A failed row is not a guarded terminal,
  * so the move is an ordinary transition and the reopen's own event is not written; the counted

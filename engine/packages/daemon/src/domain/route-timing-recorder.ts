@@ -2,7 +2,7 @@ import { performance } from "node:perf_hooks";
 import type { MiddlewareHandler } from "hono";
 
 /**
- * OPR.0.4.3.21 — request-duration accounting for the EXPENSIVE topology
+ * Request-duration accounting for the EXPENSIVE topology
  * routes only (rigs summary/graph, per-rig nodes, ps). These are the densest
  * synchronous-CPU handlers (per-rig getNodeInventory fan-out, tmux
  * attachAgentActivity) and are the prime suspects when the event loop starves.

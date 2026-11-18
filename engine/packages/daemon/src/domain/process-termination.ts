@@ -6,7 +6,7 @@ import {
 } from "./platform.js";
 
 /**
- * T017 (cancellation half) — what a recorded attempt identity is, and how to end it.
+ * What a recorded attempt identity is, and how to end it.
  *
  * A receipt records the client process as the kernel saw it: a pid *and* the clock tick that
  * process started at. The pid alone is not an identity — the kernel reuses it — so every

@@ -93,7 +93,7 @@ async function runProbe(now: () => Date, name: TeamHealthLightName, probe: Syste
   return result.value;
 }
 /**
- * T033 — the health projection of an attempt, carrying the KTD20 decision the classifier
+ * The health projection of an attempt, carrying the decision the classifier
  * recorded with its stop.
  *
  * This is the same read the owner's Tasks screen makes, through the governance owner, so a

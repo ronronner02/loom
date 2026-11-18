@@ -2,7 +2,7 @@ import type { TeamTaskStage } from "../contracts/team-control.js";
 
 export interface TeamTaskStageFacts {
   ownerDecision: boolean;
-  /** Plan R11 — a worker asked the owner a question and is waiting for the answer. */
+  /** a worker asked the owner a question and is waiting for the answer. */
   ownerQuestion: boolean;
   ownerBlocked: boolean;
   workerReport: boolean;

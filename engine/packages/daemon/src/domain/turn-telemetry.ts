@@ -1,7 +1,7 @@
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
- * U3 — the attempt's telemetry sidecars, for a turn the supervisor reads itself.
+ * The attempt's telemetry sidecars, for a turn the supervisor reads itself.
  *
  * The sidecars (`activity.jsonl`, `usage.json`, `progress.json`) used to be written by the pane's
  * readable view, which saw every provider record on its way to the screen. The supervisor sees the

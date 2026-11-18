@@ -8,7 +8,7 @@ import { controlErrorHandler, githubErrorMap } from "../middleware/control-error
 
 export function teamGithubRoutes(
   github: GithubCli,
-  /** Plan KTD10 — the dedicated agent account; its sign-in is separate from the owner's. */
+  /** the dedicated agent account; its sign-in is separate from the owner's. */
   agent: GithubCli | undefined,
   credentials: TeamControlCredentials,
   legacyTokens: readonly (string | null | undefined)[],

@@ -4,7 +4,7 @@ import type { EventBus, NotifyRegister } from "./event-bus.js";
 import { TEAM_CONTROL_VERSION, parseTeamEvent, type JsonObject, type TeamRole } from "../contracts/team-control.js";
 
 /**
- * T012 / KTD8, KTD9, R17, R18 — review bound to the exact candidate.
+ * A review bound to the exact candidate.
  *
  * A review is evidence about one specific tree. This module owns that claim.
  * Three rules keep it honest:
@@ -19,7 +19,7 @@ import { TEAM_CONTROL_VERSION, parseTeamEvent, type JsonObject, type TeamRole } 
  *    convergence gate refuses is not recorded at all, rather than recorded and
  *    merely advised against.
  *
- * Durable state is the run's `team.control` event log (KTD4), folded on every
+ * Durable state is the run's `team.control` event log, folded on every
  * read, so a restart resumes the same counters from the same bytes.
  */
 
@@ -29,7 +29,7 @@ export type ReviewSeverity = (typeof REVIEW_SEVERITIES)[number];
 /** Rounds 1-2 always run; 3-4 only for open P0/P1 under the gate; a fifth never starts. */
 export const UNCONDITIONAL_ROUNDS = 2;
 export const MAX_REVIEW_ROUNDS = 4;
-/** KTD9: one diagnosed recoverable retry per task, not per attempt. */
+/** One diagnosed recoverable retry per task, not per attempt. */
 export const MAX_RECOVERABLE_RETRIES = 1;
 
 const DIGEST = /^sha256:[a-f0-9]{64}$/;
@@ -47,7 +47,7 @@ export interface ReviewFinding {
   citation: string;
   category: string;
   file: string;
-  /** KTD28: the concrete failing scenario. Required for a P0/P1; absent on records made before the charter. */
+  /** The concrete failing scenario. Required for a P0/P1; absent on records made before the charter. */
   scenario?: string;
   /**
    * From round 2 on, whether the finding sits in the fix delta. The daemon decides
@@ -66,7 +66,7 @@ export const PRIOR_STATUSES = ["CLOSED", "STILL OPEN", "REGRESSED"] as const;
 export interface PriorVerdict { id: string; status: (typeof PRIOR_STATUSES)[number]; evidence: string }
 
 /**
- * Review convergence (KTD28): from round 2 on, a new finding outside the fix
+ * Review convergence: from round 2 on, a new finding outside the fix
  * delta is a recorded residual, unless it is a P0 the reviewer reproduced.
  */
 export function countsTowardGate(finding: ReviewFinding): boolean {
@@ -127,7 +127,7 @@ export interface RetryRecord {
 }
 
 /**
- * MVP slice C2 — one review round's verdict from the run's own review task.
+ * One review round's verdict from the run's own review task.
  *
  * The full review ledger (`recordReview` above) binds a round to a candidate identity, a
  * delta packet and the convergence gate; that is the review *protocol*. The MVP loop is
@@ -189,7 +189,7 @@ export interface ReviewState {
   /** Classes open earlier and absent from the following round. */
   closedP0P1: string[];
   /**
-   * MVP slice C2 — the run's own review rounds for this task, in round order.
+   * The run's own review rounds for this task, in round order.
    *
    * Separate from `rounds`, which folds the review *protocol*'s candidate-bound records. A
    * run that uses the MVP loop records verdicts here instead, and `openP0P1` above counts
@@ -281,7 +281,7 @@ export function parseFindings(value: unknown, delta?: { round: number; files: Re
     if (CONTROL_CHARS.test(citation)) {
       throw new ReviewEvidenceError("invalid_input", `Finding ${id} citation contains control characters`);
     }
-    // KTD28: a P0/P1 names the inputs and state that produce the wrong outcome.
+    // A P0/P1 names the inputs and state that produce the wrong outcome.
     const blocking = finding.severity === "P0" || finding.severity === "P1";
     const hasScenario = typeof finding.scenario === "string" && finding.scenario.trim() !== "";
     if (blocking && !hasScenario) throw new ReviewEvidenceError("invalid_finding", `Finding ${id} is ${finding.severity} and has no failing scenario`);
@@ -510,7 +510,7 @@ export function evaluateProgressGate(input: {
   longestRoundMs?: number | null;
 }): ProgressGate {
   const { state } = input;
-  // KTD9 splits the allowance in two. `maxReviewRounds` is the binding's
+  // splits the allowance in two. `maxReviewRounds` is the binding's
   // unconditional cycles (the contract caps it at 2); the extra rounds 3-4 are
   // the plan's own extension for open P0/P1, not something the binding grants.
   // Treating the binding cap as the ceiling would make that extension unreachable.
@@ -537,7 +537,7 @@ export function evaluateProgressGate(input: {
   const remaining = input.remainingActiveMs, longest = input.longestRoundMs;
   const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0;
   if (!finite(remaining) || !finite(longest)) {
-    // Managed rounds cost KTD9 time; without it the gate cannot show one fits.
+    // Managed rounds cost time; without it the gate cannot show one fits.
     return { kind: "stop", basis: "insufficient-time", reason: "No run-clock evidence that another round fits" };
   }
   if (remaining < longest) {
@@ -586,7 +586,7 @@ export class ReviewEvidenceLedger {
     /** The approved binding's limits. Read per call, never hard-coded, so a stricter approval wins. */
     limits: (runId: string) => { maxRetries: number; maxReviewRounds: number };
     /**
-     * The run's KTD9 clock, derived by the caller from run state. Supplied as a
+     * The run's clock, derived by the caller from run state. Supplied as a
      * function so the ledger cannot be handed a favourable clock by a request.
      */
     clock?: (runId: string) => { remainingActiveMs: number };
@@ -641,7 +641,7 @@ export class ReviewEvidenceLedger {
     candidate: CandidateIdentity; findings: unknown; register: NotifyRegister;
     /** Optional submitter key identifying the delivered report; enables redelivery dedup. */
     reportKey?: string;
-    /** From round 2 on, the reviewer's verdict on each earlier open P0/P1 (KTD28). */
+    /** From round 2 on, the reviewer's verdict on each earlier open P0/P1. */
     prior?: unknown;
   }): ReviewRecord {
     const current = this.state(input.runId, input.taskId);
@@ -713,7 +713,7 @@ export class ReviewEvidenceLedger {
     return identity;
   }
 
-  /** KTD9's single diagnosed recoverable retry, counted from durable state. */
+  /** single diagnosed recoverable retry, counted from durable state. */
   retry(input: { runId: string; rigId: string; taskId: string; reasonCode: string; resumeSafe: boolean; register: NotifyRegister }): RetryRecord {
     const current = this.state(input.runId, input.taskId);
     if (current.retries.length >= this.deps.limits(input.runId).maxRetries) {

@@ -6,7 +6,7 @@ import { teamControlAuthentication, type TeamControlCredentials, type TeamContro
 import { controlErrorHandler } from "../middleware/control-error.js";
 
 /**
- * MVP slice 3 — the owner's read of a finished task's result.
+ * The owner's read of a finished task's result.
  *
  * The patch and the file manifest are already computed by `team-workspace.ts`, the one reader
  * of worker-written files; this route only serves them, through the same candidate lookup the

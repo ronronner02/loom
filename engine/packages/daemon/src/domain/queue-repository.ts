@@ -942,7 +942,7 @@ export class QueueRepository {
         continue;
       }
       if (!satisfied) {
-        // T011 — WITHHOLD. The blocker ended without evidence-backed success, so
+        // WITHHOLD. The blocker ended without evidence-backed success, so
         // the consumer stays parked on its own explicit gate rather than
         // inheriting a promise that was never kept. The note is the owner's only
         // signal that this row needs a decision, so it is written once per closed

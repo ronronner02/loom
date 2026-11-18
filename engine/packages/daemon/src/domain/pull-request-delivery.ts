@@ -5,7 +5,7 @@ import type { PlanGovernance } from "./plan-governance.js";
 import { deliveryReadiness } from "./delivery-readiness.js";
 
 /**
- * Plan R17 / KTD13 — a run whose project lives on GitHub ends in a pull request.
+ * A run whose project lives on GitHub ends in a pull request.
  *
  * Once every task is done, the dedicated agent account pushes the run's integration branch and
  * opens a pull request; later commits (a follow-up's) are pushed to the same branch. The owner
@@ -25,6 +25,20 @@ export interface OwnerHost {
 }
 
 export interface PullRequestRecord { runId: string; repository: string; number: number; url: string; headSha: string; state: "open" | "merged" | "closed" }
+
+/**
+ * What one delivery attempt concluded.
+ *
+ * "nothing-to-do" is transient — no commit has landed yet — and the next sweep asks again.
+ * "not-applicable" is a property of the run, not of this tick: it has no GitHub origin, the
+ * agent account cannot push, or it is the owner's own account, so a pull request is never the
+ * delivery and the local merge is. Naming the two apart is what stops a caller reading a
+ * permanent condition as a wait.
+ */
+export type DeliveryState =
+  | { state: "delivered"; record: PullRequestRecord }
+  | { state: "nothing-to-do" }
+  | { state: "not-applicable" };
 
 /** `owner/name` from a GitHub origin URL, or null for any other remote. */
 export function githubIdentity(remote: string): string | null {
@@ -74,25 +88,27 @@ export function composePullRequestDelivery(deps: PullRequestDeliveryDeps) {
     log(`team delivery: run=${runId} pull request not updated: ${error instanceof Error ? error.message : String(error)}`);
   };
 
-  /** Push and open (or update) the pull request for one finished run. Returns the record or null when not applicable. */
-  async function deliver(runId: string): Promise<PullRequestRecord | null> {
+  /** Push and open (or update) the pull request for one finished run. */
+  async function deliver(runId: string): Promise<DeliveryState> {
     const status = deps.integration.status(runId);
-    if (!status.tasksDone || status.commits.length === 0 || status.merge.merged === true || !status.repository) return null;
+    if (!status.tasksDone || status.commits.length === 0 || status.merge.merged === true) return { state: "nothing-to-do" };
+    const repository = status.repository;
+    if (!repository) return { state: "not-applicable" };
     const run = deps.governance.getRun(runId);
-    if (!deliveryReadiness(deps.db, run, status.commits.length).possible) return null;
-    const head = git(status.repository, ["rev-parse", "--verify", `refs/heads/${status.branch}^{commit}`]);
-    const identity = githubIdentity(git(status.repository, ["remote", "get-url", "origin"]) ?? "");
-    if (!head || !identity) return null;
+    if (!deliveryReadiness(deps.db, run, status.commits.length).possible) return { state: "nothing-to-do" };
+    const head = git(repository, ["rev-parse", "--verify", `refs/heads/${status.branch}^{commit}`]);
+    const identity = githubIdentity(git(repository, ["remote", "get-url", "origin"]) ?? "");
+    if (!head || !identity) return { state: "not-applicable" };
     const existing = readPullRequest(deps.db, runId);
     // A merged pull request is the run's delivery; there is nothing left to push. An unchanged
     // head has nothing to deliver in any state: a closed one waits for the next commit.
-    if (existing && (existing.state === "merged" || existing.headSha === head)) return existing;
+    if (existing && (existing.state === "merged" || existing.headSha === head)) return { state: "delivered", record: existing };
     const [agent, owner] = await Promise.all([deps.agent.status(), deps.owner.status()]);
     // The agent never acts as the owner: a missing or same account keeps the local merge.
-    if (!agent.signedIn || !agent.login || (owner.signedIn && owner.login === agent.login)) return null;
+    if (!agent.signedIn || !agent.login || (owner.signedIn && owner.login === agent.login)) return { state: "not-applicable" };
     const access = await deps.agent.repositoryAccess(identity);
     if (!access.push) throw new Error("github_agent_no_access");
-    await deps.agent.pushBranch(status.repository, status.branch);
+    await deps.agent.pushBranch(repository, status.branch);
     // Closing a pull request is the owner's decision about that pull request, not about the
     // run: new commits still get delivered. An open (or reopened) one is updated in place;
     // a closed one is the delivery the owner ended, so a fresh one is opened below.
@@ -110,7 +126,7 @@ export function composePullRequestDelivery(deps: PullRequestDeliveryDeps) {
     }
     const record: PullRequestRecord = { runId, repository: identity, number: pull.number, url: pull.url, headSha: head, state: "open" };
     writePullRequest(deps.db, record, now().toISOString());
-    return record;
+    return { state: "delivered", record };
   }
 
   return {
@@ -136,18 +152,21 @@ export function composePullRequestDelivery(deps: PullRequestDeliveryDeps) {
       const readiness = deliveryReadiness(deps.db, deps.governance.getRun(runId), status.commits.length);
       const branch = status.branch;
       if (!readiness.possible) {
-        return { status: "refused", code: readiness.code, reason: readiness.reason, branch, mode: null, head: null };
+        return { status: "refused", code: readiness.code, reason: readiness.reason, transient: readiness.transient,
+          branch, mode: null, head: null };
       }
       const currentHead = status.repository === null ? null
         : git(status.repository, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
       if (currentHead === null || currentHead !== record.headSha) {
         return { status: "refused", code: currentHead === null ? "merge_unavailable" : "merge_delivery_pending",
           reason: currentHead === null ? "The integration branch head could not be verified."
-            : "The latest integrated work has not been pushed to this pull request yet.", branch, mode: null, head: null };
+            : "The latest integrated work has not been pushed to this pull request yet.",
+          // A head that is not pushed yet is the sweep's to finish; an unverifiable one is not.
+          transient: currentHead !== null, branch, mode: null, head: null };
       }
       await deps.owner.mergePullRequest(record.repository, record.number, record.headSha);
       writePullRequest(deps.db, { ...record, state: "merged" }, now().toISOString());
-      return { status: "merged", code: null, reason: null, branch, mode: "pull-request", head: record.headSha };
+      return { status: "merged", code: null, reason: null, transient: false, branch, mode: "pull-request", head: record.headSha };
     },
   };
 }

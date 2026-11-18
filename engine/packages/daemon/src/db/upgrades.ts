@@ -10,7 +10,7 @@ export interface SchemaUpgrade { from: number; to: number; sql: string; rebuilds
  * the previous version to the same schema. The parity test in `db-upgrades.test.ts` holds
  * the chain to the baseline.
  */
-/** Plan KTD9 — one immutable revision of a team's prompt section overrides. Shared by the baseline and step 4→5. */
+/** one immutable revision of a team's prompt section overrides. Shared by the baseline and step 4→5. */
 export const TEAM_PROMPT_VERSIONS_SQL = `CREATE TABLE team_prompt_versions (
       rig_id TEXT NOT NULL REFERENCES rigs(id) ON DELETE CASCADE,
       revision INTEGER NOT NULL CHECK (revision > 0),
@@ -20,7 +20,7 @@ export const TEAM_PROMPT_VERSIONS_SQL = `CREATE TABLE team_prompt_versions (
       PRIMARY KEY (rig_id, revision)
     )`;
 
-/** Plan KTD13 — the pull request a run's branch is delivered through. Shared by the baseline and step 5→6. */
+/** the pull request a run's branch is delivered through. Shared by the baseline and step 5→6. */
 export const TEAM_PULL_REQUESTS_SQL = `CREATE TABLE team_pull_requests (
       run_id TEXT PRIMARY KEY REFERENCES team_runs(id),
       repository TEXT NOT NULL,
@@ -31,7 +31,7 @@ export const TEAM_PULL_REQUESTS_SQL = `CREATE TABLE team_pull_requests (
       updated_at TEXT NOT NULL
     )`;
 
-/** Plan KTD12 — the GitHub items a run's source has already delivered. Shared by the baseline and step 6→7. */
+/** the GitHub items a run's source has already delivered. Shared by the baseline and step 6→7. */
 export const TEAM_GITHUB_SEEN_SQL = `CREATE TABLE team_github_seen (
       run_id TEXT NOT NULL REFERENCES team_runs(id),
       item TEXT NOT NULL,
@@ -40,7 +40,7 @@ export const TEAM_GITHUB_SEEN_SQL = `CREATE TABLE team_github_seen (
     )`;
 
 /**
- * Plan KTD14 — a team's versioned intake policy, the GitHub items it has seen, and where each
+ * A team's versioned intake policy, the GitHub items it has seen, and where each
  * team's polling resumes. Shared by the baseline and step 7→8.
  */
 export const TEAM_INTAKE_SQL = [`CREATE TABLE team_intake_policies (
@@ -75,7 +75,7 @@ export const TEAM_INTAKE_SQL = [`CREATE TABLE team_intake_policies (
     )`].join(";\n");
 
 /**
- * Plan R19 — a GitHub review comment a task took, and the reply its outcome owes: a resolved
+ * A GitHub review comment a task took, and the reply its outcome owes: a resolved
  * thread once the fix is pushed, or one sentence of reason. Shared by the baseline and step 8→9.
  */
 export const TEAM_GITHUB_THREADS_SQL = `CREATE TABLE team_github_threads (
@@ -159,9 +159,9 @@ export const TEAM_BOOTSTRAPS_SQL = `CREATE TABLE "team_bootstraps" (
     )`;
 
 export const SCHEMA_UPGRADES: readonly SchemaUpgrade[] = [
-  // Plan KTD3: a lead message that needs no owner attention is kept as run activity.
+  // A lead message that needs no owner attention is kept as run activity.
   { from: 2, to: 3, sql: "ALTER TABLE team_chat_messages ADD COLUMN visibility TEXT NOT NULL DEFAULT 'chat' CHECK (visibility IN ('chat', 'activity'))" },
-  // Plan KTD5/KTD6/R10: an owner comment on a task, a task hold, and a follow-up's original task.
+  // An owner comment on a task, a task hold, and a follow-up's original task.
   { from: 3, to: 4, sql: ["ALTER TABLE team_chat_messages ADD COLUMN task_id TEXT",
     "ALTER TABLE team_queue_authority ADD COLUMN held_at TEXT",
     "ALTER TABLE team_queue_authority ADD COLUMN follow_up_of TEXT"].join(";\n") },

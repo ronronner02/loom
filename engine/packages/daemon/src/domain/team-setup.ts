@@ -8,7 +8,7 @@ import { rosterSoulRefusal, soulId } from "./team-souls.js";
 import { canonicalPath, samePath as canonicalSamePath } from "./platform.js";
 
 /**
- * U3 — one team for one repository.
+ * One team for one repository.
  *
  * A team is a rig whose nodes are the seats a managed run needs: a lead, one or more
  * implementers and a reviewer. Every seat is a row only, exactly as the demo seeds wrote them
@@ -26,7 +26,7 @@ export type TeamClient = typeof TEAM_CLIENTS[number];
 export interface TeamSeatInput {
   role: TeamRole;
   client: TeamClient;
-  /** The one per-launch setting this slice passes through (KTD6: everything else is local config). */
+  /** The one per-launch setting that travels with a launch; everything else is local config. */
   model?: string;
   soulId?: string;
 }

@@ -1,4 +1,4 @@
-// OPR.0.4.8.2 — Multi-Agent YOLO mode (opt-in, DEFAULT OFF).
+// Multi-Agent YOLO mode (opt-in, DEFAULT OFF).
 //
 // A simple deterministic setting that rides the STABLE launch-flag surface only (per the founder's
 // two-surface rule: launch flags may be deterministic code; config-file policy may NOT). When ON,
@@ -82,7 +82,7 @@ export function piTrust(
 }
 
 /**
- * OPR.0.5.3.1 — Claude classic-renderer launch env prefix.
+ * Claude classic-renderer launch env prefix.
  *
  * Claude Code's fullscreen renderer draws to the terminal ALTERNATE screen, which
  * emits no scrollback — so tmux capture-pane stores nothing and `multi-agent transcript`

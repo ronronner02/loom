@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { AssessInput, Assessor } from "./github-intake.js";
 
 /**
- * Plan KTD14 — the read-only turn that judges a GitHub item against the owner's rules.
+ * The read-only turn that judges a GitHub item against the owner's rules.
  *
  * The team's lead client runs one headless turn with no tools (Claude) or a read-only sandbox
  * that never asks (Codex). The turn only answers which rules match; it cannot change anything,

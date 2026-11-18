@@ -292,7 +292,7 @@ export class GithubCli {
   }
 
   /**
-   * Plan KTD13 — the agent account's access to a repository it does not own: whether it may push,
+   * The agent account's access to a repository it does not own: whether it may push,
    * and the branch a pull request targets.
    */
   async repositoryAccess(identity: string): Promise<{ push: boolean; defaultBranch: string }> {
@@ -304,7 +304,7 @@ export class GithubCli {
     return { push: value.push === true, defaultBranch: value.base };
   }
 
-  /** Plan KTD12 — one REST read, every page joined into one array when the answer is a list. */
+  /** one REST read, every page joined into one array when the answer is a list. */
   async apiGet<T = unknown>(path: string): Promise<T> {
     // A busy pull request's comments run to megabytes across pages; the 64 KiB default would fail the read.
     const result = await this.run(["api", path, "--hostname", HOST, "--paginate", "--slurp"],
