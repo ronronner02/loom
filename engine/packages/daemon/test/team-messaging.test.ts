@@ -13,7 +13,7 @@ import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
 import type { ArbitratedSeatState } from "../src/domain/activity-taxonomy.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { ChatRepository } from "../src/domain/chat-repository.js";
+import { MailboxRepository } from "../src/domain/mailbox-repository.js";
 import { RigRepository } from "../src/domain/rig-repository.js";
 import { SeatMailboxCapabilities } from "../src/domain/worker-mailbox-capability.js";
 
@@ -31,7 +31,7 @@ function createTestDb(): Database.Database {
 describe("addressed mailbox delivery", () => {
   let db: Database.Database;
   let rigId: string;
-  let chatRepo: ChatRepository;
+  let chatRepo: MailboxRepository;
   let eventBus: EventBus;
   let mailbox: MailboxDelivery;
   let promptState: MailboxPromptState;
@@ -39,7 +39,7 @@ describe("addressed mailbox delivery", () => {
   beforeEach(() => {
     db = createTestDb();
     rigId = new RigRepository(db).createRig("messaging-rig").id;
-    chatRepo = new ChatRepository(db);
+    chatRepo = new MailboxRepository(db);
     eventBus = new EventBus(db);
     promptState = "clear";
     mailbox = new MailboxDelivery(chatRepo, () => promptState);
@@ -53,9 +53,11 @@ describe("addressed mailbox delivery", () => {
       rigId, sender: "lead@team", recipient: "worker@team", taskId: "T009", runId: "run-1", body,
       messageId: "mail-1", replyTo: "mail-0", attachment: [{ artifactId: "artifact-1", hash: "hash-1", taskId: "T009", runId: "run-1" }], capability: cap("1"),
     });
-    expect(message).toMatchObject({ id: "mail-1", messageId: "mail-1", projectId: rigId, rigId,
+    expect(message).toMatchObject({ id: "mail-1", messageId: "mail-1", rigId,
       sender: "lead@team", recipient: "worker@team", taskId: "T009", runId: "run-1", replyTo: "mail-0",
-      attachment: [{ artifactId: "artifact-1", hash: "hash-1", taskId: "T009", runId: "run-1" }], capability: cap("1"), receipt: null, body });
+      attachment: [{ artifactId: "artifact-1", hash: "hash-1", taskId: "T009", runId: "run-1" }], receipt: null, body });
+    // A message the caller reads never carries the recipient's capability back to it.
+    expect(message).not.toHaveProperty("capability");
     expect((db.prepare("SELECT count(*) AS count FROM chat_messages").get() as { count: number }).count).toBe(1);
   });
 
@@ -71,7 +73,10 @@ describe("addressed mailbox delivery", () => {
     const input = { rigId, sender: "lead@team", recipient: "worker@team", taskId: "T009", runId: "run-1", body: "retry", messageId: "mail-retried", capability: cap("1") };
     const first = mailbox.send(input);
     expect(mailbox.send(input).id).toBe(first.id);
-    expect(first.capability).toBe(cap("1"));
+    // The delivery the sender gets back names the message; the seat's capability stays the
+    // recipient's secret, proved by the row that stored it.
+    expect((db.prepare("SELECT topic FROM chat_messages WHERE id = ?").get(first.id) as { topic: string }).topic)
+      .toContain(cap("1"));
     expect((db.prepare("SELECT count(*) AS count FROM chat_messages").get() as { count: number }).count).toBe(1);
   });
 
@@ -124,15 +129,12 @@ describe("addressed mailbox delivery", () => {
     expect(mailbox.poll({ ...scope, state: "ready" }).messages).toEqual([]);
   });
 
-  it("keeps pending mailbox rows and consumption receipts when generic chat is cleared", () => {
+  it("keeps pending mailbox rows and consumption receipts across a consume", () => {
     const scope = { rigId, recipient: "worker@team", taskId: "T009", runId: "run-1", capability: cap("clear") };
-    const pending = mailbox.send({ ...scope, sender: "lead@team", body: "pending after clear", messageId: "mail-clear-pending" });
-    const consumed = mailbox.send({ ...scope, sender: "lead@team", body: "consumed before clear", messageId: "mail-clear-consumed" });
+    const pending = mailbox.send({ ...scope, sender: "lead@team", body: "pending after consume", messageId: "mail-clear-pending" });
+    const consumed = mailbox.send({ ...scope, sender: "lead@team", body: "consumed before consume", messageId: "mail-clear-consumed" });
     const firstReceipt = mailbox.consume({ ...scope, messageId: consumed.id, consumedBy: "worker@team", state: "ready" });
-    chatRepo.send(rigId, "lead@team", "public chat");
-    expect(chatRepo.clear(rigId).deleted).toBe(1);
-    expect(chatRepo.history(rigId)).toEqual([]);
-    expect(mailbox.poll({ ...scope, state: "ready" }).messages).toEqual([expect.objectContaining({ id: pending.id, body: "pending after clear" })]);
+    expect(mailbox.poll({ ...scope, state: "ready" }).messages).toEqual([expect.objectContaining({ id: pending.id, body: "pending after consume" })]);
     expect(mailbox.consume({ ...scope, messageId: consumed.id, consumedBy: "worker@team", state: "queued-wait" }).receipt).toEqual(firstReceipt.receipt);
     expect((db.prepare("SELECT count(*) AS count FROM chat_messages").get() as { count: number }).count).toBe(2);
   });

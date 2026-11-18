@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { chmodSync, lstatSync, realpathSync, unlinkSync, writeFileSync } from "node:fs";
 import { createConnection, createServer, type Socket } from "node:net";
 import { object, text } from "../contracts/team-control.js";
-import { ChatRepository, ChatRepositoryError } from "../domain/chat-repository.js";
+import { MailboxRepository, MailboxError } from "../domain/mailbox-repository.js";
 import { MailboxDelivery, MailboxDeliveryError } from "../domain/mailbox-delivery.js";
 import { mailboxEndpoint } from "../domain/mailbox-endpoint.js";
 import { hostPlatform, type HostPlatform } from "../domain/platform.js";
@@ -51,7 +51,7 @@ export class WorkerMailboxBridge {
   constructor(
     readonly binding: WorkerMailboxBinding,
     private readonly delivery: MailboxDelivery,
-    private readonly chat: ChatRepository,
+    private readonly chat: MailboxRepository,
     private readonly readCredentials: () => TeamControlCredentials,
     private readonly isCurrent: () => boolean,
     private readonly legacyTokens: readonly (string | null | undefined)[] = [],
@@ -281,7 +281,7 @@ export class WorkerMailboxBridge {
         const frame = new TextDecoder("utf-8", { fatal: true }).decode(pending.subarray(0, newline));
         response = { ok: true, result: this.dispatch(JSON.parse(frame)) };
       } catch (error) {
-        const code = error instanceof MailboxDeliveryError || error instanceof ChatRepositoryError
+        const code = error instanceof MailboxDeliveryError || error instanceof MailboxError
           ? error.code : "mailbox_request_denied";
         response = { ok: false, code };
       }

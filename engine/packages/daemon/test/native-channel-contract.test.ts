@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
-import { ChatRepository } from "../src/domain/chat-repository.js";
+import { MailboxRepository } from "../src/domain/mailbox-repository.js";
 import { RigRepository } from "../src/domain/rig-repository.js";
 import {
   MailboxDelivery,
@@ -37,7 +37,7 @@ describe("KTD19 native channel adoption", () => {
 describe("KTD19 mailbox delivery through a native channel", () => {
   let db: Database.Database;
   let rigId: string;
-  let chatRepo: ChatRepository;
+  let chatRepo: MailboxRepository;
   let mailbox: MailboxDelivery;
   // Stand in for the daemon's own observations; no request field sets them.
   let promptState: MailboxPromptState;
@@ -56,7 +56,7 @@ describe("KTD19 mailbox delivery through a native channel", () => {
     db = createDb();
     initializeDatabase(db);
     rigId = new RigRepository(db).createRig("channel-rig").id;
-    chatRepo = new ChatRepository(db);
+    chatRepo = new MailboxRepository(db);
     promptState = "clear";
     seat = { client: "claude-code", clientVersion: "2.1.296", installedChannelDigest: "digest-a", observedChannelDigest: "digest-a" };
     mailbox = new MailboxDelivery(chatRepo, () => promptState, () => seat);

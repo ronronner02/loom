@@ -13,7 +13,7 @@ import { MAILBOX_SOCKET_NAME } from "./mailbox-endpoint.js";
 import { isWindows } from "./platform.js";
 import type { ManagedAttempt } from "./runtime-adapter.js";
 import type { MailboxDelivery } from "./mailbox-delivery.js";
-import type { ChatRepository } from "./chat-repository.js";
+import type { MailboxRepository } from "./mailbox-repository.js";
 import type { TeamControlCredentials } from "../middleware/auth-bearer-token.js";
 import { ReviewEvidenceLedger, deliveryVerdict, evaluateProgressGate, type AssigneeFacts, type CandidateIdentity } from "./review-evidence.js";
 import {
@@ -191,7 +191,7 @@ export interface ProduceManagedAttemptInput {
   /** The worker's own gid in the projection; the control side is this process. */
   workerGid?: number;
   delivery: MailboxDelivery;
-  chat: ChatRepository;
+  chat: MailboxRepository;
   /** The credentials this attempt's endpoint authenticates against. */
   readCredentials?: () => TeamControlCredentials;
   /** The launcher's own liveness question for this attempt; false closes the generation. */

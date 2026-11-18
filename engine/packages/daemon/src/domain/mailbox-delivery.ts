@@ -2,12 +2,11 @@ import type Database from "better-sqlite3";
 import { latestHookMovedOn, latestHookWaitsOnPerson, type AgentActivityStore } from "./agent-activity-store.js";
 import type { ArbitratedSeatState } from "./activity-taxonomy.js";
 import type {
-  ChatRepository,
+  MailboxRepository,
   MailboxConsumptionReceipt,
   MailboxMessage,
   MailboxScope,
-  MailboxSendResult,
-} from "./chat-repository.js";
+} from "./mailbox-repository.js";
 
 export const MAILBOX_POLL_RETRY_MS = 1_000;
 export const MAILBOX_MAX_POLL_LIMIT = 100;
@@ -236,7 +235,7 @@ export function createMailboxPromptStateReader(deps: MailboxPromptStateDeps): Ma
 }
 
 /**
- * Addressed peer delivery built on the existing ChatRepository rows.
+ * Addressed peer delivery built on the existing MailboxRepository rows.
  *
  * Polling is deliberately a data-only operation. It never reaches a native
  * terminal, submits a key, or interprets the body as an approval response.
@@ -251,7 +250,7 @@ export class MailboxDelivery {
   private readonly channelHandouts = new Map<string, Set<string>>();
 
   constructor(
-    private readonly chatRepo: ChatRepository,
+    private readonly chatRepo: MailboxRepository,
     private readonly readPromptState: MailboxPromptStateReader = () => "unknown",
     private readonly readChannelState: NativeChannelStateReader = () => null,
     /**
@@ -262,7 +261,7 @@ export class MailboxDelivery {
     private readonly readSeatCapability: ((runId: string, sessionId: string) => string | null) | undefined = undefined,
   ) {}
 
-  send(input: MailboxSendRequest): MailboxSendResult {
+  send(input: MailboxSendRequest): MailboxMessage {
     const rigId = requiredText(input.rigId, "rigId");
     const sender = requiredText(input.sender, "sender");
     const recipient = requiredText(input.recipient, "recipient");

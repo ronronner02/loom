@@ -12,7 +12,7 @@ import type { EventBus } from "./domain/event-bus.js";
 import { teamEventsRoutes } from "./routes/events.js";
 import type { AgentActivityStore } from "./domain/agent-activity-store.js";
 import { jsonBodyErrorHandler, trackJsonBodyParseErrors } from "./middleware/json-body-error.js";
-import { ChatRepository } from "./domain/chat-repository.js";
+import { MailboxRepository } from "./domain/mailbox-repository.js";
 import { MailboxDelivery, createMailboxPromptStateReader, type NativeChannelStateReader } from "./domain/mailbox-delivery.js";
 import { workspaceBrowseRoutes } from "./routes/workspace.js";
 import { projectFilesRoutes } from "./routes/project-files.js";
@@ -253,7 +253,7 @@ export function createApp(deps: AppDeps): Hono {
   if (deps.mailboxDelivery && deps.nativeChannelState) throw new Error("A supplied mailbox owner already fixes its channel reader");
   const managedSeatCapability = deps.readSeatMailboxCapability;
   const mailboxDelivery = deps.mailboxDelivery ?? (deps.db
-    ? new MailboxDelivery(new ChatRepository(deps.db), createMailboxPromptStateReader({
+    ? new MailboxDelivery(new MailboxRepository(deps.db), createMailboxPromptStateReader({
         db: deps.db,
         observedSince: new Date().toISOString(),
       }), deps.nativeChannelState, managedSeatCapability)

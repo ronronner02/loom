@@ -18,7 +18,7 @@ import { prepareCodexTeamWorkspace } from "./domain/codex-team-workspace.js";
 import { DaemonLifecycleStore } from "./domain/daemon-lifecycle-store.js";
 import { randomUUID } from "node:crypto";
 import { AgentActivityStore } from "./domain/agent-activity-store.js";
-import { ChatRepository } from "./domain/chat-repository.js";
+import { MailboxRepository } from "./domain/mailbox-repository.js";
 import { StreamStore } from "./domain/stream-store.js";
 import { SlowOpRecorder, type SlowOperationInstrumentation } from "./domain/slow-op-recorder.js";
 import { configureSyncSiteRecorder } from "./domain/sync-site-wrap.js";
@@ -232,7 +232,7 @@ function composeManagedAttemptAttachment(dependencies: {
   governance: PlanGovernance;
   endpoints: Map<string, Pick<import("./adapters/worker-mailbox-bridge.js").WorkerMailboxBridge, "binding" | "endpoint">>;
   runtime: () => WorkflowRuntime | undefined;
-  owners: () => { chat?: ChatRepository; delivery?: MailboxDelivery };
+  owners: () => { chat?: MailboxRepository; delivery?: MailboxDelivery };
   /** The roots in force for this daemon: the daemon's own state tree. */
   roots: () => ManagedWorkerRoots;
 }) {
@@ -645,7 +645,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // composed here where both the store and the owner exist, and `createApp` is handed a
   // finished object rather than the parts it would otherwise assemble a second one from.
   const runtimeAdapters = { "claude-code": claudeAdapter, codex: codexAdapter, gemini: geminiAdapter };
-  const chatRepository = new ChatRepository(db);
+  const chatRepository = new MailboxRepository(db);
   const mailboxDelivery = new MailboxDelivery(chatRepository, createMailboxPromptStateReader({
     db,
     agentActivityStore,

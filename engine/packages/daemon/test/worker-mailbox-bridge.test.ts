@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { createConnection } from "node:net";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
-import { ChatRepository } from "../src/domain/chat-repository.js";
+import { MailboxRepository } from "../src/domain/mailbox-repository.js";
 import { MailboxDelivery, type MailboxPromptState, type NativeChannelSeatState } from "../src/domain/mailbox-delivery.js";
 import { WorkerMailboxBridge } from "../src/adapters/worker-mailbox-bridge.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -116,7 +116,7 @@ describe("mailbox transport credential resolution", () => {
 const windows = process.platform === "win32";
 
 describe("authenticated per-attempt Unix mailbox transport", () => {
-  let directory: string, db: ReturnType<typeof createDb>, chat: ChatRepository, bridge: WorkerMailboxBridge;
+  let directory: string, db: ReturnType<typeof createDb>, chat: MailboxRepository, bridge: WorkerMailboxBridge;
   let current: boolean, prompt: "clear" | "blocked";
   let delivery: MailboxDelivery, channel: NativeChannelSeatState | null, promptReader: () => MailboxPromptState;
   let active: TeamControlCredentials;
@@ -126,7 +126,7 @@ describe("authenticated per-attempt Unix mailbox transport", () => {
     directory = mkdtempSync(join(tmpdir(), "t010-mailbox-"));
     db = createDb(); initializeDatabase(db);
     db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'mailbox fixture')").run();
-    chat = new ChatRepository(db); current = true; prompt = "clear"; active = credentials;
+    chat = new MailboxRepository(db); current = true; prompt = "clear"; active = credentials;
     channel = null; promptReader = () => prompt;
     delivery = new MailboxDelivery(chat, () => promptReader(), () => channel);
     bridge = new WorkerMailboxBridge({ directory, workerId: "worker",
@@ -156,7 +156,7 @@ describe("authenticated per-attempt Unix mailbox transport", () => {
 
   it("uses authenticated sender identity for durable idempotent sends and scoped replies", async () => {
     const send = { operation: "send", recipient: "peer", messageId: "outgoing", body: "first line\nsecond line" };
-    expect((await request(send)).result).toMatchObject({ sender: worker.sessionId, recipient: "peer", capability });
+    expect((await request(send)).result).toMatchObject({ sender: worker.sessionId, recipient: "peer" });
     expect((await request(send)).result).not.toHaveProperty("capability");
     expect(chat.countPendingMailbox({ ...ownScope, recipient: "peer" })).toBe(1);
     incoming();

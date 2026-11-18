@@ -4,7 +4,7 @@ import { join, win32 } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
-import { ChatRepository } from "../src/domain/chat-repository.js";
+import { MailboxRepository } from "../src/domain/mailbox-repository.js";
 import { MailboxDelivery } from "../src/domain/mailbox-delivery.js";
 import { WorkerMailboxBridge } from "../src/adapters/worker-mailbox-bridge.js";
 import {
@@ -82,12 +82,12 @@ describe("mailbox endpoint naming", () => {
 });
 
 describe("mailbox bridge per platform", () => {
-  let directory: string, db: ReturnType<typeof createDb>, chat: ChatRepository, bridges: WorkerMailboxBridge[];
+  let directory: string, db: ReturnType<typeof createDb>, chat: MailboxRepository, bridges: WorkerMailboxBridge[];
   beforeEach(() => {
     directory = realpathSync.native(mkdtempSync(join(tmpdir(), "winpipe-unit-")));
     db = createDb(); initializeDatabase(db);
     db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'endpoint fixture')").run();
-    chat = new ChatRepository(db);
+    chat = new MailboxRepository(db);
     bridges = [];
   });
   afterEach(async () => {

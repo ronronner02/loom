@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDb } from "../src/db/connection.js";
 import { initializeDatabase } from "../src/db/baseline.js";
-import { ChatRepository } from "../src/domain/chat-repository.js";
+import { MailboxRepository } from "../src/domain/mailbox-repository.js";
 import { MailboxDelivery } from "../src/domain/mailbox-delivery.js";
 import { WorkerMailboxBridge } from "../src/adapters/worker-mailbox-bridge.js";
 import { MAILBOX_PIPE_PREFIX, mailboxEndpoint } from "../src/domain/mailbox-endpoint.js";
@@ -27,7 +27,7 @@ describe.skipIf(!windows)("Windows mailbox transport", () => {
   const credentials: TeamControlCredentials = { ownerToken: "winpipe-owner-fixture", workers: [worker] };
   const capability = `mailbox:${"a".repeat(43)}`;
   const ownScope = { rigId: "rig", recipient: worker.sessionId, taskId: "task", runId: "run", capability };
-  let directory: string, db: ReturnType<typeof createDb>, chat: ChatRepository, bridge: WorkerMailboxBridge;
+  let directory: string, db: ReturnType<typeof createDb>, chat: MailboxRepository, bridge: WorkerMailboxBridge;
 
   const open = () => new WorkerMailboxBridge({ directory, workerId: "worker", sessionId: worker.sessionId,
     runId: "run", attemptId: "attempt", rigId: "rig", taskId: "task", recipients: ["peer"] },
@@ -50,7 +50,7 @@ describe.skipIf(!windows)("Windows mailbox transport", () => {
     directory = realpathSync.native(mkdtempSync(join(tmpdir(), "winpipe-")));
     db = createDb(); initializeDatabase(db);
     db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'pipe fixture')").run();
-    chat = new ChatRepository(db);
+    chat = new MailboxRepository(db);
     bridge = open();
   });
   afterEach(async () => {
