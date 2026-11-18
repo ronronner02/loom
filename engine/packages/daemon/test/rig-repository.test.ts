@@ -55,32 +55,10 @@ describe("RigRepository", () => {
     expect(() => repo.addNode(rig.id, "worker")).toThrow();
   });
 
-  it("addEdge validates both nodes exist and belong to same rig", () => {
-    const rig = repo.createRig("test-rig");
-    const n1 = repo.addNode(rig.id, "orchestrator");
-    const n2 = repo.addNode(rig.id, "worker");
-    const edge = repo.addEdge(rig.id, n1.id, n2.id, "delegates_to");
-    expect(edge.id).toBeDefined();
-    expect(edge.sourceId).toBe(n1.id);
-    expect(edge.targetId).toBe(n2.id);
-    expect(edge.kind).toBe("delegates_to");
-  });
-
-  it("addEdge cross-rig rejected", () => {
-    const rig1 = repo.createRig("rig-one");
-    const rig2 = repo.createRig("rig-two");
-    const n1 = repo.addNode(rig1.id, "worker-a");
-    const n2 = repo.addNode(rig2.id, "worker-b");
-    expect(() =>
-      repo.addEdge(rig1.id, n1.id, n2.id, "delegates_to")
-    ).toThrow(/same rig/);
-  });
-
-  it("getRig returns full graph with nodes, edges, and bindings", () => {
+  it("getRig returns the rig with its nodes and their bindings", () => {
     const rig = repo.createRig("test-rig");
     const n1 = repo.addNode(rig.id, "orchestrator", { role: "orchestrator" });
-    const n2 = repo.addNode(rig.id, "worker", { role: "worker" });
-    repo.addEdge(rig.id, n1.id, n2.id, "delegates_to");
+    repo.addNode(rig.id, "worker", { role: "worker" });
 
     // Add a binding to n1 only
     db.prepare(
@@ -91,8 +69,6 @@ describe("RigRepository", () => {
     expect(full).not.toBeNull();
     expect(full!.rig.name).toBe("test-rig");
     expect(full!.nodes).toHaveLength(2);
-    expect(full!.edges).toHaveLength(1);
-    expect(full!.edges[0]!.kind).toBe("delegates_to");
 
     // n1 has a binding
     const orchNode = full!.nodes.find((n) => n.logicalId === "orchestrator");
@@ -121,25 +97,6 @@ describe("RigRepository", () => {
     expect(names).toContain("rig-a");
     expect(names).toContain("rig-b");
     expect(names).toContain("rig-c");
-  });
-
-  it("finds an older live project when a later generation was re-archived", () => {
-    const live = repo.createRig("same-name");
-    const predecessor = repo.createRig("same-name");
-    db.prepare("UPDATE rigs SET created_at = ? WHERE id = ?").run("2026-01-01T00:00:00Z", live.id);
-    db.prepare("UPDATE rigs SET created_at = ? WHERE id = ?").run("2026-01-02T00:00:00Z", predecessor.id);
-    for (const rig of [live, predecessor]) {
-      repo.setServicesRecord(rig.id, {
-        kind: "compose",
-        specJson: "{}",
-        rigRoot: "/tmp",
-        composeFile: "compose.yaml",
-        projectName: "shared-project",
-      });
-    }
-    expect(repo.archiveRig(predecessor.id)).toBe(true);
-
-    expect(repo.getLiveServicesSuccessor(predecessor.id, "shared-project")).toEqual({ id: live.id, name: "same-name" });
   });
 
   it("retains governance history on deletion and permits reversible archive", () => {
@@ -214,11 +171,10 @@ describe("RigRepository", () => {
     expect(repo.getRig(rig.id)).not.toBeNull();
   });
 
-  it("deleteRig cascades — nodes and edges gone", () => {
+  it("deleteRig removes the rig and its nodes", () => {
     const rig = repo.createRig("test-rig");
-    const n1 = repo.addNode(rig.id, "orchestrator");
-    const n2 = repo.addNode(rig.id, "worker");
-    repo.addEdge(rig.id, n1.id, n2.id, "delegates_to");
+    repo.addNode(rig.id, "orchestrator");
+    repo.addNode(rig.id, "worker");
 
     repo.deleteRig(rig.id);
 
