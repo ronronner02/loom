@@ -568,6 +568,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
         // The client's own provider traffic follows the owner's proxy, read at each launch.
         settingsStore: new ContextPackSettingsStore() });
   const workerLauncher = { workerLauncher: managedLaunch.launcher };
+  const launcher = managedLaunch.launcher;
   // The attachment every managed launch path resolves through. Assigned once the runtime
   // exists below; a wrapper that reads it at launch time is the only correct shape, because the
   // runtime is constructed later in this function and no managed launch precedes it.
@@ -920,6 +921,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     github, githubAgent,
     rigRepo, db, daemonLifecycleStore, daemonBootEpoch, eventBus,
     workflowRuntime,
+    workerLauncher: launcher,
     attemptCompletion,
     integration,
     pullRequestDelivery,

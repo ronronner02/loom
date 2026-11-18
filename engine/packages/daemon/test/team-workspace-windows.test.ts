@@ -4,8 +4,9 @@ import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
-  candidateManifest, createCandidateWorkspace, readWorkspacePath, resolveWorkspaceBase,
+  candidateManifest, createCandidateWorkspace, resolveWorkspaceBase,
 } from "../src/domain/team-workspace.js";
+import { readWorkspacePath } from "../src/domain/workspace-read.js";
 
 /**
  * U1 — the worker-written-file boundary on Windows.
