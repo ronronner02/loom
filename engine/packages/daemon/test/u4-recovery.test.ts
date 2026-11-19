@@ -453,14 +453,21 @@ setInterval(() => {}, 1000);
       }
       expect(grandchild).toBeGreaterThan(0);
       const identity = { processId: child.pid!, processStart: (await readSpawnCreationTime(child.pid!)) ?? "unobserved" };
+      // Both identities are recorded while the processes are alive: read after the kill, a
+      // recycled pid would hand back its new owner's creation time and look alive.
+      const grandchildIdentity = { processId: grandchild, processStart: (await readSpawnCreationTime(grandchild)) ?? "unobserved" };
       expect(await observeIdentity(identity)).toBe("alive");
+      expect(await observeIdentity(grandchildIdentity)).toBe("alive");
       // Reconciliation's real tree kill, then its own absence proof.
       const termination = await terminateProcessGroup(identity);
       expect(termination.outcome).toBe("stopped");
-      expect(await observeIdentity(identity)).toBe("dead");
+      // Windows recycles a freed pid quickly, so after the proven stop the same number may
+      // already belong to a new process, which reads `not-ours`. Either answer means the
+      // recorded process is gone; `alive` or `unknown` would mean it is not.
+      const gone = ["dead", "not-ours"];
+      expect(gone).toContain(await observeIdentity(identity));
       // The grandchild the direct child started is gone too.
-      const grandchildState = await observeIdentity({ processId: grandchild, processStart: (await readSpawnCreationTime(grandchild)) ?? "unobserved" });
-      expect(grandchildState).toBe("dead");
+      expect(gone).toContain(await observeIdentity(grandchildIdentity));
     } finally {
       try { child.kill(); } catch { /* Already gone. */ }
       try { spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true }); } catch { /* Already gone. */ }
