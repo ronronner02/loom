@@ -4,7 +4,7 @@
 
 **Sources, in order of precedence:**
 1. The owner rulings in section 1.
-2. The source plan: `docs/plans/2026-10-13-001-feat-loom-team-plan.md` (Web UI and TUI Experience, U6).
+2. The source plan: `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md` (Web UI and TUI Experience, U6).
 3. The owner's brief: `docs/design/tui-brief.md`.
 4. The layout reference: `docs/design/mockups/06-tui-ink-wash.html` (open it in a browser). It shows the regions, breakpoints and states. Its English-only labels and Unicode glyphs are superseded by sections 1 and 4.
 

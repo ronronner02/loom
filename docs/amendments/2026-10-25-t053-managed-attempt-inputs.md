@@ -4,7 +4,7 @@ Date: 2026-10-25
 Authority: the owner's instruction of 2026-10-25, following T047's intake stop.
 Status: owner-authorized; execution requires its own Track A intake and required review. This status is not an approval record.
 Rebased: 2026-10-26, onto `6113c3f`, after `docs/amendments/2026-10-26-simplification.md`. The four gaps below were rechecked there and still hold.
-Source: `docs/plans/2026-10-13-001-feat-loom-team-plan.md`, U5 and U2.
+Source: `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md`, U5 and U2.
 Blocked work: T047.
 
 ## Decision and unchanged scope

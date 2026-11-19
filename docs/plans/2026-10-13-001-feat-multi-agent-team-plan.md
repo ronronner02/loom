@@ -13,7 +13,7 @@ status: partially-shipped
 
 # Loom Engineering Team - Plan
 
-> This milestone shipped through the amendments in `docs/amendments/`. Where they differ from this text, the 2026-11-02 amendment (`2026-11-02-mvp-loom-scope.md`) and the later C4 record (`2026-11-05-c4-acceptance.md`) govern. New work needs a new plan.
+> This milestone shipped through the amendments in `docs/amendments/`. Where they differ from this text, the 2026-11-02 amendment (`2026-11-02-mvp-multi-agent-scope.md`) and the later C4 record (`2026-11-05-c4-acceptance.md`) govern. New work needs a new plan.
 
 ## Goal Capsule
 
