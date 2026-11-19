@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { MessageKey } from "@multi-agent/i18n";
+import type { MessageKey } from "@loom/i18n";
 import { ArrowUpRight } from "lucide-react";
 import { OwnerReadError, useOwnerSession } from "../hooks/useOwnerSession.js";
 import { relativeTime } from "./display.js";

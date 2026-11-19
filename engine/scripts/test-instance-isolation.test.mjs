@@ -30,14 +30,14 @@ for (const prefix of ["MULTI_AGENT", "REMOVED"]) {
     const port = server.address().port;
     // Both state-file and explicit-env discovery point only at this disposable server.
     writeFileSync(join(state, "daemon.json"), JSON.stringify({ pid: process.pid, port, host: "127.0.0.1" }));
-    const env = { ...process.env, HOME: home, MULTI_AGENT_TEST_OUTER_INSTANCE: outer };
+    const env = { ...process.env, HOME: home, LOOM_TEST_OUTER_INSTANCE: outer };
     for (const key of Object.keys(env)) {
       if (/^(MULTI_AGENT|REMOVED)_(HOME|URL|DB|PORT|HOST|HOST_SELECTED)$/.test(key)) delete env[key];
     }
     Object.assign(env, {
       [`${prefix}_HOME`]: state, [`${prefix}_DB`]: database,
       [`${prefix}_URL`]: `http://127.0.0.1:${port}`, [`${prefix}_PORT`]: String(port),
-      [`${prefix}_HOST`]: "127.0.0.1", MULTI_AGENT_HOST_SELECTED: "outer-fixture",
+      [`${prefix}_HOST`]: "127.0.0.1", LOOM_HOST_SELECTED: "outer-fixture",
     });
     let output = "";
     try {

@@ -5,7 +5,7 @@
   "branch": "feat/t038-worker-control-isolation-reacceptance",
   "baselineFileMatches": [
     {
-      "path": "docs/amendments/2026-11-02-mvp-multi-agent-scope.md",
+      "path": "docs/amendments/2026-11-02-mvp-loom-scope.md",
       "sha256": "1904ddefb0e7ae016f4c116ac91869ace41595f726ecc609fba218307e9fb2a0",
       "currentSha256": "1904ddefb0e7ae016f4c116ac91869ace41595f726ecc609fba218307e9fb2a0",
       "unchanged": true

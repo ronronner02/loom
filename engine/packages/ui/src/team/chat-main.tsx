@@ -1,6 +1,6 @@
 import { FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { TeamOwnerRead } from "@multi-agent/daemon/team-control";
+import type { TeamOwnerRead } from "@loom/daemon/team-control";
 import { Composer, LeadConversation, type PendingAttachment } from "./chat-panel.js";
 import type { ChatState } from "./clients.js";
 import type { TeamSummary } from "./hooks.js";

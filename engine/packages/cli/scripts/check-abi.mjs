@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-// Postinstall native-SQLite check for @multi-agent/cli.
-// Multi-Agent supports Node.js 22 and 24. better-sqlite3 13 requires Node 22 or
+// Postinstall native-SQLite check for @loom/cli.
+// Loom supports Node.js 22 and 24. better-sqlite3 13 requires Node 22 or
 // newer; on Node 20 it installs and loads, then crashes (SIGSEGV) the first
 // time a database is opened. This check refuses unsupported majors BEFORE any
 // native code runs, then proves the binding can actually open a database.
@@ -20,7 +20,7 @@ const box = (lines) =>
     "",
   ].join("\n");
 
-const FIX_INSTALL = "Fix:  nvm install 22 && npm install -g @multi-agent/cli";
+const FIX_INSTALL = "Fix:  nvm install 22 && npm install -g @loom/cli";
 
 /**
  * @param {{
@@ -39,7 +39,7 @@ export function checkAbi({ nodeVersion, loadNativeAddon, openNativeDatabase }) {
     return {
       ok: false,
       message: box([
-        "@multi-agent/cli requires Node.js 22 or 24 (LTS).",
+        "@loom/cli requires Node.js 22 or 24 (LTS).",
         `Current: ${nodeVersion}`,
         "",
         "Node 20 is no longer supported: the SQLite binding",
@@ -54,7 +54,7 @@ export function checkAbi({ nodeVersion, loadNativeAddon, openNativeDatabase }) {
     return {
       ok: false,
       message: box([
-        "@multi-agent/cli does not support odd-numbered Node releases.",
+        "@loom/cli does not support odd-numbered Node releases.",
         `Current: ${nodeVersion}`,
         "",
         "Supported: Node.js 22 and 24 (LTS).",
@@ -68,7 +68,7 @@ export function checkAbi({ nodeVersion, loadNativeAddon, openNativeDatabase }) {
   const warning = SUPPORTED_MAJORS.includes(major)
     ? undefined
     : box([
-        `Node ${major} is untested with @multi-agent/cli.`,
+        `Node ${major} is untested with @loom/cli.`,
         `Current: ${nodeVersion}`,
         "",
         "Supported: Node.js 22 and 24 (LTS). The SQLite check below",
@@ -92,7 +92,7 @@ export function checkAbi({ nodeVersion, loadNativeAddon, openNativeDatabase }) {
                 `Current: ${nodeVersion}`,
                 "",
                 "Fix:  npm rebuild better-sqlite3",
-                " or:  nvm install 22 && npm install -g @multi-agent/cli",
+                " or:  nvm install 22 && npm install -g @loom/cli",
               ]
             : [
                 "better-sqlite3 native addon failed to load.",
@@ -100,7 +100,7 @@ export function checkAbi({ nodeVersion, loadNativeAddon, openNativeDatabase }) {
                 "",
                 "Fix:  npm rebuild better-sqlite3",
                 "If that fails, reinstall with a supported Node version:",
-                "      nvm install 22 && npm install -g @multi-agent/cli",
+                "      nvm install 22 && npm install -g @loom/cli",
               ],
         ) + `  Detail: ${detail}\n`,
     };
@@ -120,7 +120,7 @@ export function checkAbi({ nodeVersion, loadNativeAddon, openNativeDatabase }) {
             "",
             "Fix:  npm rebuild better-sqlite3",
             "If that fails, reinstall with Node 22 or 24:",
-            "      nvm install 22 && npm install -g @multi-agent/cli",
+            "      nvm install 22 && npm install -g @loom/cli",
           ]) + `  Detail: ${opened.detail}\n`,
       };
     }

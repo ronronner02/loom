@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { createInterfaceI18n, type InterfaceI18n } from "@multi-agent/i18n";
+import { createInterfaceI18n, type InterfaceI18n } from "@loom/i18n";
 import { I18nextProvider } from "react-i18next";
 import { OwnerSessionProvider, useOwnerSession } from "../hooks/useOwnerSession.js";
 import { EntryFrame, GithubGate } from "./github-gate.js";
@@ -10,11 +10,11 @@ import { SettingsSheet } from "./settings-sheet.js";
 import { useThemePreference } from "./theme.js";
 import { TeamWorkspaceScreen } from "./team-workspace.js";
 
-export const INTERFACE_LANGUAGE_KEY = "multi-agent.interfaceLanguage";
+export const INTERFACE_LANGUAGE_KEY = "loom.interfaceLanguage";
 export type LanguagePreference = "zh-CN" | "en";
 
 /** Setup's completion is stored in settings; this browser remembers it so its next load skips it. */
-const SETUP_CHOICE_KEY = "multi-agent.setupComplete";
+const SETUP_CHOICE_KEY = "loom.setupComplete";
 
 function setupRead(): boolean {
   try { return localStorage.getItem(SETUP_CHOICE_KEY) === "done"; } catch { return false; }

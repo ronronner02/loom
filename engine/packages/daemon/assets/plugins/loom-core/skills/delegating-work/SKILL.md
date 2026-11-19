@@ -40,10 +40,10 @@ implementation details; make only the boundary and evidence contract exact.
 Use the native team flow for durable delegation:
 
 ```bash
-multi-agent team start "<goal>" --lead <session> --reviewer <session>
-multi-agent team chat <run-id> "<decision or progress update>"
-multi-agent team result <run-id>
-multi-agent team diff <run-id>
+loom team start "<goal>" --lead <session> --reviewer <session>
+loom team chat <run-id> "<decision or progress update>"
+loom team result <run-id>
+loom team diff <run-id>
 ```
 
 For a planning run, the owner reviews the lead's conversation and approves it before implementation starts.

@@ -17,7 +17,7 @@ describe("bin-wrapper", () => {
   });
 
   it.skipIf(symlinkRefusal !== null)("resolves the real dist entry from a symlinked wrapper path", () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "multi-agent-bin-wrapper-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "loom-bin-wrapper-"));
     const wrapperSource = fileURLToPath(new URL("../src/bin-wrapper.ts", import.meta.url));
     const symlinkPath = path.join(tempDir, "rig");
     fs.symlinkSync(wrapperSource, symlinkPath);
@@ -27,7 +27,7 @@ describe("bin-wrapper", () => {
   });
 
   it.skipIf(symlinkRefusal !== null)("prefers the sibling node next to the invoked rig binary when current node comes from elsewhere", () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "multi-agent-bin-wrapper-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "loom-bin-wrapper-"));
     const prefixDir = path.join(tempDir, "prefix");
     const binDir = path.join(prefixDir, "bin");
     fs.mkdirSync(binDir, { recursive: true });
@@ -51,7 +51,7 @@ describe("bin-wrapper", () => {
   });
 
   it.skipIf(symlinkRefusal !== null)("does not re-exec when already running under the sibling node", () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "multi-agent-bin-wrapper-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "loom-bin-wrapper-"));
     const prefixDir = path.join(tempDir, "prefix");
     const binDir = path.join(prefixDir, "bin");
     fs.mkdirSync(binDir, { recursive: true });

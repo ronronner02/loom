@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OwnerSessionProvider, useOwnerSession } from "../src/hooks/useOwnerSession.js";
 
 const oldToken = "a".repeat(43), newToken = "b".repeat(43);
-const storageKey = "multi-agent.desktop.csrf";
+const storageKey = "loom.desktop.csrf";
 const response = (status: number, body: object) => new Response(JSON.stringify(body), { status });
 const denied = () => response(401, { code: "owner_session_required" });
 const ok = () => response(200, { protocolVersion: "1.0", value: "fixture" });
@@ -19,7 +19,7 @@ beforeEach(() => {
   sessionStorage.clear(); sessionStorage.setItem(storageKey, oldToken);
   request = vi.fn(); reconnect = vi.fn().mockResolvedValue(newToken);
   vi.stubGlobal("fetch", request);
-  vi.stubGlobal("multiAgentDesktop", { reconnect });
+  vi.stubGlobal("loomDesktop", { reconnect });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); sessionStorage.clear(); });
 
@@ -31,14 +31,14 @@ describe("desktop owner-session reconnect", () => {
     await act(async () => { expect(await result.current.request("/health")).toHaveProperty("value", "fixture"); });
     expect(reconnect).toHaveBeenCalledTimes(1);
     expect(request).toHaveBeenCalledTimes(2);
-    expect(new Headers(request.mock.calls[1][1].headers).get("X-Multi-Agent-CSRF")).toBe(newToken);
+    expect(new Headers(request.mock.calls[1][1].headers).get("X-Loom-CSRF")).toBe(newToken);
     expect(sessionStorage.getItem(storageKey)).toBe(newToken);
     expect(states.every(Boolean)).toBe(true);
   });
 
   it("shares one reconnect between concurrent authentication failures", async () => {
     const connection = deferred<string>(); reconnect.mockReturnValue(connection.promise);
-    request.mockImplementation(async (_path, init) => new Headers(init.headers).get("X-Multi-Agent-CSRF") === oldToken ? denied() : ok());
+    request.mockImplementation(async (_path, init) => new Headers(init.headers).get("X-Loom-CSRF") === oldToken ? denied() : ok());
     const { result } = renderHook(useOwnerSession, { wrapper });
     let reads!: Promise<PromiseSettledResult<unknown>[]>;
     await act(async () => {
@@ -98,7 +98,7 @@ describe("desktop owner-session reconnect", () => {
   });
 
   it("keeps explicit browser pairing when the native bridge is absent", async () => {
-    vi.stubGlobal("multiAgentDesktop", undefined);
+    vi.stubGlobal("loomDesktop", undefined);
     request.mockResolvedValueOnce(denied());
     const { result } = renderHook(useOwnerSession, { wrapper });
     await act(async () => { await expect(result.current.request("/health")).rejects.toMatchObject({ status: 401 }); });
@@ -184,7 +184,7 @@ describe("desktop owner-session reconnect", () => {
     const connection = deferred<string>(), late = deferred<Response>();
     reconnect.mockReturnValue(connection.promise);
     request.mockImplementation(async (path, init) => {
-      if (init.method === "DELETE") return new Headers(init.headers).get("X-Multi-Agent-CSRF") === newToken
+      if (init.method === "DELETE") return new Headers(init.headers).get("X-Loom-CSRF") === newToken
         ? response(200, { revoked: true }) : denied();
       if (path.endsWith("/runs")) return late.promise;
       return denied();
@@ -201,7 +201,7 @@ describe("desktop owner-session reconnect", () => {
       await renewalRead;
     });
     const removal = request.mock.calls.find(([, init]) => init.method === "DELETE")!;
-    expect(new Headers(removal[1].headers).get("X-Multi-Agent-CSRF")).toBe(newToken);
+    expect(new Headers(removal[1].headers).get("X-Loom-CSRF")).toBe(newToken);
     expect(reconnect).toHaveBeenCalledTimes(1);
     expect(request).toHaveBeenCalledTimes(3);
     expect(result.current.paired).toBe(false);
@@ -211,7 +211,7 @@ describe("desktop owner-session reconnect", () => {
   it("finishes an in-flight renewal before revoking and never reopens the session afterward", async () => {
     const connection = deferred<string>(); reconnect.mockReturnValue(connection.promise);
     request.mockImplementation(async (_path, init) => init.method === "DELETE"
-      ? response(200, { revoked: true }) : new Headers(init.headers).get("X-Multi-Agent-CSRF") === oldToken ? denied() : ok());
+      ? response(200, { revoked: true }) : new Headers(init.headers).get("X-Loom-CSRF") === oldToken ? denied() : ok());
     const { result } = renderHook(useOwnerSession, { wrapper });
     await act(async () => {
       const read = result.current.request("/health").catch(error => error);
@@ -220,7 +220,7 @@ describe("desktop owner-session reconnect", () => {
       connection.resolve(newToken); await Promise.allSettled([read, revoked]);
     });
     const removal = request.mock.calls.find(([, init]) => init.method === "DELETE")!;
-    expect(new Headers(removal[1].headers).get("X-Multi-Agent-CSRF")).toBe(newToken);
+    expect(new Headers(removal[1].headers).get("X-Loom-CSRF")).toBe(newToken);
     expect(result.current.paired).toBe(false);
     expect(sessionStorage.getItem(storageKey)).toBeNull();
   });

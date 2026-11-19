@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { MessageKey } from "@multi-agent/i18n";
-import type { TeamReviewView } from "@multi-agent/daemon/team-control";
+import type { MessageKey } from "@loom/i18n";
+import type { TeamReviewView } from "@loom/daemon/team-control";
 import { DocumentsScreen } from "./documents.js";
 import { InboxScreen } from "./inbox.js";
 import { ProjectHome } from "./project-home.js";

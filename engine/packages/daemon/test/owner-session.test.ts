@@ -39,7 +39,7 @@ describe("KTD14 paired owner authentication", () => {
     const cookie = exchanged.headers.get("Set-Cookie")!.split(";")[0]!;
     const { antiForgeryToken } = await exchanged.json();
     expect((await request("/api/team-control/health", "GET", { Origin: "http://localhost", Cookie: cookie })).status).toBe(403);
-    expect((await request("/api/team-control/health", "GET", { Origin: "http://localhost", Cookie: cookie, "X-Multi-Agent-CSRF": antiForgeryToken })).status).toBe(200);
+    expect((await request("/api/team-control/health", "GET", { Origin: "http://localhost", Cookie: cookie, "X-Loom-CSRF": antiForgeryToken })).status).toBe(200);
     expect((await request("/api/team-control/owner-session/exchange", "POST", { Origin: "http://localhost" }, { code })).status).toBe(401);
   });
 
@@ -200,8 +200,8 @@ describe("KTD14 paired owner authentication", () => {
 
   it("rejects remote Host and Origin exceptions even with a valid cookie", async () => {
     const paired = await pair();
-    vi.stubEnv("MULTI_AGENT_ALLOWED_HOSTS", "remote.example");
-    vi.stubEnv("MULTI_AGENT_ALLOWED_ORIGINS", "http://remote.example");
+    vi.stubEnv("LOOM_ALLOWED_HOSTS", "remote.example");
+    vi.stubEnv("LOOM_ALLOWED_ORIGINS", "http://remote.example");
     for (const headers of [{ Host: "remote.example" }, { Origin: "http://remote.example" }, { Origin: "null" },
       { Origin: "http://localhost:9999" }, { "Sec-Fetch-Site": "cross-site" }])
       expect((await request("/api/team-control/health", "GET", { ...browserHeaders(paired), ...headers })).status).toBe(403);
@@ -281,11 +281,11 @@ describe("KTD14 paired owner authentication", () => {
     });
     try {
       expect(await raw([`Cookie: ${cookie}`])).toContain("403");
-      expect(await raw([`Cookie: ${cookie}`, "Sec-WebSocket-Protocol: multi-agent-csrf.invalid"])).toContain("403");
+      expect(await raw([`Cookie: ${cookie}`, "Sec-WebSocket-Protocol: loom-csrf.invalid"])).toContain("403");
       expect(accepted).toBe(0);
-      expect(await raw([`Cookie: ${cookie}`, `Sec-WebSocket-Protocol: multi-agent-csrf.${paired.antiForgeryToken}`])).toContain("101");
+      expect(await raw([`Cookie: ${cookie}`, `Sec-WebSocket-Protocol: loom-csrf.${paired.antiForgeryToken}`])).toContain("101");
       expect(accepted).toBe(1);
-      expect(await raw([`Cookie: ${cookie}`, `Sec-WebSocket-Protocol: multi-agent-csrf.${paired.antiForgeryToken}, multi-agent-csrf.${paired.antiForgeryToken}`])).toContain("403");
+      expect(await raw([`Cookie: ${cookie}`, `Sec-WebSocket-Protocol: loom-csrf.${paired.antiForgeryToken}, loom-csrf.${paired.antiForgeryToken}`])).toContain("403");
       expect(await raw([`Cookie: ${cookie}`, `Cookie: ${cookie}`, `${OWNER_CSRF_HEADER}: ${paired.antiForgeryToken}`])).toContain("401");
       expect(await raw([`Cookie: ${cookie}`, `${OWNER_CSRF_HEADER}: ${paired.antiForgeryToken}`, `${OWNER_CSRF_HEADER}: ${paired.antiForgeryToken}`])).toContain("403");
       expect(accepted).toBe(1);

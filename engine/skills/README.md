@@ -1,12 +1,12 @@
-# Multi-Agent Skills
+# Loom Skills
 
 This folder is the **publicly-visible mirror** of the canonical skills that
-ship with Multi-Agent — the set of progressive-disclosure context manifests
-that Multi-Agent agents load on demand to do their work well.
+ship with Loom — the set of progressive-disclosure context manifests
+that Loom agents load on demand to do their work well.
 
 The skills are **mirrored** from the daemon's bundled-skills folder at
 `packages/daemon/specs/agents/shared/skills/` into `_canonical/` here, so
-that anyone reading the multi-agent repo can find the skills at the repo root
+that anyone reading the loom repo can find the skills at the repo root
 without spelunking through `packages/daemon/specs/`.
 
 ## What you'll find
@@ -19,7 +19,7 @@ without spelunking through `packages/daemon/specs/`.
 
 ## What a skill is
 
-A skill in Multi-Agent is a **primitive for progressive-disclosure context
+A skill in Loom is a **primitive for progressive-disclosure context
 injection**, not a unit of capability in the dictionary sense. Frontmatter
 sits in the agent's hot tier (cheap pattern-matching against the trigger
 description); body loads on activation; references in the folder load on
@@ -27,20 +27,20 @@ demand. Read a few `_canonical/*/SKILL.md` files to see the shape — the
 frontmatter `description` is the trigger, and the body is what the agent
 loads when the trigger matches.
 
-Multi-Agent agents discover skills automatically; you generally don't invoke a
+Loom agents discover skills automatically; you generally don't invoke a
 skill explicitly. Authoring a skill is about naming a recurring need with
 a precise enough trigger that the agent reaches for it at the right moment.
 
 ## Using these skills
 
-If you're running Multi-Agent (`npm install -g @multi-agent/cli` or via tarball),
+If you're running Loom (`npm install -g @loom/cli` or via tarball),
 these skills ship in the package and the daemon projects the selected native-team
 skills into the worker runtime. The owner-facing command surface is the
-`multi-agent team`, `multi-agent daemon`, and `multi-agent github` command groups; agents should
+`loom team`, `loom daemon`, and `loom github` command groups; agents should
 load the skill that matches the current team task and use the team-control surface
 for coordination.
 
-If you're reading this folder for reference (without Multi-Agent installed),
+If you're reading this folder for reference (without Loom installed),
 the SKILL.md files are pure markdown with YAML frontmatter; they're
 human-readable and self-describing. Each `description` field in the
 frontmatter says when to reach for the skill.
@@ -49,7 +49,7 @@ frontmatter says when to reach for the skill.
 
 The categorized product source is `packages/daemon/specs/agents/shared/skills/`.
 The seven plugin-only skills and their helpers are authored separately under
-`packages/daemon/assets/plugins/multi-agent-core/skills/`, beside the plugin manifests.
+`packages/daemon/assets/plugins/loom-core/skills/`, beside the plugin manifests.
 
 `<repo-root>/skills/_canonical/` (this folder's `_canonical/`) is mirrored
 **from** product source via `npm run mirror-skills`. The mirror is

@@ -2,7 +2,7 @@
   <img src="engine/packages/ui/public/loom-icon.png" alt="Loom" width="88" height="88" />
   <h1>Loom</h1>
   <p>
-    <strong>Chat-first multi-agent orchestration for coding teams — with traceable tasks, independent reviews, and verifiable execution evidence.</strong>
+    <strong>Chat-first loom orchestration for coding teams — with traceable tasks, independent reviews, and verifiable execution evidence.</strong>
   </p>
   <p>
     <a href="#installation">Installation</a> •
@@ -44,9 +44,9 @@ The orchestration engine lives in `engine/` and runs natively as a supervised ch
 4. Launch **Loom** and complete the GitHub device sign-in when prompted.
 
 > **Data & State Locations (Windows)**
-> - Application state: `%LOCALAPPDATA%\Multi-Agent` (SQLite database: `multi-agent.sqlite`)
-> - Configuration: `%APPDATA%\Multi-Agent`
-> - Overrides: `MULTI_AGENT_HOME` (engine root), `MULTI_AGENT_DESKTOP_DATA_DIR` (desktop root)
+> - Application state: `%LOCALAPPDATA%\Loom` (SQLite database: `loom.sqlite`)
+> - Configuration: `%APPDATA%\Loom`
+> - Overrides: `LOOM_HOME` (engine root), `LOOM_DESKTOP_DATA_DIR` (desktop root)
 
 ### Optional self-hosted companion
 
@@ -86,7 +86,7 @@ The desktop host spawns the local engine on an ephemeral loopback port, pairs th
 ./scripts/start.sh
 ```
 
-After `./setup.sh` completes, use `engine/node_modules/.bin/multi-agent --help` for CLI commands.
+After `./setup.sh` completes, use `engine/node_modules/.bin/loom --help` for CLI commands.
 
 ---
 
@@ -111,15 +111,15 @@ After `./setup.sh` completes, use `engine/node_modules/.bin/multi-agent --help` 
 ### CLI Equivalent
 
 ```bash
-multi-agent github status
-multi-agent team create /absolute/path/to/project --name project-name --dry-run
-multi-agent team create /absolute/path/to/project --name project-name
-multi-agent team start "Describe the change you want" --planning --rig <team-name>
-multi-agent team chat <run-id>
-multi-agent team chat <run-id> "Your answers and requested changes"
-multi-agent team approve-plan <run-id>
-multi-agent team resume <run-id>
-multi-agent team merge <run-id>
+loom github status
+loom team create /absolute/path/to/project --name project-name --dry-run
+loom team create /absolute/path/to/project --name project-name
+loom team start "Describe the change you want" --planning --rig <team-name>
+loom team chat <run-id>
+loom team chat <run-id> "Your answers and requested changes"
+loom team approve-plan <run-id>
+loom team resume <run-id>
+loom team merge <run-id>
 ```
 
 ---
@@ -130,7 +130,7 @@ multi-agent team merge <run-id>
 | --- | --- |
 | `engine/packages/daemon` | Hono HTTP/SSE control plane, SQLite state store, worker supervisor, Git/GitHub CLI integration |
 | `engine/packages/ui` | React + TanStack Router + TanStack Query + Lucide command-center web UI |
-| `engine/packages/cli` | `multi-agent` CLI entrypoint and browser pairing command |
+| `engine/packages/cli` | `loom` CLI entrypoint and browser pairing command |
 | `engine/packages/i18n` | English (`en`) and Simplified Chinese (`zh-CN`) translation catalogs |
 | `desktop/` | Electron desktop wrapper, native folder picker, dependency probe, and Windows NSIS packager |
 | `companions/loom/` | Optional self-hosted scheduler, separate local runner, and mobile reply forms; not part of desktop startup |

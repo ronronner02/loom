@@ -13,7 +13,7 @@ import type {
 } from "./types.js";
 
 /**
- * Multi-agent archive read filter. Default daemon reads EXCLUDE archived
+ * Loom archive read filter. Default daemon reads EXCLUDE archived
  * rigs; explicit modes opt in. Mirrors the stream-items `--include-archived`
  * precedent (stream-store.list).
  */

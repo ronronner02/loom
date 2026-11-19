@@ -3,7 +3,7 @@
     "check": "u10-final-build",
     "cwd": "engine",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npm",
+      "/opt/loom/toolchain/node/bin/npm",
       "run",
       "build"
     ],
@@ -120,7 +120,7 @@
     "check": "u10-final-full-daemon-2",
     "root": "<standalone-suite>",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "--maxWorkers=2",
@@ -166,7 +166,7 @@
     "check": "u10-native-startup-green-2",
     "root": "<standalone-suite>",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "test/managed-native-startup.test.ts",
@@ -191,7 +191,7 @@
     "check": "u10-final-cli-rebuild",
     "cwd": "engine",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npm",
+      "/opt/loom/toolchain/node/bin/npm",
       "run",
       "build",
       "-w",
@@ -210,7 +210,7 @@
     "check": "u10-final-cli-verified",
     "cwd": ".",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/node",
+      "/opt/loom/toolchain/node/bin/node",
       "engine/packages/cli/dist/bin-wrapper.js",
       "--version"
     ],
@@ -264,7 +264,7 @@
     "check": "u10-roster-payload-red",
     "cwd": "engine/packages/ui",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "src/team/__tests__/chat-panel.test.tsx",
@@ -288,7 +288,7 @@
     "check": "u10-roster-ui-verified",
     "cwd": "engine/packages/ui",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "src/team/__tests__/chat-panel.test.tsx",
@@ -310,7 +310,7 @@
     "check": "u10-candidate-base-red",
     "cwd": "engine/packages/daemon",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "test/integration-branch.test.ts",
@@ -334,7 +334,7 @@
     "check": "u10-candidate-base-green",
     "cwd": "engine/packages/daemon",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "test/integration-branch.test.ts",
@@ -358,7 +358,7 @@
     "check": "u10-codex-sidecars-red",
     "cwd": "engine/packages/daemon",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "test/direct-worker-launch.test.ts",
@@ -382,7 +382,7 @@
     "check": "u10-codex-telemetry-green",
     "cwd": "engine/packages/daemon",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "test/direct-worker-launch.test.ts",
@@ -406,7 +406,7 @@
     "check": "u10-run-action-scope-red",
     "cwd": "engine/packages/ui",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "src/team/__tests__/overview.test.tsx",
@@ -428,7 +428,7 @@
     "check": "u10-run-action-scope-green",
     "cwd": "engine/packages/ui",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "src/team/__tests__/overview.test.tsx",
@@ -452,7 +452,7 @@
     "check": "u10-native-review-projection-red",
     "cwd": "engine/packages/daemon",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "test/team-read-model.test.ts",
@@ -474,7 +474,7 @@
     "check": "u10-native-review-projection-green",
     "cwd": "engine/packages/daemon",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "test/team-read-model.test.ts",
@@ -500,7 +500,7 @@
     "check": "u10-native-startup-green",
     "root": "<standalone-suite>",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "test/managed-native-startup.test.ts",
@@ -525,7 +525,7 @@
     "check": "u10-final-full-daemon",
     "root": "<standalone-suite>",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/npx",
+      "/opt/loom/toolchain/node/bin/npx",
       "vitest",
       "run",
       "--maxWorkers=2",
@@ -549,7 +549,7 @@
     "check": "u10-final-doc-references",
     "cwd": ".",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/node",
+      "/opt/loom/toolchain/node/bin/node",
       "../check-u10-docs.mjs"
     ],
     "exit": 1,
@@ -564,7 +564,7 @@
     "check": "u10-final-doc-references-2",
     "cwd": "engine",
     "command": [
-      "/opt/multi-agent/toolchain/node/bin/node",
+      "/opt/loom/toolchain/node/bin/node",
       "--import",
       "tsx",
       "<acceptance-scratch>/check-u10-docs.mjs"

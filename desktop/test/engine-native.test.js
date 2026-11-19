@@ -40,7 +40,7 @@ test('the window pairs over the private parent channel and only the anti-forgery
 
   assert.equal(app.cookies.length, 1, 'the HttpOnly cookie goes into the window jar');
   const [cookie] = app.cookies;
-  assert.equal(cookie.name, 'multi_agent_owner');
+  assert.equal(cookie.name, 'loom_owner');
   assert.equal(cookie.httpOnly, true);
   assert.equal(cookie.sameSite, 'strict');
   assert.equal(cookie.path, '/api');
@@ -83,22 +83,22 @@ test('the engine env keeps the parent HOME, USERPROFILE, CODEX_HOME and CLAUDE_C
   assert.equal(env.USERPROFILE, 'D:\\Users\\fixture', 'USERPROFILE must pass through from the parent');
   assert.equal(env.CODEX_HOME, 'D:\\Users\\fixture\\.codex', 'CODEX_HOME must pass through from the parent');
   assert.equal(env.CLAUDE_CONFIG_DIR, 'D:\\Users\\fixture\\.claude', 'CLAUDE_CONFIG_DIR must pass through from the parent');
-  assert.equal(env.MULTI_AGENT_MODE, 'managed', 'MULTI_AGENT_MODE must be set');
-  assert.equal(env.MULTI_AGENT_BIND_HOST, '127.0.0.1', 'MULTI_AGENT_BIND_HOST must be loopback');
-  assert.equal(env.MULTI_AGENT_UI_ENABLED, 'true', 'MULTI_AGENT_UI_ENABLED must be set');
-  assert.equal(env.MULTI_AGENT_OWNER_TOKEN, undefined, 'owner token must be cleared');
+  assert.equal(env.LOOM_MODE, 'managed', 'LOOM_MODE must be set');
+  assert.equal(env.LOOM_BIND_HOST, '127.0.0.1', 'LOOM_BIND_HOST must be loopback');
+  assert.equal(env.LOOM_UI_ENABLED, 'true', 'LOOM_UI_ENABLED must be set');
+  assert.equal(env.LOOM_OWNER_TOKEN, undefined, 'owner token must be cleared');
 });
 
-test('MULTI_AGENT_HOME is identical across two launches', async () => {
+test('LOOM_HOME is identical across two launches', async () => {
   const first = desktopApp();
   await first.ready;
   await settle();
-  const home = first.lastStartEnv().MULTI_AGENT_HOME;
+  const home = first.lastStartEnv().LOOM_HOME;
   const second = desktopApp();
   await second.ready;
   await settle();
-  assert.ok(home && second.lastStartEnv().MULTI_AGENT_HOME, 'MULTI_AGENT_HOME must be set in both launches');
-  assert.equal(home, second.lastStartEnv().MULTI_AGENT_HOME, 'MULTI_AGENT_HOME must be identical across launches');
+  assert.ok(home && second.lastStartEnv().LOOM_HOME, 'LOOM_HOME must be set in both launches');
+  assert.equal(home, second.lastStartEnv().LOOM_HOME, 'LOOM_HOME must be identical across launches');
 });
 
 test('a missing engine build says so instead of forking', async () => {
@@ -375,7 +375,7 @@ test('a stop while connecting stops before the window can load the team page', a
         await new Promise(resolve => { releaseDependencies = resolve; });
         return {
           ok: true, status: 200,
-          headers: { get: () => 'multi_agent_owner=COOKIE_' + 'X'.repeat(36) + '; HttpOnly; Path=/api' },
+          headers: { get: () => 'loom_owner=COOKIE_' + 'X'.repeat(36) + '; HttpOnly; Path=/api' },
           json: async () => ({ antiForgeryToken: 'C'.repeat(43) }),
         };
       }
@@ -417,7 +417,7 @@ test('a live engine whose page will not load is unreachable, not running', async
       if (href.includes('/owner-session/exchange')) {
         return {
           ok: true, status: 200,
-          headers: { get: () => 'multi_agent_owner=COOKIE_' + 'X'.repeat(36) + '; HttpOnly; Path=/api' },
+          headers: { get: () => 'loom_owner=COOKIE_' + 'X'.repeat(36) + '; HttpOnly; Path=/api' },
           json: async () => ({ antiForgeryToken: 'C'.repeat(43) }),
         };
       }

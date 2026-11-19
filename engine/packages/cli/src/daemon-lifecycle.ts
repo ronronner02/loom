@@ -3,9 +3,9 @@ import { existsSync } from "node:fs";
 import type { ChildProcess } from "node:child_process";
 import { connectionErrorCode, formatDaemonHostForUrl } from "./client.js";
 import type { DaemonStartLock } from "./daemon-start-lock.js";
-import { DAEMON_STOP_WAIT_MS, DAEMON_SHUTDOWN_RECEIPT, type DaemonShutdownReceipt } from "@multi-agent/daemon/daemon-shutdown";
+import { DAEMON_STOP_WAIT_MS, DAEMON_SHUTDOWN_RECEIPT, type DaemonShutdownReceipt } from "@loom/daemon/daemon-shutdown";
 import { ConfigStore } from "./config-store.js";
-import { MULTI_AGENT_HOME } from "@multi-agent/daemon/data-paths";
+import { LOOM_HOME } from "@loom/daemon/data-paths";
 export interface DaemonState {
   pid: number;
   port: number;
@@ -96,7 +96,7 @@ export interface LifecycleDeps {
    *  setTimeout in production; tests pass a no-op to stay fast. */
   sleep?: (ms: number) => Promise<void>;
   /** Home-resolution honesty deps, optional so existing mocks/callers are untouched:
-   *  homeDir overrides the module-load MULTI_AGENT_DIR for the sibling-home scan; listDir
+   *  homeDir overrides the module-load LOOM_DIR for the sibling-home scan; listDir
    *  lists a directory (production: fs.readdirSync). */
   homeDir?: string;
   listDir?: (path: string) => string[];
@@ -105,13 +105,13 @@ export interface LifecycleDeps {
   ownerToken?: () => string | null;
 }
 
-export const MULTI_AGENT_DIR = MULTI_AGENT_HOME;
-export const STATE_FILE = path.join(MULTI_AGENT_DIR, "daemon.json");
-const LOG_FILE = path.join(MULTI_AGENT_DIR, "daemon.log");
+export const LOOM_DIR = LOOM_HOME;
+export const STATE_FILE = path.join(LOOM_DIR, "daemon.json");
+const LOG_FILE = path.join(LOOM_DIR, "daemon.log");
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 7433;
-const DEFAULT_DB = "multi-agent.sqlite";
+const DEFAULT_DB = "loom.sqlite";
 // Fresh Linux hosts can take longer than a warmed dev machine to load native
 // modules, run startup reconciliation, and bind healthz. Keep the retry loop
 // bounded, but do not kill a healthy daemon during first-boot slack.
@@ -162,7 +162,7 @@ function summarizeDaemonStartFailure(healthzUrl: string, logContent: string | nu
       `Daemon failed to start under Node ${process.version} (${process.execPath}).`,
       `${moduleName} could not load because its native binary does not match the active Node runtime.`,
       `Recent daemon log: ${detail}`,
-      "Fix: switch back to the Node version used when @multi-agent/cli was installed, or reinstall @multi-agent/cli under the current node, then retry `multi-agent daemon start`.",
+      "Fix: switch back to the Node version used when @loom/cli was installed, or reinstall @loom/cli under the current node, then retry `loom daemon start`.",
     ].join(" ");
   }
 
@@ -184,15 +184,15 @@ function resolveCliBaseDir(baseDir: string): string {
  * Why this order: in a monorepo dev checkout BOTH paths exist:
  *   - packages/daemon/dist                ← refreshed by
  *                                            `npm run build --workspace
- *                                            @multi-agent/daemon` (frequent;
+ *                                            @loom/daemon` (frequent;
  *                                            source of truth)
  *   - packages/cli/daemon/dist            ← refreshed only by
  *                                            `scripts/build-package.sh`
  *                                            (rare; for npm publish)
  *
  * Picking the vendored copy first (the prior order) means devs run a
- * stale daemon through `multi-agent daemon start` whenever they've rebuilt
- * `@multi-agent/daemon` but haven't rerun `build-package.sh`.
+ * stale daemon through `loom daemon start` whenever they've rebuilt
+ * `@loom/daemon` but haven't rerun `build-package.sh`.
  *
  * In an npm-install layout `packages/daemon/dist` does not exist
  * (only the bundled `packages/cli/daemon` lives next to the cli);
@@ -227,22 +227,22 @@ function readState(deps: LifecycleDeps): DaemonState | null {
   }
 }
 
-/** Check if a PID is an Multi-Agent daemon. Returns:
- *  - "multi-agent" — healthz responded (ok or not) → this is our daemon
- *  - "not_multi-agent" — connection refused → PID is alive but not listening on our port
+/** Check if a PID is an Loom daemon. Returns:
+ *  - "loom" — healthz responded (ok or not) → this is our daemon
+ *  - "not_loom" — connection refused → PID is alive but not listening on our port
  *  - "unresponsive" — pid is alive but healthz probe timed out
  *  - "dead" — PID not alive */
-async function checkPid(state: DaemonState, deps: LifecycleDeps): Promise<"multi-agent" | "not_multi-agent" | "unresponsive" | "dead"> {
+async function checkPid(state: DaemonState, deps: LifecycleDeps): Promise<"loom" | "not_loom" | "unresponsive" | "dead"> {
   if (!deps.isProcessAlive(state.pid)) return "dead";
   const host = state.host ?? DEFAULT_HOST;
   try {
     await fetchDaemonProbe(deps, `http://${formatDaemonHostForUrl(host)}:${state.port}/healthz`, HEALTHZ_PROBE_TIMEOUT_MS);
-    // Any response (ok or not) means something is listening on our port → Multi-Agent
-    return "multi-agent";
+    // Any response (ok or not) means something is listening on our port → Loom
+    return "loom";
   } catch (err) {
     if (err instanceof HealthProbeTimeoutError) return "unresponsive";
     // Connection refused → PID alive but not our daemon
-    return "not_multi-agent";
+    return "not_loom";
   }
 }
 
@@ -270,10 +270,10 @@ function resolveConfiguredDaemonTarget(): { host: string; port: number } {
 const ENV_SCRUB_PREFIXES = ["CODEX_", "GHOSTTY_", "XPC_", "__CF"];
 // Routing state a managed environment may inject is byte-indistinguishable from opt-in, so
 // it is ALWAYS scrubbed from the daemon env; bind intent crosses ONLY via the dedicated
-// MULTI_AGENT_BIND_HOST (exported below when opts.host declares it). Any env var that
+// LOOM_BIND_HOST (exported below when opts.host declares it). Any env var that
 // doubles as client routing state must join this set: routing state silently becoming
 // bind policy is the incident class this rules out.
-const ROUTING_ENV_SCRUB = new Set(["MULTI_AGENT_HOST"]);
+const ROUTING_ENV_SCRUB = new Set(["LOOM_HOST"]);
 
 const ENV_SCRUB_EXACT = new Set([
   "CMUX_SOCKET_PATH",
@@ -293,8 +293,8 @@ export function buildDaemonEnv(
     /**
      * Operator-explicit bind host. When undefined the daemon falls through to its default
      * loopback-only plan; there is NO env fallback, because an inherited
-     * MULTI_AGENT_HOST is routing state and is scrubbed by ROUTING_ENV_SCRUB (an injected
-     * routing env is byte-indistinguishable from opt-in). MULTI_AGENT_BIND_HOST is the only
+     * LOOM_HOST is routing state and is scrubbed by ROUTING_ENV_SCRUB (an injected
+     * routing env is byte-indistinguishable from opt-in). LOOM_BIND_HOST is the only
      * env opt-in and passes through.
      */
     host?: string;
@@ -314,16 +314,16 @@ export function buildDaemonEnv(
 
   // The daemon runs one mode, and a CLI start is that mode: stated here rather than left to
   // the daemon's default, so a stale inherited value can never select something else.
-  env["MULTI_AGENT_MODE"] = "managed";
-  // Explicit MULTI_AGENT_* overrides — always win over inherited values
-  env["MULTI_AGENT_PORT"] = String(opts.port);
+  env["LOOM_MODE"] = "managed";
+  // Explicit LOOM_* overrides — always win over inherited values
+  env["LOOM_PORT"] = String(opts.port);
   if (opts.host !== undefined) {
     // Declared intent exports the dedicated bind surface plus a COHERENT routing value
     // (seats/consumers route where the daemon actually binds).
-    env["MULTI_AGENT_BIND_HOST"] = opts.host;
-    env["MULTI_AGENT_HOST"] = opts.host;
+    env["LOOM_BIND_HOST"] = opts.host;
+    env["LOOM_HOST"] = opts.host;
   }
-  env["MULTI_AGENT_DB"] = opts.db;
+  env["LOOM_DB"] = opts.db;
 
   return env;
 }
@@ -331,9 +331,9 @@ export function buildDaemonEnv(
 // ── Bind-intent provenance and the listener adoption gate ──
 
 /** Resolve OPERATOR BIND INTENT from the dedicated surfaces ONLY: the --host flag, the
- *  daemon.host config key read from the FILE, or the dedicated MULTI_AGENT_BIND_HOST env.
+ *  daemon.host config key read from the FILE, or the dedicated LOOM_BIND_HOST env.
  *  A daemon.host value resolved from ENV is the overloaded routing channel
- *  (ENV_MAP maps daemon.host ← MULTI_AGENT_HOST) and NEVER creates intent. */
+ *  (ENV_MAP maps daemon.host ← LOOM_HOST) and NEVER creates intent. */
 export function resolveBindIntent(input: {
   flagHost: string | undefined;
   envBindHost: string | undefined;
@@ -401,7 +401,7 @@ export async function verifyRequiredListeners(input: {
 }
 
 function occupiedPortGuidance(port: number): string {
-  return `Address already in use (EADDRINUSE) on port ${port}. Inspect the listener before stopping it, or run 'multi-agent daemon start --port <unused-port>'.`;
+  return `Address already in use (EADDRINUSE) on port ${port}. Inspect the listener before stopping it, or run 'loom daemon start --port <unused-port>'.`;
 }
 
 class StartupIdentityError extends Error {}
@@ -426,7 +426,7 @@ async function startOwnedDaemon(opts: StartOptions, deps: LifecycleDeps, lock: D
   const db = opts.db ?? DEFAULT_DB;
   // Preserve the user-explicit-vs-default distinction. `opts.host` is undefined when the
   // owner declared no bind host; healthz probes then use the loopback default, but
-  // buildDaemonEnv must NOT export MULTI_AGENT_HOST so the daemon falls through to its
+  // buildDaemonEnv must NOT export LOOM_HOST so the daemon falls through to its
   // default plan, which is loopback-only.
   const explicitHost = opts.host;
   const probeHost = explicitHost ?? DEFAULT_HOST;
@@ -435,7 +435,7 @@ async function startOwnedDaemon(opts: StartOptions, deps: LifecycleDeps, lock: D
   const existing = readState(deps);
   if (existing) {
     const pidState = await checkPid(existing, deps);
-    if (pidState === "multi-agent") {
+    if (pidState === "loom") {
       // Our daemon is running (possibly unhealthy, but alive on our port)
       throw new Error(`Daemon already running (pid ${existing.pid} on port ${existing.port})`);
     }
@@ -461,7 +461,7 @@ async function startOwnedDaemon(opts: StartOptions, deps: LifecycleDeps, lock: D
   }
   const daemonEntry = path.join(getDaemonPath(), "dist/index.js");
 
-  deps.mkdirp(MULTI_AGENT_DIR);
+  deps.mkdirp(LOOM_DIR);
 
   const logOffset = deps.fileSize?.(LOG_FILE) ?? Buffer.byteLength(deps.readFile(LOG_FILE) ?? "");
   const logFd = deps.openForAppend(LOG_FILE);
@@ -621,7 +621,7 @@ function readShutdownReceipt(deps: LifecycleDeps, stateFile: string) {
   const raw = deps.readFile(receiptPath);
   let receipt: DaemonShutdownReceipt | undefined;
   try { receipt = JSON.parse(raw ?? "null") ?? undefined; } catch { /* unavailable */ }
-  if (receipt?.schema !== "multi-agent.daemon-shutdown/v1" || !Number.isSafeInteger(receipt.pid) || receipt.pid <= 0
+  if (receipt?.schema !== "loom.daemon-shutdown/v1" || !Number.isSafeInteger(receipt.pid) || receipt.pid <= 0
     || !Number.isFinite(Date.parse(receipt.startedAt)) || !(Date.parse(receipt.completedAt) >= Date.parse(receipt.startedAt))
     || !(Date.parse(receipt.completedAt) <= Date.now()) || typeof receipt.phase !== "string"
     || !Array.isArray(receipt.failures) || !["clean", "failed", "timed-out"].includes(receipt.outcome)) receipt = undefined;
@@ -674,7 +674,7 @@ async function requestOwnerStop(deps: LifecycleDeps, target: string, state: Daem
 export async function stopDaemon(deps: LifecycleDeps): Promise<"stopped" | "no-target" | "terminated"> {
   const state = readState(deps);
   const configured = resolveConfiguredDaemonTarget();
-  const explicitUrl = process.env.MULTI_AGENT_URL;
+  const explicitUrl = process.env.LOOM_URL;
   const stateUrl = state ? `http://${formatDaemonHostForUrl(state.host ?? DEFAULT_HOST)}:${state.port}` : undefined;
   const target = stateUrl ?? explicitUrl?.replace(/\/+$/, "") ?? `http://${formatDaemonHostForUrl(configured.host)}:${configured.port}`;
   if (stateUrl && explicitUrl && new URL(explicitUrl).origin !== new URL(stateUrl).origin) {
@@ -721,7 +721,7 @@ export async function stopDaemon(deps: LifecycleDeps): Promise<"stopped" | "no-t
   const stateFile = STATE_FILE;
 
   const pidState = await checkPid(state, deps);
-  if (pidState === "not_multi-agent") {
+  if (pidState === "not_loom") {
     throw new Error(`Cannot stop safely: PID ${state.pid} is present but identity is not confirmed at ${check}; no signal sent, state preserved.`);
   }
 
@@ -786,13 +786,13 @@ export async function getDaemonStatus(
   deps: LifecycleDeps,
   options: GetDaemonStatusOptions = {},
 ): Promise<DaemonStatus> {
-  // If MULTI_AGENT_URL is set, bypass daemon.json and probe that URL directly
-  const multiAgentUrl = process.env.MULTI_AGENT_URL;
-  if (multiAgentUrl) {
+  // If LOOM_URL is set, bypass daemon.json and probe that URL directly
+  const loomUrl = process.env.LOOM_URL;
+  if (loomUrl) {
     try {
-      const res = await probeHealthzWithSettle(deps, `${multiAgentUrl}/healthz`);
+      const res = await probeHealthzWithSettle(deps, `${loomUrl}/healthz`);
       const ev = await readHealthEvidence(res);
-      const url = new URL(multiAgentUrl);
+      const url = new URL(loomUrl);
       return { state: "running", port: Number(url.port) || DEFAULT_PORT, host: url.hostname || DEFAULT_HOST, healthy: ev.healthy, reason: ev.reason, eventLoop: ev.eventLoop };
     } catch (err) {
       // 1ae863d2: refusal = positive down; anything else (timeout/wedged/blocked) = unverified.

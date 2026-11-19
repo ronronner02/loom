@@ -1,13 +1,13 @@
 ---
-title: "Multi-Agent Engineering Team - Tasks"
+title: "Loom Engineering Team - Tasks"
 type: "task-pack"
 status: "derived"
 date: "2026-10-13"
-source_plan: "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md"
+source_plan: "docs/plans/2026-10-13-001-feat-loom-team-plan.md"
 source_plan_hash: sha256:95d3e622ea1b470d55f8d7312f7336c7db2fb80cd97ef099aa7fd9a35b281121
 generated_by: "spec-write-tasks"
 mode: "derived"
-target_repo: "ronronner02/multi-agent"
+target_repo: "ronronner02/loom"
 source_sections:
   - "Product Contract: Requirements, Key Flows, Scope Boundaries, Acceptance Examples, Success Criteria"
   - "Planning Contract: Authority and Planning Baseline, Owner-Confirmed Product Changes, Key Technical Decisions"
@@ -20,7 +20,7 @@ source_sections:
   - "Definition of Done"
 ---
 
-# Multi-Agent Engineering Team - Tasks
+# Loom Engineering Team - Tasks
 
 ## Overview
 
@@ -36,7 +36,7 @@ This derived execution index decomposes the active, implementation-ready source 
 
 | Target identity | Scope | Tasks |
 | --- | --- | --- |
-| `ronronner02/multi-agent` | Engine, control-side harnesses and project documents. The verified WSL checkout at `/home/leo/src/multi-agent` is the sole development authority; `D:/Multi-Agent` is a preserved reference copy. | All except T025-T026 |
+| `ronronner02/loom` | Engine, control-side harnesses and project documents. The verified WSL checkout at `/home/leo/src/loom` is the sole development authority; `D:/Loom` is a preserved reference copy. | All except T025-T026 |
 | `work-board` | Separately registered local demo root, outside the orchestrator's physical ancestry, with run-local candidate copies. No remote repository. | T025-T026 |
 
 Every card's `files` is relative to its `target_repo`, not the artifact resolution root. The `--repo` used to validate this document selects only the artifact/source root. Resolve physical roots and reject aliases/nesting before writes. The demo seed, feature candidate and control-side acceptance harness have different owners. No worker receives orchestrator source, control state or writable acceptance expectations.
@@ -61,7 +61,7 @@ T002 is the only **pinned import operation**, explicitly authorized by U1's sour
 
 ## Source Summary
 
-- **Source:** [the single active plan](../plans/2026-10-13-001-feat-multi-agent-team-plan.md).
+- **Source:** [the single active plan](../plans/2026-10-13-001-feat-loom-team-plan.md).
 - **Branch:** regenerated derived pack with concrete imported owners and serialized import-manifest maintenance; independent semantic review follows deterministic validation.
 - **Authority consumed:** Product Contract R1-R22, F1-F4, AE1-AE13 and Success Criteria; Planning Contract PC1-PC8/KTD1-KTD28, interface and persistence invariants, isolation/source transfer, experience matrix, operational caps and demo ownership; all U1-U14; Verification Contract and Definition of Done.
 - **Boundary-driven decomposition:** separate preflight from import, persistent authority from enforcement, catalog from context manifests, native launch from safe mailbox consumption and actual-client proof, ownership from review, browser authentication from terminal authority, terminal projection from controls, cancellation from recovery, UI construction from browser proof, demo seed from feature work, and primary/reverse/comparative evidence from final closeout.
@@ -497,7 +497,7 @@ The following JSON is the single machine-readable task source. Human cards below
       ],
       "goal": "Prove the WSL worker-isolation and native-client prerequisites before adapting the engine.",
       "dependencies": [],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/config/isolation/worker-policy.json",
         "engine/test/worker-isolation-preflight.test.mjs",
@@ -506,9 +506,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/config/isolation/provision-host.sh"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u1-establish-the-pinned-source-and-reproducible-wsl-foundation",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#risks-and-execution-prerequisites"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u1-establish-the-pinned-source-and-reproducible-wsl-foundation",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#risks-and-execution-prerequisites"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Read-only inventory followed only by authorized minimal probes: worker scratch write succeeds while token/database/WAL/shared-memory/socket/owner-pane access, host-process access and Windows interoperation fail; both native clients retain protections; Windows browser reaches WSL localhost without non-loopback binding. The preflight also enumerates the sandbox reachable set: provider and dependency endpoints succeed while Windows host loopback services, overlay-network peers and their MagicDNS names, the local LAN and host abstract sockets all fail (KTD23). That enumeration is a re-run gate, not a one-time result: a receipt is valid only for the host networking and policy_revision it was taken under, so changing either invalidates it and requires the preflight to run again before the next managed launch.",
@@ -544,7 +544,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T001"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/package.json",
         "engine/package-lock.json",
@@ -560,9 +560,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/ui/package.json"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u1-establish-the-pinned-source-and-reproducible-wsl-foundation",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u1-establish-the-pinned-source-and-reproducible-wsl-foundation",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Archive/symlink escape and lifecycle-script audit; additive pinned import with license/notices; manifest transfer and conflicting-export rejection; clean Node 24/npm build, lint, tests, UI tests and SQLite ABI verification.",
@@ -602,7 +602,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T002"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/contracts/team-control.ts",
         "engine/packages/daemon/src/team-control-surface.ts",
@@ -628,9 +628,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/rigs-routes.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u2-establish-plan-bound-authority-and-durable-control-contracts",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#interface-contracts",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u2-establish-plan-bound-authority-and-durable-control-contracts",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#interface-contracts",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Plan/action/repository/policy binding, entity-version compare-and-set, idempotent decisions, rejection persistence, approval consumption, attempt/budget evidence and post-commit event publication; additive migrations and paired restore fixtures. Register migration and transactional-writer fixtures; verify exact-file provenance and adjacent-file rejection. Cover expired unconsumed renewal through a new pending owner decision, blocked owner escalation without dispatch, observed stopped task outcomes and history-preserving rig deletion conflicts before lifecycle side effects.",
@@ -673,7 +673,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T003"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/routes/team-control.ts",
         "engine/packages/daemon/src/index.ts",
@@ -691,8 +691,8 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/startup-wiring-pins.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u2-establish-plan-bound-authority-and-durable-control-contracts",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u2-establish-plan-bound-authority-and-durable-control-contracts",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants",
         "engine/packages/daemon/src/domain/plan-governance.ts",
         "engine/packages/daemon/src/index.ts",
         "engine/packages/daemon/test/daemon-mode.test.ts"
@@ -723,7 +723,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T002"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/i18n/package.json",
         "engine/packages/i18n/src/index.ts",
@@ -738,9 +738,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/ui/package.json"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u10-share-the-chineseenglish-interface-catalog",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#interface-contracts",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#web-ui-and-tui-experience"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u10-share-the-chineseenglish-interface-catalog",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#interface-contracts",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#web-ui-and-tui-experience"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Catalog/interpolation parity, fallback reporting, unknown-code passthrough and widths for Chinese, emoji and combining marks; consumer-ready runtime switch API.",
@@ -780,7 +780,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T004"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/integrations/framework/catalog.ts",
         "engine/packages/daemon/src/integrations/framework/invocation.ts",
@@ -788,9 +788,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/framework-invocation.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u3-connect-the-full-framework-catalog-to-bounded-team-assignments",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#framework-and-native-session-integration",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#engineering-framework-integration"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u3-connect-the-full-framework-catalog-to-bounded-team-assignments",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#framework-and-native-session-integration",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#engineering-framework-integration"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Pinned 38-entrypoint equality and supported/gated/deferred classification; bounded contracts for both native clients; report-only review, user-invoked capabilities and malformed outcomes.",
@@ -833,7 +833,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T006"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/integrations/framework/context-manifest.ts",
         "engine/packages/daemon/src/domain/team-assignment.ts",
@@ -845,9 +845,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/lead-protocol.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u3-connect-the-full-framework-catalog-to-bounded-team-assignments",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#framework-and-native-session-integration",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u3-connect-the-full-framework-catalog-to-bounded-team-assignments",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#framework-and-native-session-integration",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Direct plan and optional upstream-validated task-pack assignment; minimal staffing; repository/path/role/dependency/output/permission validation; immutable projected context and negative ancestor/global contamination cases. KTD21 Lead protocol, roster and run instructions delivered read-only on every Lead activation; Lead requests to write an assigned tree, submit review outcomes or record acceptance are rejected; activations without a recorded evaluation stay visibly incomplete.",
@@ -893,7 +893,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T007"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/runtime-adapter.ts",
         "engine/packages/daemon/src/adapters/kernel-authority.ts",
@@ -919,9 +919,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/seat-activity-retirement-hooks.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Fresh/resume worker UID, mounts, closed descriptors, immutable context, isolated provider config and native session/attempt identity; prompt classification; launcher-only PC7 flags (Claude Code `bypassPermissions`; Codex `approval_policy = \"never\"` with `danger-full-access`), refusing sessions that still prompt, keep a native sandbox on, or start outside the worker boundary; provider sign-in from each worker home; the launch and resume paths preserve the KTD23 boundary so a managed session reaches only its provider and dependency endpoints; U4 scenario 19: a verification failure after start, or readiness drift, quiesces the attempt through the authenticated control-side `WorkerLaunchControl.quiesce` bound to its recorded identity and process group, with targeted cases for initial boundary failure, post-ready drift, observation failure, evidence-write failure and quiesce failure. Redact credentials before shared output and bound raw execution logs without losing evidence references.",
@@ -959,7 +959,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T007"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/chat-repository.ts",
         "engine/packages/daemon/src/routes/chat.ts",
@@ -967,9 +967,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/team-messaging.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#interface-contracts",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#framework-and-native-session-integration"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#interface-contracts",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#framework-and-native-session-integration"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Recipient/task/reply/attachment identity, capability-scoped polling, at-least-once deduplication and idempotent consumption receipts; prompt-active, reconnect and queued-wait cases. U4 scenario 22: chat history, latest, search and watch exclude mailbox rows and every read omits the capability, which only the send response returns. U4 scenario 23: attachments are null or an array of exact `{ taskId, runId, artifactId, hash }` references scoped to the message's task and run; arrays of other shapes, extra or nested keys and foreign scope are rejected before storage. U4 scenario 24: consumption admission comes from the daemon's observed prompt state for the recipient seat, never from the request's state field or a mailbox-held state cache; a consume with no prior poll, a caller-claimed `ready` against an observed prompt or missing evidence, a racing reconnect/ready poll and a post-restart consume all stay pending with no receipt; only fresh evidence observed after daemon start reads clear; poll returns status and pending count only, never bodies, unless the reading is `clear`; a managed worker whose client yields no seat or hook evidence stays pending and is recorded as a T010 blocker.",
@@ -1021,7 +1021,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T031",
         "T032"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/test/team-messaging.test.ts",
         "engine/packages/daemon/test/native-session-contract.test.ts",
@@ -1047,14 +1047,14 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/config/isolation/egress.mjs"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t010-production-composition-and-bounded-sequence",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#t010-production-composition-and-bounded-sequence",
         "engine/packages/daemon/test/auth-bearer-token.test.ts"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
-      "test_focus": "KTD24 and U4 scenario 20 at manifest build and launch validation: the per-attempt read-only projection under `/var/lib/multi-agent/context/<worker>/<runId>/<attemptId>/`, mandatory `/framework` and `/context` mounts through verified descriptors, the two-prefix host-to-worker mapping, refusal of out-of-mount context, and no cross-worker projection read. U4 scenario 21 route admission in `server.ts`. Shared credential resolution with HTTP loopback admission intact; the authenticated Unix mailbox transport with peer send/reply, own scope, malformed/oversized frames and revocation; the context-only channel relay with prompt race, interrupted output and safe acknowledgments; the immutable effective-configuration digest with fixed native-policy aliases; fixed policy mounts and the mailbox-only surface in the launcher and preflight tests; the five exact import entries and rejection of an unlisted sibling. Governed pre-start admission and reconciliation at `plan-governance.ts`: no effect before admission, idempotent replay and conflicts, session and Lead limits, unresolved-intent accounting, same-attempt identity and confirmed no-start without fabricated identity. Governed start: the exact command is committed before the transport callback, and authority, credential, deadline or admitted-command drift during terminal metadata lookup blocks the write through the `tmux.ts` `beforeWrite` callback and leaves the intent unresolved. Seat resolution from the persisted tree and pane, rejecting missing, stopped, superseded, foreign, aliased and duplicate seats. Privileged process snapshot: supervisor and child-process facts, descriptor cleanup and replacement, root-escape and foreign-process rejection.",
+      "test_focus": "KTD24 and U4 scenario 20 at manifest build and launch validation: the per-attempt read-only projection under `/var/lib/loom/context/<worker>/<runId>/<attemptId>/`, mandatory `/framework` and `/context` mounts through verified descriptors, the two-prefix host-to-worker mapping, refusal of out-of-mount context, and no cross-worker projection read. U4 scenario 21 route admission in `server.ts`. Shared credential resolution with HTTP loopback admission intact; the authenticated Unix mailbox transport with peer send/reply, own scope, malformed/oversized frames and revocation; the context-only channel relay with prompt race, interrupted output and safe acknowledgments; the immutable effective-configuration digest with fixed native-policy aliases; fixed policy mounts and the mailbox-only surface in the launcher and preflight tests; the five exact import entries and rejection of an unlisted sibling. Governed pre-start admission and reconciliation at `plan-governance.ts`: no effect before admission, idempotent replay and conflicts, session and Lead limits, unresolved-intent accounting, same-attempt identity and confirmed no-start without fabricated identity. Governed start: the exact command is committed before the transport callback, and authority, credential, deadline or admitted-command drift during terminal metadata lookup blocks the write through the `tmux.ts` `beforeWrite` callback and leaves the intent unresolved. Seat resolution from the persisted tree and pane, rejecting missing, stopped, superseded, foreign, aliased and duplicate seats. Privileged process snapshot: supervisor and child-process facts, descriptor cleanup and replacement, root-escape and foreign-process rejection.",
       "done_signal": "Focused tests for every listed slice pass, the daemon typecheck passes, and one final daemon package run has no task-caused failure. Rev-5 is installed with hashes matching the landed source, and its full host preflight passes against the installed launcher hash. Required review closes on the final candidate. T010 makes no live-client, daemon-mediated, channel or restart claim; those belong to T037 and T038.",
       "wave": 9,
       "parallelizable": false,
@@ -1096,7 +1096,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T010"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/workflow-runtime.ts",
         "engine/packages/daemon/src/domain/queue-repository.ts",
@@ -1106,9 +1106,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/team-workspace.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#resource-data-and-operational-boundaries"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#resource-data-and-operational-boundaries"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Cycles, 100-task admission limit, overlapping writes and symlinks; validated-success prerequisites versus failed/denied/canceled/handed-off states; commit-backed worktrees and unborn-repository snapshots.",
@@ -1152,7 +1152,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T011"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/workflow-runtime.ts",
         "engine/packages/daemon/src/domain/review-evidence.ts",
@@ -1160,9 +1160,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/team-review-cycle.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Separate reviewer identity, read-only complete candidate, manifest/diff-bound findings, stale-review invalidation, durable rework/retry counters and integrated-failure rejection; after round 2, rounds 3 and 4 start only while the open P0/P1 count strictly falls, no closed P0/P1 reappears and the remaining run time covers another round; P2/P3-only findings never extend review and no fifth round starts.",
@@ -1202,7 +1202,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T010"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/routes/owner-session.ts",
         "engine/packages/daemon/src/domain/owner-session.ts",
@@ -1214,9 +1214,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/owner-session.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u9-secure-the-browser-and-terminal-owner-surfaces",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#interface-contracts",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#key-technical-decisions"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u9-secure-the-browser-and-terminal-owner-surfaces",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#interface-contracts",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#key-technical-decisions"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Single-use 60-second fragment pairing exchange; HttpOnly/SameSite=Strict/host-only cookie; anti-forgery on mutation and WebSocket upgrade; Origin/Host checks, rejected query tokens, idle/absolute expiry and revocation. Forged and expired cookies are denied; privileged control APIs reject cookies without anti-forgery; existing bearer owner, worker, invalid and conflicting credential paths are unchanged.",
@@ -1257,7 +1257,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T013"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/terminal-takeover.ts",
         "engine/packages/daemon/src/terminal/owner-terminal-host.ts",
@@ -1267,9 +1267,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/owner-terminal-host.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u9-secure-the-browser-and-terminal-owner-surfaces",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#interface-contracts",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u9-secure-the-browser-and-terminal-owner-surfaces",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#interface-contracts",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Read-only agent streams; session-scoped owner take-over; release/disconnect/revocation/15-minute inactivity expiry; owner-host absence; identity/socket separation and non-loopback rejection.",
@@ -1319,7 +1319,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T050",
         "T052"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/tui/src/daemon-client.ts",
         "engine/packages/tui/src/state.ts",
@@ -1341,9 +1341,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/cli/test/config-store-extended.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u6-add-observable-team-views-and-owner-controls-to-the-tui",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#web-ui-and-tui-experience",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#resource-data-and-operational-boundaries",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u6-add-observable-team-views-and-owner-controls-to-the-tui",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#web-ui-and-tui-experience",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#resource-data-and-operational-boundaries",
         "docs/design/t015-tui-design.md",
         "docs/amendments/2026-10-25-t015-read-only-ui.md"
       ],
@@ -1395,7 +1395,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T015",
         "T035"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/tui/src/daemon-client.ts",
         "engine/packages/tui/src/input.ts",
@@ -1419,10 +1419,10 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/tui/test/team-projection.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u6-add-observable-team-views-and-owner-controls-to-the-tui",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#web-ui-and-tui-experience",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t016-owner-control-wiring-and-command-contract-amendment-2026-10-29"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u6-add-observable-team-views-and-owner-controls-to-the-tui",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#web-ui-and-tui-experience",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#t016-owner-control-wiring-and-command-contract-amendment-2026-10-29"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Versioned/idempotent approve/reject/cancel; lost acknowledgement/reconnect; 60-second one-time pairing and revocation; owner-host start; read-only views until audited take-over; native-prompt configuration-fault blocker under PC7; a KTD25 scope-extension decision shows the task, each path with create or modify, the reason, the classification and, for a dependency change, each package, exact version and matched list entry. The console input accepts only the allowlisted commands in the approved design (retry, pause, resume, open, help) and refuses free text with a message naming them; no message reaches an agent. Approve is `a` and reject is `x`; `r` refreshes. Owner-only pause/resume preserves active attempts and counters; another blocker overrides an owner pause. Counted retry reopens only a verified failed task after exact run/task/attempt checks, without a direct native launch; stale, active, unknown and exhausted cases are denied and rollback is atomic.",
@@ -1470,7 +1470,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T016"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/rig-teardown.ts",
         "engine/packages/daemon/src/daemon-shutdown.ts",
@@ -1483,9 +1483,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/team-cancellation.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u7-make-cancellation-restart-and-data-rollback-reliable",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#resource-data-and-operational-boundaries"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u7-make-cancellation-restart-and-data-rollback-reliable",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#resource-data-and-operational-boundaries"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Intent-before-effect, dispatch closure, recorded process-group identity, five-second escalation/fifteen-second unresolved outcome; cumulative 60-minute budget, ten-minute no-progress distinction and controller-absent deadline enforcement. Enforce 64 MiB raw logs per run and 256 MiB aggregate artifacts before further dispatch.",
@@ -1535,7 +1535,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T033"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/queue-recovery.ts",
         "engine/packages/daemon/src/domain/team-reconciliation.ts",
@@ -1544,9 +1544,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "docs/operations.md"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u7-make-cancellation-restart-and-data-rollback-reliable",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#local-rollout-and-rollback"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u7-make-cancellation-restart-and-data-rollback-reliable",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#local-rollout-and-rollback"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Crash windows around dispatch/ack; active/resumable/unknown identity; PID/pane reuse; rejected/stale grants, mailbox and worker policy after resume; disk-full/corruption and WAL-consistent backup/restore. A stopped session with `resume_safe: false` is never resumed. Recovery takes retry and resume decisions only from the T033 classifier.",
@@ -1599,7 +1599,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T005",
         "T036"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/ui/src/routes.tsx",
         "engine/packages/ui/src/App.tsx",
@@ -1626,9 +1626,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/ui/src/team/__tests__/skins.test.tsx"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u11-build-the-reference-benchmark-web-ui",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#web-ui-and-tui-experience",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#interface-contracts"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u11-build-the-reference-benchmark-web-ui",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#web-ui-and-tui-experience",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#interface-contracts"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Existing primitives/router/query client with navy reference tokens; managed navigation, current plan, stepper, all-state task filters, task progress and status/activity; durable hydration/replay and language/session state; the optional skin layer and the shuimo-danqing skin (U11 scenarios 13-15); the system status card renders the KTD26 lights from the U13 query, and `unknown` never renders as `ok`.",
@@ -1678,7 +1678,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T019",
         "T035"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/ui/src/team/task-detail.tsx",
         "engine/packages/ui/src/team/decision-card.tsx",
@@ -1695,9 +1695,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/ui/src/team/__tests__/decisions.test.tsx"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u11-build-the-reference-benchmark-web-ui",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#web-ui-and-tui-experience",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#interface-contracts"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u11-build-the-reference-benchmark-web-ui",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#web-ui-and-tui-experience",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#interface-contracts"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Task details/discussion/diff/tests/review; owner dialog requester/action/files/digest/version; idempotency, stale/version conflicts, session expiry; audited take-over and owner-host unavailable state; a KTD25 scope-extension decision shows the task, each path with create or modify, the reason, the classification and, for a dependency change, each package, exact version and matched list entry.",
@@ -1740,7 +1740,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T020"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/ui/src/team/shell.tsx",
         "engine/packages/ui/src/team/overview.tsx",
@@ -1751,9 +1751,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/ui/src/team/__tests__/decisions.test.tsx"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u11-build-the-reference-benchmark-web-ui",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#web-ui-and-tui-experience",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#proof-authority-and-required-coverage"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u11-build-the-reference-benchmark-web-ui",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#web-ui-and-tui-experience",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#proof-authority-and-required-coverage"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Fixture-driven real-browser checks at 1440/1024/390 px in both languages; side-by-side Rendering.png adaptations; keyboard/focus, dialog error announcements, AA contrast, text/glyph status, reduced motion and 44px touch targets.",
@@ -1789,7 +1789,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T021"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/routes/files.ts",
         "engine/packages/daemon/src/routes/workspace.ts",
@@ -1805,9 +1805,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/config/governance/credential-exclusions.json"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u12-add-workspace-knowledge-and-task-editing-views",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#web-ui-and-tui-experience"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u12-add-workspace-knowledge-and-task-editing-views",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#web-ui-and-tui-experience"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Canonical target and candidate diff browsing; traversal/symlink denial; policy credential exclusions; owner-only plan/requirements/solution browsing with inert Markdown.",
@@ -1843,7 +1843,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T021",
         "T035"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/task-edit.ts",
         "engine/packages/daemon/src/routes/team-control.ts",
@@ -1853,9 +1853,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/ui/src/team/__tests__/task-edit.test.tsx"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u12-add-workspace-knowledge-and-task-editing-views",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#key-technical-decisions",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u12-add-workspace-knowledge-and-task-editing-views",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#key-technical-decisions",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Versioned priority/role/order/notes/existing-link edits versus add/remove/scope/path/acceptance/limit plan changes; cycle and unvalidated prerequisite rejection; agent denial and concurrent state changes; the task view lists each task's KTD25 extensions with their decision or auto-pass state.",
@@ -1925,7 +1925,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T022",
         "T023"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/test/team-e2e.test.mjs",
         "engine/test/candidate-comparison.test.mjs",
@@ -1935,9 +1935,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/test/fixtures/team-failure-cases/restart-cancel.json"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u8-prove-the-complete-local-workflow-and-document-delivery",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#demo-ownership-and-comparative-acceptance",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u8-prove-the-complete-local-workflow-and-document-delivery",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#demo-ownership-and-comparative-acceptance",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Explicit registered-root validation and frozen-feature acceptance expectations; offline negative/receipt tests; opt-in native/comparison branches; planted defect, drift, prompt, rejection, cancellation and restart fixtures.",
@@ -1989,9 +1989,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "test/client.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u8-prove-the-complete-local-workflow-and-document-delivery",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#demo-ownership-and-comparative-acceptance",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#implementation-scope-boundaries"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u8-prove-the-complete-local-workflow-and-document-delivery",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#demo-ownership-and-comparative-acceptance",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#implementation-scope-boundaries"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Separate physical root outside orchestrator ancestry; minimal SQLite fixed rows, list-only API/browser view and baseline tests; explicit source manifest excludes runtime database data.",
@@ -2001,7 +2001,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "stop_if": "Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. The physical target aliases/nests in the orchestrator, baseline already contains any evaluated feature, a previous run is overwritten, or an unapproved demo scope is introduced.",
       "review_gate": "required",
       "review_focus": "Inspect seed provenance, absence of target feature and source/runtime data separation.",
-      "notes": "The physical work-board path is resolved and registered at execution, never inferred from D:/Multi-Agent. package-lock.json, tsconfig.json and src/schema.ts concretize U8's package/build/data-schema setup; reuse the approved minimal structure, not a new demo architecture.",
+      "notes": "The physical work-board path is resolved and registered at execution, never inferred from D:/Loom. package-lock.json, tsconfig.json and src/schema.ts concretize U8's package/build/data-schema setup; reuse the approved minimal structure, not a new demo architecture.",
       "risk_note": "Offline fixtures, process exit and source-only comparison cannot substitute for source-bound live, independent-review and owner acceptance evidence."
     },
     {
@@ -2072,9 +2072,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "test/client.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u8-prove-the-complete-local-workflow-and-document-delivery",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#demo-ownership-and-comparative-acceptance",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#framework-and-native-session-integration"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u8-prove-the-complete-local-workflow-and-document-delivery",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#demo-ownership-and-comparative-acceptance",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#framework-and-native-session-integration"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Approved demo feature plan before dispatch; primary implementer/reviewer pairing; GET /items status=open|done, PATCH /items/:id status update, 400 invalid input, 404 missing item, browser interactions and restart persistence; planted-defect bounded repair; server and client import the typed schema in `src/contract.ts`, and integration verification passes only with executed HTTP and browser evidence bound to the integrated candidate digest.",
@@ -2159,15 +2159,15 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T026"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "docs/validation/first-team.md"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u8-prove-the-complete-local-workflow-and-document-delivery",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#proof-authority-and-required-coverage",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#web-ui-and-tui-experience",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#definition-of-done"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u8-prove-the-complete-local-workflow-and-document-delivery",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#proof-authority-and-required-coverage",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#web-ui-and-tui-experience",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#definition-of-done"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Primary candidate API/UI filtering, completion and restart; real drift/control-access/prompt/rejection/cancellation/restart cases; Web at 1440/1024/390 in both languages and TUI at two sizes in both languages; pairing, decision, Lead take-over, workspace diff and re-approval edit.",
@@ -2216,15 +2216,15 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T027"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/test/team-e2e.test.mjs",
         "docs/validation/first-team.md"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u8-prove-the-complete-local-workflow-and-document-delivery",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#framework-and-native-session-integration",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u8-prove-the-complete-local-workflow-and-document-delivery",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#framework-and-native-session-integration",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Codex implementation-role and Claude review-role permitted/denied actions, read-only reviewer scope, prompt-active mailbox delivery, instruction provenance and resume.",
@@ -2264,15 +2264,15 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T028"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/test/candidate-comparison.test.mjs",
         "docs/validation/candidate-comparison.md"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u8-prove-the-complete-local-workflow-and-document-delivery",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#demo-ownership-and-comparative-acceptance",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#success-criteria"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u8-prove-the-complete-local-workflow-and-document-delivery",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#demo-ownership-and-comparative-acceptance",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#success-criteria"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Selected engine and pinned ReevesAgents 39ce3ace2dd2f2df451e943c432d505fb61d5946 attempt the identical frozen seed/task with matching protections, available models/roles, acceptance checks and separately granted caps.",
@@ -2357,7 +2357,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T029"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "docs/validation/first-team.md",
         "docs/validation/candidate-comparison.md",
@@ -2365,10 +2365,10 @@ The following JSON is the single machine-readable task source. Human cards below
         "docs/operations.md"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#proof-authority-and-required-coverage",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#local-rollout-and-rollback",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#definition-of-done"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#proof-authority-and-required-coverage",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#local-rollout-and-rollback",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#definition-of-done"
       ],
       "entry_hint": "Start with the first context anchor and the task's listed source/test owners.",
       "test_focus": "Final adapted build/lint/unit/UI regressions on the authoritative WSL revision; proof-intent reconciliation; paired rollback, source transfer/export, provenance/licenses, unavailable metrics and delivery permission boundaries.",
@@ -2403,7 +2403,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T008",
         "T009"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/mailbox-delivery.ts",
         "engine/packages/daemon/src/adapters/claude-code-adapter.ts",
@@ -2412,9 +2412,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "docs/validation/native-channel-spike.md"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#key-technical-decisions",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#evidence--limitations"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#key-technical-decisions",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#evidence--limitations"
       ],
       "entry_hint": "Start with KTD19, then the U4 spike approach and the pinned client versions in docs/operations.md.",
       "test_focus": "Per client and pinned version: the channel exists; the KTD16 read-only session view and audited take-over survive (mandatory for the Lead); the session runs with the PC7 launch flags; absent or altered channel configuration fails closed to pending; delivery is at least once with one consumption receipt; message text arrives as context, never as a user turn or approval.",
@@ -2447,7 +2447,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T009"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/lead-wake-policy.ts",
         "engine/packages/daemon/src/domain/queue-wake-ladder.ts",
@@ -2460,9 +2460,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/lead-wake-policy.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#key-technical-decisions",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#interface-contracts"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#key-technical-decisions",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#interface-contracts"
       ],
       "entry_hint": "Start with KTD21 and the existing queue wake ladder.",
       "test_focus": "The Lead's own message never wakes it; duplicate triggers coalesce to one pending wake; an addressed peer-to-peer message wakes only its recipient; a third agent-only wake cycle on one task without an owner action or new validated evidence pauses the run with an owner decision; the thirteenth activation within an hour is refused while its trigger stays pending behind an owner-visible blocker; counters survive restart. Cover direct queue nudges, recovered durable intents, and governed Lead-attempt admission; caller-supplied owner/evidence claims cannot reset guards.",
@@ -2494,7 +2494,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T017"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/attempt-failure.ts",
         "engine/packages/daemon/src/domain/runtime-adapter.ts",
@@ -2505,9 +2505,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "docs/operations.md"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#key-technical-decisions",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u7-make-cancellation-restart-and-data-rollback-reliable",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#key-technical-decisions",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u7-make-cancellation-restart-and-data-rollback-reliable",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants"
       ],
       "entry_hint": "Start with KTD20 and the captured error fixtures.",
       "test_focus": "Captured client-error fixtures map to their KTD20 codes and retry eligibility; `provider_network` retries once and a second failure becomes a blocker; auth, quota, configuration, missing-executable and `unknown` never retry and name the owner action; after `context_overflow` or `provider_invalid_request` the continuation starts a fresh session on the same tree; a long completed answer quoting a failure marker is not a failure; `starting` fails as `start_timeout` after 5 minutes and `waiting_workspace_lock` waits for the lock; a successful exit without validated evidence leaves the task unaccepted.",
@@ -2536,7 +2536,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T010"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/config/isolation/client-lock.json",
         "engine/packages/daemon/src/adapters/worker-launch.ts",
@@ -2546,8 +2546,8 @@ The following JSON is the single machine-readable task source. Human cards below
         "docs/operations.md"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#key-technical-decisions",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#key-technical-decisions",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication"
       ],
       "entry_hint": "Start with KTD27 and the executable check in worker-launch.ts.",
       "test_focus": "A version or executable-hash mismatch refuses fresh launch and resume with `agent_error.unsupported_version` and no retry, including a matching version string with a different hash; a lock entry without a fixture set for its version fails the contract suite; client self-update is off in every launched worker; a lock change leaves `policy_revision` unchanged and the launch receipt records the lock digest.",
@@ -2578,7 +2578,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T004",
         "T034"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/system-health.ts",
         "engine/packages/daemon/src/adapters/worker-launch-control.ts",
@@ -2588,9 +2588,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "docs/operations.md"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#key-technical-decisions",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u13-add-read-only-system-health-checks",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#interface-contracts"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#key-technical-decisions",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u13-add-read-only-system-health-checks",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#interface-contracts"
       ],
       "entry_hint": "Start with KTD26 and the imported `domain/health-*.ts` modules.",
       "test_focus": "At the T036 source and route boundary, supplied probe results preserve each matching light and evidence; a hung probe returns unknown within five seconds, a hung aggregate reader within thirty seconds, and unknown never renders as ok; malformed results and unavailable attempt evidence remain unknown; stopped evidence is preserved; owner access succeeds and an agent credential is refused; every failed light has runbook guidance. Real-owner fault fixtures and the full database/files/sessions/provider-state no-mutation comparison are the T047-H1 integration sub-task.",
@@ -2604,7 +2604,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "risk_note": "A false `ok` during a hang is worse than no light.",
       "expected_side_effects": [
         "tools/upstream-import.mjs",
-        "docs/tasks/2026-10-13-001-feat-multi-agent-team-tasks.md"
+        "docs/tasks/2026-10-13-001-feat-loom-team-tasks.md"
       ]
     },
     {
@@ -2642,7 +2642,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T010",
         "T034"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/adapters/worker-launch-control.ts",
         "engine/config/isolation/worker-launch.mjs",
@@ -2650,10 +2650,10 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/test/worker-isolation-preflight.test.mjs"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t010-production-composition-and-bounded-sequence"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#t010-production-composition-and-bounded-sequence"
       ],
       "entry_hint": "Start with the saved process-reader patch and its review findings in `t037-handoff/` of the `20261019T154948Z-t010-closeout` run, then `acceptance-readiness.json` in the `20261019T140631Z-t010-rev5-host-acceptance` run.",
       "test_focus": "Close the P1s from T010's closeout review of the saved process-reader patch (S1, S2 and G1-G3) and its recorded P2s. The privileged helper selects the native process from kernel structure below the pinned sandbox init and authenticates each image against the installed client lock. The supervisor is bound to the live pane process, which is rechecked after the snapshot. A Codex session ID comes only from a rollout the native holds open for writing under its own UUID; it must be fresh and unused on first launch, and later observations bind to the same session and rollout file. Projected file hashes, namespaces, stdio and argv are compared. Everything runs offline; no provider session starts.",
@@ -2702,16 +2702,16 @@ The following JSON is the single machine-readable task source. Human cards below
         "T042",
         "T041"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/test/worker-control-isolation.test.ts",
         "engine/packages/daemon/test/managed-native-policy.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t010-production-composition-and-bounded-sequence"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#t010-production-composition-and-bounded-sequence"
       ],
       "entry_hint": "Start with `acceptance-readiness.json` in the `20261019T140631Z-t010-rev5-host-acceptance` run and T037's closeout report.",
       "test_focus": "Actual shell/test subprocess attempts against owner tokens, database/WAL/shared memory, supervisor sockets and owner-pane input; allowed scratch edit; PC7 sessions run a shell command, a file edit and a network package install with no prompt while every denial holds; worker-home provider sign-in; expected context; prompt-active mailbox text safely consumed later; repeat after resume. The KTD23 reachable set measured from inside a real managed session: provider and dependency endpoints succeed while Windows host loopback services, overlay-network peers and their MagicDNS names, the LAN and host abstract sockets are unreachable, on fresh launch and again after resume. Passing-channel delivery receipts and failing-client fallback match the KTD19 spike record; Lead wake guards hold across a real restart. Observe effective instruction and hook loading from the client or the OS, not from launch flags; observed in-worker discovery matches the KTD24 worker paths on fresh launch and resume. Use an actual daemon process restart with live sessions. Launch and resume refuse a client that differs from the T034 lock.",
@@ -2750,7 +2750,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T012",
         "T041"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/workflow-runtime.ts",
         "engine/packages/daemon/src/adapters/worker-launch.ts",
@@ -2758,9 +2758,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/team-candidate-launch.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants"
       ],
       "entry_hint": "Start with `plan-questions.md` and `review/round-01-findings.md` in the `20261020T013801Z-t011-dependency-eligibility` run, then the direct `prepareTeamAssignment` call sites in `workflow-runtime.ts` and `worker-launch.ts`.",
       "test_focus": "Exercise the production entry points, not a directly constructed workspace. Every managed launch is admitted through `WorkflowRuntime` before the control preflights anything, so a prerequisite without validated evidence, a cyclic or overlapping dependency graph and a run that is no longer approved each refuse the launch with no privileged call. An admitted implementation assignment runs inside one `CandidateWorkspace` under the policy's assignment root, bound to the attempt's own worker; the control's resolved tree must be that candidate, and the source checkout keeps its dirty-file hashes with no commit or merge created. A resumed attempt reuses its recorded candidate instead of creating a second one, including after a daemon restart, and a candidate whose source moved is refused at every reuse while remaining releasable by its owners. Release is counted per attempt, so one attempt's refusal cannot delete a tree another still uses. Everything runs offline; no provider session starts. The launch fixture stops where the runtime re-prepares the assignment, because it is not a real context projection; that half is `native-session-contract.test.ts`'s.",
@@ -2801,7 +2801,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T039",
         "T041"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/workflow-runtime.ts",
         "engine/packages/daemon/src/adapters/worker-mailbox-bridge.ts",
@@ -2809,9 +2809,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/managed-attempt-producer.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants"
       ],
       "entry_hint": "Start with the 20261021T024815Z-t041-launch-composition report, then `composeManagedLaunch` in `startup.ts` and `inspectManagedWorker` in `worker-launch-control.ts`.",
       "test_focus": "Exercise the production producer through `WorkflowRuntime`, not a directly constructed workspace. For an admitted assignment `WorkflowRuntime` projects the KTD24 context once under `<paths.context_root>/<worker>/<runId>/<attemptId>/`, creates and starts listening on the attempt's `WorkerMailboxBridge` in the control-private mailbox root, and writes the bootstrap the launcher binds. A refused assignment creates no projection, endpoint or attempt. A resume reuses its recorded attempt's projection and endpoint shape and binds the exact previous receipt. Retirement, quiescence and daemon restart close the endpoint. Everything runs offline; no provider session starts, with the privileged launcher faked only at `/usr/bin/sudo`.",
@@ -2840,7 +2840,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T039"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/contracts/team-control.ts",
         "engine/packages/daemon/src/domain/workflow-runtime.ts",
@@ -2848,8 +2848,8 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/team-candidate-launch.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer"
       ],
       "entry_hint": "Start with the T039 round-3 review (`review-round-3.md` in the 20261022T014900Z run) and `ScopedAssignment` in `contracts/team-control.ts`.",
       "test_focus": "Exercise the production launch path. A reviewer assignment carries the task under review, and its candidate is that task's candidate rather than a fresh tree staged at the source HEAD; the launcher mounts it read-only. A reviewer naming a task with no candidate refuses rather than staging one. Everything runs offline; no provider session starts.",
@@ -2879,15 +2879,15 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T039"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/team-workspace.ts",
         "engine/packages/daemon/test/team-workspace.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants"
       ],
       "entry_hint": "Start with the plan's U5 owner decisions of 2026-10-24, the three T044 review records in the `20261023T144557Z-t044-candidate-manifest` run, the round-1 records in `20261024T021939Z-t044-manifest-without-candidate-git`, and `candidateManifest` and `listFiles` in `team-workspace.ts` on `main`. Branch `feat/t044-candidate-manifest` is source material for reproductions only; do not base on it.",
       "test_focus": "Write each reproduction as a failing test before changing source, on `main` or on the commit where its round found it. (1) Execution: a planted `core.fsmonitor`, a replaced `.git` gitdir file, `diff.external`, a `filter.<drv>.clean` driver set up through a worker `git init` and `.gitattributes`, and ambient `GIT_*` redirection each fail to run their marker program, and the manifest is unchanged. (2) Evidence: the patch, applied with `git apply` at a checkout of the base commit, reproduces exactly the bytes the manifest hashed, including non-UTF-8 content, and its paths are repository-relative. (3) Ignore authority: deleting the candidate's `.gitignore` admits no file the base ignores (`.env`, `debug.log`, `node_modules/`), writing `*` hides no deliverable, the worker's edited `.gitignore` is an ordinary entry, and the control's own global or XDG excludes file cannot hide one. (4) Symlinks: a tracked in-root symlink to a tracked file keeps its entry and hash, including a chain of links. A tracked directory replaced by a symlink, an escaping symlink, a dangling symlink, and a symlink to a path that is not itself an entry each refuse the manifest. (5) A `git rm --cached` in the source index adds no deletion to an unmodified candidate. (6) Byte identity: for every T044 fixture type with nothing staged, `files` and `manifestDigest` equal the values `23284b8` computes, pinned in the test. The snapshot lane's manifest is unchanged.",
@@ -2935,7 +2935,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T037"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/adapters/worker-launch-control.ts",
         "engine/packages/daemon/src/adapters/worker-launch.ts",
@@ -2945,10 +2945,10 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/test/worker-isolation-preflight.test.mjs"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t010-production-composition-and-bounded-sequence"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#t010-production-composition-and-bounded-sequence"
       ],
       "entry_hint": "Start with T037's closeout report and the `WorkerLaunchControl` contract in `worker-launch.ts`, then `acceptance-readiness.json` in the `20261019T140631Z-t010-rev5-host-acceptance` run.",
       "test_focus": "Implement the remaining `WorkerLaunchControl` operations over T037's reader. Preflight comes from the root inspection, the installed lock and policy, provider sign-in evidence observed in the worker home without reading credential bytes, and the exact previous receipt. Start goes through the governed pane start and adopts the native session at the attempt's first observation, before any task input reaches the session. Observation maps the snapshot into `WorkerObservation`, including mounts, descriptors, context and native-policy evidence, effective mode and readiness from control-owned observation, and every later observation detects drift. Quiescence is confirmed through the launcher, locating an ambiguous start by its command, and evidence is recorded through the existing governance reconciliation. A launcher refusal for a client outside the T034 lock maps to `agent_error.unsupported_version` with no retry (A-R3). Everything runs offline; no provider session starts.",
@@ -2995,7 +2995,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T040"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/startup.ts",
         "engine/packages/daemon/src/server.ts",
@@ -3006,10 +3006,10 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/team-messaging.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t010-production-composition-and-bounded-sequence"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#t010-production-composition-and-bounded-sequence"
       ],
       "entry_hint": "Start with T040's closeout report, then the managed boundary in `startup.ts` and the mailbox owner in `server.ts`.",
       "test_focus": "Inject T040's `WorkerLaunchControl` through `startup.ts` into both fresh and both resume adapters, and compose the production native-channel reader with the single mailbox owner in `server.ts`. Use an actual offline fixture-daemon process restart: durable messages and wake limits survive, while stale admission and handouts are invalidated. Launch and resume refuse a client that differs from the T034 lock. If composition needs T034's residual R2-1 (generic commands), return it as a plan question. Everything runs offline; no provider session starts.",
@@ -3039,7 +3039,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T011",
         "T012"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/scope-extension.ts",
         "engine/config/governance/low-risk-dev-dependencies.json",
@@ -3051,9 +3051,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/scope-extension.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#key-technical-decisions",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#key-technical-decisions",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants"
       ],
       "entry_hint": "Start with KTD25 and the candidate staging check in team-workspace.ts.",
       "test_focus": "An approved extension stages the candidate while the plan digest, binding digest, implementation approval and other tasks are unchanged; another task's path, a protected path, a path outside `writePaths`, a cap overrun or a `..`/symlink escape returns `plan-change-required` with the failing rule; no agent credential approves and a stale chain head conflicts; a rejection survives restart; a plan-byte change invalidates pending extensions; a new `types.ts` beside an owned file auto-passes while a modified neighbour, a file in an unowned directory or a protected new file does not; an exact-version `@types/node` devDependency with only `\"dev\": true` lockfile entries is eligible, while `dependencies`, an unlisted name, a range or tag, `hasInstallScript`, a missing `integrity`, an unlisted registry, a non-dev entry change, a scripts or `overrides` change and a non-npm lockfile are not.",
@@ -3090,7 +3090,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T010",
         "T012"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/config/team/core.md",
         "engine/config/team/roles/implementer.md",
@@ -3110,8 +3110,8 @@ The following JSON is the single machine-readable task source. Human cards below
         "docs/operations.md"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u14-pin-role-charters-and-enforce-the-reviewers-output-format",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#key-technical-decisions"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u14-pin-role-charters-and-enforce-the-reviewers-output-format",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#key-technical-decisions"
       ],
       "entry_hint": "Start with `leadProtocol` and the `protocol` checks in `createContextManifest`, then `parseFindings`, `recordReview` and `openClasses` in `review-evidence.ts`.",
       "test_focus": "Each role's manifest carries the core and its own charter with recorded versions, never another role's charter; a missing, duplicate, changed or foreign instruction file refuses the manifest, and a changed recorded version refuses launch and resume. A P0/P1 without a failing scenario is refused; from round 2 a missing verdict on an earlier open P0/P1 or a missing delta tag is refused without spending a round; the daemon decides delta membership from a daemon-owned changed-file seam that defaults to a full review; an out-of-delta P1 is a residual while a reproduced out-of-delta P0 counts; a kept-open finding the reviewer did not re-raise is carried forward. The reviewer charter's JSON example records through the ledger, and every role has a well-formed planted-defect fixture citing real plan decisions. All offline.",
@@ -3149,7 +3149,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T038",
         "T045"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/team-assignment.ts",
         "engine/packages/daemon/src/domain/workflow-runtime.ts",
@@ -3160,8 +3160,8 @@ The following JSON is the single machine-readable task source. Human cards below
         "tools/upstream-import.mjs"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u14-pin-role-charters-and-enforce-the-reviewers-output-format",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#key-technical-decisions"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u14-pin-role-charters-and-enforce-the-reviewers-output-format",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#key-technical-decisions"
       ],
       "entry_hint": "Start with T042's managed-attempt producer and T039's `reviewPacketFor`, then the `deltaFiles` seam on `ReviewEvidenceLedger`.",
       "test_focus": "The generated brief equals its template rendered from structured records and contains no role prose; a Lead note is bounded, quoted data and refused with control characters or over its size bound. After an in-place rework, round 2's changed-file set comes from the retained round-1 packet; a missing packet yields a full-review brief with a recorded reason. The production producer projects `roleInstructionEntries` for the attempt's role, and observed discovery missing the core or charter refuses the session.",
@@ -3206,7 +3206,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T036",
         "T053"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/startup.ts",
         "engine/packages/daemon/src/domain/seat-lifecycle-service.ts",
@@ -3215,9 +3215,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/managed-attempt-attachment.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u13-add-read-only-system-health-checks"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u13-add-read-only-system-health-checks"
       ],
       "entry_hint": "Confirm T053 has landed the produced attempt and its roots before starting; then start with `composeManagedLaunch`'s endpoint map and the `mailbox` seam in `startup.ts`, then the three places a `NodeBinding` is built before `startNode`.",
       "test_focus": "Exercise the composed launch chain, not a hand-built binding. A launch for a seat whose queue task resolves to an admitted assignment receives a binding carrying the produced attempt, and its endpoint is registered before the launcher reaches `mailbox`. The endpoint is keyed by the attempt the producer returned, never by the queue row or the session. A launch whose task is not admitted receives a binding with no managed attempt and no registration. The privileged launcher is faked only at `/usr/bin/sudo`; no provider session starts. Sub-task T047-H1 exercises the normal owner-authenticated health query through startup composition, with the existing health reader injected from its existing owners. Cover database-lock, missing-tmux-socket, worker-sign-out, client-lock version/hash and policy-fingerprint faults, five-second probe/thirty-second overall timeouts, agent denial, and the full database/files/sessions/provider-state no-mutation comparison without starting a provider session.",
@@ -3248,16 +3248,16 @@ The following JSON is the single machine-readable task source. Human cards below
         "T044",
         "T054"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/workflow-runtime.ts",
         "engine/packages/daemon/src/domain/team-workspace.ts",
         "engine/packages/daemon/test/team-candidate-adoption.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants"
       ],
       "entry_hint": "Start with `adoptCandidate` and `candidateFor` in `workflow-runtime.ts`, `removeCandidateWorkspace` in `team-workspace.ts`, and the adoption findings in T044 review rounds 1 and 3.",
       "test_focus": "Exercise `candidateFor` after a simulated restart in both lanes. A commit-lane candidate the runtime created, with work in it, is adopted when the source repository's worktree registry lists that path; a plain directory, a copied `.git` file or another repository's worktree at that path refuses, and a genuine candidate is still adopted when the source is itself a linked worktree or is reached through a symlink. A snapshot-lane candidate with work in it is adopted when a control-owned creation record, kept outside every worker-writable tree, names it; a directory without that record refuses. A refusal leaves the task launchable rather than wedged on `EEXIST`. Removal deletes the tree and then prunes the source's registry, so no git process receives the candidate path, and a `.git` or configuration planted in the candidate runs nothing. Everything runs offline.",
@@ -3287,14 +3287,14 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T044"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/team-workspace.ts",
         "engine/packages/daemon/test/team-workspace.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer"
       ],
       "entry_hint": "Start with T044's round-3 records in `20261024T021939Z-t044-manifest-without-candidate-git` (`round-3-fix.md`, `round-3-owner-decision.md`), then `cleanedPaths` and `renderPatch` in `team-workspace.ts`, where the known limitations are documented in place. T044 landed with these three shapes open by owner decision of 2026-10-24.",
       "test_focus": "Each shape is a failing test on `979c614` before the source changes, and each is table-driven in the existing `patch round trip` oracle, which applies the patch at a base checkout and compares bytes. (1) An edited attribute-shaped file: with base attributes `a.txt text eol=lf`, a candidate writing `new\r\n` produces a patch that reproduces exactly the bytes the manifest hashed. (2) A non-ASCII name under `eol=crlf`: a file named `café.txt` gives an unmodified candidate no patch. (3) A BOM-prefixed name: a candidate file literally named `﻿anchor.txt` appears in the manifest beside a tracked `anchor.txt` rather than being decoded into a collision with it. (4) Attribute authority: a base `filter` driver runs no program the candidate can influence, and cleaning reads attributes from the base commit only.",
@@ -3322,7 +3322,7 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T005"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/tui/src/theme.ts",
         "engine/packages/tui/src/icons.ts",
@@ -3331,7 +3331,7 @@ The following JSON is the single machine-readable task source. Human cards below
       ],
       "context_refs": [
         "docs/design/t015-tui-design.md",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u6-add-observable-team-views-and-owner-controls-to-the-tui"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u6-add-observable-team-views-and-owner-controls-to-the-tui"
       ],
       "entry_hint": "Start with docs/design/t015-tui-design.md sections 3, 4 and 9, then detectColorMode and createStyle in theme.ts and the frame write in main.ts (the stylizeLines repaint).",
       "test_focus": "(1) Palette: each ink-wash token renders its truecolor, 256 and 16-color value, and under NO_COLOR no color SGR is emitted at all. (2) Icons: NERD_FONT=1 selects the Nerd Font map; NERD_FONT=0, TERM=dumb and an unset NERD_FONT select the text labels; text mode never emits a code point in U+E000-U+F8FF or U+F0000 and above. (3) Width: displayWidth from @openrig/i18n measures CJK as two cells and a Nerd Font glyph as one, and pad/truncate helpers use it. (4) Frame writer: an identical frame writes nothing; a frame with one changed row writes only that row; every frame is wrapped in DEC mode 2026; no frame clears the whole screen; 1,000 log events within one second produce a bounded number of frames (at most one per 33 ms); exit and Ctrl+C restore the screen and the cursor. (5) Legacy: a legacy (non-team) view renders the same bytes as before the change.",
@@ -3379,7 +3379,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T012",
         "T042"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/contracts/team-control.ts",
         "engine/packages/daemon/src/team-control-surface.ts",
@@ -3395,8 +3395,8 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/team-read-model.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t052-publish-managed-owner-read-projections-owner-amendment-2026-10-25",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#interface-contracts",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#t052-publish-managed-owner-read-projections-owner-amendment-2026-10-25",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#interface-contracts",
         "docs/amendments/2026-10-25-t015-read-only-ui.md"
       ],
       "entry_hint": "Track A prerequisite: inspect the named existing producers and routes/events.ts, then bind each A-row to its actual durable source and shared action-specific read contract. This amendment does not start Track A implementation.",
@@ -3429,14 +3429,14 @@ The following JSON is the single machine-readable task source. Human cards below
       "dependencies": [
         "T051"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/team-workspace.ts",
         "engine/packages/daemon/test/team-workspace.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer"
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer"
       ],
       "entry_hint": "Read the U5 decision \"Candidate manifest from a copied snapshot\" (2026-10-26), which gives the whole git sequence, then `commitLaneManifest`, `renderPatch` and the helpers they call in `team-workspace.ts`.",
       "test_focus": "(1) Planted programs: a worker-written `.git` gitdir file carrying `core.fsmonitor`, `core.hooksPath`, `filter.<drv>.clean`, `filter.<drv>.process`, `diff.<drv>.textconv` and `diff.external`, plus `* filter=x diff=x` attributes and a nested repository, runs no marker program. (2) Round trip: for CRLF/`eol`, BOM-prefixed, non-ASCII, symlink, executable, nested, edited, added and deleted fixtures, the patch applied at a base checkout reproduces the manifest's entries, and an unmodified candidate gives an empty patch. (3) Ignore authority: a candidate that adds, edits, deletes or retypes a `.gitignore` or `.gitattributes`, or changes its executable bit, is refused before staging, so a `.gitignore` of `*` cannot hide a new file and a deleted `.gitignore` cannot admit a base-ignored file; a rule file below a base-excluded directory or inside a base gitlink is accepted and stays out of the patch. (4) The snapshot lane's manifest is unchanged.",
@@ -3472,7 +3472,7 @@ The following JSON is the single machine-readable task source. Human cards below
         "T041",
         "T036"
       ],
-      "target_repo": "ronronner02/multi-agent",
+      "target_repo": "ronronner02/loom",
       "files": [
         "engine/packages/daemon/src/domain/worker-control-access.ts",
         "engine/packages/daemon/src/domain/seat-mailbox-capability.ts",
@@ -3486,9 +3486,9 @@ The following JSON is the single machine-readable task source. Human cards below
         "engine/packages/daemon/test/managed-attempt-inputs.test.ts"
       ],
       "context_refs": [
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t053-supply-the-managed-attempt-production-inputs-owner-amendment-2026-10-25",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
-        "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#t053-supply-the-managed-attempt-production-inputs-owner-amendment-2026-10-25",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review",
+        "docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer",
         "docs/amendments/2026-10-25-t053-managed-attempt-inputs.md"
       ],
       "entry_hint": "Read the amendment's four-input table first; then start at `startup.ts`'s `managedWorkerRoots` composition, which already reads the installed policy bytes the attempt roots must come from.",
@@ -3517,7 +3517,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T001. Prove the WSL worker-isolation and native-client prerequisites before adapting the engine.
 
 - **Source / requirements:** `U1`; `R2`, `R3`, `R7`, `R13`, `R20`, `R21`, `F1`, `F4`, `AE2`, `AE6`, `AE12`, `AE13`, `KTD2`, `KTD6`, `KTD7`, `KTD23`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 1; .
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 1; .
 - **Files:** `engine/config/isolation/worker-policy.json`; `engine/test/worker-isolation-preflight.test.mjs`; `docs/operations.md`; `engine/config/isolation/worker-launch.mjs`; `engine/config/isolation/provision-host.sh`.
 - **Test focus:** Read-only inventory followed only by authorized minimal probes: worker scratch write succeeds while token/database/WAL/shared-memory/socket/owner-pane access, host-process access and Windows interoperation fail; both native clients retain protections; Windows browser reaches WSL localhost without non-loopback binding.
 - **Done signal:** Redacted receipts record Ubuntu/kernel, identities, isolated mounts/process boundary, launcher ownership/hashes and client versions; each required capability is either demonstrated or blocks T002. Offline checks spend no provider quota. Provisioning also creates the pinned framework tree at the policy's `framework_dir`, which the U4 sandbox mounts read-only; a missing framework tree blocks live managed acceptance but not adapter implementation.
@@ -3527,7 +3527,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T002. Audit the pinned source import, transfer a verified source manifest, and establish the reproducible WSL baseline.
 
 - **Source / requirements:** `U1`; `R2`, `R3`, `R7`, `R13`, `R20`, `R21`, `AE2`, `AE6`, `AE12`, `AE13`, `KTD1`, `KTD2`, `KTD7`, `KTD10`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 2; T001.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 2; T001.
 - **Files:** `engine/package.json`; `engine/package-lock.json`; `engine/packages/daemon/package.json`; `engine/packages/tui/package.json`; `engine/test/project-baseline.test.mjs`; `docs/upstream-baseline.md`; `docs/development.md`; `docs/operations.md`; `tools/upstream-import.mjs`; `tools/windows-export.mjs`; `engine/packages/cli/package.json`; `engine/packages/ui/package.json`.
 - **Test focus:** Archive/symlink escape and lifecycle-script audit; additive pinned import with license/notices; manifest transfer and conflicting-export rejection; clean Node 24/npm build, lint, tests, UI tests and SQLite ABI verification.
 - **Done signal:** Preserved Windows file hashes match; approved bootstrap source hashes match the new WSL checkout; cutover authority is recorded; imported script names and exact source owners are inventoried; reproducible baseline results bind source hashes and exact versions.
@@ -3537,7 +3537,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T003. Add shared authority contracts and transactional governance persistence.
 
 - **Source / requirements:** `U2`; `R1`, `R4`, `R5`, `R13`, `R19`, `R21`, `R22`, `F1`, `F4`, `AE1`, `AE4`, `AE6`, `AE11`, `AE13`, `KTD4`, `KTD5`, `KTD6`, `KTD9`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 3; T002.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 3; T002.
 - **Files:** `engine/packages/daemon/src/contracts/team-control.ts`; `engine/packages/daemon/src/team-control-surface.ts`; `engine/packages/daemon/package.json`; `engine/packages/daemon/src/domain/plan-governance.ts`; `engine/packages/daemon/src/domain/queue-repository.ts`; `engine/packages/daemon/src/domain/event-bus.ts`; `engine/packages/daemon/src/domain/types.ts`; `engine/packages/daemon/src/db/migrations/104_team_governance.ts`; `engine/packages/daemon/src/db/all-migrations.ts`; `engine/packages/daemon/test/team-governance.test.ts`; `engine/packages/daemon/test/team-migration.test.ts`; `engine/packages/daemon/test/helpers/test-app.ts`; `engine/packages/daemon/test/p34-call-site-allowlist.test.ts`; `engine/test/project-baseline.test.mjs`; `engine/packages/daemon/src/domain/rig-repository.ts`; `engine/packages/daemon/src/domain/rig-lifecycle-service.ts`; `engine/packages/daemon/src/domain/rig-teardown.ts`; `engine/packages/daemon/src/routes/rigs.ts`; `engine/packages/daemon/test/rig-repository.test.ts`; `engine/packages/daemon/test/rig-lifecycle-route.test.ts`; `engine/packages/daemon/test/rig-teardown.test.ts`; `engine/packages/daemon/test/rigs-routes.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to exact task-owned `PIN.adapted` and local-file registrations, plus file-versus-directory matching; serialize this shared owner.
 - **Test focus:** Plan/action/repository/policy binding, entity-version compare-and-set, idempotent decisions, rejection persistence, approval consumption, attempt/budget evidence and post-commit event publication; additive migrations and paired restore fixtures. Register migration and transactional-writer fixtures; verify exact-file provenance and adjacent-file rejection. Cover expired unconsumed renewal through a new pending owner decision, blocked owner escalation without dispatch, observed stopped task outcomes and history-preserving rig deletion conflicts before lifecycle side effects.
@@ -3550,7 +3550,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T004. Fix daemon mode at startup and enforce owner-level managed-work authority.
 
 - **Source / requirements:** U2; R1, R4, R5, R13, R19, R21, R22, F1, F4, AE1, AE4, AE6, AE11, AE13, KTD4, KTD5, KTD6, KTD22.
-- **Target / wave / dependencies:** ronronner02/multi-agent; wave 4; T003.
+- **Target / wave / dependencies:** ronronner02/loom; wave 4; T003.
 - **Files:** engine/packages/daemon/src/routes/team-control.ts; engine/packages/daemon/src/index.ts; engine/packages/daemon/src/server.ts; engine/packages/daemon/src/startup.ts; engine/packages/daemon/src/domain/plan-governance.ts; engine/packages/daemon/src/domain/queue-repository.ts; engine/packages/daemon/src/adapters/tmux.ts; engine/packages/daemon/src/middleware/auth-bearer-token.ts; engine/packages/daemon/src/middleware/browser-boundary.ts; docs/operations.md; engine/packages/daemon/test/team-control-auth.test.ts; engine/packages/daemon/test/team-governance.test.ts; engine/packages/daemon/test/daemon-mode.test.ts; engine/packages/daemon/test/startup-wiring-pins.test.ts.
 - **Expected side effects:** tools/upstream-import.mjs, limited to the task-owned PIN.adapted entries; serialize this shared owner.
 - **Test focus:** Managed-mode createDaemon and startServer start none of the KTD22 legacy services; every legacy /api/* path returns managed_control_required and legacy pages return 404; legacy mode refuses managed-authority registration while preserving upstream behavior; persisted managed authority selects managed mode at startup; ungranted queue mutators and tmux session create/input/kill are refused at the owner while calls inside a managed-control grant succeed; effects admitted before revocation still record outcomes.
@@ -3563,7 +3563,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T005. Create the shared typed Chinese/English catalog and display-width package.
 
 - **Source / requirements:** `U10`; `R12`, `PC2`, `KTD15`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 3; T002.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 3; T002.
 - **Files:** `engine/packages/i18n/package.json`; `engine/packages/i18n/src/index.ts`; `engine/packages/i18n/src/catalogs/zh-CN.json`; `engine/packages/i18n/src/catalogs/en.json`; `engine/packages/i18n/src/display-width.ts`; `engine/packages/i18n/test/catalog-parity.test.ts`; `engine/packages/i18n/test/display-width.test.ts`; `engine/package.json`; `engine/package-lock.json`; `engine/packages/tui/package.json`; `engine/packages/ui/package.json`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Test focus:** Catalog/interpolation parity, fallback reporting, unknown-code passthrough and widths for Chinese, emoji and combining marks; consumer-ready runtime switch API.
@@ -3574,7 +3574,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T006. Compose the pinned framework catalog and bounded invocation adapter.
 
 - **Source / requirements:** `U3`; `R1`, `R2`, `R3`, `R6`, `R19`, `R21`, `R22`, `F1`, `F2`, `AE1`, `AE2`, `AE3`, `AE11`, `AE13`, `KTD3`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 5; T004.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 5; T004.
 - **Files:** `engine/packages/daemon/src/integrations/framework/catalog.ts`; `engine/packages/daemon/src/integrations/framework/invocation.ts`; `engine/packages/daemon/test/framework-catalog.test.ts`; `engine/packages/daemon/test/framework-invocation.test.ts`.
 - **Test focus:** Pinned 38-entrypoint equality and supported/gated/deferred classification; bounded contracts for both native clients; report-only review, user-invoked capabilities and malformed outcomes.
 - **Done signal:** Catalog tests account for all pinned entries without aliases; invocation tests preserve original readiness/mutation/authorization ownership and return incomplete on malformed output rather than substituting workflow semantics.
@@ -3584,7 +3584,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T007. Bind scoped assignments to immutable effective-context manifests.
 
 - **Source / requirements:** `U3`; `R1`, `R2`, `R3`, `R4`, `R5`, `R6`, `R19`, `R21`, `R22`, `AE1`, `AE2`, `AE3`, `AE4`, `AE11`, `AE13`, `KTD3`, `KTD4`, `KTD5`, `KTD6`, `R11`, `R18`, `KTD21`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 6; T006.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 6; T006.
 - **Files:** `engine/packages/daemon/src/integrations/framework/context-manifest.ts`; `engine/packages/daemon/src/domain/team-assignment.ts`; `engine/packages/daemon/src/domain/workflow-runtime.ts`; `engine/config/team/roles.json`; `engine/packages/daemon/test/framework-context-manifest.test.ts`; `engine/packages/daemon/test/team-assignment.test.ts`; `engine/config/team/lead-protocol.md`; `engine/packages/daemon/test/lead-protocol.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Test focus:** Direct plan and optional upstream-validated task-pack assignment; minimal staffing; repository/path/role/dependency/output/permission validation; immutable projected context and negative ancestor/global contamination cases. KTD21 Lead protocol, roster and run instructions delivered read-only on every Lead activation; Lead requests to write an assigned tree, submit review outcomes or record acceptance are rejected; activations without a recorded evaluation stay visibly incomplete.
@@ -3595,7 +3595,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T008. Integrate restricted native launch with the PC7 unattended launch mode and resume identity.
 
 - **Source / requirements:** `U4`; `R6`, `R7`, `R12`, `R15`, `R16`, `R19`, `R21`, `F2`, `F4`, `AE3`, `AE6`, `AE8`, `AE12`, `AE13`, `KTD3`, `KTD6`, `KTD7`, `KTD9`, `KTD11`, `KTD23`, `PC7`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 7; T007.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 7; T007.
 - **Files:** `engine/packages/daemon/src/domain/runtime-adapter.ts`; `engine/packages/daemon/src/adapters/kernel-authority.ts`; `engine/packages/daemon/src/adapters/yolo-mode.ts`; `engine/packages/daemon/src/adapters/tmux-server.ts`; `engine/packages/daemon/src/adapters/worker-launch.ts`; `engine/packages/daemon/test/managed-native-policy.test.ts`; `engine/packages/daemon/test/native-session-contract.test.ts`; `engine/packages/daemon/src/adapters/claude-code-adapter.ts`; `engine/packages/daemon/src/adapters/claude-resume.ts`; `engine/packages/daemon/src/adapters/claude-resume-launch.ts`; `engine/packages/daemon/src/adapters/codex-runtime-adapter.ts`; `engine/packages/daemon/src/adapters/codex-resume.ts`; `engine/packages/daemon/src/adapters/tmux.ts`; `engine/packages/daemon/src/adapters/tmux-exec.ts`; `engine/packages/daemon/test/claude-runtime-adapter.test.ts`; `engine/packages/daemon/test/claude-resume.test.ts`; `engine/packages/daemon/test/codex-runtime-adapter.test.ts`; `engine/packages/daemon/test/codex-resume.test.ts`; `engine/packages/daemon/test/tmux-server.test.ts`; `engine/packages/daemon/test/tmux-pane-cwd-native.test.ts`; `engine/packages/daemon/test/terminal-pipe-utf8.test.ts`; `engine/packages/daemon/test/seat-activity-retirement-hooks.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Test focus:** Fresh/resume worker UID, mounts, closed descriptors, immutable context, isolated provider config and native session/attempt identity; prompt classification; launcher-only PC7 flags (Claude Code `bypassPermissions`; Codex `approval_policy = "never"` with `danger-full-access`), refusing sessions that still prompt, keep a native sandbox on, or start outside the worker boundary; provider sign-in from each worker home; U4 scenario 19: a verification failure after start, or readiness drift, quiesces the attempt through the authenticated control-side `WorkerLaunchControl.quiesce` bound to its recorded identity and process group, with targeted cases for initial boundary failure, post-ready drift, observation failure, evidence-write failure and quiesce failure. Redact credentials before shared output and bound raw execution logs without losing evidence references.
@@ -3606,7 +3606,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T009. Extend the existing durable chat owner with addressed mailbox consumption.
 
 - **Source / requirements:** `U4`; `R8`, `R9`, `R12`, `R15`, `R19`, `R21`, `F2`, `F4`, `AE5`, `AE8`, `AE13`, `KTD4`, `KTD11`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 7; T007.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 7; T007.
 - **Files:** `engine/packages/daemon/src/domain/chat-repository.ts`; `engine/packages/daemon/src/routes/chat.ts`; `engine/packages/daemon/src/domain/mailbox-delivery.ts`; `engine/packages/daemon/test/team-messaging.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner. `engine/packages/daemon/src/server.ts`, limited to injecting the shared `mailboxDelivery` with the daemon's prompt-state reader; T010 owns its managed allowlist change.
 - **Test focus:** Recipient/task/reply/attachment identity, capability-scoped polling, at-least-once deduplication and idempotent consumption receipts; prompt-active, reconnect and queued-wait cases. U4 scenario 22: chat history, latest, search and watch exclude mailbox rows and every read omits the capability, which only the send response returns. U4 scenario 23: attachments are null or an array of exact `{ taskId, runId, artifactId, hash }` references scoped to the message's task and run; arrays of other shapes, extra or nested keys and foreign scope are rejected before storage. U4 scenario 24: consumption admission comes from the daemon's observed prompt state for the recipient seat, never from the request's state field or a mailbox-held state cache; a consume with no prior poll, a caller-claimed `ready` against an observed prompt or missing evidence, a racing reconnect/ready poll and a post-restart consume all stay pending with no receipt; only fresh evidence observed after daemon start reads clear; poll returns status and pending count only, never bodies, unless the reading is `clear`; a managed worker whose client yields no seat or hook evidence stays pending and is recorded as a T010 blocker.
@@ -3617,10 +3617,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T010. Land the reviewed source and host-provisioning share of managed native launch, mailbox transport and governed start.
 
 - **Source / requirements:** `U4`; `R6`, `R7`, `R8`, `R9`, `R12`, `R15`, `R16`, `R19`, `R21`, `AE3`, `AE5`, `AE6`, `AE8`, `AE12`, `AE13`, `KTD3`, `KTD6`, `KTD7`, `KTD11`, `KTD19`, `KTD21`, `KTD23`, `KTD24`, `PC7`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 9; T008, T009, T031, T032.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 9; T008, T009, T031, T032.
 - **Files:** `engine/packages/daemon/test/team-messaging.test.ts`; `engine/packages/daemon/test/native-session-contract.test.ts`; `engine/packages/daemon/test/native-channel-contract.test.ts`; `engine/packages/daemon/src/adapters/worker-launch.ts`; `engine/packages/daemon/src/integrations/framework/context-manifest.ts`; `engine/packages/daemon/test/framework-context-manifest.test.ts`; `engine/config/isolation/worker-launch.mjs`; `engine/config/isolation/worker-policy.json`; `engine/config/isolation/provision-host.sh`; `engine/test/worker-isolation-preflight.test.mjs`; `engine/packages/daemon/src/server.ts`; `engine/packages/daemon/src/adapters/worker-launch-control.ts`; `engine/packages/daemon/src/adapters/worker-mailbox-bridge.ts`; `engine/packages/daemon/assets/managed-native-channel-relay.cjs`; `engine/packages/daemon/src/domain/mailbox-delivery.ts`; `engine/packages/daemon/src/middleware/auth-bearer-token.ts`; `engine/packages/daemon/test/managed-native-startup.test.ts`; `engine/packages/daemon/test/worker-mailbox-bridge.test.ts`; `tools/upstream-import.mjs`; `engine/packages/daemon/src/domain/plan-governance.ts`; `engine/packages/daemon/src/adapters/tmux.ts`; `engine/config/isolation/egress.mjs`.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t010-production-composition-and-bounded-sequence`; `engine/packages/daemon/test/auth-bearer-token.test.ts`.
-- **Test focus:** KTD24 and U4 scenario 20 at manifest build and launch validation: the per-attempt read-only projection under `/var/lib/multi-agent/context/<worker>/<runId>/<attemptId>/`, mandatory `/framework` and `/context` mounts through verified descriptors, the two-prefix host-to-worker mapping, refusal of out-of-mount context, and no cross-worker projection read. U4 scenario 21 route admission in `server.ts`. Shared credential resolution with HTTP loopback admission intact; the authenticated Unix mailbox transport with peer send/reply, own scope, malformed/oversized frames and revocation; the context-only channel relay with prompt race, interrupted output and safe acknowledgments; the immutable effective-configuration digest with fixed native-policy aliases; fixed policy mounts and the mailbox-only surface in the launcher and preflight tests; the five exact import entries and rejection of an unlisted sibling. Governed pre-start admission and reconciliation at `plan-governance.ts`: no effect before admission, idempotent replay and conflicts, session and Lead limits, unresolved-intent accounting, same-attempt identity and confirmed no-start without fabricated identity. Governed start: the exact command is committed before the transport callback, and authority, credential, deadline or admitted-command drift during terminal metadata lookup blocks the write through the `tmux.ts` `beforeWrite` callback and leaves the intent unresolved. Seat resolution from the persisted tree and pane, rejecting missing, stopped, superseded, foreign, aliased and duplicate seats. Privileged process snapshot: supervisor and child-process facts, descriptor cleanup and replacement, root-escape and foreign-process rejection.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#t010-production-composition-and-bounded-sequence`; `engine/packages/daemon/test/auth-bearer-token.test.ts`.
+- **Test focus:** KTD24 and U4 scenario 20 at manifest build and launch validation: the per-attempt read-only projection under `/var/lib/loom/context/<worker>/<runId>/<attemptId>/`, mandatory `/framework` and `/context` mounts through verified descriptors, the two-prefix host-to-worker mapping, refusal of out-of-mount context, and no cross-worker projection read. U4 scenario 21 route admission in `server.ts`. Shared credential resolution with HTTP loopback admission intact; the authenticated Unix mailbox transport with peer send/reply, own scope, malformed/oversized frames and revocation; the context-only channel relay with prompt race, interrupted output and safe acknowledgments; the immutable effective-configuration digest with fixed native-policy aliases; fixed policy mounts and the mailbox-only surface in the launcher and preflight tests; the five exact import entries and rejection of an unlisted sibling. Governed pre-start admission and reconciliation at `plan-governance.ts`: no effect before admission, idempotent replay and conflicts, session and Lead limits, unresolved-intent accounting, same-attempt identity and confirmed no-start without fabricated identity. Governed start: the exact command is committed before the transport callback, and authority, credential, deadline or admitted-command drift during terminal metadata lookup blocks the write through the `tmux.ts` `beforeWrite` callback and leaves the intent unresolved. Seat resolution from the persisted tree and pane, rejecting missing, stopped, superseded, foreign, aliased and duplicate seats. Privileged process snapshot: supervisor and child-process facts, descriptor cleanup and replacement, root-escape and foreign-process rejection.
 - **Done signal:** Focused tests for every listed slice pass, the daemon typecheck passes, and one final daemon package run has no task-caused failure. Rev-5 is installed with hashes matching the landed source, and its full host preflight passes against the installed launcher hash. Required review closes on the final candidate. T010 makes no live-client, daemon-mediated, channel or restart claim; those belong to T037 and T038.
 - **Stop if:** Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. Stop if the installed launcher no longer matches the landed source, a required review leaves an open P0/P1, or closing a gate needs production startup composition or a live call. Keep Product Contract bytes and other task contracts unchanged.
 - **Notes:** The KTD24 context-mount change was deferred here from T008 by owner decision on 2026-10-16. context-manifest.ts is shared with T007, and the launcher/policy/provisioning owners are shared with T001 (KTD23) and T017 (deadline). The KTD24 policy change bumps policy_revision, is re-provisioned by the owner and re-runs the full U1 host preflight; serialize it with any other policy_revision change. Owner-approved 2026-10-19: apply the bounded production-wiring amendment, include authenticated peer send/reply and the mailbox-only socket exception, and expose existing credential resolution through the two named authentication files. Follow the dependency-ordered slices in U4; no provider credential, dependency, Windows, host-policy installation or service change is implied. Count tokens only, not spending. The Product Contract, other task identities/dependencies/waves and independent deadline enforcement are unchanged. The existing authentication test file is read-only verification context because the task validator classifies its filename as secret-denied; add resolver-parity regression cases in worker-mailbox-bridge.test.ts and run the existing HTTP tests unchanged. No validator exemption or path disguise is used. Owner-approved 2026-10-19: tools/upstream-import.mjs may change only to add the five exact LOCAL_ENGINE_PATHS entries named in U4; serialize this shared-owner edit before creating those files. Owner-approved 2026-10-19: add plan-governance.ts only for the governed pre-start admission and observed reconciliation described in U4. Reuse existing command/event transactions and admission guards; tests stay in managed-native-startup.test.ts. No schema, dependency, Product Contract, deadline-enforcement, host or service change. Owner split 2026-10-19: T010 closes at its reviewed source and host-provisioning share; T037 takes the full launch lifecycle and production startup composition, and T038 takes installed-client acceptance with the unused live allowance. Owner-approved 2026-10-19: `engine/packages/daemon/src/adapters/tmux.ts` only for the synchronous `beforeWrite` callback. `engine/config/isolation/egress.mjs` carries the R2-1 egress prerequisite approved with T010's declared scope and landed in 6b5668a. The closeout review of the process-reader slice returned two P1s, so that slice moved to T037 as a saved patch.
@@ -3629,7 +3629,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T011. Enforce dependency eligibility and isolated candidate ownership.
 
 - **Source / requirements:** `U5`; `R4`, `R5`, `R6`, `R10`, `R11`, `R16`, `R17`, `R18`, `R21`, `R22`, `F2`, `F3`, `AE2`, `AE3`, `AE4`, `AE5`, `AE9`, `AE10`, `AE11`, `AE13`, `KTD4`, `KTD8`, `KTD9`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 10; T010.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 10; T010.
 - **Files:** `engine/packages/daemon/src/domain/workflow-runtime.ts`; `engine/packages/daemon/src/domain/queue-repository.ts`; `engine/packages/daemon/src/domain/queue-recovery.ts`; `engine/packages/daemon/src/domain/team-workspace.ts`; `engine/packages/daemon/test/team-dependencies.test.ts`; `engine/packages/daemon/test/team-workspace.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Test focus:** Cycles, 100-task admission limit, overlapping writes and symlinks; validated-success prerequisites versus failed/denied/canceled/handed-off states; commit-backed worktrees and unborn-repository snapshots.
@@ -3641,7 +3641,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T012. Bind independent review and bounded rework to the exact candidate.
 
 - **Source / requirements:** `U5`; `R4`, `R5`, `R6`, `R10`, `R11`, `R16`, `R17`, `R18`, `R21`, `R22`, `F3`, `AE4`, `AE9`, `AE10`, `AE11`, `AE13`, `KTD4`, `KTD8`, `KTD9`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 11; T011.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 11; T011.
 - **Files:** `engine/packages/daemon/src/domain/workflow-runtime.ts`; `engine/packages/daemon/src/domain/review-evidence.ts`; `engine/packages/daemon/src/domain/team-workspace.ts`; `engine/packages/daemon/test/team-review-cycle.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Test focus:** Separate reviewer identity, read-only complete candidate, manifest/diff-bound findings, stale-review invalidation, durable rework/retry counters and integrated-failure rejection; after round 2, rounds 3 and 4 start only while the open P0/P1 count strictly falls, no closed P0/P1 reappears and the remaining run time covers another round; P2/P3-only findings never extend review and no fifth round starts.
@@ -3653,7 +3653,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T013. Add paired browser sessions and loopback-only owner authentication.
 
 - **Source / requirements:** `U9`; `R12`, `R13`, `R14`, `R19`, `R21`, `R22`, `F4`, `AE6`, `AE13`, `KTD6`, `KTD14`, `KTD18`, `PC1`, `PC4`, `PC5`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 10; T010.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 10; T010.
 - **Files:** `engine/packages/daemon/src/routes/owner-session.ts`; `engine/packages/daemon/src/domain/owner-session.ts`; `engine/packages/daemon/src/server.ts`; `engine/packages/daemon/src/middleware/browser-boundary.ts`; `engine/packages/daemon/src/middleware/auth-bearer-token.ts`; `engine/packages/daemon/src/db/migrations/105_owner_sessions.ts`; `engine/packages/daemon/src/db/all-migrations.ts`; `engine/packages/daemon/test/owner-session.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Test focus:** Single-use 60-second fragment pairing exchange; HttpOnly/SameSite=Strict/host-only cookie; anti-forgery on mutation and WebSocket upgrade; Origin/Host checks, rejected query tokens, idle/absolute expiry and revocation.
@@ -3666,7 +3666,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T014. Implement the isolated owner terminal relay and audited per-session take-over.
 
 - **Source / requirements:** `U9`; `R12`, `R13`, `R14`, `R19`, `R21`, `R22`, `F4`, `AE6`, `AE13`, `KTD6`, `KTD14`, `KTD16`, `KTD18`, `PC1`, `PC4`, `PC5`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 11; T013.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 11; T013.
 - **Files:** `engine/packages/daemon/src/domain/terminal-takeover.ts`; `engine/packages/daemon/src/terminal/owner-terminal-host.ts`; `engine/packages/daemon/src/routes/terminal-ws.ts`; `engine/packages/daemon/src/terminal/TerminalSessionBroker.ts`; `engine/packages/daemon/test/terminal-takeover.test.ts`; `engine/packages/daemon/test/owner-terminal-host.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Test focus:** Read-only agent streams; session-scoped owner take-over; release/disconnect/revocation/15-minute inactivity expiry; owner-host absence; identity/socket separation and non-loopback rejection.
@@ -3677,7 +3677,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T015. Project durable team state, inert logs and shared language labels into the TUI.
 
 - **Source / requirements:** `U6`; `R9`, `R12`, `R13`, `R14`, `R16`, `F4`, `AE5`, `AE6`, `AE7`, `AE10`, `AE12`, `KTD4`, `KTD5`, `KTD6`, `KTD15`, `KTD16`, `PC1`, `PC2`, `PC3`, `PC4`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 21; T012, T014, T005, T036, T050, T052.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 21; T012, T014, T005, T036, T050, T052.
 - **Files:** `engine/packages/tui/src/daemon-client.ts`; `engine/packages/tui/src/state.ts`; `engine/packages/tui/src/live-events.ts`; `engine/packages/tui/src/render.ts`; `engine/packages/tui/src/attention/attention-model.ts`; `engine/packages/tui/test/team-projection.test.ts`; `engine/packages/tui/test/team-language.test.ts`; `engine/packages/tui/test/team-layout.test.ts`; `engine/packages/tui/src/main.ts`; `engine/packages/tui/src/types.ts`; `engine/packages/tui/src/hydrate.ts`; `engine/packages/tui/src/live.ts`; `engine/packages/tui/src/demo-data.ts`; `engine/packages/i18n/src/index.ts`; `engine/packages/i18n/src/catalogs/en.json`; `engine/packages/i18n/src/catalogs/zh-CN.json`; `engine/packages/cli/src/config-store.ts`; `engine/packages/cli/test/config-store-extended.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Amendment:** `docs/amendments/2026-10-25-t015-read-only-ui.md`.
@@ -3691,7 +3691,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T016. Connect TUI owner decisions, browser pairing and terminal take-over with real-terminal acceptance.
 
 - **Source / requirements:** `U6`; `R9`, `R12`, `R13`, `R14`, `R16`, `F4`, `AE5`, `AE6`, `AE7`, `AE10`, `AE12`, `KTD4`, `KTD5`, `KTD6`, `KTD14`, `KTD15`, `KTD16`, `PC1`, `PC2`, `PC3`, `PC4`, `KTD9`, `KTD25`, `PC7`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 22; T015, T035.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 22; T015, T035.
 - **Files:** `engine/packages/tui/src/daemon-client.ts`; `engine/packages/tui/src/input.ts`; `engine/packages/tui/src/state.ts`; `engine/packages/tui/src/render.ts`; `engine/packages/tui/src/attention/attention-model.ts`; `engine/packages/tui/src/terminals/terminal-model.ts`; `engine/packages/tui/test/team-controls.test.ts`; `engine/packages/tui/test/team-language.test.ts`; `engine/packages/tui/src/main.ts`; `engine/packages/tui/src/types.ts`; `engine/packages/i18n/src/catalogs/en.json`; `engine/packages/i18n/src/catalogs/zh-CN.json`; `engine/packages/daemon/src/contracts/team-control.ts`; `engine/packages/daemon/src/routes/team-control.ts`; `engine/packages/daemon/src/domain/plan-governance.ts`; `engine/packages/daemon/test/team-governance.test.ts`; `engine/packages/daemon/src/server.ts`; `engine/packages/daemon/src/routes/terminal-ws.ts`; `engine/packages/daemon/test/terminal-ws-route.test.ts`; `engine/packages/tui/test/team-projection.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries and the exact `LOCAL_ENGINE_PATHS` registration `packages/tui/test/team-controls.test.ts`; serialize this shared owner.
 - **Test focus:** Versioned/idempotent approve/reject/cancel; lost acknowledgement/reconnect; 60-second one-time pairing and revocation; owner-host start; read-only views until audited take-over; native-prompt configuration-fault blocker under PC7; a KTD25 scope-extension decision shows the task, each path with create or modify, the reason, the classification and, for a dependency change, each package, exact version and matched list entry. The console input accepts only the allowlisted commands in the approved design (retry, pause, resume, open, help) and refuses free text with a message naming them; no message reaches an agent. Approve is `a` and reject is `x`; `r` refreshes. Owner-only pause/resume preserves active attempts and counters; another blocker overrides an owner pause. Counted retry reopens only a verified failed task after exact run/task/attempt checks, without a direct native launch; stale, active, unknown and exhausted cases are denied and rollback is atomic.
@@ -3703,7 +3703,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T017. Persist cancellation and enforce cumulative budgets outside controller-only timers.
 
 - **Source / requirements:** `U7`; `R5`, `R9`, `R10`, `R11`, `R12`, `R13`, `R14`, `R15`, `R21`, `R22`, `F4`, `AE4`, `AE6`, `AE7`, `AE8`, `AE9`, `AE13`, `KTD4`, `KTD5`, `KTD6`, `KTD7`, `KTD8`, `KTD9`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 23; T016.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 23; T016.
 - **Files:** `engine/packages/daemon/src/domain/rig-teardown.ts`; `engine/packages/daemon/src/daemon-shutdown.ts`; `engine/packages/daemon/src/domain/team-reconciliation.ts`; `engine/packages/daemon/src/domain/runtime-adapter.ts`; `engine/packages/daemon/src/adapters/worker-launch.ts`; `engine/config/isolation/worker-launch.mjs` and `engine/config/isolation/worker-policy.json` only when an independent deadline needs a new launcher option or policy key (bump `policy_revision`, re-provision, re-run the U1 host preflight); `engine/test/worker-isolation-preflight.test.mjs`; `engine/packages/daemon/test/team-cancellation.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Test focus:** Intent-before-effect, dispatch closure, recorded process-group identity, five-second escalation/fifteen-second unresolved outcome; cumulative 60-minute budget, ten-minute no-progress distinction and controller-absent deadline enforcement. Enforce 64 MiB raw logs per run and 256 MiB aggregate artifacts before further dispatch.
@@ -3714,7 +3714,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T018. Reconcile restart ambiguity and prove paired binary/database rollback.
 
 - **Source / requirements:** `U7`; `R5`, `R9`, `R10`, `R11`, `R12`, `R13`, `R14`, `R15`, `R21`, `R22`, `F4`, `AE4`, `AE6`, `AE7`, `AE8`, `AE9`, `AE13`, `KTD4`, `KTD5`, `KTD6`, `KTD7`, `KTD8`, `KTD9`, `KTD10`, `KTD20`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 25; T033.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 25; T033.
 - **Files:** `engine/packages/daemon/src/domain/queue-recovery.ts`; `engine/packages/daemon/src/domain/team-reconciliation.ts`; `engine/packages/daemon/src/daemon-shutdown.ts`; `engine/packages/daemon/test/team-recovery.test.ts`; `docs/operations.md`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Test focus:** Crash windows around dispatch/ack; active/resumable/unknown identity; PID/pane reuse; rejected/stale grants, mailbox and worker policy after resume; disk-full/corruption and WAL-consistent backup/restore. A stopped session with `resume_safe: false` is never resumed. Recovery takes retry and resume decisions only from the T033 classifier.
@@ -3725,7 +3725,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T019. Build the reference-derived Web UI shell and durable run projections.
 
 - **Source / requirements:** `U11`; `R9`, `R12`, `R13`, `R14`, `R15`, `R16`, `R18`, `F2`, `F3`, `F4`, `AE5`, `AE6`, `AE7`, `AE9`, `AE10`, `AE12`, `KTD2`, `KTD13`, `KTD14`, `KTD15`, `KTD16`, `PC1`, `PC2`, `PC3`, `PC4`, `PC6`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 12; T012, T014, T005, T036.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 12; T012, T014, T005, T036.
 - **Files:** `engine/packages/ui/src/routes.tsx`; `engine/packages/ui/src/App.tsx`; `engine/packages/ui/src/globals.css`; `engine/packages/ui/tailwind.config.ts`; `engine/packages/ui/src/lib/theme.ts`; `engine/packages/ui/src/lib/status-colors.ts`; `engine/packages/ui/src/hooks/useTeamRun.ts`; `engine/packages/ui/src/hooks/useTeamEvents.ts`; `engine/packages/ui/src/hooks/useOwnerSession.ts`; `engine/packages/ui/src/team/shell.tsx`; `engine/packages/ui/src/team/overview.tsx`; `engine/packages/ui/src/team/run-stepper.tsx`; `engine/packages/ui/src/team/task-list.tsx`; `engine/packages/ui/src/team/agent-status.tsx`; `engine/packages/ui/src/team/system-status.tsx`; `engine/packages/ui/src/team/activity.tsx`; `engine/packages/ui/src/team/__tests__/overview.test.tsx`; `engine/packages/ui/src/skins/shuimo-danqing/skin.css`; `engine/packages/ui/src/skins/shuimo-danqing/ATTRIBUTION.md`; `engine/packages/ui/public/skins/shuimo-danqing/shuimo-danqing-loop.mp4`; `engine/packages/ui/public/skins/shuimo-danqing/sm-paper-grain.webp`; `engine/packages/ui/public/skins/shuimo-danqing/sm-paper-grain-strong.webp`; `engine/packages/ui/src/team/__tests__/skins.test.tsx`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Test focus:** Existing primitives/router/query client with navy reference tokens; managed navigation, current plan, stepper, all-state task filters, task progress and status/activity; durable hydration/replay and language/session state; the optional skin layer and the shuimo-danqing skin (U11 scenarios 13-15); the system status card renders the KTD26 lights from the U13 query, and `unknown` never renders as `ok`.
@@ -3736,7 +3736,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T020. Add Web task evidence, owner decision dialogs and read-only session/owner terminal views.
 
 - **Source / requirements:** `U11`; `R9`, `R12`, `R13`, `R14`, `R15`, `R16`, `R18`, `F2`, `F3`, `F4`, `AE5`, `AE6`, `AE7`, `AE9`, `AE10`, `AE12`, `KTD13`, `KTD14`, `KTD15`, `KTD16`, `PC1`, `PC2`, `PC3`, `PC4`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 13; T019, T035.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 13; T019, T035.
 - **Files:** `engine/packages/ui/src/team/task-detail.tsx`; `engine/packages/ui/src/team/decision-card.tsx`; `engine/packages/ui/src/team/decision-dialog.tsx`; `engine/packages/ui/src/team/bottom-panel.tsx`; `engine/packages/ui/src/team/agent-monitor.tsx`; `engine/packages/ui/src/team/review-decisions.tsx`; `engine/packages/ui/src/team/logs.tsx`; `engine/packages/ui/src/team/settings.tsx`; `engine/packages/ui/src/team/shell.tsx`; `engine/packages/ui/src/routes.tsx`; `engine/packages/ui/src/hooks/useOwnerSession.ts`; `engine/packages/ui/src/team/__tests__/task-detail.test.tsx`; `engine/packages/ui/src/team/__tests__/decisions.test.tsx`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Test focus:** Task details/discussion/diff/tests/review; owner dialog requester/action/files/digest/version; idempotency, stale/version conflicts, session expiry; audited take-over and owner-host unavailable state; a KTD25 scope-extension decision shows the task, each path with create or modify, the reason, the classification and, for a dependency change, each package, exact version and matched list entry.
@@ -3747,7 +3747,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T021. Verify responsive, accessible, bilingual Web UI behavior against the reference.
 
 - **Source / requirements:** `U11`; `R12`, `R13`, `R14`, `R16`, `R18`, `AE6`, `AE7`, `AE10`, `AE12`, `KTD13`, `KTD14`, `KTD15`, `KTD16`, `KTD18`, `PC1`, `PC2`, `PC3`, `PC4`, `PC6`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 14; T020.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 14; T020.
 - **Files:** `engine/packages/ui/src/team/shell.tsx`; `engine/packages/ui/src/team/overview.tsx`; `engine/packages/ui/src/team/bottom-panel.tsx`; `engine/packages/ui/src/team/decision-dialog.tsx`; `engine/packages/ui/src/globals.css`; `engine/packages/ui/src/team/__tests__/responsive.test.tsx`; `engine/packages/ui/src/team/__tests__/decisions.test.tsx`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
 - **Test focus:** Fixture-driven real-browser checks at 1440/1024/390 px in both languages; side-by-side Rendering.png adaptations; keyboard/focus, dialog error announcements, AA contrast, text/glyph status, reduced motion and 44px touch targets.
@@ -3758,7 +3758,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T022. Add scoped read-only Workspace and Knowledge views.
 
 - **Source / requirements:** `U12`; `R4`, `R5`, `R12`, `R16`, `R21`, `R22`, `AE4`, `AE13`, `KTD5`, `KTD17`, `PC5`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 15-T022; T021.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 15-T022; T021.
 - **Files:** `engine/packages/daemon/src/routes/files.ts`; `engine/packages/daemon/src/routes/workspace.ts`; `engine/packages/daemon/test/workspace-scope.test.ts`; `engine/packages/ui/src/team/workspace/workspace-view.tsx`; `engine/packages/ui/src/team/knowledge/knowledge-view.tsx`; `engine/packages/ui/src/routes.tsx`; `engine/packages/ui/src/team/shell.tsx`; `engine/packages/daemon/src/server.ts`; `engine/packages/daemon/src/domain/workflow-runtime.ts`; `engine/packages/daemon/src/domain/team-workspace.ts`; `engine/packages/daemon/src/domain/scope-extension.ts`; `engine/config/governance/credential-exclusions.json`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to task-owned `PIN.adapted` entries and exact `LOCAL_ENGINE_PATHS` entries for the newly authorized files; serialize this shared owner.
 - **Test focus:** Canonical target and candidate diff browsing; traversal/symlink denial; policy credential exclusions; owner-only plan/requirements/solution browsing with inert Markdown.
@@ -3769,7 +3769,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T023. Classify owner task edits and suspend scope changes for plan re-approval.
 
 - **Source / requirements:** `U12`; `R4`, `R5`, `R12`, `R16`, `R21`, `R22`, `AE4`, `AE13`, `KTD5`, `KTD17`, `PC5`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 15; T021, T035.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 15; T021, T035.
 - **Files:** `engine/packages/daemon/src/domain/task-edit.ts`; `engine/packages/daemon/src/routes/team-control.ts`; `engine/packages/daemon/test/task-edit.test.ts`; `engine/packages/ui/src/team/task-edit/task-edit-dialog.tsx`; `engine/packages/ui/src/team/task-detail.tsx`; `engine/packages/ui/src/team/__tests__/task-edit.test.tsx`.
 - **Test focus:** Versioned priority/role/order/notes/existing-link edits versus add/remove/scope/path/acceptance/limit plan changes; cycle and unvalidated prerequisite rejection; agent denial and concurrent state changes; the task view lists each task's KTD25 extensions with their decision or auto-pass state.
 - **Done signal:** Daemon/component/browser checks show allowed edits apply once, material edits return plan-change-required with transactional suspension of affected work, conflicts ask again and no edit bypasses prerequisite evidence or owner re-approval.
@@ -3779,7 +3779,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T024. Prepare the control-side acceptance harness and adversarial fixtures without running the demo feature.
 
 - **Source / requirements:** `U8`; `R1`, `R2`, `R3`, `R4`, `R5`, `R6`, `R7`, `R8`, `R9`, `R10`, `R11`, `R12`, `R13`, `R14`, `R15`, `R16`, `R17`, `R18`, `R19`, `R20`, `R21`, `R22`, `F1`, `F2`, `F3`, `F4`, `AE1`, `AE2`, `AE3`, `AE4`, `AE5`, `AE6`, `AE7`, `AE8`, `AE9`, `AE10`, `AE11`, `AE12`, `AE13`, `KTD6`, `KTD8`, `KTD9`, `KTD11`, `KTD12`, `KTD14`, `KTD16`, `KTD17`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 26; T018, T022, T023.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 26; T018, T022, T023.
 - **Files:** `engine/test/team-e2e.test.mjs`; `engine/test/candidate-comparison.test.mjs`; `engine/test/fixtures/team-failure-cases/plan-drift.json`; `engine/test/fixtures/team-failure-cases/prompt-active-message.json`; `engine/test/fixtures/team-failure-cases/review-defect.patch`; `engine/test/fixtures/team-failure-cases/restart-cancel.json`.
 - **Test focus:** Explicit registered-root validation and frozen-feature acceptance expectations; offline negative/receipt tests; opt-in native/comparison branches; planted defect, drift, prompt, rejection, cancellation and restart fixtures.
 - **Done signal:** Offline harness tests neither start provider sessions nor spend quota; workers cannot alter acceptance expectations; root alias/nesting checks, source/plan/task/attempt evidence binding and default-off live branches are demonstrated.
@@ -3809,7 +3809,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T027. Verify and record the primary live run, owner clients and adversarial outcomes.
 
 - **Source / requirements:** `U8`; `R1`, `R2`, `R3`, `R4`, `R5`, `R6`, `R7`, `R8`, `R9`, `R10`, `R11`, `R12`, `R13`, `R14`, `R15`, `R16`, `R17`, `R18`, `R19`, `R20`, `R21`, `R22`, `F1`, `F2`, `F3`, `F4`, `AE1`, `AE2`, `AE3`, `AE4`, `AE5`, `AE6`, `AE7`, `AE8`, `AE9`, `AE10`, `AE11`, `AE12`, `AE13`, `KTD1`, `KTD2`, `KTD3`, `KTD4`, `KTD5`, `KTD6`, `KTD7`, `KTD8`, `KTD9`, `KTD10`, `KTD11`, `KTD12`, `KTD13`, `KTD14`, `KTD15`, `KTD16`, `KTD17`, `KTD18`, `PC1`, `PC2`, `PC3`, `PC4`, `PC5`, `PC6`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 28; T026.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 28; T026.
 - **Files:** `docs/validation/first-team.md`.
 - **Test focus:** Primary candidate API/UI filtering, completion and restart; real drift/control-access/prompt/rejection/cancellation/restart cases; Web at 1440/1024/390 in both languages and TUI at two sizes in both languages; pairing, decision, Lead take-over, workspace diff and re-approval edit.
 - **Done signal:** The report links exact source/seed/candidate/plan/run/task/attempt/version receipts, independent review, user-flow outcomes and before/after preservation evidence. Required missing/skipped/failed outcomes remain incomplete; integrated failure overrides agent/process completion.
@@ -3819,7 +3819,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T028. Run and record the explicitly scoped reverse-pairing native contracts.
 
 - **Source / requirements:** `U8`; `R4`, `R5`, `R6`, `R7`, `R8`, `R9`, `R13`, `R15`, `R16`, `R17`, `R19`, `R21`, `R22`, `AE3`, `AE4`, `AE5`, `AE6`, `AE8`, `AE9`, `AE12`, `AE13`, `KTD3`, `KTD6`, `KTD8`, `KTD9`, `KTD11`, `KTD12`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 29; T027.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 29; T027.
 - **Files:** `engine/test/team-e2e.test.mjs`; `docs/validation/first-team.md`.
 - **Test focus:** Codex implementation-role and Claude review-role permitted/denied actions, read-only reviewer scope, prompt-active mailbox delivery, instruction provenance and resume.
 - **Done signal:** A separately authorized bounded reverse-contract run yields observed receipts for each named contract and preserves lead independence, configured limits and source identity. It is not reported as a second complete feature task.
@@ -3829,7 +3829,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T029. Execute and report the same-frozen-task pinned candidate comparison.
 
 - **Source / requirements:** `U8`; `R7`, `R13`, `R16`, `R18`, `R19`, `R20`, `R21`, `R22`, `AE6`, `AE10`, `AE11`, `AE12`, `AE13`, `KTD1`, `KTD2`, `KTD6`, `KTD9`, `KTD12`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 30; T028.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 30; T028.
 - **Files:** `engine/test/candidate-comparison.test.mjs`; `docs/validation/candidate-comparison.md`.
 - **Test focus:** Selected engine and pinned ReevesAgents 39ce3ace2dd2f2df451e943c432d505fb61d5946 attempt the identical frozen seed/task with matching protections, available models/roles, acceptance checks and separately granted caps.
 - **Done signal:** A comparative report contains observed attempts or evidenced blocked scenarios per candidate, configuration differences, adaptation/glue effort, interventions, failures, recovery and reliable elapsed/usage metrics. Unknown cost is unknown; an unattempted comparison or manual baseline does not satisfy this gate.
@@ -3839,7 +3839,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T030. Reconcile all required proof and produce the local delivery and operations documentation.
 
 - **Source / requirements:** `U8`; `R1`, `R2`, `R3`, `R4`, `R5`, `R6`, `R7`, `R8`, `R9`, `R10`, `R11`, `R12`, `R13`, `R14`, `R15`, `R16`, `R17`, `R18`, `R19`, `R20`, `R21`, `R22`, `F1`, `F2`, `F3`, `F4`, `AE1`, `AE2`, `AE3`, `AE4`, `AE5`, `AE6`, `AE7`, `AE8`, `AE9`, `AE10`, `AE11`, `AE12`, `AE13`, `KTD1`, `KTD2`, `KTD3`, `KTD4`, `KTD5`, `KTD6`, `KTD7`, `KTD8`, `KTD9`, `KTD10`, `KTD11`, `KTD12`, `KTD13`, `KTD14`, `KTD15`, `KTD16`, `KTD17`, `KTD18`, `PC1`, `PC2`, `PC3`, `PC4`, `PC5`, `PC6`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 31; T029.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 31; T029.
 - **Files:** `docs/validation/first-team.md`; `docs/validation/candidate-comparison.md`; `docs/development.md`; `docs/operations.md`.
 - **Test focus:** Final adapted build/lint/unit/UI regressions on the authoritative WSL revision; proof-intent reconciliation; paired rollback, source transfer/export, provenance/licenses, unavailable metrics and delivery permission boundaries.
 - **Done signal:** Every required proof intent links a current actual outcome and owner; final source matches accepted/reviewed candidates, no unresolved delivery-blocking P0/P1 defects remain, preservation checks pass and the owner receives local results with limitations and the next delivery decision. Missing evidence prevents verified completion.
@@ -3849,7 +3849,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T031. Run the KTD19 structured-channel spike per client and adopt only passing channels for mailbox delivery and steering.
 
 - **Source / requirements:** `U4`; `R7`, `R8`, `R12`, `R13`, `R19`, `R21`, `AE5`, `AE12`, `KTD11`, `KTD16`, `KTD19`, `PC7`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 8; T008, T009.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 8; T008, T009.
 - **Files:** `engine/packages/daemon/src/domain/mailbox-delivery.ts`; `engine/packages/daemon/src/adapters/claude-code-adapter.ts`; `engine/packages/daemon/src/adapters/codex-runtime-adapter.ts`; `engine/packages/daemon/test/native-channel-contract.test.ts`; `docs/validation/native-channel-spike.md`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to exact task-owned `PIN.adapted` and local-file registrations; serialize this shared owner.
 - **Test focus:** Per client and pinned version: the channel exists; the KTD16 read-only session view and audited take-over survive (mandatory for the Lead); the session runs with the PC7 launch flags; absent or altered channel configuration fails closed to pending; delivery is at least once with one consumption receipt; message text arrives as context, never as a user turn or approval.
@@ -3860,7 +3860,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T032. Enforce the KTD21 Lead wake guards on every wake path.
 
 - **Source / requirements:** `U4`; `R8`, `R11`, `R12`, `R15`, `R22`, `KTD9`, `KTD11`, `KTD21`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 8; T009.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 8; T009.
 - **Files:** `engine/packages/daemon/src/domain/lead-wake-policy.ts`; `engine/packages/daemon/src/domain/queue-wake-ladder.ts`; `engine/packages/daemon/src/domain/wake-resolver.ts`; `engine/packages/daemon/src/domain/wake-resolve-service.ts`; `engine/packages/daemon/src/domain/queue-wake-repository.ts`; `engine/packages/daemon/src/routes/wake-resolve.ts`; `engine/packages/daemon/src/domain/queue-repository.ts`; `engine/packages/daemon/src/domain/plan-governance.ts`; `engine/packages/daemon/test/lead-wake-policy.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to exact task-owned `PIN.adapted` and local-file registrations; serialize this shared owner.
 - **Test focus:** The Lead's own message never wakes it; duplicate triggers coalesce to one pending wake; an addressed peer-to-peer message wakes only its recipient; a third agent-only wake cycle on one task without an owner action or new validated evidence pauses the run with an owner decision; the thirteenth activation within an hour is refused while its trigger stays pending behind an owner-visible blocker; counters survive restart. Cover direct queue nudges, recovered durable intents, and governed Lead-attempt admission; caller-supplied owner/evidence claims cannot reset guards.
@@ -3873,7 +3873,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T033. Classify failed attempts once and route retry, resume and attempt phases through that classifier.
 
 - **Source / requirements:** `U7`; `R11`, `R15`, `R18`, `R22`, `AE8`, `KTD9`, `KTD20`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 24; T017.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 24; T017.
 - **Files:** `engine/packages/daemon/src/domain/attempt-failure.ts`; `engine/packages/daemon/src/domain/runtime-adapter.ts`; `engine/packages/daemon/src/domain/rig-teardown.ts`; `engine/packages/daemon/src/domain/review-evidence.ts`; `engine/packages/daemon/test/attempt-failure.test.ts`; `engine/packages/daemon/test/fixtures/attempt-failure/client-errors.json`; `docs/operations.md`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to exact task-owned `PIN.adapted` and local-file registrations; serialize this shared owner.
 - **Test focus:** Captured client-error fixtures map to their KTD20 codes and retry eligibility; `provider_network` retries once and a second failure becomes a blocker; auth, quota, configuration, missing-executable and `unknown` never retry and name the owner action; after `context_overflow` or `provider_invalid_request` the continuation starts a fresh session on the same tree; a long completed answer quoting a failure marker is not a failure; `starting` fails as `start_timeout` after 5 minutes and `waiting_workspace_lock` waits for the lock; a successful exit without validated evidence leaves the task unaccepted.
@@ -3884,7 +3884,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T034. Lock each native client build and refuse a mismatched version or executable hash on launch and resume.
 
 - **Source / requirements:** `U4`; `R13`, `R21`, `KTD20`, `KTD27`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 10; T010.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 10; T010.
 - **Files:** `engine/config/isolation/client-lock.json`; `engine/packages/daemon/src/adapters/worker-launch.ts`; `engine/config/isolation/worker-launch.mjs`; `engine/config/isolation/provision-host.sh`; `engine/packages/daemon/test/client-lock.test.ts`; `docs/operations.md`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to exact task-owned `PIN.adapted` and local-file registrations; serialize this shared owner.
 - **Test focus:** A version or executable-hash mismatch refuses fresh launch and resume with `agent_error.unsupported_version` and no retry, including a matching version string with a different hash; a lock entry without a fixture set for its version fails the contract suite; client self-update is off in every launched worker; a lock change leaves `policy_revision` unchanged and the launch receipt records the lock digest.
@@ -3895,7 +3895,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T035. Record KTD25 scope extensions beside the binding and gate candidate staging on effective scope.
 
 - **Source / requirements:** `U5`; `R4`, `R5`, `R10`, `R21`, `KTD5`, `KTD17`, `KTD25`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 12; T011, T012.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 12; T011, T012.
 - **Files:** `engine/packages/daemon/src/domain/scope-extension.ts`; `engine/config/governance/low-risk-dev-dependencies.json`; `engine/packages/daemon/src/contracts/team-control.ts`; `engine/packages/daemon/src/routes/team-control.ts`; `engine/packages/daemon/src/db/migrations/105_scope_extensions.ts`; `engine/packages/daemon/src/db/all-migrations.ts`; `engine/packages/daemon/src/domain/team-workspace.ts`; `engine/packages/daemon/test/scope-extension.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to exact task-owned `PIN.adapted` and local-file registrations; serialize this shared owner.
 - **Test focus:** An approved extension stages the candidate while the plan digest, binding digest, implementation approval and other tasks are unchanged; another task's path, a protected path, a path outside `writePaths`, a cap overrun or a `..`/symlink escape returns `plan-change-required` with the failing rule; no agent credential approves and a stale chain head conflicts; a rejection survives restart; a plan-byte change invalidates pending extensions; a new `types.ts` beside an owned file auto-passes while a modified neighbour, a file in an unowned directory or a protected new file does not; an exact-version `@types/node` devDependency with only `"dev": true` lockfile entries is eligible, while `dependencies`, an unlisted name, a range or tag, `hasInstallScript`, a missing `integrity`, an unlisted registry, a non-dev entry change, a scripts or `overrides` change and a non-npm lockfile are not.
@@ -3906,7 +3906,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T036. Expose read-only KTD26 health checks as owner status lights.
 
 - **Source / requirements:** `U13`; `R12`, `R16`, `AE12`, `KTD20`, `KTD26`, `KTD27`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 11.5; T004, T034.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 11.5; T004, T034.
 - **Files:** `engine/packages/daemon/src/domain/system-health.ts`; `engine/packages/daemon/src/adapters/worker-launch-control.ts`; `engine/packages/daemon/src/contracts/team-control.ts`; `engine/packages/daemon/src/routes/team-control.ts`; `engine/packages/daemon/test/system-health.test.ts`; `docs/operations.md`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to exact task-owned `PIN.adapted` and local-file registrations; serialize this shared owner. The owner also authorizes this task-pack amendment for T036/T047.
 - **Test focus:** At the T036 source and route boundary, supplied probe results preserve each matching light and evidence; a hung probe returns unknown within five seconds, a hung aggregate reader within thirty seconds, and unknown never renders as ok; malformed results and unavailable attempt evidence remain unknown; stopped evidence is preserved; owner access succeeds and an agent credential is refused; every failed light has runbook guidance. Real-owner fault fixtures and the full database/files/sessions/provider-state no-mutation comparison are the T047-H1 integration sub-task.
@@ -3918,9 +3918,9 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T037. Harden the command-bound process reader so the native process, its image and its session come only from privileged kernel evidence.
 
 - **Source / requirements:** `U4`; `R6`, `R7`, `R8`, `R9`, `R12`, `R15`, `R16`, `R19`, `R21`, `AE3`, `AE5`, `AE6`, `AE8`, `AE12`, `AE13`, `KTD3`, `KTD6`, `KTD7`, `KTD11`, `KTD19`, `KTD21`, `KTD23`, `KTD24`, `PC7`, `KTD27`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 11; T010, T034.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 11; T010, T034.
 - **Files:** `engine/packages/daemon/src/adapters/worker-launch-control.ts`; `engine/config/isolation/worker-launch.mjs`; `engine/packages/daemon/test/managed-native-startup.test.ts`; `engine/test/worker-isolation-preflight.test.mjs`.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t010-production-composition-and-bounded-sequence`.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#t010-production-composition-and-bounded-sequence`.
 - **Test focus:** Close the P1s from T010's closeout review of the saved process-reader patch (S1, S2 and G1-G3) and its recorded P2s. The privileged helper selects the native process from kernel structure below the pinned sandbox init and authenticates each image against the installed client lock. The supervisor is bound to the live pane process, which is rechecked after the snapshot. A Codex session ID comes only from a rollout the native holds open for writing under its own UUID; it must be fresh and unused on first launch, and later observations bind to the same session and rollout file. Projected file hashes, namespaces, stdio and argv are compared. Everything runs offline; no provider session starts.
 - **Done signal:** Focused tests for the helper's structural selection and the control-side reader pass, including a negative case for each closed finding; the daemon typecheck passes; one final daemon package run has no task-caused failure. Required review closes on the final candidate with the `AGENTS.md` reviewer roster. T037 composes no lifecycle or production startup (T040 and T041) and claims no installed-client outcome (T038).
 - **Stop if:** Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. Stop if a done-signal component has no owner among the listed files, and return it as a plan question rather than a scope amendment. Stop if a check needs a provider session or a live client. Stop if the task-level budget in `AGENTS.md` is reached. Keep Product Contract bytes and other task contracts unchanged.
@@ -3930,9 +3930,9 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T038. Prove both installed clients preserve containment, provenance and safe messaging through daemon-mediated fresh launch, exact resume and daemon restart.
 
 - **Source / requirements:** `U4`; `R6`, `R7`, `R8`, `R9`, `R12`, `R15`, `R16`, `R19`, `R21`, `AE3`, `AE5`, `AE6`, `AE8`, `AE12`, `AE13`, `KTD3`, `KTD6`, `KTD7`, `KTD11`, `KTD19`, `KTD21`, `KTD23`, `KTD24`, `PC7`, `KTD27`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 18; T047, T042, T041.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 18; T047, T042, T041.
 - **Files:** `engine/packages/daemon/test/worker-control-isolation.test.ts`; `engine/packages/daemon/test/managed-native-policy.test.ts`.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t010-production-composition-and-bounded-sequence`.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#t010-production-composition-and-bounded-sequence`.
 - **Test focus:** Actual shell/test subprocess attempts against owner tokens, database/WAL/shared memory, supervisor sockets and owner-pane input; allowed scratch edit; PC7 sessions run a shell command, a file edit and a network package install with no prompt while every denial holds; worker-home provider sign-in; expected context; prompt-active mailbox text safely consumed later; repeat after resume. The KTD23 reachable set measured from inside a real managed session: provider and dependency endpoints succeed while Windows host loopback services, overlay-network peers and their MagicDNS names, the LAN and host abstract sockets are unreachable, on fresh launch and again after resume. Passing-channel delivery receipts and failing-client fallback match the KTD19 spike record; Lead wake guards hold across a real restart. Observe effective instruction and hook loading from the client or the OS, not from launch flags; observed in-worker discovery matches the KTD24 worker paths on fresh launch and resume. Use an actual daemon process restart with live sessions. Launch and resume refuse a client that differs from the T034 lock.
 - **Done signal:** Daemon-mediated probes for both installed clients, within the inherited allowance, produce source/policy/version-bound observed receipts for every required denial plus allowed edit, readiness, prompt race, safe consumption and resume case. Provider usage without reliable metrics is recorded unavailable. PC7 launch-mode receipts, the KTD23 reachable-set receipts and the spike record are bound to the same source, policy and client versions. A fresh full U1 host preflight passes on the installed policy before any live probe. Every U4 scenario 1-24 has its daemon-mediated or live evidence, including channel and prompt/readiness evidence, authenticated send/reply, endpoint revocation and real full resume and daemon restart. The source/policy/executable candidate is the same for final acceptance and independent review. Focused tests and daemon typecheck pass; one final daemon package run has no task-caused failure. Selector/parser checks alone do not close effective hook execution.
 - **Stop if:** Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. Stop if a done-signal component has no owner among the listed files, and return it as a plan question rather than a scope amendment. Stop if authentication, model configuration or the inherited live allowance is absent or exhausted; a containment/provenance proof fails or is ambiguous; a probe needs broader worker-boundary access or changes personal configuration; another `policy_revision` change is in flight; or a policy, provisioning or service change lacks its separate grant. Stop if the effective native policy source is shadowed or unobserved, or the mailbox exception exposes general control or network access. Keep Product Contract bytes and other task contracts unchanged. Stop if a live failure needs a source change; return it to the plan owner rather than editing T037's owners.
@@ -3942,10 +3942,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T039. Route every managed launch through runtime eligibility and an isolated, re-entrant candidate workspace.
 
 - **Source / requirements:** `U5`; `R4`, `R5`, `R10`, `R11`, `R16`, `R18`, `R21`, `AE2`, `AE3`, `AE4`, `AE9`, `AE13`, `KTD4`, `KTD8`, `KTD9`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 15; T011, T012, T041.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 15; T011, T012, T041.
 - **Files:** `engine/packages/daemon/src/domain/workflow-runtime.ts`; `engine/packages/daemon/src/adapters/worker-launch.ts`; `engine/packages/daemon/src/startup.ts`; `engine/packages/daemon/test/team-candidate-launch.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants`.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants`.
 - **Test focus:** Exercise the production entry points, not a directly constructed workspace. Every managed launch is admitted through `WorkflowRuntime` before the control preflights anything, so a prerequisite without validated evidence, a cyclic or overlapping dependency graph and a run that is no longer approved each refuse the launch with no privileged call. An admitted implementation assignment runs inside one `CandidateWorkspace` under the policy's assignment root, bound to the attempt's own worker; the control's resolved tree must be that candidate, and the source checkout keeps its dirty-file hashes with no commit or merge created. A resumed attempt reuses its recorded candidate instead of creating a second one, including after a daemon restart, and a candidate whose source moved is refused at every reuse while remaining releasable by its owners. Release is counted per attempt, so one attempt's refusal cannot delete a tree another still uses. Everything runs offline; no provider session starts. The launch fixture stops where the runtime re-prepares the assignment, because it is not a real context projection; that half is `native-session-contract.test.ts`'s.
 - **Done signal:** Focused tests for those cases pass through the production launch path; the daemon typecheck passes; one final daemon package run has no task-caused failure. No production path calls `prepareTeamAssignment` outside `WorkflowRuntime`, and every managed launch is admitted through the runtime and runs inside exactly one re-entrant candidate workspace. Required review closes on the final candidate with the `AGENTS.md` reviewer roster, or the task closes at a scope the owner explicitly accepted with the remainder carried as named plan questions. T039 claims no reviewer packet binding, no installed-client outcome and no end-to-end admitted launch; T038 observes the composed path live and the remaining items are tracked as T043 and T044.
 - **Stop if:** Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. Stop if a done-signal component has no owner among the listed files, and return it as a plan question rather than a scope amendment. Stop if isolation needs a `worker-launch.mjs` or policy change, a provider session or a live client. Stop if the task-level budget in `AGENTS.md` is reached. Keep Product Contract bytes and other task contracts unchanged.
@@ -3955,10 +3955,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T042. Produce the managed attempt an admitted assignment launches from.
 
 - **Source / requirements:** `U5`; `R4`, `R5`, `R10`, `R16`, `R21`, `R22`, `AE2`, `AE3`, `AE4`, `AE9`, `AE13`, `KTD4`, `KTD8`, `KTD9`, `KTD24`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 16; T039, T041.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 16; T039, T041.
 - **Files:** `engine/packages/daemon/src/domain/workflow-runtime.ts`; `engine/packages/daemon/src/adapters/worker-mailbox-bridge.ts`; `engine/packages/daemon/src/domain/startup-orchestrator.ts`; `engine/packages/daemon/test/managed-attempt-producer.test.ts`.
 - **Expected side effects:** none.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants`.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants`.
 - **Test focus:** Exercise the production producer through `WorkflowRuntime`, not a directly constructed workspace. For an admitted assignment `WorkflowRuntime` projects the KTD24 context once under `<paths.context_root>/<worker>/<runId>/<attemptId>/`, creates and starts listening on the attempt's `WorkerMailboxBridge` in the control-private mailbox root, writes the bootstrap the launcher binds, registers the endpoint in `deps.managedLaunch.endpoints` and attaches the resulting `ManagedAttempt` to the seat's binding for the startup orchestrator's launch. A refused assignment creates no projection, endpoint or attempt. A resume reuses its recorded attempt's projection and endpoint shape and binds the exact previous receipt. Retirement, quiescence and daemon restart close the endpoint. Everything runs offline; no provider session starts, with the privileged launcher faked only at `/usr/bin/sudo`.
 - **Done signal:** Focused tests for those cases pass through the production launch and activation paths; the daemon typecheck passes; one final daemon package run has no task-caused failure. An admitted managed assignment reaches the composed launch chain with a registered endpoint and an attached attempt, offline, with the privileged launcher faked only at `/usr/bin/sudo`. Required review closes on the final candidate with the `AGENTS.md` reviewer roster. T042 claims no installed-client outcome; T038 observes the composed path live.
 - **Stop if:** Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. Stop if a done-signal component has no owner among the listed files, and return it as a plan question rather than a scope amendment. Stop if the producer would need a `worker-launch.mjs` or policy change, a provider session or a live client, or would register an endpoint before admission. Stop if the task-level budget in `AGENTS.md` is reached. Keep Product Contract bytes and other task contracts unchanged.
@@ -3968,10 +3968,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T043. Let a reviewer launch into the exact candidate the implementer produced.
 
 - **Source / requirements:** `U5`; `R5`, `R11`, `R16`, `R18`, `AE4`, `KTD8`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 17; T039.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 17; T039.
 - **Files:** `engine/packages/daemon/src/contracts/team-control.ts`; `engine/packages/daemon/src/domain/workflow-runtime.ts`; `engine/packages/daemon/src/adapters/worker-launch.ts`; `engine/packages/daemon/test/team-candidate-launch.test.ts`.
 - **Expected side effects:** none.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`.
 - **Test focus:** Exercise the production launch path. A reviewer assignment carries the task under review, and its candidate is that task's candidate rather than a fresh tree staged at the source HEAD; the launcher mounts it read-only. A reviewer naming a task with no candidate refuses rather than staging one. Everything runs offline; no provider session starts.
 - **Done signal:** Focused tests pass through the production launch path; the daemon typecheck passes; one final daemon package run has no task-caused failure. A reviewer launch resolves the reviewed task's candidate and mounts it read-only. Required review closes on the final candidate with the `AGENTS.md` reviewer roster.
 - **Stop if:** Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. Stop if the reviewed-task link needs a schema migration the plan does not declare, and return it as a plan question.
@@ -3981,10 +3981,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T044. Compute a commit-lane candidate's manifest and patch without running git on any path the worker can write.
 
 - **Source / requirements:** `U5`; `R5`, `R11`, `R16`, `R18`, `R21`, `AE4`, `KTD8`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 16; T039.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 16; T039.
 - **Files:** `engine/packages/daemon/src/domain/team-workspace.ts`; `engine/packages/daemon/test/team-workspace.test.ts`.
 - **Expected side effects:** none.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants`.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants`.
 - **Test focus:** Write each reproduction as a failing test before changing source, on `main` or on the commit where its round found it.
   1. Execution: a planted `core.fsmonitor`, a replaced `.git` gitdir file, `diff.external`, a `filter.<drv>.clean` driver (via a worker `git init` and `.gitattributes`), and ambient `GIT_*` redirection each fail to run their marker program; the manifest is unchanged.
   2. Evidence: the patch, applied with `git apply` at a checkout of the base commit, reproduces exactly the hashed bytes, including non-UTF-8 content; its paths are repository-relative.
@@ -4000,9 +4000,9 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T040. Complete the control-owned WorkerLaunchControl lifecycle on the hardened process reader.
 
 - **Source / requirements:** `U4`; `R6`, `R7`, `R8`, `R9`, `R12`, `R15`, `R16`, `R19`, `R21`, `AE3`, `AE5`, `AE6`, `AE8`, `AE12`, `AE13`, `KTD3`, `KTD6`, `KTD7`, `KTD11`, `KTD19`, `KTD21`, `KTD23`, `KTD24`, `PC7`, `KTD27`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 12; T037.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 12; T037.
 - **Files:** `engine/packages/daemon/src/adapters/worker-launch-control.ts`; `engine/packages/daemon/src/adapters/worker-launch.ts`; `engine/config/isolation/worker-launch.mjs`; `engine/packages/daemon/test/managed-native-startup.test.ts`; `engine/packages/daemon/test/native-session-contract.test.ts`; `engine/test/worker-isolation-preflight.test.mjs`.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t010-production-composition-and-bounded-sequence`.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#t010-production-composition-and-bounded-sequence`.
 - **Test focus:** Implement the remaining `WorkerLaunchControl` operations over T037's reader. Preflight comes from the root inspection, the installed lock and policy, provider sign-in evidence observed in the worker home without reading credential bytes, and the exact previous receipt. Start goes through the governed pane start and adopts the native session at the attempt's first observation, before any task input reaches the session. Observation maps the snapshot into `WorkerObservation`, including mounts, descriptors, context and native-policy evidence, effective mode and readiness from control-owned observation, and every later observation detects drift. Quiescence is confirmed through the launcher, locating an ambiguous start by its command, and evidence is recorded through the existing governance reconciliation. A launcher refusal for a client outside the T034 lock maps to `agent_error.unsupported_version` with no retry (A-R3). Everything runs offline; no provider session starts.
 - **Done signal:** Focused tests for preflight, start, first-observation adoption, drift, quiescence, ambiguous start and evidence recording pass; the daemon typecheck passes; one final daemon package run has no task-caused failure. A failed observation, evidence write or quiescence leaves an unresolved blocker, never a running unverified attempt. Required review closes on the final candidate with the `AGENTS.md` reviewer roster. T040 composes no production startup (T041) and claims no installed-client outcome (T038).
 - **Stop if:** Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. Stop if a done-signal component has no owner among the listed files, and return it as a plan question rather than a scope amendment. Stop if a check needs a provider session or a live client. Stop if the task-level budget in `AGENTS.md` is reached. Keep Product Contract bytes and other task contracts unchanged. Stop if provider sign-in evidence would require reading credential bytes.
@@ -4012,9 +4012,9 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T041. Compose the managed launch chain into production daemon startup and prove it with an offline fixture-daemon restart.
 
 - **Source / requirements:** `U4`; `R6`, `R7`, `R8`, `R9`, `R12`, `R15`, `R16`, `R19`, `R21`, `AE3`, `AE5`, `AE6`, `AE8`, `AE12`, `AE13`, `KTD3`, `KTD6`, `KTD7`, `KTD11`, `KTD19`, `KTD21`, `KTD23`, `KTD24`, `PC7`, `KTD27`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 13; T040.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 13; T040.
 - **Files:** `engine/packages/daemon/src/startup.ts`; `engine/packages/daemon/src/server.ts`; `engine/packages/daemon/src/domain/mailbox-delivery.ts`; `engine/packages/daemon/test/managed-native-startup.test.ts`; `engine/packages/daemon/test/native-channel-contract.test.ts`; `engine/packages/daemon/test/lead-wake-policy.test.ts`; `engine/packages/daemon/test/team-messaging.test.ts`.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#commands-and-evidence-binding`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t010-production-composition-and-bounded-sequence`.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u4-adapt-native-sessions-and-persistent-peer-communication`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#commands-and-evidence-binding`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#t010-production-composition-and-bounded-sequence`.
 - **Test focus:** Inject T040's `WorkerLaunchControl` through `startup.ts` into both fresh and both resume adapters, and compose the production native-channel reader with the single mailbox owner in `server.ts`. Use an actual offline fixture-daemon process restart: durable messages and wake limits survive, while stale admission and handouts are invalidated. Launch and resume refuse a client that differs from the T034 lock. If composition needs T034's residual R2-1 (generic commands), return it as a plan question. Everything runs offline; no provider session starts.
 - **Done signal:** Focused tests for the startup composition and the offline fixture-daemon restart pass; the daemon typecheck passes; one final daemon package run has no task-caused failure. Both fresh and both resume adapters receive the real launch control in production startup, and the production native-channel reader is composed with the single mailbox owner. Required review closes on the final candidate with the `AGENTS.md` reviewer roster. T041 makes no provider call and claims no installed-client outcome; those belong to T038.
 - **Stop if:** Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. Stop if a done-signal component has no owner among the listed files, and return it as a plan question rather than a scope amendment. Stop if a check needs a provider session or a live client. Stop if the task-level budget in `AGENTS.md` is reached. Keep Product Contract bytes and other task contracts unchanged.
@@ -4025,10 +4025,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T045. Pin the shared core and each role's charter into every attempt's context manifest and enforce the reviewer report format.
 
 - **Source / requirements:** `U14`; `R6`, `R11`, `R17`, `R21`, `R22`, `KTD3`, `KTD9`, `KTD21`, `KTD24`, `KTD27`, `KTD28`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 14; T007, T010, T012.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 14; T007, T010, T012.
 - **Files:** `engine/config/team/core.md`; `engine/config/team/roles/implementer.md`; `engine/config/team/roles/reviewer.md`; `engine/packages/daemon/src/integrations/framework/context-manifest.ts`; `engine/packages/daemon/src/domain/review-evidence.ts`; `engine/packages/daemon/test/framework-context-manifest.test.ts`; `engine/packages/daemon/test/native-session-contract.test.ts`; `engine/packages/daemon/test/managed-native-startup.test.ts`; `engine/packages/daemon/test/team-review-cycle.test.ts`; `engine/packages/daemon/test/role-charter.test.ts`; `engine/packages/daemon/test/fixtures/role-charters/reviewer-shared-tree-release.json`; `engine/packages/daemon/test/fixtures/role-charters/implementer-planted-instruction.json`; `engine/packages/daemon/test/fixtures/role-charters/lead-self-review-request.json`; `tools/upstream-import.mjs`; `AGENTS.md`; `docs/operations.md`.
 - **Expected side effects:** `tools/upstream-import.mjs`, limited to the task-owned `PIN.adapted` entries; serialize this shared owner
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u14-pin-role-charters-and-enforce-the-reviewers-output-format`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#key-technical-decisions`
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u14-pin-role-charters-and-enforce-the-reviewers-output-format`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#key-technical-decisions`
 - **Test focus:** Each role's manifest carries the core and its own charter with recorded versions, never another role's charter; a missing, duplicate, changed or foreign instruction file refuses the manifest, and a changed recorded version refuses launch and resume. A P0/P1 without a failing scenario is refused; from round 2 a missing verdict on an earlier open P0/P1 or a missing delta tag is refused without spending a round; the daemon decides delta membership from a daemon-owned changed-file seam that defaults to a full review; an out-of-delta P1 is a residual while a reproduced out-of-delta P0 counts; a kept-open finding the reviewer did not re-raise is carried forward. The reviewer charter's JSON example records through the ledger, and every role has a well-formed planted-defect fixture citing real plan decisions. All offline.
 - **Done signal:** Focused tests pass; the daemon typecheck passes; `upstream-import.mjs verify` reports no `extra` entry; one final daemon package run has no task-caused failure. Required review closes on the final candidate with the `AGENTS.md` reviewer roster. T045 builds no brief, retains no packet and claims no observed client discovery; T046 owns those.
 - **Stop if:** Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. Stop if the task-level budget in `AGENTS.md` is reached. Keep Product Contract bytes and other task contracts unchanged. Stop if enforcing the format needs a route, schema or migration change, or the brief generator or packet retention, which belong to T046.
@@ -4038,10 +4038,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T046. Generate facts-only role briefs, retain each reviewed round's packet and prove the charter reaches a client's observed discovery.
 
 - **Source / requirements:** `U14`; `R6`, `R11`, `R17`, `R21`, `R22`, `KTD3`, `KTD9`, `KTD21`, `KTD24`, `KTD27`, `KTD28`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 19; T039, T042, T038, T045.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 19; T039, T042, T038, T045.
 - **Files:** `engine/packages/daemon/src/domain/team-assignment.ts`; `engine/packages/daemon/src/domain/workflow-runtime.ts`; `engine/packages/daemon/src/domain/review-evidence.ts`; `engine/packages/daemon/test/role-brief.test.ts`; `engine/packages/daemon/test/team-review-cycle.test.ts`; `engine/packages/daemon/test/managed-attempt-producer.test.ts`; `tools/upstream-import.mjs`.
 - **Expected side effects:** none.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u14-pin-role-charters-and-enforce-the-reviewers-output-format`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#key-technical-decisions`
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u14-pin-role-charters-and-enforce-the-reviewers-output-format`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#key-technical-decisions`
 - **Test focus:** The generated brief equals its template rendered from structured records and contains no role prose; a Lead note is bounded, quoted data and refused with control characters or over its size bound. After an in-place rework, round 2's changed-file set comes from the retained round-1 packet; a missing packet yields a full-review brief with a recorded reason. The production producer projects `roleInstructionEntries` for the attempt's role, and observed discovery missing the core or charter refuses the session.
 - **Done signal:** Focused tests pass through the production producer and ledger; the daemon typecheck passes; one final daemon package run has no task-caused failure. Required review closes on the final candidate with the `AGENTS.md` reviewer roster. The live planted-defect run is separate owner-granted evidence.
 - **Stop if:** Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. Stop if the task-level budget in `AGENTS.md` is reached. Keep Product Contract bytes and other task contracts unchanged. Stop if observed-discovery proof needs a live client beyond T038's recorded evidence, a policy change or a provider session.
@@ -4052,10 +4052,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T047. Attach a produced managed attempt to the seat's binding and register its mailbox endpoint.
 
 - **Source / requirements:** `U5`; `R4`, `R5`, `R10`, `R16`, `R21`, `R22`, `AE2`, `AE3`, `AE4`, `AE9`, `AE13`, `KTD4`, `KTD8`, `KTD9`, `KTD24`, `R12`, `AE12`, `KTD20`, `KTD23`, `KTD26`, `KTD27`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 17; T042, T041, T036, T053.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 17; T042, T041, T036, T053.
 - **Files:** `engine/packages/daemon/src/startup.ts`; `engine/packages/daemon/src/domain/seat-lifecycle-service.ts`; `engine/packages/daemon/src/domain/rigspec-instantiator.ts`; `engine/packages/daemon/src/domain/restore-orchestrator.ts`; `engine/packages/daemon/test/managed-attempt-attachment.test.ts`.
 - **Expected side effects:** none.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u13-add-read-only-system-health-checks`
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u13-add-read-only-system-health-checks`
 - **Test focus:** Exercise the composed launch chain, not a hand-built binding. A launch for a seat whose queue task resolves to an admitted assignment receives a binding carrying the produced attempt, and its endpoint is registered before the launcher reaches `mailbox`. The endpoint is keyed by the attempt the producer returned, never by the queue row or the session. A launch whose task is not admitted receives a binding with no managed attempt and no registration. The privileged launcher is faked only at `/usr/bin/sudo`; no provider session starts. Sub-task T047-H1 exercises the normal owner-authenticated health query through startup composition, with the existing health reader injected from its existing owners. Cover database-lock, missing-tmux-socket, worker-sign-out, client-lock version/hash and policy-fingerprint faults, five-second probe/thirty-second overall timeouts, agent denial, and the full database/files/sessions/provider-state no-mutation comparison without starting a provider session.
 - **Done signal:** Focused tests pass through the composed chain; the daemon typecheck passes; one final daemon package run has no task-caused failure. A fresh launch, a resume restore and a rig-instantiated seat each reach the launcher with the produced attempt attached and its endpoint registered, offline. Required review closes on the final candidate with the `AGENTS.md` reviewer roster. T047 claims no installed-client outcome; T038 observes the composed path live. T047-H1 supplies the production readSystemHealth reader through startup.ts and proves the KTD26 query from existing owners; once its real-owner fault and no-mutation acceptance passes, the Pending T047 wiring label on T036 can be cleared.
 - **Stop if:** Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. Stop if attaching the attempt would let a personal (non-managed) launch reach the managed chain, or would register an endpoint for an attempt the producer did not return. Stop if the task-level budget in `AGENTS.md` is reached. Keep Product Contract bytes and other task contracts unchanged.
@@ -4066,10 +4066,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T048. Adopt a resumed candidate only on control-owned provenance, and release a candidate without passing its path to git.
 
 - **Source / requirements:** `U5`; `R5`, `R11`, `R16`, `R18`, `R21`, `AE4`, `KTD8`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 21; T044, T054.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 21; T044, T054.
 - **Files:** `engine/packages/daemon/src/domain/workflow-runtime.ts`; `engine/packages/daemon/src/domain/team-workspace.ts`; `engine/packages/daemon/test/team-candidate-adoption.test.ts`.
 - **Expected side effects:** none.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#state-persistence-and-approval-invariants`.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#state-persistence-and-approval-invariants`.
 - **Test focus:** Exercise `candidateFor` after a simulated restart in both lanes. A commit-lane candidate the runtime created, with work in it, is adopted when the source repository's worktree registry lists that path; a plain directory, a copied `.git` file or another repository's worktree at that path refuses, and a genuine candidate is still adopted when the source is itself a linked worktree or is reached through a symlink. A snapshot-lane candidate with work in it is adopted when a control-owned creation record, kept outside every worker-writable tree, names it; a directory without that record refuses. A refusal leaves the task launchable rather than wedged on `EEXIST`. Removal deletes the tree and then prunes the source's registry, so no git process receives the candidate path, and a `.git` or configuration planted in the candidate runs nothing. Everything runs offline.
 - **Done signal:** Focused tests pass; the daemon typecheck passes; one final daemon package run has no task-caused failure. Adoption decides provenance only from control-owned records, never from the candidate's contents or `.git`, and no git process in adoption or removal receives a candidate path. Required review closes on the final candidate with the `AGENTS.md` reviewer roster.
 - **Stop if:** Stop if the source plan is no longer active, its canonical body hash differs, repository identity is unresolved, or implementation needs undeclared mutation paths. Stop if the snapshot-lane creation record needs a schema migration or a control-state location the plan does not declare, and return it as a plan question. Stop if the task-level budget in `AGENTS.md` is reached.
@@ -4079,7 +4079,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T050. Give the TUI the approved ink-wash palette, Nerd Font icons with a plain-text fallback, and a frame writer that does not flicker.
 
 - **Source / requirements:** `U6`; `R9`, `R16`, `KTD15`, `PC3`, `PC4`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 11; T005.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 11; T005.
 - **Files:** `engine/packages/tui/src/theme.ts`; `engine/packages/tui/src/icons.ts`; `engine/packages/tui/src/main.ts`; `engine/packages/tui/test/terminal-render.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`: `PIN.adapted` entries for `theme.ts` and `main.ts`, and a `LOCAL_ENGINE_PATHS` entry for the new `icons.ts`; serialize this shared owner.
 - **Context:** `docs/design/t015-tui-design.md` (sections 3, 4 and 9); the plan's U6 owner decision of 2026-10-24.
@@ -4097,10 +4097,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T051. Make the commit-lane manifest and patch agree for files the base commit gives git attributes.
 
 - **Source / requirements:** `U5`; `R5`, `R11`, `R16`, `R18`, `R21`, `AE4`, `KTD8`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 17; T044.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 17; T044.
 - **Files:** `engine/packages/daemon/src/domain/team-workspace.ts`; `engine/packages/daemon/test/team-workspace.test.ts`.
 - **Expected side effects:** none.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`.
 - **Test focus:** Each shape is a failing test on `979c614` before the source changes, and each is table-driven in the existing `patch round trip` oracle, which applies the patch at a base checkout and compares bytes.
   1. An edited attribute-shaped file: with base attributes `a.txt text eol=lf`, a candidate writing `new\r\n` produces a patch that reproduces exactly the bytes the manifest hashed.
   2. A non-ASCII name under `eol=crlf`: a file named `café.txt` gives an unmodified candidate no patch.
@@ -4114,10 +4114,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T052. Publish committed managed owner read projections for T015 without moving producer authority into the client.
 
 - **Source / requirements:** `U2`; `R9`, `R12`, `R13`, `R14`, `R16`, `F4`, `AE5`, `AE6`, `AE7`, `AE10`, `AE12`, `KTD4`, `KTD5`, `KTD6`, `KTD15`, `KTD16`, `KTD26`, `PC1`, `PC2`, `PC3`, `PC4`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 20; T003, T012, T042.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 20; T003, T012, T042.
 - **Files:** `engine/packages/daemon/src/contracts/team-control.ts`, `engine/packages/daemon/src/team-control-surface.ts`, `engine/packages/daemon/src/domain/event-bus.ts`, `engine/packages/daemon/src/domain/plan-governance.ts`, `engine/packages/daemon/src/domain/queue-repository.ts`, `engine/packages/daemon/src/domain/review-evidence.ts`, `engine/packages/daemon/src/domain/workflow-runtime.ts`, `engine/packages/daemon/src/routes/events.ts`, `engine/packages/daemon/src/routes/team-control.ts`, `engine/packages/daemon/src/server.ts`, `engine/packages/daemon/src/startup.ts`, `engine/packages/daemon/test/team-read-model.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, exact provenance entries only; serialize this owner.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t052-publish-managed-owner-read-projections-owner-amendment-2026-10-25`, `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#interface-contracts`, `docs/amendments/2026-10-25-t015-read-only-ui.md`.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#t052-publish-managed-owner-read-projections-owner-amendment-2026-10-25`, `docs/plans/2026-10-13-001-feat-loom-team-plan.md#interface-contracts`, `docs/amendments/2026-10-25-t015-read-only-ui.md`.
 - **Entry:** Track A prerequisite: inspect the named existing producers and routes/events.ts, then bind each A-row to its actual durable source and shared action-specific read contract. This amendment does not start Track A implementation.
 - **Test focus:** Composed owner-authenticated and run-scoped snapshot/replay; worker/unauthenticated/cross-run denial and unchanged legacy admission; snapshot cursor with 1,000 persisted events, concurrent publication, reconnect and explicit gaps; candidate-bound criteria/reviews, missing/crashed review unavailable and owner-decided Finalize; correlated structured logs/exits with redaction/truncation and no raw terminal bytes; no mutation from reads and timeout health unknown.
 - **Done signal:** The composed producer/read acceptance in engine/packages/daemon/test/team-read-model.test.ts passes, each evidence row names its actual durable source and exported action-specific schema, daemon typecheck/focused/final package tests pass without task-caused failures, and required independent review closes. Land the contract and retain source hashes before T015 Phase 2 starts.
@@ -4128,10 +4128,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T054. Compute the commit-lane manifest and patch with plain git over a control-owned copy of the candidate.
 
 - **Source / requirements:** `U5`; `R5`, `R11`, `R16`, `R18`, `R21`, `AE4`, `KTD8`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 18; T051.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 18; T051.
 - **Files:** `engine/packages/daemon/src/domain/team-workspace.ts`; `engine/packages/daemon/test/team-workspace.test.ts`.
 - **Expected side effects:** none.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`.
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`.
 - **Entry:** Read the U5 decision "Candidate manifest from a copied snapshot" (2026-10-26), which gives the whole git sequence. Then read `commitLaneManifest`, `renderPatch` and the helpers they call in `team-workspace.ts`.
 - **Test focus:**
   1. Planted programs: a worker-written `.git` gitdir file carrying `core.fsmonitor`, `core.hooksPath`, `filter.<drv>.clean`, `filter.<drv>.process`, `diff.<drv>.textconv` and `diff.external`, plus `* filter=x diff=x` attributes and a nested repository, runs no marker program.
@@ -4146,10 +4146,10 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 ### T053. Supply the managed-attempt production inputs so the producer is reachable.
 
 - **Source / requirements:** `U5`; `R4`, `R5`, `R16`, `R21`, `R22`, `AE4`, `AE9`, `AE13`, `KTD8`, `KTD9`, `KTD24`.
-- **Target / wave / dependencies:** `ronronner02/multi-agent`; wave 16.5; T042, T041, T036.
+- **Target / wave / dependencies:** `ronronner02/loom`; wave 16.5; T042, T041, T036.
 - **Files:** `engine/packages/daemon/src/domain/worker-control-access.ts`; `engine/packages/daemon/src/domain/seat-mailbox-capability.ts`; `engine/packages/daemon/src/domain/worker-identity.ts`; `engine/packages/daemon/src/db/migrations/106_managed_attempt_inputs.ts`; `engine/packages/daemon/src/db/all-migrations.ts`; `engine/packages/daemon/src/domain/plan-governance.ts`; `engine/packages/daemon/src/contracts/team-control.ts`; `engine/packages/daemon/src/startup.ts`; `engine/packages/daemon/src/index.ts`; `engine/packages/daemon/test/managed-attempt-inputs.test.ts`.
 - **Expected side effects:** `tools/upstream-import.mjs`, exact provenance entries only; `docs/operations.md` provisioning entries.
-- **Context:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#t053-supply-the-managed-attempt-production-inputs-owner-amendment-2026-10-25`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md#worker-isolation-and-source-transfer`; `docs/amendments/2026-10-25-t053-managed-attempt-inputs.md`
+- **Context:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md#t053-supply-the-managed-attempt-production-inputs-owner-amendment-2026-10-25`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#u5-enforce-dependencies-isolated-changes-and-independent-review`; `docs/plans/2026-10-13-001-feat-loom-team-plan.md#worker-isolation-and-source-transfer`; `docs/amendments/2026-10-25-t053-managed-attempt-inputs.md`
 - **Test focus:** In a composed startup an admitted assignment yields a produced attempt whose projection, endpoint and bootstrap exist with policy-sourced roots. A worker token authenticates only its own `(sessionId, runId)` mailbox scope and no other route or seat; the owner token is never accepted as a worker credential; no secret is recorded beyond the bootstrap's authorization field. The persisted seat capability is the exact value both the producer's bridge and a later send use, and a different capability is invisible to that seat's poll. A task whose persisted outputs/permissions disagree with a caller's is refused, and an output outside the assignment's write paths is refused at creation. Identity resolves for every policy-listed worker, refuses an unknown name, and matches what the launcher observes. Retirement revokes the token and closes the endpoint; restart reconciliation revokes tokens no live attempt owns. No read mutates durable state, files, sessions or provider state, and no provider session starts.
 - **Done signal:** The composed-startup test produces a real attempt from an admitted assignment, offline, with the privileged launcher faked only at `/usr/bin/sudo`; every scenario passes; the daemon typecheck passes; one final daemon package run has no task-caused failure; required independent review closes on the final candidate. T053 claims no launch or installed-client outcome; it makes the producer reachable, not T047's attachment.
 - **Stop if:** Stop if an input needs a provider session, a live client, or a change to `worker-launch.mjs` or the installed policy; if the token store would hold plaintext at rest; if persisting outputs/permissions would change an existing acceptance example; if the source plan is no longer active or its canonical body hash differs; or if the task-level budget is reached. Keep Product Contract bytes and other task contracts unchanged.
@@ -4166,7 +4166,7 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 - **2026-10-23 T042 stop revision:** T042 executed to its first slice and then stopped under its own `stop_if`, which returns an unowned done-signal component as a plan question. Two components had no owner among its four files: the endpoint registry lives only in `startup.ts` (shared with T039 and T041), and `NodeBinding.managedAttempt` is constructed at three sites (`seat-lifecycle-service.ts`, `rigspec-instantiator.ts` twice) that no task declared. T047 owns both; T042 keeps the context projection, the mailbox endpoint and its bootstrap. T038 now depends on T047 so live acceptance still observes the composed chain, so it moves to wave 18 and T046 follows to wave 19. No product scope changed.
 - **2026-10-23 U14 regeneration:** bounded reads of the plan's new U14 section and KTD28, the current task-pack contract, and the staged U14 drafts in the `ma-u14` worktree. U14 has no task in the previous pack, so the plan's canonical body hash no longer matched. U14 becomes T045 and T046 with the next free IDs, because the merged T039 closeout split already holds T043 and T044; T026 gains a dependency on T046 so the primary live run executes with charters in place. `source_plan_hash` moves to `sha256:0667095e…`. No product scope changed.
 - **Provider / posture:** direct bounded reads of the source plan, the imported owners, the root instructions and current Git state.
-- **Artifact / mutation root:** `/home/leo/src/multi-agent`. The preserved Windows workspace is not an execution source.
+- **Artifact / mutation root:** `/home/leo/src/loom`. The preserved Windows workspace is not an execution source.
 - **Observed source:** the baseline commit is `85ac0b2f6181ea4a992800cd5c6c381e9ff884a8`; the worktree was clean at intake. `engine/` exists with the pinned import. `docs/upstream-baseline.md` maps shorthand owners; the latest imported migration is `103_session_stop_intent.ts`, leaving `104` for T003.
 - **Reconciled scope:** T001/T002 scaffolding and package owners; T004 internal queue guards; T008 native launch/resume/tmux source and existing tests; serialized provenance-manifest side effects. These are existing-plan owners, not new product scope.
 - **Limitations:** historical preflight and baseline results in `docs/development.md` and `docs/operations.md` are not rerun evidence. The six documented upstream test failures remain explicit limitations. No T003+ behavior, live client acceptance or UI design approval follows from this regeneration.
@@ -4175,9 +4175,9 @@ The JSON contains the complete reading pointers, risk notes and review focus. Ea
 
 ## Validation Notes
 
-- **Source identity:** `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md`, still active and implementation-ready; canonical body hash `sha256:09a104cf530add5ee3757e9046efd3a22557e90f3c61ff311fdd3027a2e7ef2a` (with the 2026-10-22 T039/T042 split, the 2026-10-23 KTD28/U14 revision and the 2026-10-24 T044 re-plan). Regeneration does not edit the source plan.
+- **Source identity:** `docs/plans/2026-10-13-001-feat-loom-team-plan.md`, still active and implementation-ready; canonical body hash `sha256:09a104cf530add5ee3757e9046efd3a22557e90f3c61ff311fdd3027a2e7ef2a` (with the 2026-10-22 T039/T042 split, the 2026-10-23 KTD28/U14 revision and the 2026-10-24 T044 re-plan). Regeneration does not edit the source plan.
 - **Exact filename exception:** the maintained validator contract allows only the audited middleware source path. Adjacent credential-like files, backups, prefixed copies and actual credentials retain their denials. Use the tested CLI, not a patched receipt or omitted source path.
-- **Commands:** run `spec-first tasks hash docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md --repo /home/leo/src/multi-agent --json` and `spec-first tasks validate docs/tasks/2026-10-13-001-feat-multi-agent-team-tasks.md --repo /home/leo/src/multi-agent --json` from WSL; a Windows host may address the same root through its UNC path. Pin the current receipt and pack digest in run-local evidence.
+- **Commands:** run `spec-first tasks hash docs/plans/2026-10-13-001-feat-loom-team-plan.md --repo /home/leo/src/loom --json` and `spec-first tasks validate docs/tasks/2026-10-13-001-feat-loom-team-tasks.md --repo /home/leo/src/loom --json` from WSL; a Windows host may address the same root through its UNC path. Pin the current receipt and pack digest in run-local evidence.
 - **Validation scope:** identity, freshness and structure only. A deterministic pass is not semantic approval, implementation completion, runtime acceptance or spending/delivery authority.
 - **Optional trace:** neither source nor pack carries `spec_id`; preserve `task-pack-spec-id-trace-missing` rather than inventing one.
 - **Semantic handoff:** both requested reviewers must assess the regenerated pack without editing it. Resolve blocking findings, revalidate after any pack change, and then pin the reviewed bytes before executing T003. At most two review rounds apply.

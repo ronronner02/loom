@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { TeamOwnerRead, TeamReviewView, TeamSeatView } from "@multi-agent/daemon/team-control";
+import type { TeamOwnerRead, TeamReviewView, TeamSeatView } from "@loom/daemon/team-control";
 import { useAttemptActivity } from "../../hooks/useAttemptActivity.js";
 import { useAttemptStatus } from "../../hooks/useAttemptStatus.js";
 import { isFinished, useTeamResult } from "../../hooks/useTeamResult.js";

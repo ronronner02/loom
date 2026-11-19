@@ -46,7 +46,7 @@ function fakeTurn(launch: SupervisorLaunch, onEvent: (event: WorkerEvent) => voi
       // queueMicrotask) keeps that order: the `started` lifecycle fact is recorded by the launcher
       // in the same microtask/tick as `start()` resolving, and this fires in the next task.
       setTimeout(() => emit({ type: "session.started", provider: launch.provider, attemptId: launch.attemptId, sequence: 1,
-        timestamp: new Date().toISOString(), rawSummary: "{}", schema: "multi-agent-worker-events/v1", protocolVersion: "1.0",
+        timestamp: new Date().toISOString(), rawSummary: "{}", schema: "loom-worker-events/v1", protocolVersion: "1.0",
         sessionId: threadId, resumeToken: threadId } as WorkerEvent));
       return identity;
     },

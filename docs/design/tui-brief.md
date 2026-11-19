@@ -1,8 +1,8 @@
 ***
 
-# Task: Build a Premium Multi-Agent Engineering Team TUI
+# Task: Build a Premium Loom Engineering Team TUI
 
-You are the senior frontend/TUI engineer responsible for implementing the terminal user interface of my Multi-Agent Engineering Team.
+You are the senior frontend/TUI engineer responsible for implementing the terminal user interface of my Loom Engineering Team.
 
 Your goal is to build a beautiful, professional, production-quality, keyboard-driven terminal application inspired by a modern dark engineering control center with a traditional Chinese ink-wash (“水墨丹青”) aesthetic.
 
@@ -12,7 +12,7 @@ All user-facing interface text must be in English.
 
 ## 1. Project Context
 
-This project is a Spec-first-driven multi-agent software engineering system.
+This project is a Spec-first-driven loom software engineering system.
 
 The intended workflow is:
 
@@ -93,7 +93,7 @@ Implement the main screen using a responsive, terminal-native layout.
 Conceptual layout:
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ APP HEADER: Logo | Multi-Agent Engineering Team | Project | Runtime Status │
+│ APP HEADER: Logo | Loom Engineering Team | Project | Runtime Status │
 ├────────────┬──────────────────────────────────────────────┬─────────────────┤
 │            │                                              │                 │
 │ LEFT       │ TOP WORKFLOW PROGRESS                        │ AGENT PANEL     │
@@ -116,7 +116,7 @@ This is a conceptual hierarchy, not a requirement to force every panel into one 
 
 ### 4.1 Header
 The top header should include:
-- Application identity: `Multi-Agent Engineering Team`
+- Application identity: `Loom Engineering Team`
 - Current project name.
 - Current branch when available.
 - Runtime or environment indicator.

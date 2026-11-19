@@ -98,7 +98,7 @@ details.notes summary { cursor: pointer; font: 500 15px var(--font-display); let
   </div>
 
   <div class="frame">
-    <div class="bar"><i></i><i></i><i></i><span>multi-agent tui — work-board</span><span class="dims" id="dims"></span></div>
+    <div class="bar"><i></i><i></i><i></i><span>loom tui — work-board</span><span class="dims" id="dims"></span></div>
     <div class="fit" id="fit"><pre id="screen" tabindex="0" aria-label="TUI mockup. Arrow keys select, Tab moves focus, brackets switch tabs, 1 to 5 switch views, c toggles the console, question mark opens help."></pre></div>
   </div>
 
@@ -222,7 +222,7 @@ details.notes summary { cursor: pointer; font: 500 15px var(--font-display); let
   function header(y) {
     fill(0, y, W, 1, P.canvas);
     const conn = { live: ["●", "live · 2s", P.ok], stale: ["◐", "stale · 7s", P.accent], down: ["✗", "disconnected", P.err] }[S.conn];
-    const left = [["◆ ", P.accent], ["Multi-Agent Engineering Team", P.text, { b: 1 }], ["   work-board", P.text], ["  ⎇ main", P.dim], ["   WSL2 · Ubuntu 22.04", P.dim]];
+    const left = [["◆ ", P.accent], ["Loom Engineering Team", P.text, { b: 1 }], ["   work-board", P.text], ["  ⎇ main", P.dim], ["   WSL2 · Ubuntu 22.04", P.dim]];
     const phase = [["   Phase ", P.dim], ["4/7 Execute Tasks", P.text]];
     const rightParts = [["! 2 need you", P.accent], ["   ", P.dim], [conn[0] + " " + conn[1], conn[2]], ["   SAMPLE DATA", P.mute], ["   21:04:12", P.dim]];
     const rw = rightParts.reduce((n, p) => n + chars(p[0]).length, 0);

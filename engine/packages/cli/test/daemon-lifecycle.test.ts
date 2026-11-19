@@ -14,7 +14,7 @@ import {
   resolveDaemonPath,
   buildDaemonEnv,
   STATE_FILE,
-  MULTI_AGENT_DIR,
+  LOOM_DIR,
   type LifecycleDeps,
   type DaemonState,
 } from "../src/daemon-lifecycle.js";
@@ -26,7 +26,7 @@ afterEach(() => vi.useRealTimers());
 
 function cleanReceipt(pid: number): string {
   const now = new Date().toISOString();
-  return JSON.stringify({ schema: "multi-agent.daemon-shutdown/v1", pid, startedAt: now, completedAt: now, outcome: "clean", phase: "complete", failures: [] });
+  return JSON.stringify({ schema: "loom.daemon-shutdown/v1", pid, startedAt: now, completedAt: now, outcome: "clean", phase: "complete", failures: [] });
 }
 
 function neverFetch(): Promise<{ ok: boolean }> {
@@ -87,7 +87,7 @@ describe("Daemon Lifecycle", () => {
   // Test 2: start constructs exact spawn command with correct env/redirect
   it("start: constructs spawn with node, daemon entry, env, and log redirect", async () => {
     const deps = startableDeps();
-    await startDaemon({ port: 7433, db: "multi-agent.sqlite" }, deps);
+    await startDaemon({ port: 7433, db: "loom.sqlite" }, deps);
 
     const spawnMock = deps.spawn as ReturnType<typeof vi.fn>;
     expect(spawnMock).toHaveBeenCalledOnce();
@@ -98,8 +98,8 @@ describe("Daemon Lifecycle", () => {
     // The entry is joined for this host, so assert its own spelling rather than a POSIX one.
     expect(args[0]).toContain(path.join("dist", "index.js"));
     expect(opts.env).toMatchObject({
-      MULTI_AGENT_PORT: "7433",
-      MULTI_AGENT_DB: "multi-agent.sqlite",
+      LOOM_PORT: "7433",
+      LOOM_DB: "loom.sqlite",
     });
     expect(opts.detached).toBe(true);
   });
@@ -292,7 +292,7 @@ describe("Daemon Lifecycle", () => {
   });
 
   it("production log reads use a byte offset, preserve old-error absence and handle truncation", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "multi-agent-start-log-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "loom-start-log-"));
     const log = path.join(root, "daemon.log");
     const deps = realDeps();
     try {
@@ -316,7 +316,7 @@ describe("Daemon Lifecycle", () => {
 
   // Test 5: stop reads pid from daemon.json, sends SIGTERM, removes daemon.json
   it("stop: reads pid, sends SIGTERM, removes daemon.json", async () => {
-    const state: DaemonState = { pid: 555, port: 7433, db: "multi-agent.sqlite", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 555, port: 7433, db: "loom.sqlite", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
@@ -452,10 +452,10 @@ describe("Daemon Lifecycle", () => {
   });
 
   it("status: no daemon.json but configured healthz responds -> running without pid", async () => {
-    const savedPort = process.env["MULTI_AGENT_PORT"];
-    const savedHost = process.env["MULTI_AGENT_HOST"];
-    process.env["MULTI_AGENT_PORT"] = "7555";
-    process.env["MULTI_AGENT_HOST"] = "127.0.0.1";
+    const savedPort = process.env["LOOM_PORT"];
+    const savedHost = process.env["LOOM_HOST"];
+    process.env["LOOM_PORT"] = "7555";
+    process.env["LOOM_HOST"] = "127.0.0.1";
     try {
       const deps = mockDeps({
         exists: vi.fn(() => false),
@@ -473,10 +473,10 @@ describe("Daemon Lifecycle", () => {
         healthy: true,
       });
     } finally {
-      if (savedPort === undefined) delete process.env["MULTI_AGENT_PORT"];
-      else process.env["MULTI_AGENT_PORT"] = savedPort;
-      if (savedHost === undefined) delete process.env["MULTI_AGENT_HOST"];
-      else process.env["MULTI_AGENT_HOST"] = savedHost;
+      if (savedPort === undefined) delete process.env["LOOM_PORT"];
+      else process.env["LOOM_PORT"] = savedPort;
+      if (savedHost === undefined) delete process.env["LOOM_HOST"];
+      else process.env["LOOM_HOST"] = savedHost;
     }
   });
 
@@ -507,7 +507,7 @@ describe("Daemon Lifecycle", () => {
 
     const spawnMock = deps.spawn as ReturnType<typeof vi.fn>;
     const env = spawnMock.mock.calls[0]![2].env;
-    expect(env.MULTI_AGENT_PORT).toBe("9999");
+    expect(env.LOOM_PORT).toBe("9999");
   });
 
   // Test 11: start invoked from different cwd -> still resolves correct daemon path
@@ -537,7 +537,7 @@ describe("Daemon Lifecycle", () => {
     console.error = (...args: unknown[]) => logs.push(args.join(" "));
 
     try {
-      await program.parseAsync(["node", "multi-agent", "daemon", "stop"]);
+      await program.parseAsync(["node", "loom", "daemon", "stop"]);
     } finally {
       console.error = origErr;
     }
@@ -547,14 +547,14 @@ describe("Daemon Lifecycle", () => {
     process.exitCode = savedExitCode;
   });
 
-  it("S4b RED: daemon stop refuses success when the addressed MULTI_AGENT_URL listener is still up", async () => {
+  it("S4b RED: daemon stop refuses success when the addressed LOOM_URL listener is still up", async () => {
     const { daemonCommand } = await import("../src/commands/daemon.js");
     const { Command } = await import("commander");
-    const savedUrl = process.env.MULTI_AGENT_URL;
+    const savedUrl = process.env.LOOM_URL;
     const savedExitCode = process.exitCode;
-    process.env.MULTI_AGENT_URL = "http://127.0.0.1:7555";
+    process.env.LOOM_URL = "http://127.0.0.1:7555";
     process.exitCode = undefined;
-    const state: DaemonState = { pid: 555, port: 7433, db: "multi-agent.sqlite", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 555, port: 7433, db: "loom.sqlite", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => p === STATE_FILE ? JSON.stringify(state) : null),
@@ -570,7 +570,7 @@ describe("Daemon Lifecycle", () => {
     console.log = (...args: unknown[]) => out.push(args.join(" "));
     console.error = (...args: unknown[]) => err.push(args.join(" "));
     try {
-      await program.parseAsync(["node", "multi-agent", "daemon", "stop"]);
+      await program.parseAsync(["node", "loom", "daemon", "stop"]);
       expect(process.exitCode).toBe(1);
       expect(out.join("\n")).not.toContain("Daemon stopped");
       expect(err.join("\n")).toContain("http://127.0.0.1:7555");
@@ -581,8 +581,8 @@ describe("Daemon Lifecycle", () => {
       console.log = origLog;
       console.error = origErr;
       process.exitCode = savedExitCode;
-      if (savedUrl === undefined) delete process.env.MULTI_AGENT_URL;
-      else process.env.MULTI_AGENT_URL = savedUrl;
+      if (savedUrl === undefined) delete process.env.LOOM_URL;
+      else process.env.LOOM_URL = savedUrl;
     }
   });
 
@@ -590,11 +590,11 @@ describe("Daemon Lifecycle", () => {
     vi.useFakeTimers();
     const { daemonCommand } = await import("../src/commands/daemon.js");
     const { Command } = await import("commander");
-    const savedUrl = process.env.MULTI_AGENT_URL;
+    const savedUrl = process.env.LOOM_URL;
     const savedExitCode = process.exitCode;
-    process.env.MULTI_AGENT_URL = "http://127.0.0.1:7555";
+    process.env.LOOM_URL = "http://127.0.0.1:7555";
     process.exitCode = undefined;
-    const state: DaemonState = { pid: 555, port: 7555, db: "multi-agent.sqlite", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 555, port: 7555, db: "loom.sqlite", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => p === STATE_FILE ? JSON.stringify(state) : null),
@@ -610,7 +610,7 @@ describe("Daemon Lifecycle", () => {
     console.log = (...args: unknown[]) => out.push(args.join(" "));
     console.error = (...args: unknown[]) => err.push(args.join(" "));
     try {
-      const stop = program.parseAsync(["node", "multi-agent", "daemon", "stop"]);
+      const stop = program.parseAsync(["node", "loom", "daemon", "stop"]);
       await vi.runAllTimersAsync();
       await stop;
       expect(process.exitCode).toBe(1);
@@ -623,19 +623,19 @@ describe("Daemon Lifecycle", () => {
       console.error = origErr;
       vi.useRealTimers();
       process.exitCode = savedExitCode;
-      if (savedUrl === undefined) delete process.env.MULTI_AGENT_URL;
-      else process.env.MULTI_AGENT_URL = savedUrl;
+      if (savedUrl === undefined) delete process.env.LOOM_URL;
+      else process.env.LOOM_URL = savedUrl;
     }
   });
 
   it("S4b RED: daemon stop prints success only after the addressed target verifies down", async () => {
     const { daemonCommand } = await import("../src/commands/daemon.js");
     const { Command } = await import("commander");
-    const savedUrl = process.env.MULTI_AGENT_URL;
+    const savedUrl = process.env.LOOM_URL;
     const savedExitCode = process.exitCode;
-    process.env.MULTI_AGENT_URL = "http://127.0.0.1:7555";
+    process.env.LOOM_URL = "http://127.0.0.1:7555";
     process.exitCode = undefined;
-    const state: DaemonState = { pid: 555, port: 7555, db: "multi-agent.sqlite", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 555, port: 7555, db: "loom.sqlite", startedAt: "2026-01-01T00:00:00Z" };
     const fetch = vi.fn()
       .mockResolvedValueOnce({ ok: true })
       .mockRejectedValue(Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }));
@@ -651,7 +651,7 @@ describe("Daemon Lifecycle", () => {
     const origLog = console.log;
     console.log = (...args: unknown[]) => out.push(args.join(" "));
     try {
-      await program.parseAsync(["node", "multi-agent", "daemon", "stop"]);
+      await program.parseAsync(["node", "loom", "daemon", "stop"]);
       expect(process.exitCode).toBeUndefined();
       expect(out.join("\n")).toContain("Daemon stopped");
       expect(fetch.mock.calls.length).toBeGreaterThan(1);
@@ -659,17 +659,17 @@ describe("Daemon Lifecycle", () => {
     } finally {
       console.log = origLog;
       process.exitCode = savedExitCode;
-      if (savedUrl === undefined) delete process.env.MULTI_AGENT_URL;
-      else process.env.MULTI_AGENT_URL = savedUrl;
+      if (savedUrl === undefined) delete process.env.LOOM_URL;
+      else process.env.LOOM_URL = savedUrl;
     }
   });
 
-  // Test 15: start creates ~/.multi-agent directory if missing
-  it("start: creates MULTI_AGENT_DIR if missing", async () => {
+  // Test 15: start creates ~/.loom directory if missing
+  it("start: creates LOOM_DIR if missing", async () => {
     const deps = startableDeps();
     await startDaemon({ port: 7433 }, deps);
 
-    expect(deps.mkdirp).toHaveBeenCalledWith(MULTI_AGENT_DIR);
+    expect(deps.mkdirp).toHaveBeenCalledWith(LOOM_DIR);
   });
 
   // Test 17: pid alive + healthz failure -> running with healthy=false, daemon.json preserved
@@ -852,8 +852,8 @@ describe("Daemon Lifecycle", () => {
     expect(result.pid).toBe(12345);
   });
 
-  // Test 23: start with unhealthy multi-agent daemon (healthz responds non-ok) -> blocks start
-  it("start: unhealthy multi-agent daemon (healthz responds) -> throws already running", async () => {
+  // Test 23: start with unhealthy loom daemon (healthz responds non-ok) -> blocks start
+  it("start: unhealthy loom daemon (healthz responds) -> throws already running", async () => {
     const state: DaemonState = { pid: 999, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
@@ -869,8 +869,8 @@ describe("Daemon Lifecycle", () => {
     await expect(startDaemon({ port: 7433 }, deps)).rejects.toThrow(/already running/i);
   });
 
-  // Test 24: stop with unhealthy multi-agent daemon -> still sends SIGTERM (it's our process)
-  it("stop: unhealthy multi-agent daemon -> sends SIGTERM", async () => {
+  // Test 24: stop with unhealthy loom daemon -> still sends SIGTERM (it's our process)
+  it("stop: unhealthy loom daemon -> sends SIGTERM", async () => {
     const state: DaemonState = { pid: 999, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
@@ -893,7 +893,7 @@ describe("Daemon Lifecycle", () => {
   // Test 25: start spawns process.execPath, not bare "node"
   it("start: spawns process.execPath as the Node binary", async () => {
     const deps = startableDeps();
-    await startDaemon({ port: 7433, db: "multi-agent.sqlite" }, deps);
+    await startDaemon({ port: 7433, db: "loom.sqlite" }, deps);
 
     const spawnMock = deps.spawn as ReturnType<typeof vi.fn>;
     const [cmd] = spawnMock.mock.calls[0]!;
@@ -954,10 +954,10 @@ describe("Daemon Lifecycle", () => {
     vi.useRealTimers();
   });
 
-  // Test 26: MULTI_AGENT_URL set → getDaemonStatus bypasses daemon.json
-  it("status: MULTI_AGENT_URL set → probes URL directly, ignores daemon.json", async () => {
-    const prev = process.env["MULTI_AGENT_URL"];
-    process.env["MULTI_AGENT_URL"] = "http://127.0.0.1:7455";
+  // Test 26: LOOM_URL set → getDaemonStatus bypasses daemon.json
+  it("status: LOOM_URL set → probes URL directly, ignores daemon.json", async () => {
+    const prev = process.env["LOOM_URL"];
+    process.env["LOOM_URL"] = "http://127.0.0.1:7455";
     try {
       const deps = mockDeps({
         exists: vi.fn(() => false),
@@ -972,15 +972,15 @@ describe("Daemon Lifecycle", () => {
       // daemon.json was never read
       expect(deps.readFile).not.toHaveBeenCalled();
     } finally {
-      if (prev === undefined) delete process.env["MULTI_AGENT_URL"];
-      else process.env["MULTI_AGENT_URL"] = prev;
+      if (prev === undefined) delete process.env["LOOM_URL"];
+      else process.env["LOOM_URL"] = prev;
     }
   });
 
-  // Test 27: MULTI_AGENT_URL set but unreachable → stopped
-  it("status: MULTI_AGENT_URL set but unreachable → stopped", async () => {
-    const prev = process.env["MULTI_AGENT_URL"];
-    process.env["MULTI_AGENT_URL"] = "http://127.0.0.1:9999";
+  // Test 27: LOOM_URL set but unreachable → stopped
+  it("status: LOOM_URL set but unreachable → stopped", async () => {
+    const prev = process.env["LOOM_URL"];
+    process.env["LOOM_URL"] = "http://127.0.0.1:9999";
     try {
       const deps = mockDeps({
         exists: vi.fn(() => false),
@@ -991,8 +991,8 @@ describe("Daemon Lifecycle", () => {
       const status = await getDaemonStatus(deps);
       expect(status.state).toBe("stopped");
     } finally {
-      if (prev === undefined) delete process.env["MULTI_AGENT_URL"];
-      else process.env["MULTI_AGENT_URL"] = prev;
+      if (prev === undefined) delete process.env["LOOM_URL"];
+      else process.env["LOOM_URL"] = prev;
     }
   });
 
@@ -1064,15 +1064,15 @@ describe("resolveDaemonPath", () => {
   it("returns monorepo source path when packages/daemon/dist/index.js exists (DEV — both paths present)", () => {
     // Simulates a monorepo checkout: BOTH paths have dist/index.js
     // (vendored bundle assembled via scripts/build-package.sh + source
-    // daemon built via @multi-agent/daemon). The resolver picks source.
+    // daemon built via @loom/daemon). The resolver picks source.
     const exists = (p: string) => p.endsWith("daemon/dist/index.js");
     const result = resolveDaemonPath("/repo/packages/cli/dist", exists);
     expect(result).toBe(path.resolve("/repo/packages/cli/dist", "../../daemon"));
   });
 
   it("falls back to bundled path when only ../daemon/dist exists (NPM-INSTALL — single path)", () => {
-    // Simulates `npm install -g @multi-agent/cli` layout:
-    //   node_modules/@multi-agent/cli/{dist,daemon,ui}
+    // Simulates `npm install -g @loom/cli` layout:
+    //   node_modules/@loom/cli/{dist,daemon,ui}
     // Only ../daemon (sibling to cli/dist) exists; ../../daemon doesn't.
     const exists = (p: string) => {
       // monorepo path absent; bundled present
@@ -1137,7 +1137,7 @@ describe("startDaemon env sanitization", () => {
       // CODEX_HOME is topology/config-root state consumed by the daemon; unlike
       // every other CODEX_* runtime/auth/session value, it must cross this boundary.
       expect(spawnEnv["CODEX_HOME"]).toBe("/Users/tester/.codex-custom");
-      expect(spawnEnv["MULTI_AGENT_PORT"]).toBe("7433");
+      expect(spawnEnv["LOOM_PORT"]).toBe("7433");
     } finally {
       // Restore process.env
       for (const [k, v] of Object.entries(saved)) {
@@ -1205,10 +1205,10 @@ describe("buildDaemonEnv", () => {
     expect(result["SHELL"]).toBe("/bin/zsh");
     expect(result["LANG"]).toBe("en_US.UTF-8");
 
-    // MULTI_AGENT_* set from opts
-    expect(result["MULTI_AGENT_PORT"]).toBe("7433");
-    expect(result["MULTI_AGENT_HOST"]).toBe("127.0.0.1");
-    expect(result["MULTI_AGENT_DB"]).toBe("/tmp/test.db");
+    // LOOM_* set from opts
+    expect(result["LOOM_PORT"]).toBe("7433");
+    expect(result["LOOM_HOST"]).toBe("127.0.0.1");
+    expect(result["LOOM_DB"]).toBe("/tmp/test.db");
 
     // Scrubbed vars absent
     expect(result["COLORTERM"]).toBeUndefined();
@@ -1237,107 +1237,107 @@ describe("buildDaemonEnv", () => {
     expect(result["CMUX_WORKSPACE_ID"]).toBe("workspace:1");
   });
 
-  it("explicit opts override inherited MULTI_AGENT_* from base env", () => {
+  it("explicit opts override inherited LOOM_* from base env", () => {
     const baseEnv: Record<string, string> = {
       HOME: "/Users/tester",
       PATH: "/usr/bin",
-      MULTI_AGENT_PORT: "9999",
-      MULTI_AGENT_DB: "/old/path.db",
+      LOOM_PORT: "9999",
+      LOOM_DB: "/old/path.db",
     };
 
     const result = buildDaemonEnv(baseEnv, { port: 7433, host: "127.0.0.1", db: "/new/path.db" });
 
-    expect(result["MULTI_AGENT_PORT"]).toBe("7433");
-    expect(result["MULTI_AGENT_DB"]).toBe("/new/path.db");
+    expect(result["LOOM_PORT"]).toBe("7433");
+    expect(result["LOOM_DB"]).toBe("/new/path.db");
   });
 
-  // A default product launch must NOT export MULTI_AGENT_HOST, so the daemon falls through to
+  // A default product launch must NOT export LOOM_HOST, so the daemon falls through to
   // its own default plan — loopback-only — instead of taking an inherited routing value as
   // bind intent.
   describe("explicit-vs-default host signal", () => {
-    it("omits MULTI_AGENT_HOST when opts.host is undefined (default-product-launch)", () => {
+    it("omits LOOM_HOST when opts.host is undefined (default-product-launch)", () => {
       const baseEnv: Record<string, string> = { HOME: "/Users/tester", PATH: "/usr/bin" };
       const result = buildDaemonEnv(baseEnv, {
         port: 7433,
         db: "/tmp/test.db",
         // host intentionally omitted — operator never set it (default path)
       });
-      expect(result["MULTI_AGENT_HOST"]).toBeUndefined();
+      expect(result["LOOM_HOST"]).toBeUndefined();
       // port + db still flow through
-      expect(result["MULTI_AGENT_PORT"]).toBe("7433");
-      expect(result["MULTI_AGENT_DB"]).toBe("/tmp/test.db");
+      expect(result["LOOM_PORT"]).toBe("7433");
+      expect(result["LOOM_DB"]).toBe("/tmp/test.db");
     });
 
-    it("sets MULTI_AGENT_HOST when opts.host is explicit (user opt-in)", () => {
+    it("sets LOOM_HOST when opts.host is explicit (user opt-in)", () => {
       const baseEnv: Record<string, string> = { HOME: "/Users/tester", PATH: "/usr/bin" };
       const result = buildDaemonEnv(baseEnv, {
         port: 7433,
         host: "0.0.0.0",
         db: "/tmp/test.db",
       });
-      expect(result["MULTI_AGENT_HOST"]).toBe("0.0.0.0");
+      expect(result["LOOM_HOST"]).toBe("0.0.0.0");
     });
 
-    it("S20: inherited MULTI_AGENT_HOST is SCRUBBED — the shell-env-wins premise died (routing env is byte-indistinguishable from opt-in; operator baton qitem-20260827070400). Opt-in rides MULTI_AGENT_BIND_HOST", () => {
+    it("S20: inherited LOOM_HOST is SCRUBBED — the shell-env-wins premise died (routing env is byte-indistinguishable from opt-in; operator baton qitem-20260827070400). Opt-in rides LOOM_BIND_HOST", () => {
       // The old pin encoded the dead-premise design this slice re-grounds: an
-      // inherited MULTI_AGENT_HOST was treated as operator opt-in, and a managed
+      // inherited LOOM_HOST was treated as operator opt-in, and a managed
       // environment's injected routing value silently became single-bind policy
       // (the parent lost its Tailscale listener). The dedicated surface carries
       // the same opt-in unambiguously:
       const baseEnv: Record<string, string> = {
         HOME: "/Users/tester",
         PATH: "/usr/bin",
-        MULTI_AGENT_HOST: "0.0.0.0",
+        LOOM_HOST: "0.0.0.0",
       };
       const scrubbed = buildDaemonEnv(baseEnv, { port: 7433, db: "/tmp/test.db" });
-      expect(scrubbed["MULTI_AGENT_HOST"]).toBeUndefined();
-      const optedIn = buildDaemonEnv({ ...baseEnv, MULTI_AGENT_BIND_HOST: "0.0.0.0" }, { port: 7433, db: "/tmp/test.db" });
-      expect(optedIn["MULTI_AGENT_BIND_HOST"]).toBe("0.0.0.0"); // the dedicated channel still wins
+      expect(scrubbed["LOOM_HOST"]).toBeUndefined();
+      const optedIn = buildDaemonEnv({ ...baseEnv, LOOM_BIND_HOST: "0.0.0.0" }, { port: 7433, db: "/tmp/test.db" });
+      expect(optedIn["LOOM_BIND_HOST"]).toBe("0.0.0.0"); // the dedicated channel still wins
     });
   });
 
   // The per-process state-isolation contract: the slice
-  // intentionally drops a `--multi-agent-home` CLI flag in favor of using
+  // intentionally drops a `--loom-home` CLI flag in favor of using
   // the process-env-pattern (each `rig` invocation gets its own
-  // MULTI_AGENT_HOME via the shell). The slice's "fully isolated state"
+  // LOOM_HOME via the shell). The slice's "fully isolated state"
   // claim depends on the env contract being honored at module load
-  // time — specifically that getMultiAgentHome() returns the current
+  // time — specifically that getLoomHome() returns the current
   // env value (not a hardcoded default) and that getStatePath
   // threads it into derived paths. The module-level constants
-  // (MULTI_AGENT_DIR / STATE_FILE) are a single snapshot of
+  // (LOOM_DIR / STATE_FILE) are a single snapshot of
   // these functions at load.
   //
   // These regression tests prove the function contract with distinct value discriminators.
-  describe("MULTI_AGENT_HOME env contract for per-process state isolation", () => {
-    it("getMultiAgentHome respects process.env.MULTI_AGENT_HOME (distinct values yield distinct paths)", async () => {
-      const { getMultiAgentHome } = await import("@multi-agent/daemon/data-paths");
-      const saved = process.env["MULTI_AGENT_HOME"];
+  describe("LOOM_HOME env contract for per-process state isolation", () => {
+    it("getLoomHome respects process.env.LOOM_HOME (distinct values yield distinct paths)", async () => {
+      const { getLoomHome } = await import("@loom/daemon/data-paths");
+      const saved = process.env["LOOM_HOME"];
       try {
-        process.env["MULTI_AGENT_HOME"] = "/Users/example/.multi-agent-blank";
-        const blank = getMultiAgentHome();
-        process.env["MULTI_AGENT_HOME"] = "/Users/example/.multi-agent-populated";
-        const populated = getMultiAgentHome();
-        expect(blank).toBe("/Users/example/.multi-agent-blank");
-        expect(populated).toBe("/Users/example/.multi-agent-populated");
+        process.env["LOOM_HOME"] = "/Users/example/.loom-blank";
+        const blank = getLoomHome();
+        process.env["LOOM_HOME"] = "/Users/example/.loom-populated";
+        const populated = getLoomHome();
+        expect(blank).toBe("/Users/example/.loom-blank");
+        expect(populated).toBe("/Users/example/.loom-populated");
         expect(blank).not.toBe(populated);
       } finally {
-        if (saved === undefined) delete process.env["MULTI_AGENT_HOME"];
-        else process.env["MULTI_AGENT_HOME"] = saved;
+        if (saved === undefined) delete process.env["LOOM_HOME"];
+        else process.env["LOOM_HOME"] = saved;
       }
     });
 
-    it("getStatePath threads env-resolved MULTI_AGENT_HOME into derived paths (daemon.json + log)", async () => {
-      const { getStatePath } = await import("@multi-agent/daemon/data-paths");
-      const saved = process.env["MULTI_AGENT_HOME"];
+    it("getStatePath threads env-resolved LOOM_HOME into derived paths (daemon.json + log)", async () => {
+      const { getStatePath } = await import("@loom/daemon/data-paths");
+      const saved = process.env["LOOM_HOME"];
       try {
-        process.env["MULTI_AGENT_HOME"] = "/Users/example/.multi-agent-blank";
+        process.env["LOOM_HOME"] = "/Users/example/.loom-blank";
         const blankState = getStatePath("daemon.json");
         const blankLog = getStatePath("daemon.log");
-        process.env["MULTI_AGENT_HOME"] = "/Users/example/.multi-agent-populated";
+        process.env["LOOM_HOME"] = "/Users/example/.loom-populated";
         const populatedState = getStatePath("daemon.json");
         const populatedLog = getStatePath("daemon.log");
         // The state directory is real on this host, and the derived names are joined here.
-        const blank = "/Users/example/.multi-agent-blank", populated = "/Users/example/.multi-agent-populated";
+        const blank = "/Users/example/.loom-blank", populated = "/Users/example/.loom-populated";
         expect(blankState).toBe(path.join(blank, "daemon.json"));
         expect(populatedState).toBe(path.join(populated, "daemon.json"));
         expect(blankLog).toBe(path.join(blank, "daemon.log"));
@@ -1345,71 +1345,71 @@ describe("buildDaemonEnv", () => {
         expect(blankState).not.toBe(populatedState);
         expect(blankLog).not.toBe(populatedLog);
       } finally {
-        if (saved === undefined) delete process.env["MULTI_AGENT_HOME"];
-        else process.env["MULTI_AGENT_HOME"] = saved;
+        if (saved === undefined) delete process.env["LOOM_HOME"];
+        else process.env["LOOM_HOME"] = saved;
       }
     });
 
-    it("empty MULTI_AGENT_HOME falls back to homedir default (not the literal empty string)", async () => {
-      const { getMultiAgentHome } = await import("@multi-agent/daemon/data-paths");
+    it("empty LOOM_HOME falls back to homedir default (not the literal empty string)", async () => {
+      const { getLoomHome } = await import("@loom/daemon/data-paths");
       const { homedir } = await import("node:os");
-      const saved = process.env["MULTI_AGENT_HOME"];
+      const saved = process.env["LOOM_HOME"];
       try {
-        process.env["MULTI_AGENT_HOME"] = "";
-        const { resolveDataRoots } = await import("@multi-agent/daemon/data-paths");
-        // The fallback is the host's per-user state root: `~/.multi-agent` on POSIX and the
-        // `Multi-Agent` folder under the locator on Windows. Empty means absent, not the path "".
-        expect(getMultiAgentHome()).toBe(resolveDataRoots({ env: {} }).state);
-        expect(getMultiAgentHome()).not.toBe("");
+        process.env["LOOM_HOME"] = "";
+        const { resolveDataRoots } = await import("@loom/daemon/data-paths");
+        // The fallback is the host's per-user state root: `~/.loom` on POSIX and the
+        // `Loom` folder under the locator on Windows. Empty means absent, not the path "".
+        expect(getLoomHome()).toBe(resolveDataRoots({ env: {} }).state);
+        expect(getLoomHome()).not.toBe("");
       } finally {
-        if (saved === undefined) delete process.env["MULTI_AGENT_HOME"];
-        else process.env["MULTI_AGENT_HOME"] = saved;
+        if (saved === undefined) delete process.env["LOOM_HOME"];
+        else process.env["LOOM_HOME"] = saved;
       }
     });
 
     // The regression test below proves the prior tests only verify
     // prior 3 tests verify the data-paths function contract but
-    // do NOT prove daemon-lifecycle's module-level MULTI_AGENT_DIR /
-    // STATE_FILE constant picks up MULTI_AGENT_HOME at import
-    // time. Future code could hardcode "~/.multi-agent" in
+    // do NOT prove daemon-lifecycle's module-level LOOM_DIR /
+    // STATE_FILE constant picks up LOOM_HOME at import
+    // time. Future code could hardcode "~/.loom" in
     // the module's constants would still look right and the prior tests would pass.
     //
     // This test imports daemon-lifecycle FRESH twice via
-    // vi.resetModules + dynamic import, with distinct MULTI_AGENT_HOME
+    // vi.resetModules + dynamic import, with distinct LOOM_HOME
     // values per import. Discriminator-distinct paths (per banked
     // discriminators) prove each module
     // load reflects the env that was set at that moment. Will fail
     // if a future contributor hardcodes a literal path or otherwise
     // bypasses data-paths helpers at module level.
-    it("daemon-lifecycle module-level constants reflect MULTI_AGENT_HOME at import time ", async () => {
-      const saved = process.env["MULTI_AGENT_HOME"];
+    it("daemon-lifecycle module-level constants reflect LOOM_HOME at import time ", async () => {
+      const saved = process.env["LOOM_HOME"];
       try {
-        // First import — MULTI_AGENT_HOME = blank-slate value
-        process.env["MULTI_AGENT_HOME"] = "/Users/example/.multi-agent-vm-blank-fresh";
+        // First import — LOOM_HOME = blank-slate value
+        process.env["LOOM_HOME"] = "/Users/example/.loom-vm-blank-fresh";
         vi.resetModules();
         const blank = await import("../src/daemon-lifecycle.js");
 
-        // Second import — MULTI_AGENT_HOME = populated value (distinct dir;
+        // Second import — LOOM_HOME = populated value (distinct dir;
         // not equal, not a symlink prefix). vi.resetModules clears the
         // module cache so the second import re-evaluates module-level
         // constants under the new env.
-        process.env["MULTI_AGENT_HOME"] = "/Users/example/.multi-agent-vm-populated-fresh";
+        process.env["LOOM_HOME"] = "/Users/example/.loom-vm-populated-fresh";
         vi.resetModules();
         const populated = await import("../src/daemon-lifecycle.js");
 
-        // MULTI_AGENT_DIR — direct snapshot of getMultiAgentHome() at module load
-        const blankRoot = "/Users/example/.multi-agent-vm-blank-fresh", populatedRoot = "/Users/example/.multi-agent-vm-populated-fresh";
-        expect(blank.MULTI_AGENT_DIR).toBe(blankRoot);
-        expect(populated.MULTI_AGENT_DIR).toBe(populatedRoot);
-        expect(blank.MULTI_AGENT_DIR).not.toBe(populated.MULTI_AGENT_DIR);
+        // LOOM_DIR — direct snapshot of getLoomHome() at module load
+        const blankRoot = "/Users/example/.loom-vm-blank-fresh", populatedRoot = "/Users/example/.loom-vm-populated-fresh";
+        expect(blank.LOOM_DIR).toBe(blankRoot);
+        expect(populated.LOOM_DIR).toBe(populatedRoot);
+        expect(blank.LOOM_DIR).not.toBe(populated.LOOM_DIR);
 
-        // STATE_FILE — derived as path.join(MULTI_AGENT_DIR, "daemon.json")
+        // STATE_FILE — derived as path.join(LOOM_DIR, "daemon.json")
         expect(blank.STATE_FILE).toBe(path.join(blankRoot, "daemon.json"));
         expect(populated.STATE_FILE).toBe(path.join(populatedRoot, "daemon.json"));
         expect(blank.STATE_FILE).not.toBe(populated.STATE_FILE);
       } finally {
-        if (saved === undefined) delete process.env["MULTI_AGENT_HOME"];
-        else process.env["MULTI_AGENT_HOME"] = saved;
+        if (saved === undefined) delete process.env["LOOM_HOME"];
+        else process.env["LOOM_HOME"] = saved;
         // Re-reset modules so subsequent tests (and the file-top
         // import of daemon-lifecycle at line 4-19) aren't holding
         // stale references to a module instance bound to a temp env.
@@ -1419,8 +1419,8 @@ describe("buildDaemonEnv", () => {
   });
 
   it("passes only retained startup settings into the daemon", () => {
-    const env = buildDaemonEnv({}, { port: 27451, db: "/fixture/multi-agent.sqlite" });
-    expect(env).toEqual({ MULTI_AGENT_MODE: "managed", MULTI_AGENT_PORT: "27451", MULTI_AGENT_DB: "/fixture/multi-agent.sqlite" });
+    const env = buildDaemonEnv({}, { port: 27451, db: "/fixture/loom.sqlite" });
+    expect(env).toEqual({ LOOM_MODE: "managed", LOOM_PORT: "27451", LOOM_DB: "/fixture/loom.sqlite" });
   });
 });
 
@@ -1430,14 +1430,14 @@ describe("daemon status honesty: a slow-but-answering probe is never reported st
   // getDaemonStatus' stateless (no daemon.json) branch returns "stopped" on ANY
   // /healthz throw, conflating a probe TIMEOUT (daemon reachable but slow /healthz,
   // e.g. answers in 400ms > the 250ms status probe) with genuine-down. Runtime repro
-  // (REPRO-D4a): a delayed-/healthz shim makes candidate `multi-agent status` say "Daemon not
+  // (REPRO-D4a): a delayed-/healthz shim makes candidate `loom status` say "Daemon not
   // running" while /api serves. RED pins the honest outcome (a slow-but-ANSWERING probe
   // must not be "stopped"); fix-agnostic (widened budget OR timeout-vs-conn-error).
   // Genuine-down (connection error) stays "stopped" (control preserved).
   // ===================================================================
   it("Slice-05 D4 RED: a slow-but-answering /healthz on the no-daemon.json branch must NOT report stopped", async () => {
-    const savedUrl = process.env["MULTI_AGENT_URL"];
-    delete process.env["MULTI_AGENT_URL"]; // force the no-state (config) branch, not the MULTI_AGENT_URL branch
+    const savedUrl = process.env["LOOM_URL"];
+    delete process.env["LOOM_URL"]; // force the no-state (config) branch, not the LOOM_URL branch
     vi.useFakeTimers();
     try {
       const deps = mockDeps({
@@ -1451,13 +1451,13 @@ describe("daemon status honesty: a slow-but-answering probe is never reported st
       expect(status.state).not.toBe("stopped"); // <-- RED: currently "stopped" (timeout conflated with down)
     } finally {
       vi.useRealTimers();
-      if (savedUrl !== undefined) process.env["MULTI_AGENT_URL"] = savedUrl;
+      if (savedUrl !== undefined) process.env["LOOM_URL"] = savedUrl;
     }
   });
 
   it("Slice-05 D4 preserve (GREEN): genuine-down (connection error, no daemon.json) still reports stopped", async () => {
-    const savedUrl = process.env["MULTI_AGENT_URL"];
-    delete process.env["MULTI_AGENT_URL"];
+    const savedUrl = process.env["LOOM_URL"];
+    delete process.env["LOOM_URL"];
     try {
       const deps = mockDeps({
         exists: vi.fn(() => false),
@@ -1467,16 +1467,16 @@ describe("daemon status honesty: a slow-but-answering probe is never reported st
       const status = await getDaemonStatus(deps);
       expect(status.state).toBe("stopped");
     } finally {
-      if (savedUrl !== undefined) process.env["MULTI_AGENT_URL"] = savedUrl;
+      if (savedUrl !== undefined) process.env["LOOM_URL"] = savedUrl;
     }
   });
 
-  // The OTHER independent stateless catch->stopped branch: MULTI_AGENT_URL set (the
+  // The OTHER independent stateless catch->stopped branch: LOOM_URL set (the
   // firsthand D4a repro path). Same false-negative: a slow-but-answering /healthz
   // there is also reported stopped.
-  it("Slice-05 D4 RED (MULTI_AGENT_URL branch): a slow-but-answering /healthz must NOT report stopped", async () => {
-    const savedUrl = process.env["MULTI_AGENT_URL"];
-    process.env["MULTI_AGENT_URL"] = "http://127.0.0.1:9999"; // force the MULTI_AGENT_URL branch
+  it("Slice-05 D4 RED (LOOM_URL branch): a slow-but-answering /healthz must NOT report stopped", async () => {
+    const savedUrl = process.env["LOOM_URL"];
+    process.env["LOOM_URL"] = "http://127.0.0.1:9999"; // force the LOOM_URL branch
     vi.useFakeTimers();
     try {
       const deps = mockDeps({
@@ -1485,24 +1485,24 @@ describe("daemon status honesty: a slow-but-answering probe is never reported st
       const statusPromise = getDaemonStatus(deps);
       await vi.runAllTimersAsync();
       const status = await statusPromise;
-      expect(status.state).not.toBe("stopped"); // <-- RED: currently "stopped" (MULTI_AGENT_URL branch catch)
+      expect(status.state).not.toBe("stopped"); // <-- RED: currently "stopped" (LOOM_URL branch catch)
     } finally {
       vi.useRealTimers();
-      if (savedUrl !== undefined) process.env["MULTI_AGENT_URL"] = savedUrl;
-      else delete process.env["MULTI_AGENT_URL"];
+      if (savedUrl !== undefined) process.env["LOOM_URL"] = savedUrl;
+      else delete process.env["LOOM_URL"];
     }
   });
 
-  it("Slice-05 D4 preserve (GREEN, MULTI_AGENT_URL branch): genuine-down (connection error) still reports stopped", async () => {
-    const savedUrl = process.env["MULTI_AGENT_URL"];
-    process.env["MULTI_AGENT_URL"] = "http://127.0.0.1:9999";
+  it("Slice-05 D4 preserve (GREEN, LOOM_URL branch): genuine-down (connection error) still reports stopped", async () => {
+    const savedUrl = process.env["LOOM_URL"];
+    process.env["LOOM_URL"] = "http://127.0.0.1:9999";
     try {
       const deps = mockDeps({ sleep: async () => {}, fetch: vi.fn(async () => { throw new Error("ECONNREFUSED"); }) });
       const status = await getDaemonStatus(deps);
       expect(status.state).toBe("stopped");
     } finally {
-      if (savedUrl !== undefined) process.env["MULTI_AGENT_URL"] = savedUrl;
-      else delete process.env["MULTI_AGENT_URL"];
+      if (savedUrl !== undefined) process.env["LOOM_URL"] = savedUrl;
+      else delete process.env["LOOM_URL"];
     }
   });
 });

@@ -1,7 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
-import type { InterfaceI18n } from "@multi-agent/i18n";
+import type { InterfaceI18n } from "@loom/i18n";
 import type { SettingsScreen } from "./settings.js";
 import { SettingsScreen as Settings } from "./settings.js";
 import type { useThemePreference } from "./theme.js";

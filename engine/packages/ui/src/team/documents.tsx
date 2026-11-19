@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { TextPreview } from "./text-preview.js";
 import { useTranslation } from "react-i18next";
-import type { ProjectDocumentKind, ProjectDocumentStage, ProjectDocumentWorkflow, TeamOwnerRead } from "@multi-agent/daemon/team-control";
+import type { ProjectDocumentKind, ProjectDocumentStage, ProjectDocumentWorkflow, TeamOwnerRead } from "@loom/daemon/team-control";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 import { usePendingAction } from "../hooks/usePendingAction.js";
 import { confirmDocument, selectDocumentStage, type ChatState } from "./clients.js";

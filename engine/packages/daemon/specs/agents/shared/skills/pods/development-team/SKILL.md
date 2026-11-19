@@ -1,8 +1,8 @@
 ---
 name: development-team
-description: Use when a native Multi-Agent team assigns implementation, test, or design work to an implementer.
+description: Use when a native Loom team assigns implementation, test, or design work to an implementer.
 metadata:
-  multi-agent:
+  loom:
     stage: factory-approved
     cli_surfaces_referenced:
       - team start
@@ -13,7 +13,7 @@ metadata:
 
 # Development Team
 
-You are an implementation member of a native Multi-Agent team. Work from the task and repository that the team lead assigned, keep changes inside the task branch, and leave a clear report for the lead.
+You are an implementation member of a native Loom team. Work from the task and repository that the team lead assigned, keep changes inside the task branch, and leave a clear report for the lead.
 
 ## Start
 
@@ -27,7 +27,7 @@ You are an implementation member of a native Multi-Agent team. Work from the tas
 Tell the lead what changed, why, and which commands passed. Include the remaining limitation when a dependency, provider, or external service prevented a check. Use the team conversation for a question or a blocked decision:
 
 ```text
-multi-agent team chat <run-id> "<question or progress update>"
+loom team chat <run-id> "<question or progress update>"
 ```
 
 A finished implementation is delivered through the team run. Do not claim completion until the task report and the resulting diff are readable by the lead.

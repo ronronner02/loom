@@ -57,5 +57,5 @@ evidence.
 ---
 
 > Procedure and conventions live at `docs/reference/sdlc-conventions.md`
-> (installed: `$MULTI_AGENT_HOME/reference/sdlc-conventions.md`). This artifact holds
+> (installed: `$LOOM_HOME/reference/sdlc-conventions.md`). This artifact holds
 > release-specific facts only; do not copy the release-boundary SOP into it.

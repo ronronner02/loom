@@ -1,6 +1,6 @@
 # Startup Context
 
-Run `multi-agent whoami --json` before making topology claims. Confirm that your
+Run `loom whoami --json` before making topology claims. Confirm that your
 session is `review-reviewer@conveyor`.
 
 Default workflow role: `reviewer`.

@@ -19,8 +19,8 @@ describe("default client endpoint selection", () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), "client-endpoint-"));
     home = path.join(root, "a");
     fs.mkdirSync(home);
-    for (const key of ["MULTI_AGENT_URL", "MULTI_AGENT_HOST", "MULTI_AGENT_PORT", "MULTI_AGENT_SESSION_NAME", "MULTI_AGENT_TERMINAL_BEARER_TOKEN"]) vi.stubEnv(key, undefined);
-    vi.stubEnv("MULTI_AGENT_HOME", home);
+    for (const key of ["LOOM_URL", "LOOM_HOST", "LOOM_PORT", "LOOM_SESSION_NAME", "LOOM_TERMINAL_BEARER_TOKEN"]) vi.stubEnv(key, undefined);
+    vi.stubEnv("LOOM_HOME", home);
     configure();
   });
 
@@ -48,18 +48,18 @@ describe("default client endpoint selection", () => {
     writeState(state());
     vi.stubEnv(("RIG" + "GED") + "_URL", "http://legacy.invalid:28001");
     expect(new DaemonClient().baseUrl).toBe("http://127.0.0.1:27451");
-    vi.stubEnv("MULTI_AGENT_URL", "http://explicit.invalid:28002");
+    vi.stubEnv("LOOM_URL", "http://explicit.invalid:28002");
     expect(new DaemonClient().baseUrl).toBe("http://explicit.invalid:28002");
     expect(new DaemonClient("http://argument.invalid:28003").baseUrl).toBe("http://argument.invalid:28003");
   });
 
   it("uses host/port config and its env overrides when no state exists", () => {
     expect(new DaemonClient().baseUrl).toBe(fallback);
-    vi.stubEnv("MULTI_AGENT_HOST", "env.invalid");
-    vi.stubEnv("MULTI_AGENT_PORT", "28004");
+    vi.stubEnv("LOOM_HOST", "env.invalid");
+    vi.stubEnv("LOOM_PORT", "28004");
     expect(new DaemonClient().baseUrl).toBe("http://env.invalid:28004");
-    vi.stubEnv("MULTI_AGENT_HOST", undefined);
-    vi.stubEnv("MULTI_AGENT_PORT", undefined);
+    vi.stubEnv("LOOM_HOST", undefined);
+    vi.stubEnv("LOOM_PORT", undefined);
     vi.stubEnv(("RIG" + "GED") + "_HOST", "legacy-config.invalid");
     vi.stubEnv(("RIG" + "GED") + "_PORT", "28005");
     expect(new DaemonClient().baseUrl).toBe("http://configured.invalid:28123");
@@ -72,8 +72,8 @@ describe("default client endpoint selection", () => {
 
   it("keeps a live endpoint when startup host/port configuration changes", () => {
     writeState(state());
-    vi.stubEnv("MULTI_AGENT_PORT", "28004");
-    vi.stubEnv("MULTI_AGENT_HOST", "future.invalid");
+    vi.stubEnv("LOOM_PORT", "28004");
+    vi.stubEnv("LOOM_HOST", "future.invalid");
     expect(new DaemonClient().baseUrl).toBe("http://127.0.0.1:27451");
   });
 
@@ -114,23 +114,23 @@ describe("default client endpoint selection", () => {
     const other = path.join(root, "b");
     fs.mkdirSync(other);
     configure(other);
-    vi.stubEnv("MULTI_AGENT_HOME", other);
+    vi.stubEnv("LOOM_HOME", other);
     expect(new DaemonClient().baseUrl).toBe(fallback);
     writeState(state(27452), other);
     expect(new DaemonClient().baseUrl).toBe("http://127.0.0.1:27452");
     expect(first.baseUrl).toBe("http://127.0.0.1:27451");
-    vi.stubEnv("MULTI_AGENT_HOME", undefined);
+    vi.stubEnv("LOOM_HOME", undefined);
     vi.stubEnv(("RIG" + "GED") + "_HOME", home);
     expect(new DaemonClient().baseUrl).toBe("http://127.0.0.1:7433");
   });
 
   it("stamps the seat identity it derives from the environment on every request", async () => {
     writeState(state());
-    vi.stubEnv("MULTI_AGENT_SESSION_NAME", "author@fixture");
+    vi.stubEnv("LOOM_SESSION_NAME", "author@fixture");
     const fetchImpl = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => new Response("{}"));
     const client = new DaemonClient("http://remote.invalid:28006", { fetchImpl });
     await client.post("/api/proof/judge", { fixture: true });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(fetchImpl.mock.calls[0]).toEqual(["http://remote.invalid:28006/api/proof/judge", expect.objectContaining({ headers: expect.objectContaining({ "X-Multi-Agent-Session": "author@fixture" }) })]);
+    expect(fetchImpl.mock.calls[0]).toEqual(["http://remote.invalid:28006/api/proof/judge", expect.objectContaining({ headers: expect.objectContaining({ "X-Loom-Session": "author@fixture" }) })]);
   });
 });

@@ -34,7 +34,7 @@ function controlledTurn(launch: SupervisorLaunch, onEvent: (event: WorkerEvent) 
     async start() {
       if (launch.threadIdPath) writeFileSync(launch.threadIdPath, sessionId);
       const event: WorkerEvent = { type: "session.started", provider: launch.provider, attemptId: launch.attemptId,
-        sequence: 1, timestamp: "2026-11-10T00:00:00.000Z", rawSummary: "{}", schema: "multi-agent-worker-events/v1",
+        sequence: 1, timestamp: "2026-11-10T00:00:00.000Z", rawSummary: "{}", schema: "loom-worker-events/v1",
         protocolVersion: "1.0", sessionId, resumeToken: sessionId };
       events.push(event);
       onEvent(event);

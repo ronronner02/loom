@@ -11,7 +11,7 @@
 // The docker invoker is INJECTED (the container analogue of runRig's `node <rigBin>`
 // seam) so this adapter unit-tests hermetically with NO real docker; the real-docker
 // leg is the host-side L6 runbook. The load-bearing property mirrored from host-mode:
-// readEnv.MULTI_AGENT_URL is SELF-SET to the adapter's OWN published container URL — never
+// readEnv.LOOM_URL is SELF-SET to the adapter's OWN published container URL — never
 // a foreign target (the injectClockNow precedent) — and the fail-closed guard still
 // refuses an inherited foreign target BEFORE any docker runs (the container is not an
 // excuse to weaken the DAEMON_TARGET guard; the L4 claim).
@@ -47,7 +47,7 @@ export class ContainerDaemonError extends Error {
 }
 
 export interface SpawnContainerDaemonOptions {
-  /** The testbed image identity to run (manifest.image, e.g. "multi-agent-testbed:<gitSha>"). */
+  /** The testbed image identity to run (manifest.image, e.g. "loom-testbed:<gitSha>"). */
   image: string;
   /** Injected docker invoker — the container analogue of runRig's `node <rigBin>` seam. Extended to
    *  carry a step's stdin (the topology-stage tar-pipe); see StagingDocker for the dual-exit contract. */
@@ -58,7 +58,7 @@ export interface SpawnContainerDaemonOptions {
    *  `publishArg` throws on 0 (Apple container 1.2.0 rejects an ephemeral publish). */
   hostPort?: number;
   /** The bearer the 0.0.0.0 bind requires (assertBindAuthInvariant). Default: a fresh random token.
-   *  Set on the daemon (MULTI_AGENT_AUTH_BEARER_TOKEN) AND carried in readEnv so host-side `rig` reads
+   *  Set on the daemon (LOOM_AUTH_BEARER_TOKEN) AND carried in readEnv so host-side `rig` reads
    *  authenticate to the guarded routes. */
   bearerToken?: string;
 }
@@ -99,12 +99,12 @@ export async function spawnContainerDaemon(
   }
 
   // The single in-container start path — reused by initial spawn AND by restart, so a
-  // restart re-spawns through EXACTLY the same shipped `multi-agent daemon start` (which blocks
+  // restart re-spawns through EXACTLY the same shipped `loom daemon start` (which blocks
   // on its own /healthz: a zero exit means the daemon is accepting requests).
   const startProc = async () => {
     const start = await docker([
       "exec",
-      // Explicit bind (MULTI_AGENT_HOST=0.0.0.0) + the bearer the bind demands — a published port is
+      // Explicit bind (LOOM_HOST=0.0.0.0) + the bearer the bind demands — a published port is
       // unreachable on the default 127.0.0.1 bind, and the daemon REFUSES a non-loopback bind without
       // the bearer (assertBindAuthInvariant). Satisfy the guard; never weaken it.
       ...publishedDaemonEnvFlags(bearerToken),
@@ -135,16 +135,16 @@ export async function spawnContainerDaemon(
   }
 
   const baseUrl = `http://127.0.0.1:${hostPort}`;
-  // readEnv = { ...scaffold.env, MULTI_AGENT_URL: <our own published url> } — the exact
+  // readEnv = { ...scaffold.env, LOOM_URL: <our own published url> } — the exact
   // scenario-daemon.ts:148 shape; the URL is self-created by the adapter that spawned
   // the container (not foreign), so the host-side `rig` reads hit THIS container.
   const readEnv: Record<string, string | undefined> = {
     ...scaffold.env,
-    MULTI_AGENT_URL: baseUrl,
+    LOOM_URL: baseUrl,
     // The guarded probe route (/api/transport/*) checks the TERMINAL token; the host-side `rig` reads
-    // send it via MULTI_AGENT_TERMINAL_BEARER_TOKEN (client.ts resolveTerminalToken). On a non-trusted
+    // send it via LOOM_TERMINAL_BEARER_TOKEN (client.ts resolveTerminalToken). On a non-trusted
     // 0.0.0.0 bind the daemon uses the SAME token for both (index.ts:160), so this is that token.
-    MULTI_AGENT_TERMINAL_BEARER_TOKEN: bearerToken,
+    LOOM_TERMINAL_BEARER_TOKEN: bearerToken,
   };
 
   return {
@@ -161,7 +161,7 @@ export async function spawnContainerDaemon(
       scaffold.cleanup();
     },
     // L6 STEP-0 — container-mode path translation: stage the topology's dir into the container and
-    // return its in-container path, so `multi-agent up` never receives a host-absolute path the container
+    // return its in-container path, so `loom up` never receives a host-absolute path the container
     // daemon cannot read. buildRealDeps/the pipeline consumes this before `up`; host-mode omits it.
     stageTopology: makeContainerStageTopology(containerId, docker),
   };

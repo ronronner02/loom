@@ -1,4 +1,4 @@
-import type { MessageKey } from "@multi-agent/i18n";
+import type { MessageKey } from "@loom/i18n";
 
 export type PomoAvatarState =
   | "master"

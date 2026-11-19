@@ -99,7 +99,7 @@ function runtimeClosure() {
     .map(entry => path.resolve(entry))
     .filter(entry => entry.startsWith(modules))
     .map(entry => path.relative(ENGINE_ROOT, entry))
-    .filter(entry => !entry.split(path.sep).includes('@multi-agent'));
+    .filter(entry => !entry.split(path.sep).includes('@loom'));
 }
 
 /** The npm CLI entry point installed beside this Node, or the one the caller came through. */

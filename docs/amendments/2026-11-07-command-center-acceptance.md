@@ -132,7 +132,7 @@ it changes no stored outcome, approval, review verdict or public contract.
 
 The refreshed full suite reached a permission error in the production-composition
 lock-refusal test. Its policy redirected candidate worktrees into a temporary
-directory but retained the installed `/var/lib/multi-agent/control` state path.
+directory but retained the installed `/var/lib/loom/control` state path.
 Persisting the starting base now uses that path for commit-backed candidates, so
 the fixture stopped at admission before its intended unsupported-client check.
 A temporary diagnostic in the standalone verification clone confirmed `EACCES`

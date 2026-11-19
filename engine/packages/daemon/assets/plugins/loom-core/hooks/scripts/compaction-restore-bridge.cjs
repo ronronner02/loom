@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-// Multi-Agent Claude compaction restore bridge (reader/deliverer).
+// Loom Claude compaction restore bridge (reader/deliverer).
 //
 // The per-seat pending marker is WRITTEN on PreCompact by the product-plugin
 // writer skills/claude-compaction-restore/scripts/precompact-hook.mjs (which
@@ -46,15 +46,15 @@ function firstString(...values) {
 
 // A3-R3 injectable clock (slice 51-01): the marker stamps below default to real
 // wall-clock, but become deterministic when the shared hermetic env-var
-// MULTI_AGENT_TEST_CLOCK_NOW is set (an ISO instant). An empty/absent var = production
+// LOOM_TEST_CLOCK_NOW is set (an ISO instant). An empty/absent var = production
 // real-time (absence is the production state — the only unguarded path, on purpose).
 function nowIso(env = process.env) {
-  const injected = env.MULTI_AGENT_TEST_CLOCK_NOW;
+  const injected = env.LOOM_TEST_CLOCK_NOW;
   return typeof injected === "string" && injected.trim().length > 0 ? injected : new Date().toISOString();
 }
 
-function multiAgentHome(env = process.env) {
-  return firstString(env.MULTI_AGENT_HOME);
+function loomHome(env = process.env) {
+  return firstString(env.LOOM_HOME);
 }
 
 function sanitizeKey(value) {
@@ -63,7 +63,7 @@ function sanitizeKey(value) {
 
 function sessionKey(payload, env = process.env) {
   const raw = firstString(
-    env.MULTI_AGENT_SESSION_NAME,
+    env.LOOM_SESSION_NAME,
     payload.session_id,
     payload.sessionId,
     payload.session_name,
@@ -74,7 +74,7 @@ function sessionKey(payload, env = process.env) {
 }
 
 function markerDir(env = process.env) {
-  return path.join(multiAgentHome(env), "compaction", "restore-pending");
+  return path.join(loomHome(env), "compaction", "restore-pending");
 }
 
 function readMarker(filePath) {
@@ -133,10 +133,10 @@ function buildRestoreContext(marker) {
   const postInstruction = firstString(marker.data.postCompactInstruction);
   const restoreMapPath = firstString(marker.data.restoreMapPath);
   const pieces = [
-    "Multi-Agent compaction restore packet is available for this Claude session.",
+    "Loom compaction restore packet is available for this Claude session.",
     "This hook output is informational context, not the action request.",
     `Restore packet: ${outputDir}`,
-    "Multi-Agent may send a later normal user message asking you to restore from this packet. Treat that later normal user message as the operator-authorized action request.",
+    "Loom may send a later normal user message asking you to restore from this packet. Treat that later normal user message as the operator-authorized action request.",
     `After restoration, reply with: ${ack}`,
   ];
   if (restoreMapPath) {
@@ -189,7 +189,7 @@ async function main() {
     const sentinel = findSentinel(payload);
     if (sentinel && premiseMatches(sentinel.data, payload)) {
       process.stderr.write(
-        "Multi-Agent compaction restore: a restore packet was EXPECTED for this session but its marker is missing or unresolvable — the PreCompact write may have failed. Fall back to the JSONL restore (claude-compaction-restore skill).\n",
+        "Loom compaction restore: a restore packet was EXPECTED for this session but its marker is missing or unresolvable — the PreCompact write may have failed. Fall back to the JSONL restore (claude-compaction-restore skill).\n",
       );
     }
     return;

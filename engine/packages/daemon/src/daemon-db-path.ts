@@ -41,34 +41,34 @@ function isWithin(root: string, candidate: string): boolean {
 }
 
 /**
- * D15 — resolve the daemon's SQLite path. An explicit MULTI_AGENT_DB wins
+ * D15 — resolve the daemon's SQLite path. An explicit LOOM_DB wins
  * (the operator takes responsibility for that path); otherwise the db is anchored
- * under MULTI_AGENT_HOME, NEVER a bare CWD-relative filename.
+ * under LOOM_HOME, NEVER a bare CWD-relative filename.
  *
- * Incident 2026-08-07: the entrypoint defaulted `dbPath` to a bare "multi-agent.sqlite"
+ * Incident 2026-08-07: the entrypoint defaulted `dbPath` to a bare "loom.sqlite"
  * which resolves against the process CWD — so a daemon launched with an isolated
- * MULTI_AGENT_HOME could still open the SHARED fleet db (whatever sat in its CWD).
- * Anchoring the default to MULTI_AGENT_HOME makes an isolated-home daemon isolate its
- * db too, which is the whole point of setting MULTI_AGENT_HOME.
+ * LOOM_HOME could still open the SHARED fleet db (whatever sat in its CWD).
+ * Anchoring the default to LOOM_HOME makes an isolated-home daemon isolate its
+ * db too, which is the whole point of setting LOOM_HOME.
  */
-export function resolveDaemonDbPath(explicitDb: string | undefined | null, multiAgentHome: string): string {
+export function resolveDaemonDbPath(explicitDb: string | undefined | null, loomHome: string): string {
   if (explicitDb && explicitDb.length > 0) {
     return explicitDb;
   }
-  const dbPath = join(multiAgentHome, "multi-agent.sqlite");
+  const dbPath = join(loomHome, "loom.sqlite");
   // A home that exists but is not a directory cannot hold the database, and resolving the
   // path under it would error in a way that reads as a missing tail rather than the shape
   // problem it is. Refuse it here, where the caller can see why.
-  const homeStat = lstatSync(multiAgentHome, { throwIfNoEntry: false });
+  const homeStat = lstatSync(loomHome, { throwIfNoEntry: false });
   if (homeStat && !homeStat.isDirectory() && !homeStat.isSymbolicLink()) {
-    throw new Error(`MULTI_AGENT_HOME is not a directory: ${multiAgentHome}`);
+    throw new Error(`LOOM_HOME is not a directory: ${loomHome}`);
   }
-  const resolvedHome = resolveForContainment(multiAgentHome);
+  const resolvedHome = resolveForContainment(loomHome);
   const resolvedDb = resolveForContainment(dbPath);
   if (!isWithin(resolvedHome, resolvedDb)) {
     throw new Error(
-      `Refusing implicit database outside resolved MULTI_AGENT_HOME: ${dbPath} resolves to ${resolvedDb}, ` +
-      `outside ${resolvedHome}. Set MULTI_AGENT_DB explicitly to authorize a deliberate split-path configuration.`,
+      `Refusing implicit database outside resolved LOOM_HOME: ${dbPath} resolves to ${resolvedDb}, ` +
+      `outside ${resolvedHome}. Set LOOM_DB explicitly to authorize a deliberate split-path configuration.`,
     );
   }
   return dbPath;

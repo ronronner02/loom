@@ -277,7 +277,7 @@
       "The concurrent workers used distinct worktrees, sessions, processes and panes. Direct launch remains task separation, not a host security sandbox."
     ],
     "windowsExport": {
-      "directory": "%LOCALAPPDATA%/Multi-Agent/TestProjects/2048-Recreation-20261108",
+      "directory": "%LOCALAPPDATA%/Loom/TestProjects/2048-Recreation-20261108",
       "filesVerified": 19,
       "testsPassed": 64,
       "registeredOrUploaded": false,
@@ -315,8 +315,8 @@
     "normalLaunchDelivered": true,
     "normalLaunch": {
       "at": "2026-11-07T23:48:08.9809816Z",
-      "installedExecutable": "%LOCALAPPDATA%/Programs/Multi-Agent/Multi-Agent.exe",
-      "profile": "%LOCALAPPDATA%/Multi-Agent/profile",
+      "installedExecutable": "%LOCALAPPDATA%/Programs/Loom/Loom.exe",
+      "profile": "%LOCALAPPDATA%/Loom/profile",
       "launchEntry": "Current-user desktop shortcut",
       "processId": 14236,
       "debuggingEnabled": false,
@@ -439,7 +439,7 @@
     "pushed": false,
     "merged": false,
     "normalLaunchDelivered": true,
-    "installerCopy": "%LOCALAPPDATA%/Multi-Agent/delivery/2026-11-08/Multi-Agent Setup 0.1.0.exe"
+    "installerCopy": "%LOCALAPPDATA%/Loom/delivery/2026-11-08/Loom Setup 0.1.0.exe"
   },
   "evidenceRetention": "Earlier receipts and failed attempts are preserved. Raw databases, browser storage, credentials, native transcripts and current owner-project screenshots remain outside the repository. The new UI captures use synthetic fixture data only.",
   "skin": {

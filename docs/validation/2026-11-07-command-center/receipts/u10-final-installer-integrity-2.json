@@ -29,17 +29,17 @@
   ],
   "packages": [
     {
-      "file": "Multi-Agent Setup 0.1.0.exe",
+      "file": "Loom Setup 0.1.0.exe",
       "bytes": 121237022,
       "sha256": "942baa2cbc1124ba246dd822fa2f13cfe58274b816eb23d801536e6d4ecf495a"
     },
     {
-      "file": "Multi-Agent Setup 0.1.0.exe.blockmap",
+      "file": "Loom Setup 0.1.0.exe.blockmap",
       "bytes": 127205,
       "sha256": "4f4a38fc758d599826e5ab355f9818ecc909f342ed42e22364530fcd80471db8"
     },
     {
-      "file": "win-unpacked/Multi-Agent.exe",
+      "file": "win-unpacked/Loom.exe",
       "bytes": 249788928,
       "sha256": "afb06983bde93f7dfbf0e56d9df229e7f12e4b8d9922dc1cf51b9a44f147e1a0"
     },
@@ -59,15 +59,15 @@
   ],
   "earlierArtifacts": [
     {
-      "file": "Multi-Agent Setup 0.1.0.exe",
+      "file": "Loom Setup 0.1.0.exe",
       "matchesPriorHash": true
     },
     {
-      "file": "Multi-Agent Setup 0.1.0.exe.blockmap",
+      "file": "Loom Setup 0.1.0.exe.blockmap",
       "matchesPriorHash": true
     },
     {
-      "file": "win-unpacked/Multi-Agent.exe",
+      "file": "win-unpacked/Loom.exe",
       "matchesPriorHash": true
     },
     {

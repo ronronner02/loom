@@ -24,7 +24,7 @@ import { runningAttemptIdentities, terminateProcessGroup, type ProcessIdentity, 
  *   Governance then closes the run once nothing is left running.
  *
  * No worktree, candidate or evidence row is touched. A canceled run is still reviewable, and
- * `multi-agent team apply` reads the same candidate it would have read before the cancel.
+ * `loom team apply` reads the same candidate it would have read before the cancel.
  */
 
 export interface CancellationDependencies {

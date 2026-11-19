@@ -131,7 +131,7 @@ function recentChange(row: RecentQueueTransitionRow): string | null {
  * Append-only transition log. Domain code MUST NOT update or delete rows here.
  * This log is the authoritative audit trail for queue state evolution.
  */
-/** The prefix `multi-agent queue block --continuation` writes on the park transition, matched exactly. */
+/** The prefix `loom queue block --continuation` writes on the park transition, matched exactly. */
 const CONTINUATION_MARKER = "continuation: ";
 
 export class QueueTransitionLog {
@@ -210,14 +210,14 @@ export class QueueTransitionLog {
   }
 
   /**
-   * The continuation `multi-agent queue block --continuation` recorded for the row's
+   * The continuation `loom queue block --continuation` recorded for the row's
    * CURRENT park. The current park is the trailing run of `blocked` transitions: the daemon
    * appends its own later blocked transitions (e.g. "parked-owner episode closed"), so the latest
    * one is not the park, and an earlier park's plan must never resurface.
    *
    * One newest-first seek on idx_queue_transitions_qitem_id_order (migration 098) that stops at
    * the first non-blocked transition, so the work is bounded by the current park, not the row's
-   * history. The marker match is exact-case, as `multi-agent queue block` writes it. The live table
+   * history. The marker match is exact-case, as `loom queue block` writes it. The live table
    * suffices: retention archives only terminal rows, and a parked row is not terminal.
    */
   currentParkContinuation(qitemId: string): string | null {

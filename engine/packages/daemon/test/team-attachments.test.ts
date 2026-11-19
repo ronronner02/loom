@@ -25,7 +25,7 @@ describe("project chat attachments", () => {
     directory = realpathSync.native(mkdtempSync(join(tmpdir(), "chat-files-")));
     repository = join(directory, "project");
     mkdirSync(repository);
-    vi.stubEnv("MULTI_AGENT_HOME", join(directory, "state"));
+    vi.stubEnv("LOOM_HOME", join(directory, "state"));
     const git = (...args: string[]) => execFileSync("git", ["-C", repository, ...args],
       { encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
     git("init", "-q", "--initial-branch=main");
@@ -83,7 +83,7 @@ describe("project chat attachments", () => {
       expect(exchange.status).toBe(200);
       const cookie = exchange.headers.get("Set-Cookie")!.split(";")[0]!;
       const { antiForgeryToken } = await exchange.json() as { antiForgeryToken: string };
-      const headers = { Origin: origin, Cookie: cookie, "X-Multi-Agent-CSRF": antiForgeryToken };
+      const headers = { Origin: origin, Cookie: cookie, "X-Loom-CSRF": antiForgeryToken };
       const files = await fetchOne(base + "/teams/" + teamId + "/files", { headers });
       expect(files.status).toBe(200);
       expect(await files.json()).toMatchObject({ kind: "directory", entries: [{ name: "README.md", kind: "file" }] });

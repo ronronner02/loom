@@ -137,7 +137,7 @@ test("stagePublicSkills applies membership, path, frontmatter, and fence transfo
     "stagePublicSkills must be exported",
   );
 
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-red-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-mirror-red-"));
   try {
     const canon = join(root, "canon");
     const staging = join(root, "staging");
@@ -148,16 +148,16 @@ test("stagePublicSkills applies membership, path, frontmatter, and fence transfo
         "name: public-skill",
         "description: public",
         "distribution_scope: product-bound",
-        "source_evidence: multi-agent-work/private.md",
+        "source_evidence: loom-work/private.md",
         "curation_note: remove-me",
         "content_curator: reviewer",
         "transfer_test: pending",
         "naming_note: historical",
         "last_verified: 2026-07-01",
-        "private_path: multi-agent-work/host-only.md",
+        "private_path: loom-work/host-only.md",
         "internal_owner: operator-agent@kernel",
         "metadata:",
-        "  multi-agent:",
+        "  loom:",
         "    stage: factory-approved",
         "    sibling_skills:",
         "      - public-sibling",
@@ -220,7 +220,7 @@ const windowsModes = process.platform === "win32" ? "file modes are POSIX-only" 
 
 test("stagePublicSkills preserves prose and executable source modes", { skip: windowsModes }, async () => {
   const mirror = await import("./mirror-skills.mjs");
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-modes-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-mirror-modes-"));
   try {
     const canon = join(root, "canon");
     const staging = join(root, "staging");
@@ -253,7 +253,7 @@ test("stagePublicSkills preserves prose and executable source modes", { skip: wi
 
 test("stagePublicSkills applies existing EXCLUDES before scanning or copying", async () => {
   const mirror = await import("./mirror-skills.mjs");
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-excludes-red-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-mirror-excludes-red-"));
   try {
     const canon = join(root, "canon");
     const staging = join(root, "staging");
@@ -295,7 +295,7 @@ test("stagePublicSkills recursively strips configured keys and internal values w
   const mirror = await import("./mirror-skills.mjs");
   assert.equal(typeof mirror.stagePublicSkills, "function");
 
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-nested-red-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-mirror-nested-red-"));
   try {
     const canon = join(root, "canon");
     const staging = join(root, "staging");
@@ -306,7 +306,7 @@ test("stagePublicSkills recursively strips configured keys and internal values w
         "name: public-skill",
         "structure: public-sections",
         "metadata:",
-        "  multi-agent:",
+        "  loom:",
         "    stage: factory-approved",
         "    distribution_scope: product-bound",
         "    source_evidence: |",
@@ -317,8 +317,8 @@ test("stagePublicSkills recursively strips configured keys and internal values w
         "    transfer_test_notes: remove-me-too",
         "    naming_note: historical",
         "    last_verified: 2026-07-01",
-        "    structure: multi-agent-work/private-layout.md",
-        "    source_location: multi-agent-work/private-source.md",
+        "    structure: loom-work/private-layout.md",
+        "    source_location: loom-work/private-source.md",
         "    sibling_skills:",
         "      - public-sibling",
         "---",
@@ -357,7 +357,7 @@ test("stagePublicSkills recursively strips configured keys and internal values w
       assert.doesNotMatch(shipped, new RegExp(`^\\s*${key}:`, "m"));
     }
     assert.doesNotMatch(shipped, /^\s*source_location:/m);
-    assert.doesNotMatch(shipped, /multi-agent-work\/private-(?:layout|source)/);
+    assert.doesNotMatch(shipped, /loom-work\/private-(?:layout|source)/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -367,7 +367,7 @@ test("stagePublicSkills aborts an unmatched internal fence with file and line", 
   const mirror = await import("./mirror-skills.mjs");
   assert.equal(typeof mirror.stagePublicSkills, "function");
 
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-red-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-mirror-red-"));
   try {
     const canon = join(root, "canon");
     write(
@@ -396,7 +396,7 @@ test("stagePublicSkills aborts an unmatched internal fence with file and line", 
 
 test("stagePublicSkills strips internal fences from non-SKILL Markdown without sanitizing ordinary content", async () => {
   const mirror = await import("./mirror-skills.mjs");
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-markdown-red-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-mirror-markdown-red-"));
   try {
     const canon = join(root, "canon");
     const staging = join(root, "staging");
@@ -443,7 +443,7 @@ test("stagePublicSkills strips internal fences from non-SKILL Markdown without s
 
 test("stagePublicSkills rejects an unmatched fence in non-SKILL Markdown with file and line", async () => {
   const mirror = await import("./mirror-skills.mjs");
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-markdown-red-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-mirror-markdown-red-"));
   try {
     const canon = join(root, "canon");
     write(join(canon, "alpha", "SKILL.md"), "# Public skill\n");
@@ -475,7 +475,7 @@ const noSymlinks = supportsSymlinks() ? false : "this machine cannot create syml
 
 test("stagePublicSkills rejects canon file symlinks before reading or staging outside bytes", { skip: noSymlinks }, async () => {
   const mirror = await import("./mirror-skills.mjs");
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-symlink-red-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-mirror-symlink-red-"));
   try {
     const canon = join(root, "canon");
     const staging = join(root, "staging");
@@ -510,7 +510,7 @@ test("stagePublicSkills rejects canon file symlinks before reading or staging ou
 
 test("stagePublicSkills rejects canon directory symlinks before recursion or staging outside bytes", { skip: noSymlinks }, async () => {
   const mirror = await import("./mirror-skills.mjs");
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-symlink-red-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-mirror-symlink-red-"));
   try {
     const canon = join(root, "canon");
     const staging = join(root, "staging");
@@ -547,7 +547,7 @@ test("stagePublicSkills is deterministic for the same clean input", async () => 
   const mirror = await import("./mirror-skills.mjs");
   assert.equal(typeof mirror.stagePublicSkills, "function");
 
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-mirror-red-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-mirror-red-"));
   try {
     const canon = join(root, "canon");
     write(join(canon, "public-skill", "SKILL.md"), "---\nname: public-skill\n---\n\n# Public\n");
@@ -637,11 +637,11 @@ test("checkGeneratedEdges detects layout and digest drift without invoking the l
     "checkGeneratedEdges must be exported",
   );
 
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-digest-red-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-digest-red-"));
   try {
     const specPath = "packages/daemon/specs/agents/shared/skills";
     const canonicalPath = "skills/_canonical";
-    const pluginPath = "packages/daemon/assets/plugins/multi-agent-core/skills";
+    const pluginPath = "packages/daemon/assets/plugins/loom-core/skills";
     write(join(root, specPath, "core", "alpha", "SKILL.md"), "# Alpha\n");
     write(join(root, specPath, "core", "alpha", "references", "guide.md"), "# Guide\n");
     write(join(root, canonicalPath, "core", "alpha", "SKILL.md"), "# Alpha\n");
@@ -743,11 +743,11 @@ test("checkGeneratedEdges detects layout and digest drift without invoking the l
 
 test("checkGeneratedEdges — external-canon-pending allowlist: named-missing tolerated, OTHER-missing loud, reappearance flagged stale", async () => {
   const mirror = await import("./mirror-skills.mjs");
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-extcanon-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-extcanon-"));
   try {
     const specPath = "packages/daemon/specs/agents/shared/skills";
     const canonicalPath = "skills/_canonical";
-    const pluginPath = "packages/daemon/assets/plugins/multi-agent-core/skills";
+    const pluginPath = "packages/daemon/assets/plugins/loom-core/skills";
     write(join(root, specPath, "core", "alpha", "SKILL.md"), "# Alpha\n"); // present + digested control
     write(join(root, canonicalPath, "core", "alpha", "SKILL.md"), "# Alpha\n");
     write(join(root, pluginPath, "alpha", "SKILL.md"), "# Alpha\n");
@@ -841,7 +841,7 @@ test("checkGeneratedEdges fails closed on empty or malformed control manifests",
     /digest|spec|control/i,
   );
 
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-partial-controls-red-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-partial-controls-red-"));
   try {
     write(join(root, "spec", "core", "alpha", "SKILL.md"), "# Alpha\n");
     await assert.rejects(
@@ -880,7 +880,7 @@ test("authoring regeneration stages canon and projects exact manifest layouts to
     "regeneratePublicSkills must be exported",
   );
 
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-authoring-red-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-authoring-red-"));
   try {
     const canonRoot = join(root, "canon");
     const repoRoot = join(root, "repo");
@@ -955,7 +955,7 @@ test("authoring regeneration stages canon and projects exact manifest layouts to
 
 test("authoring regeneration reports and repairs permission-only drift on all three edges", { skip: windowsModes }, async () => {
   const mirror = await import("./mirror-skills.mjs");
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-authoring-modes-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-authoring-modes-"));
   try {
     const canonRoot = join(root, "canon");
     const repoRoot = join(root, "repo");
@@ -1148,7 +1148,7 @@ test("checkModeAbsolute retains its one-source/one-target checksum contract", ()
 
 function fixtureRules() {
   return {
-    path_prefixes: ["multi-agent-work/"],
+    path_prefixes: ["loom-work/"],
     seat_and_rig_patterns: ["operator-agent@"],
     host_patterns: ["mm2-"],
     charged_terms: ["founder"],

@@ -3,7 +3,7 @@
 //     packages/daemon/src/domain/crash-cart-detect.ts — kept in lockstep): DOWN
 //     ("stopped") requires POSITIVE evidence (connection refused); a TIMEOUT NEVER
 //     promotes to stopped — it is "unverified".
-// (2) HOME-RESOLUTION HONESTY: an empty/stale resolved MULTI_AGENT_HOME with a LIVE
+// (2) HOME-RESOLUTION HONESTY: an empty/stale resolved LOOM_HOME with a LIVE
 //     sibling home (or HOME-MOVED marker) must surface BOTH paths — never assert
 //     daemon-down from the wrong home.
 import { describe, it, expect, vi } from "vitest";
@@ -35,23 +35,23 @@ const REFUSED: LifecycleDeps["fetch"] = async () => {
 
 describe("3-state daemon status (C3 semantics: DOWN on positive evidence only)", () => {
   it("env-URL path: probe TIMEOUT is UNVERIFIED, never stopped", async () => {
-    process.env.MULTI_AGENT_URL = "http://127.0.0.1:7433";
+    process.env.LOOM_URL = "http://127.0.0.1:7433";
     try {
       const s = await getDaemonStatus(baseDeps({ fetch: HANG }));
       expect(s.state).toBe("unverified");
       expect(s.state).not.toBe("stopped");
     } finally {
-      delete process.env.MULTI_AGENT_URL;
+      delete process.env.LOOM_URL;
     }
   });
 
   it("env-URL path: connection REFUSED is stopped (positive evidence)", async () => {
-    process.env.MULTI_AGENT_URL = "http://127.0.0.1:7433";
+    process.env.LOOM_URL = "http://127.0.0.1:7433";
     try {
       const s = await getDaemonStatus(baseDeps({ fetch: REFUSED }));
       expect(s.state).toBe("stopped");
     } finally {
-      delete process.env.MULTI_AGENT_URL;
+      delete process.env.LOOM_URL;
     }
   });
 
@@ -68,42 +68,42 @@ describe("3-state daemon status (C3 semantics: DOWN on positive evidence only)",
 
 describe("home-resolution honesty (never daemon-down from the wrong home)", () => {
   it("does not inspect or adopt a sibling home", async () => {
-    // resolved home has NO daemon.json; a sibling .multi-agent-build-vm home has one with a live pid.
+    // resolved home has NO daemon.json; a sibling .loom-build-vm home has one with a live pid.
     const deps = baseDeps({
       fetch: REFUSED,
-      homeDir: "/fake/home/.multi-agent",
-      listDir: vi.fn((p: string) => (p === "/fake/home" ? [".multi-agent", ".multi-agent-build-vm-x"] : [])),
-      exists: vi.fn((p: string) => p === "/fake/home/.multi-agent-build-vm-x/daemon.json"),
+      homeDir: "/fake/home/.loom",
+      listDir: vi.fn((p: string) => (p === "/fake/home" ? [".loom", ".loom-build-vm-x"] : [])),
+      exists: vi.fn((p: string) => p === "/fake/home/.loom-build-vm-x/daemon.json"),
       readFile: vi.fn((p: string) =>
-        p === "/fake/home/.multi-agent-build-vm-x/daemon.json" ? JSON.stringify({ pid: 4242, port: 7433 }) : null,
+        p === "/fake/home/.loom-build-vm-x/daemon.json" ? JSON.stringify({ pid: 4242, port: 7433 }) : null,
       ),
       isProcessAlive: vi.fn((pid: number) => pid === 4242),
     });
     const s = await getDaemonStatus(deps);
     expect(s.state).toBe("stopped");
     expect(deps.listDir).not.toHaveBeenCalled();
-    expect(deps.readFile).not.toHaveBeenCalledWith("/fake/home/.multi-agent-build-vm-x/daemon.json");
+    expect(deps.readFile).not.toHaveBeenCalledWith("/fake/home/.loom-build-vm-x/daemon.json");
   });
 
   it("ignores old HOME-MOVED markers", async () => {
     const deps = baseDeps({
       fetch: REFUSED,
-      homeDir: "/fake/home/.multi-agent",
-      exists: vi.fn((p: string) => p === "/fake/home/.multi-agent/HOME-MOVED"),
+      homeDir: "/fake/home/.loom",
+      exists: vi.fn((p: string) => p === "/fake/home/.loom/HOME-MOVED"),
       readFile: vi.fn((p: string) =>
-        p === "/fake/home/.multi-agent/HOME-MOVED" ? "/fake/home/.multi-agent-build-vm-x\n" : null,
+        p === "/fake/home/.loom/HOME-MOVED" ? "/fake/home/.loom-build-vm-x\n" : null,
       ),
     });
     const s = await getDaemonStatus(deps);
     expect(s.state).toBe("stopped");
-    expect(deps.readFile).not.toHaveBeenCalledWith("/fake/home/.multi-agent/HOME-MOVED");
+    expect(deps.readFile).not.toHaveBeenCalledWith("/fake/home/.loom/HOME-MOVED");
   });
 
   it("no sibling, no marker: refused still reports stopped (no false unverified)", async () => {
     const deps = baseDeps({
       fetch: REFUSED,
-      homeDir: "/fake/home/.multi-agent",
-      listDir: vi.fn(() => [".multi-agent"]),
+      homeDir: "/fake/home/.loom",
+      listDir: vi.fn(() => [".loom"]),
     });
     const s = await getDaemonStatus(deps);
     expect(s.state).toBe("stopped");

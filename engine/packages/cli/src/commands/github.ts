@@ -39,7 +39,7 @@ export function githubCommand(depsOverride?: TeamStartDeps): Command {
     const deps = depsOverride ?? {};
     const token = ownerToken(deps);
     if (!token) throw new DaemonHttpError("control_auth_required",
-      "No owner credential. Set MULTI_AGENT_OWNER_TOKEN or configure the owner token.");
+      "No owner credential. Set LOOM_OWNER_TOKEN or configure the owner token.");
     const client = new DaemonClient(deps.baseUrl, { fetchImpl: deps.fetchImpl, senderIdentity: false });
     await request(client.waitForReady());
     return { client, headers: { Authorization: `Bearer ${token}` } };

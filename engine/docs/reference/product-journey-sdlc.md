@@ -311,7 +311,7 @@ On a fresh start, restore, or new assignment:
 4. Read only the selected components and additional addressed context. Repository
    references resolve from the Git root of the repository that holds the YAML
    declaring the catalog, which may not be the code checkout; installed references from
-   `$MULTI_AGENT_HOME/reference`. For a Markdown `#section` address, read that section
+   `$LOOM_HOME/reference`. For a Markdown `#section` address, read that section
    rather than loading an entire unrelated manual. Expand the investigation when the
    task's evidence requires it: the address map is a starting point, not a search limit.
 5. State briefly the user outcome, current role, candidate, selected path and

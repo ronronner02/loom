@@ -6,7 +6,7 @@ import { npmCommand } from "./platform-commands.mjs";
 
 const npm = npmCommand();
 
-test("npm pack of @multi-agent/cli includes scripts/check-abi.mjs in tarball", () => {
+test("npm pack of @loom/cli includes scripts/check-abi.mjs in tarball", () => {
   // The argument array keeps the invocation shell-free: the old `2>/dev/null` suffix is a POSIX
   // redirection that cmd.exe cannot resolve.
   const output = execFileSync(npm.command, [...npm.prefix, "pack", "--dry-run", "--json"], {
@@ -83,7 +83,7 @@ test("the private product-factory VPS runbook and its pointers do not ship", () 
   const publicPointerSources = [
     "CHANGELOG.md",
     "docs/as-built/cli-reference.md",
-    "packages/daemon/assets/plugins/multi-agent-core/skills/agent-operated-software/SKILL.md",
+    "packages/daemon/assets/plugins/loom-core/skills/agent-operated-software/SKILL.md",
   ];
   for (const source of publicPointerSources) {
     assert.doesNotMatch(
@@ -98,7 +98,7 @@ test("the private product-factory VPS runbook and its pointers do not ship", () 
 //   repo source      docs/reference/sdlc-conventions.md            (what repo readers cite)
 //   packed INTERNAL  daemon/docs/reference/sdlc-conventions.md     (assembly input only —
 //                                                                   NEVER taught as a user path)
-//   installed stable $MULTI_AGENT_HOME/reference/sdlc-conventions.md   (default ~/.multi-agent/…)
+//   installed stable $LOOM_HOME/reference/sdlc-conventions.md   (default ~/.loom/…)
 // The daemon materializes the stable path at startup by reading `../docs/reference`
 // relative to its dist dir (packages/daemon/src/startup.ts), which is exactly why
 // scripts/build-package.sh stages the docs at daemon/docs/reference/. That internal input
@@ -115,12 +115,12 @@ test("build-package stages the conventions doc as the daemon's stable-path input
 
   // (a) STAGING CONTRACT — build-package must stage the repo's docs/reference into
   //     daemon/docs/reference. The daemon resolves `../docs/reference` from its dist dir at
-  //     startup to materialize $MULTI_AGENT_HOME/reference/; if this staging is dropped or
+  //     startup to materialize $LOOM_HOME/reference/; if this staging is dropped or
   //     retargeted, the stable agent-facing path silently stops existing.
   assert.match(
     buildScript,
     /mkdir -p "\$CLI_DIR\/daemon\/docs\/reference"/,
-    "scripts/build-package.sh no longer creates daemon/docs/reference — the daemon's startup resolver (../docs/reference) would find nothing and $MULTI_AGENT_HOME/reference/ would never materialize."
+    "scripts/build-package.sh no longer creates daemon/docs/reference — the daemon's startup resolver (../docs/reference) would find nothing and $LOOM_HOME/reference/ would never materialize."
   );
   assert.match(
     buildScript,

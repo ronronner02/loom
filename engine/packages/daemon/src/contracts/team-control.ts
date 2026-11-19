@@ -14,7 +14,7 @@ export interface TeamAttemptHealth {
   state: string; reasonCode: string | null; resumeSafe: boolean | null; checkedAt: string; evidenceRef: string | null;
 }
 export interface TeamSystemHealth {
-  schema: "multi-agent-system-health/v1"; protocolVersion: typeof TEAM_SYSTEM_HEALTH_VERSION; checkedAt: string; timeoutMs: number;
+  schema: "loom-system-health/v1"; protocolVersion: typeof TEAM_SYSTEM_HEALTH_VERSION; checkedAt: string; timeoutMs: number;
   overall: TeamHealthState; lights: Record<TeamHealthLightName, TeamHealthLight>; latestAttempts: Record<string, TeamAttemptHealth>;
   /**
    * The runtime facts a read-only client cannot infer from its own page. `isolation` reports
@@ -545,7 +545,7 @@ export interface TeamReplayWindow {
 }
 
 export interface TeamOwnerRead {
-  schema: "multi-agent-team-read/v1";
+  schema: "loom-team-read/v1";
   protocolVersion: typeof TEAM_READ_MODEL_VERSION;
   runId: string;
   generatedAt: string;
@@ -944,7 +944,7 @@ export function parseTeamEvent(value: unknown): TeamControlEvent {
  * is the complete candidate manifest, not only the changed paths, so a reader
  * can tell what the tree holds from what the patch moves.
  */
-export const TEAM_RESULT_SCHEMA = "multi-agent-team-result/v1" as const;
+export const TEAM_RESULT_SCHEMA = "loom-team-result/v1" as const;
 
 export interface TeamTaskResult {
   schema: typeof TEAM_RESULT_SCHEMA;
@@ -952,7 +952,7 @@ export interface TeamTaskResult {
   taskId: string;
   /** The latest recorded attempt, or null when the producer recorded none. */
   attemptId: string | null;
-  /** The run's project repository, which `multi-agent team apply` defaults to. */
+  /** The run's project repository, which `loom team apply` defaults to. */
   repositoryRoot: string;
   /** Where the patch applies: an owner-established commit, or the snapshot baseline. */
   base: "commit" | "snapshot";

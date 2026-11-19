@@ -1,6 +1,6 @@
 Follow-up worktree base: abb344fd9f631f45d177609bb8c7b29d5ba078c4 (PR #138)
 Linux Node v24.21.0; npm 11.19.0.
-PATH: /opt/multi-agent/toolchain/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PATH: /opt/loom/toolchain/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Test commands used setsid -w, stdin from /dev/null, TMUX/TMUX_PANE unset and --maxWorkers=2.
 The full daemon suite and the live acceptance run were not repeated.
 
@@ -246,7 +246,7 @@ startup reconcile: rigs=0 checked=0 detached=0 errors=0
    ✓ a start request launches the seat it put work on > launches once for a seat, so a second start does not open a second client  1312ms
    ✓ a start request launches the seat it put work on > gives a reused pane id to the seat that just created it, so the next launch resolves one seat  353ms
  ✓ test/team-control-auth.test.ts (46 tests) 2269ms
-stdout | test/unisolated-launch.test.ts > workers.isolation: none launches a managed worker as the current user > boots managed mode with no /etc/multi-agent and selects the direct launcher
+stdout | test/unisolated-launch.test.ts > workers.isolation: none launches a managed worker as the current user > boots managed mode with no /etc/loom and selects the direct launcher
 startup reconcile: rigs=0 checked=0 detached=0 errors=0
 
 stdout | test/unisolated-launch.test.ts > workers.isolation: none launches a managed worker as the current user > includes the claude-code executable claude before --permission-mode (resume: undefined)

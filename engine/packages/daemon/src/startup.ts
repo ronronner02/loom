@@ -61,7 +61,7 @@ import { defaultWorktreeRoot } from "./domain/worktree-policy.js";
 import fs from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
-import { MULTI_AGENT_HOME, getStatePath } from "./data-paths.js";
+import { LOOM_HOME, getStatePath } from "./data-paths.js";
 import { GithubCli } from "./domain/github-cli.js";
 
 interface DaemonOptions {
@@ -387,13 +387,13 @@ function storedFailure(json: string | null): { reasonCode: string; resumeSafe: b
 
 export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> {
   // The caller names the owner credential, or names none at all. Absence is never filled in from
-  // the environment: `startServer` consumes `MULTI_AGENT_OWNER_TOKEN` before any child starts and
+  // the environment: `startServer` consumes `LOOM_OWNER_TOKEN` before any child starts and
   // passes the result here, so a second read would only ever see the value it deleted. A daemon
   // with no owner credential cannot authenticate the owner surface, so it refuses to start.
   const teamControl = opts?.teamControl ?? { credentials: { ownerToken: null } };
   if (!teamControl.credentials.ownerToken) {
     throw new Error("A managed daemon requires an owner credential: pass teamControl.credentials.ownerToken, "
-      + "or start it with MULTI_AGENT_OWNER_TOKEN set.");
+      + "or start it with LOOM_OWNER_TOKEN set.");
   }
   const daemonHome = os.homedir();
   const configuredCodexHome = process.env.CODEX_HOME || undefined;
@@ -427,11 +427,11 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const eventBus = new EventBus(db);
   const streamStore = new StreamStore(db, eventBus);
   // Explicit source opt-in only. No sink I/O until a separate drain request.
-  const shadow = configureShadowCapture(process.env.MULTI_AGENT_SHADOW_CAPTURE);
+  const shadow = configureShadowCapture(process.env.LOOM_SHADOW_CAPTURE);
   const slowOpRecorder = opts?.slowOpRecorder ?? (dbPath === ":memory:"
     ? undefined
     : new SlowOpRecorder({
-        logPath: nodePath.join(MULTI_AGENT_HOME, "logs", "slow-operations.jsonl"),
+        logPath: nodePath.join(LOOM_HOME, "logs", "slow-operations.jsonl"),
       }));
   configureSyncSiteRecorder(slowOpRecorder);
   // Instrumentation wiring is observe-only: neither a throwing registration
@@ -537,12 +537,12 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // What a new run's binding is approved against. Nothing is installed beyond the daemon's own
   // roots, so the daemon states their revision and a fingerprint naming that posture.
   const runPolicyCapability = teamControl.readPolicyCapability
-    ?? (() => unisolatedPolicyCapability(unisolatedWorkerRoots(MULTI_AGENT_HOME).policyRevision));
+    ?? (() => unisolatedPolicyCapability(unisolatedWorkerRoots(LOOM_HOME).policyRevision));
   // Governance checks each task against the same reader the start route approved the run with.
   const teamGovernance = new PlanGovernance(db, eventBus, queueRepoInstance, undefined, runPolicyCapability);
   // The roots in force for this daemon: the daemon's own state tree, so nothing in the launch
   // path ever reads an installed policy.
-  const roots = unisolatedWorkerRoots(MULTI_AGENT_HOME);
+  const roots = unisolatedWorkerRoots(LOOM_HOME);
   const rootsNow = () => roots;
   const lastWorkerHeartbeat = new Map<string, number>();
   const managedLaunch = composeDirectLaunch({ governance: teamGovernance, rigRepo,
@@ -582,7 +582,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     // The capability a start request approves its binding against.
     readPolicyCapability: runPolicyCapability,
     // Where a planning run's plan worktree lives. The default is the short root
-    // the worktree policy names (`%LOCALAPPDATA%\Multi-Agent\wt` on Windows, `~/.multi-agent/wt`
+    // the worktree policy names (`%LOCALAPPDATA%\Loom\wt` on Windows, `~/.loom/wt`
     // elsewhere), because Git for Windows refuses a worktree path above a measured ceiling. The
     // policy preflights every path against that ceiling, so a root that is too deep is refused
     // by name rather than failing inside Git.
@@ -712,7 +712,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     });
     // The run's integration branch. The worktree root is the one plan worktree lives
     // under, and the patch is the runtime's own candidate read, so what lands is exactly the
-    // work the reviewer approved and `multi-agent team apply` would have applied.
+    // work the reviewer approved and `loom team apply` would have applied.
     {
       const { composeIntegration } = await import("./domain/integration-branch.js");
       integration = composeIntegration({

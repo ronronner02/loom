@@ -13,7 +13,7 @@ export class OwnerReadError extends Error {
  * window performs the pairing exchange itself, so the page starts already paired and never
  * asks the owner for a code; a browser without that hand-off returns null and pairs normally.
  */
-const DESKTOP_CSRF_KEY = "multi-agent.desktop.csrf";
+const DESKTOP_CSRF_KEY = "loom.desktop.csrf";
 
 export function desktopCredential(): string | null {
   try {
@@ -25,7 +25,7 @@ export function desktopCredential(): string | null {
 function usePairedBrowser() {
   const credential = useRef<string | null>(desktopCredential());
   const [paired, setPaired] = useState(credential.current !== null);
-  const desktop = (window as Window & { multiAgentDesktop?: { reconnect?: () => Promise<string | null> } }).multiAgentDesktop;
+  const desktop = (window as Window & { loomDesktop?: { reconnect?: () => Promise<string | null> } }).loomDesktop;
   const nativeReconnect = desktop?.reconnect;
   const renewal = useRef<Promise<boolean> | null>(null);
   const generation = useRef(0);
@@ -56,7 +56,7 @@ function usePairedBrowser() {
       init.signal?.throwIfAborted();
       const token = credential.current;
       const headers = new Headers(init.headers);
-      if (token) headers.set("X-Multi-Agent-CSRF", token);
+      if (token) headers.set("X-Loom-CSRF", token);
       const response = await fetch(`/api/team-control${path}`, { ...init, credentials: "same-origin", headers });
       const body = await response.json();
       if (response.ok) {
@@ -82,7 +82,7 @@ function usePairedBrowser() {
     init.signal?.throwIfAborted();
     const token = credential.current;
     const headers = new Headers(init.headers);
-    if (token) headers.set("X-Multi-Agent-CSRF", token);
+    if (token) headers.set("X-Loom-CSRF", token);
     const response = await fetch(`/api/team-control${path}`, { ...init, credentials: "include", headers });
     if (response.ok) return response;
     // A rejected live connection stops here; the existing pairing screen owns recovery.

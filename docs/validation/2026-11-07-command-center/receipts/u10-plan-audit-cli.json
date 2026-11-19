@@ -2,7 +2,7 @@
   "check": "u10-plan-audit-cli",
   "cwd": "engine/packages/cli",
   "command": [
-    "/opt/multi-agent/toolchain/node/bin/node",
+    "/opt/loom/toolchain/node/bin/node",
     "../../node_modules/vitest/vitest.mjs",
     "run",
     "test/github-command.test.ts",

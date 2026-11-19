@@ -4,7 +4,7 @@
 // SAME module. Land once, here; P4 must not re-implement it.
 //
 // READ-ONLY FOREVER (arch ruling 3): the registry is operator-managed YAML at
-// ~/.multi-agent/hosts.yaml; nothing in the daemon ever writes it. This module is
+// ~/.loom/hosts.yaml; nothing in the daemon ever writes it. This module is
 // a deliberate SEPARATE TWIN of the CLI's packages/cli/src/host-registry.ts
 // schema + validation (incl. the at-most-one-bearer rule — bearer optional
 // for a tokenless daemon, never both): the two copies are NOT unified, and

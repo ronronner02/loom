@@ -4,13 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
 
-const UI_INDEX_HTML = "<!doctype html><html><body><div id=\"root\">Multi-Agent UI</div></body></html>";
+const UI_INDEX_HTML = "<!doctype html><html><body><div id=\"root\">Loom UI</div></body></html>";
 
 function createTempUiDist(): string {
   const dir = mkdtempSync(join(tmpdir(), "u22-ui-dist-"));
   mkdirSync(join(dir, "assets"), { recursive: true });
   writeFileSync(join(dir, "index.html"), UI_INDEX_HTML, "utf8");
-  writeFileSync(join(dir, "assets", "app.js"), "console.log('multi-agent');", "utf8");
+  writeFileSync(join(dir, "assets", "app.js"), "console.log('loom');", "utf8");
   return dir;
 }
 
@@ -57,7 +57,7 @@ describe("Hono server (production app)", () => {
           expect(res.status, `${method} ${requestPath}`).toBe(404);
           expect(res.headers.get("content-type"), `${method} ${requestPath}`).toContain("application/json");
           const text = await res.text();
-          expect(text).not.toContain("Multi-Agent UI");
+          expect(text).not.toContain("Loom UI");
           if (method === "HEAD") expect(text).toBe("");
           else expect(JSON.parse(text)).toEqual({ error: "not_found", path: requestPath });
         }
@@ -93,7 +93,7 @@ describe("Hono server (production app)", () => {
       const res = await app.request("/assets/app.js");
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type")).toContain("text/javascript");
-      expect(await res.text()).toContain("console.log('multi-agent');");
+      expect(await res.text()).toContain("console.log('loom');");
     } finally {
       rmSync(uiDistDir, { recursive: true, force: true });
       db.close();

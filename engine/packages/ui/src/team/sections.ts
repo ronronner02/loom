@@ -1,5 +1,5 @@
 import { FileText, LayoutDashboard, ListTodo, MessageSquare, Users } from "lucide-react";
-import type { MessageKey } from "@multi-agent/i18n";
+import type { MessageKey } from "@loom/i18n";
 
 export const TEAM_SECTIONS = ["chat", "overview", "tasks", "workspace", "documents"] as const;
 export type TeamSection = (typeof TEAM_SECTIONS)[number];

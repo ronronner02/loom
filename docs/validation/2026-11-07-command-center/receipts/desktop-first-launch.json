@@ -2,7 +2,7 @@
   "checkedAt": "2026-11-07T13:16:21.205Z",
   "identity": {
     "pid": 28996,
-    "execPath": "<windows-task-scratch>\\desktop-installed\\Multi-Agent.exe",
+    "execPath": "<windows-task-scratch>\\desktop-installed\\Loom.exe",
     "appPath": "<windows-task-scratch>\\desktop-installed\\resources\\app.asar",
     "version": "0.1.0",
     "userData": "<windows-task-scratch>\\desktop-clean-profile",

@@ -19,7 +19,7 @@ function cap(label: string): string {
   return `mailbox:${Buffer.from(label.padEnd(32, "-").slice(0, 32)).toString("base64url")}`;
 }
 
-const RELAY = 'node "/opt/multi-agent/channel/mailbox-relay.cjs"';
+const RELAY = 'node "/opt/loom/channel/mailbox-relay.cjs"';
 const KEY_SOURCE = "/home/ma-worker1/.codex/config.toml";
 
 describe("KTD19 native channel adoption", () => {

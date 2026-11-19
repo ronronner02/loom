@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { FrameworkEntry, FrameworkOutcome, TaskWorkflow, WorkflowSelection } from "@multi-agent/daemon/team-control";
+import type { FrameworkEntry, FrameworkOutcome, TaskWorkflow, WorkflowSelection } from "@loom/daemon/team-control";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 
 export function WorkflowPicker({ value, onChange, disabled }: {

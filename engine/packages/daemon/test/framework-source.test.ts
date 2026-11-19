@@ -33,16 +33,16 @@ describe("complete pinned workflow source", () => {
     expect(() => frameworkInstructionSources(root, "spec-work")).toThrow();
   });
   it("reuses an explicitly configured verified source without changing the installation", () => {
-    const root = fixture(); vi.stubEnv("MULTI_AGENT_FRAMEWORK_ROOT", root);
+    const root = fixture(); vi.stubEnv("LOOM_FRAMEWORK_ROOT", root);
     expect(localFrameworkRoot("/unused-home")).toBe(root);
     expect(installPinnedFramework("/unused-home")).toBe(root);
   });
   it("rejects relative configuration and unverified nonempty destinations", () => {
-    vi.stubEnv("MULTI_AGENT_FRAMEWORK_ROOT", "./relative");
+    vi.stubEnv("LOOM_FRAMEWORK_ROOT", "./relative");
     expect(() => localFrameworkRoot("/home")).toThrow(/absolute/);
     const root = mkdtempSync(join(tmpdir(), "workflow-existing-")); roots.push(root);
     writeFileSync(join(root, "owner-file"), "preserve");
-    vi.stubEnv("MULTI_AGENT_FRAMEWORK_ROOT", root);
+    vi.stubEnv("LOOM_FRAMEWORK_ROOT", root);
     expect(() => installPinnedFramework("/unused")).toThrow(/unverified/);
   });
 });

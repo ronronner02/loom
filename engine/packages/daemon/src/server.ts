@@ -167,7 +167,7 @@ function resolveDefaultUiDistDir(): string {
 }
 
 export const WEB_UI_OFF_MESSAGE =
-  "The Multi-Agent web UI is off for this daemon. Set MULTI_AGENT_UI_ENABLED=true in its environment, then stop and start it (`multi-agent daemon stop`, `multi-agent daemon start`).\n";
+  "The Loom web UI is off for this daemon. Set LOOM_UI_ENABLED=true in its environment, then stop and start it (`loom daemon stop`, `loom daemon start`).\n";
 
 function safeResolveUiPath(uiDistDir: string, requestPath: string): string | null {
   const relativePath = requestPath.replace(/^\/+/, "") || "index.html";
@@ -236,7 +236,7 @@ export function createApp(deps: AppDeps): Hono {
   const teamOptions: TeamControlOptions = deps.teamControl ?? { credentials: { ownerToken: null } };
   // The owner surfaces are reachable from the owner's own machine only: loopback, and nothing
   // else. The default bind plan is loopback-only for the same reason; an owner who declares
-  // another host through MULTI_AGENT_BIND_HOST gets this refusal rather than a published
+  // another host through LOOM_BIND_HOST gets this refusal rather than a published
   // owner surface.
   if (deps.bindPlan?.hosts.some(host => !(host === "localhost" || host === "::1"
     || (isIP(host) === 4 && host.startsWith("127."))))) {
@@ -296,8 +296,8 @@ export function createApp(deps: AppDeps): Hono {
       return resolved.ok ? null : c.json({ code: resolved.code, error: resolved.error }, resolved.status);
     },
     bearerTokens: [deps.legacyBearerToken],
-    allowedOrigins: process.env.MULTI_AGENT_ALLOWED_ORIGINS,
-    allowedHosts: process.env.MULTI_AGENT_ALLOWED_HOSTS,
+    allowedOrigins: process.env.LOOM_ALLOWED_ORIGINS,
+    allowedHosts: process.env.LOOM_ALLOWED_HOSTS,
     discoverSelfNames: deps.selfNameDiscovery,
     onDecision: deps.browserBoundaryObserver,
   }));
@@ -315,7 +315,7 @@ export function createApp(deps: AppDeps): Hono {
       const poll = c.req.method === "GET" && /^\/api\/rigs\/[^/]+\/chat\/mailbox(?:\/poll)?$/.test(c.req.path);
       const consume = c.req.method === "POST" && /^\/api\/rigs\/[^/]+\/chat\/mailbox\/[^/]+\/consume$/.test(c.req.path);
       const body: unknown = consume ? await c.req.json().catch(() => null) : null;
-      const capability = poll ? c.req.query("capability") ?? c.req.header("x-multi-agent-mailbox-capability")
+      const capability = poll ? c.req.query("capability") ?? c.req.header("x-loom-mailbox-capability")
         : body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>).capability : null;
       const requestedRunId = poll ? c.req.query("runId")
         : body && typeof body === "object" && !Array.isArray(body) && typeof (body as Record<string, unknown>).runId === "string"
@@ -374,7 +374,7 @@ export function createApp(deps: AppDeps): Hono {
     ...(deps.workflowRuntime ? { runtime: deps.workflowRuntime } : {}),
     orchestratorRoot: fileURLToPath(new URL("../../../../", import.meta.url)),
   }));
-  // The finished task's patch, served to the owner so `multi-agent team apply` and the
+  // The finished task's patch, served to the owner so `loom team apply` and the
   // Web UI can hand the result back. Absent a runtime there are no candidate trees to read.
   app.route("/api/team-control", teamResultRoutes(teamGovernance, {
     credentials: teamOptions.credentials, legacyTokens: [deps.legacyBearerToken],
@@ -507,12 +507,12 @@ export function createApp(deps: AppDeps): Hono {
     }
 
     if (isGovernedDatabase(deps.db) && !isTeamUiRequestPath(requestPath)) {
-      c.header("X-Multi-Agent-Web-UI", "off");
+      c.header("X-Loom-Web-UI", "off");
       return c.text("Only the team pages are served here; open the desktop app for them.", 404);
     }
 
     if (deps.webUiEnabled !== true) {
-      c.header("X-Multi-Agent-Web-UI", "off");
+      c.header("X-Loom-Web-UI", "off");
       return c.text(WEB_UI_OFF_MESSAGE, 404);
     }
 

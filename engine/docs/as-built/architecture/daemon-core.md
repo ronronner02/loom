@@ -15,7 +15,7 @@ last-updated: 2026-10-08
 
 # Daemon Core — Wiring, DB, Migrations, Startup
 
-OpenRig is a local control plane for multi-agent coding topologies. The daemon
+OpenRig is a local control plane for loom coding topologies. The daemon
 (`@openrig/daemon`) is the framework-free SQLite-backed core that the CLI
 (`@openrig/cli`), the terminal UI (`@openrig/tui`), the web UI (`@openrig/ui`)
 and the MCP server all sit on top of.

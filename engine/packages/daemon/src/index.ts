@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { closeHttpServer, createDaemonShutdown, DAEMON_SHUTDOWN_RECEIPT, trackHttpServerResponses } from "./daemon-shutdown.js";
-import { MULTI_AGENT_HOME, resolveDataRoots } from "./data-paths.js";
+import { LOOM_HOME, resolveDataRoots } from "./data-paths.js";
 import { resolveDaemonDbPath } from "./daemon-db-path.js";
 import { createDaemon } from "./startup.js";
 import { resolveClientDependencies } from "./domain/executable-resolver.js";
@@ -14,7 +14,7 @@ import { assertBindAuthInvariant } from "./middleware/auth-bearer-token.js";
 import type { SlowOperationInstrumentation } from "./domain/slow-op-recorder.js";
 import { SettingsStore } from "./domain/user-settings/settings-store.js";
 import {
-  ensureMultiAgentInstance,
+  ensureLoomInstance,
   formatInstanceInitializationConflicts,
 } from "./domain/instance-initialization.js";
 
@@ -99,13 +99,13 @@ async function endWorkerChildren(db: {
 
 export async function startServer(port?: number) {
   // Consume control credentials before bootstrap or discovery can spawn a child.
-  const ownerToken = process.env.MULTI_AGENT_OWNER_TOKEN?.trim() || null;
-  delete process.env.MULTI_AGENT_OWNER_TOKEN;
+  const ownerToken = process.env.LOOM_OWNER_TOKEN?.trim() || null;
+  delete process.env.LOOM_OWNER_TOKEN;
   // The daemon runs one mode. A desktop or service launch sets `managed`; anything else is
   // rejected rather than silently starting a daemon with no run supervision.
-  const requestedMode = process.env.MULTI_AGENT_MODE?.trim() || "managed";
+  const requestedMode = process.env.LOOM_MODE?.trim() || "managed";
   if (requestedMode !== "managed") {
-    throw new Error(`MULTI_AGENT_MODE must be "managed", got "${requestedMode}"`);
+    throw new Error(`LOOM_MODE must be "managed", got "${requestedMode}"`);
   }
   // A managed daemon hosted by the desktop (Electron's utility process, which has a
   // parent port) starts with no configured owner token. Pairing still needs a stable owner
@@ -117,21 +117,21 @@ export async function startServer(port?: number) {
   const resolvedOwnerToken = ownerToken
     ?? (hostedByDesktop ? randomBytes(32).toString("base64url") : null);
   if (!resolvedOwnerToken) {
-    throw new Error("No owner credential: set MULTI_AGENT_OWNER_TOKEN, or start the daemon from the desktop, "
+    throw new Error("No owner credential: set LOOM_OWNER_TOKEN, or start the daemon from the desktop, "
       + "which mints one over its parent channel.");
   }
-  const p = port ?? parseInt(process.env.MULTI_AGENT_PORT ?? "7433", 10);
+  const p = port ?? parseInt(process.env.LOOM_PORT ?? "7433", 10);
   // A value that cannot be bound is a configuration error, and it is named here rather than left
   // to `serve()`'s raw ERR_SOCKET_BAD_PORT. Same rule the CLI applies to `--port`.
   if (!Number.isInteger(p) || p < 0 || p > 65_535) {
-    throw new Error(`MULTI_AGENT_PORT must be an integer in [0, 65535], got "${process.env.MULTI_AGENT_PORT ?? p}"`);
+    throw new Error(`LOOM_PORT must be an integer in [0, 65535], got "${process.env.LOOM_PORT ?? p}"`);
   }
-  // D15 — anchor the default db under MULTI_AGENT_HOME, never a bare CWD-relative
-  // filename (which could open the shared fleet db). Explicit MULTI_AGENT_DB wins.
-  const dbPath = resolveDaemonDbPath(process.env.MULTI_AGENT_DB, MULTI_AGENT_HOME);
+  // D15 — anchor the default db under LOOM_HOME, never a bare CWD-relative
+  // filename (which could open the shared fleet db). Explicit LOOM_DB wins.
+  const dbPath = resolveDaemonDbPath(process.env.LOOM_DB, LOOM_HOME);
   const instanceConfig = new SettingsStore().resolveConfig();
-  const initialization = ensureMultiAgentInstance({
-    home: MULTI_AGENT_HOME,
+  const initialization = ensureLoomInstance({
+    home: LOOM_HOME,
     configHome: resolveDataRoots().config,
     workspaceRoot: instanceConfig.workspaceRoot,
     contextRoot: instanceConfig.contextRoot,
@@ -139,29 +139,29 @@ export async function startServer(port?: number) {
     topologyRoot: instanceConfig.topologyRoot,
   });
   if (!initialization.ok) {
-    throw new Error(`Multi-Agent instance initialization blocked: ${formatInstanceInitializationConflicts(initialization)}`);
+    throw new Error(`Loom instance initialization blocked: ${formatInstanceInitializationConflicts(initialization)}`);
   }
 
-  // OPR.0.5.5.20 — bind intent rides ONLY the dedicated MULTI_AGENT_BIND_HOST surface.
-  // The overloaded routing env (MULTI_AGENT_HOST) is observed for the provenance line below
+  // OPR.0.5.5.20 — bind intent rides ONLY the dedicated LOOM_BIND_HOST surface.
+  // The overloaded routing env (LOOM_HOST) is observed for the provenance line below
   // and NEVER selects the bind branch: a managed environment's injected endpoint is
   // byte-indistinguishable from opt-in. With no declared host the plan is loopback-only, so a
   // host that also runs Tailscale binds loopback rather than publishing the owner surfaces on
   // the tailnet.
   const bindPlan = resolveBindPlan({
-    bindHostEnv: process.env.MULTI_AGENT_BIND_HOST,
-    routingHostEnv: process.env.MULTI_AGENT_HOST,
+    bindHostEnv: process.env.LOOM_BIND_HOST,
+    routingHostEnv: process.env.LOOM_HOST,
   });
   if (bindPlan.ignoredRoutingHost) {
     console.error(
-      `[bind-provenance] MULTI_AGENT_HOST=${bindPlan.ignoredRoutingHost} is ROUTING env and was ignored for bind policy — ` +
-      `binding default ${bindPlan.hosts.join(" + ")}. Declare bind intent via --host, the daemon.host config key (file), or MULTI_AGENT_BIND_HOST.`,
+      `[bind-provenance] LOOM_HOST=${bindPlan.ignoredRoutingHost} is ROUTING env and was ignored for bind policy — ` +
+      `binding default ${bindPlan.hosts.join(" + ")}. Declare bind intent via --host, the daemon.host config key (file), or LOOM_BIND_HOST.`,
     );
   }
   const explicitHost = bindPlan.mode === "explicit" ? bindPlan.hosts[0] : undefined;
   // PL-005 Phase B: bearer token for Mission Control write verbs.
   // No legacy alias (this env var is new in Phase B).
-  const bearerToken = process.env.MULTI_AGENT_AUTH_BEARER_TOKEN ?? null;
+  const bearerToken = process.env.LOOM_AUTH_BEARER_TOKEN ?? null;
 
   let bindHosts: string[];
   if (explicitHost) {
@@ -202,7 +202,7 @@ export async function startServer(port?: number) {
   const servers: ServerType[] = [];
   for (const host of bindHosts) {
     const srv = serve({ fetch: app.fetch, port: p, hostname: host }, (info) => {
-      console.log(`Multi-Agent daemon listening on http://${host}:${info.port}`);
+      console.log(`Loom daemon listening on http://${host}:${info.port}`);
       // U5 — report readiness to the Electron parent process over parentPort. Only the
       // loopback bind reports, because the desktop only ever binds loopback.
       if (host === "127.0.0.1") {
@@ -254,7 +254,7 @@ export async function startServer(port?: number) {
     }],
   ];
   const shutdown = createDaemonShutdown({
-    receiptPath: path.join(MULTI_AGENT_HOME, DAEMON_SHUTDOWN_RECEIPT),
+    receiptPath: path.join(LOOM_HOME, DAEMON_SHUTDOWN_RECEIPT),
     phases: shutdownPhases,
     // A service failure, open connection, or lost recorder drain is never clean.
     markClean: () => deps.daemonLifecycleStore.recordStop(deps.daemonBootEpoch, new Date().toISOString()),

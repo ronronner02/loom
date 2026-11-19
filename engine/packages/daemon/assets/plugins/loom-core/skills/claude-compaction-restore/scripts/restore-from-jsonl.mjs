@@ -427,9 +427,9 @@ function restoreInstructions(summary, outputPaths) {
 
 // A3-R3 injectable clock (slice 51-01): the packet output-dir timestamped path
 // defaults to real wall-clock, but becomes deterministic when the shared hermetic
-// env-var MULTI_AGENT_TEST_CLOCK_NOW is set (an ISO instant). Empty/absent = production.
+// env-var LOOM_TEST_CLOCK_NOW is set (an ISO instant). Empty/absent = production.
 function nowIso() {
-  const injected = process.env.MULTI_AGENT_TEST_CLOCK_NOW;
+  const injected = process.env.LOOM_TEST_CLOCK_NOW;
   return typeof injected === "string" && injected.trim().length > 0 ? injected : new Date().toISOString();
 }
 

@@ -192,7 +192,7 @@ function desktopApp(opts = {}) {
       return {
         ok: true, status: 200,
         headers: { get: (name) => String(name).toLowerCase() === 'set-cookie'
-          ? 'multi_agent_owner=COOKIE_' + 'X'.repeat(36) + '; HttpOnly; SameSite=Strict; Path=/api; Max-Age=43200' : null },
+          ? 'loom_owner=COOKIE_' + 'X'.repeat(36) + '; HttpOnly; SameSite=Strict; Path=/api; Max-Age=43200' : null },
         json: async () => ({ antiForgeryToken: 'C'.repeat(43) }),
       };
     }

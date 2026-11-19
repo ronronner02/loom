@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const tempDirs: string[] = [];
 function tempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "multi-agent-slow-op-shutdown-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "loom-slow-op-shutdown-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -111,13 +111,13 @@ describe("drainSlowOpRecorderOnShutdown — bounded shutdown drain", () => {
     const child = spawn(process.execPath, ["--import", "tsx", indexPath], {
       env: {
         ...process.env,
-        MULTI_AGENT_HOME: home,
-        MULTI_AGENT_DB: path.join(home, "multi-agent.sqlite"),
-        MULTI_AGENT_PORT: String(port),
-        MULTI_AGENT_URL: "",
+        LOOM_HOME: home,
+        LOOM_DB: path.join(home, "loom.sqlite"),
+        LOOM_PORT: String(port),
+        LOOM_URL: "",
         // The daemon refuses to start without an owner credential; this child gets none from
         // the environment, so name one rather than rely on a file the harness does not write.
-        MULTI_AGENT_OWNER_TOKEN: "slow-op-shutdown-owner",
+        LOOM_OWNER_TOKEN: "slow-op-shutdown-owner",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

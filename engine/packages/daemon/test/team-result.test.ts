@@ -104,7 +104,7 @@ describe("the owner result read", () => {
     const response = await request("/api/team-control/runs/run/tasks/task/result");
     expect(response.status).toBe(200);
     const body = await response.json() as { result: Record<string, unknown> };
-    expect(body.result).toMatchObject({ schema: "multi-agent-team-result/v1", runId: "run", taskId: "task",
+    expect(body.result).toMatchObject({ schema: "loom-team-result/v1", runId: "run", taskId: "task",
       repositoryRoot: repo, base: "commit" });
     // The patch is the candidate's own bytes: the file the worker wrote, as an addition.
     expect(body.result.patch).toContain("diff --git a/src/result.ts b/src/result.ts");

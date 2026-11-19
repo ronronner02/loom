@@ -51,7 +51,7 @@ jobs:
       - name: Install
         run: npm ci --no-audit --no-fund --ignore-scripts
         working-directory: engine
-      # The daemon suite spawns the real CLI, and the CLI imports @multi-agent/daemon through
+      # The daemon suite spawns the real CLI, and the CLI imports @loom/daemon through
       # package exports that point at dist, so the build comes first.
       - name: Build
         run: npm run build

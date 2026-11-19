@@ -64,9 +64,9 @@ describe("DaemonClient header merge", () => {
 
 // ── P18 sender-provenance: the seat identity is derived from the env ONCE at the transport chokepoint ──
 describe("DaemonClient sender-identity header (P18)", () => {
-  const savedSession = process.env.MULTI_AGENT_SESSION_NAME;
+  const savedSession = process.env.LOOM_SESSION_NAME;
   afterEach(() => {
-    if (savedSession === undefined) delete process.env.MULTI_AGENT_SESSION_NAME; else process.env.MULTI_AGENT_SESSION_NAME = savedSession;
+    if (savedSession === undefined) delete process.env.LOOM_SESSION_NAME; else process.env.LOOM_SESSION_NAME = savedSession;
   });
 
   const captureHeaders = () => {
@@ -80,25 +80,25 @@ describe("DaemonClient sender-identity header (P18)", () => {
     return { client, box };
   };
 
-  it("derives the identity header from MULTI_AGENT_SESSION_NAME", () => {
-    process.env.MULTI_AGENT_SESSION_NAME = "dev50-driver@rig";
+  it("derives the identity header from LOOM_SESSION_NAME", () => {
+    process.env.LOOM_SESSION_NAME = "dev50-driver@rig";
     expect(senderIdentityHeaders()).toEqual({ [SENDER_IDENTITY_HEADER]: "dev50-driver@rig" });
   });
 
   it("emits NO header when the seat env is absent (the daemon refuses; the CLI never fabricates)", () => {
-    delete process.env.MULTI_AGENT_SESSION_NAME;
+    delete process.env.LOOM_SESSION_NAME;
     expect(senderIdentityHeaders()).toEqual({});
   });
 
   it("stamps the seat identity on EVERY request at the ONE transport chokepoint", async () => {
-    process.env.MULTI_AGENT_SESSION_NAME = "alice@rig";
+    process.env.LOOM_SESSION_NAME = "alice@rig";
     const { client, box } = captureHeaders();
     await client.post("/inbox/drop", { destinationSession: "bob@rig", body: "x" });
     expect(box.headers[SENDER_IDENTITY_HEADER]).toBe("alice@rig");
   });
 
   it("the transport identity is AUTHORITATIVE — a caller cannot override it via options.headers", async () => {
-    process.env.MULTI_AGENT_SESSION_NAME = "alice@rig";
+    process.env.LOOM_SESSION_NAME = "alice@rig";
     const { client, box } = captureHeaders();
     await client.post("/inbox/drop", { body: "x" }, { headers: { [SENDER_IDENTITY_HEADER]: "mallory@rig" } });
     expect(box.headers[SENDER_IDENTITY_HEADER]).toBe("alice@rig"); // the seat env wins, not the caller's claim

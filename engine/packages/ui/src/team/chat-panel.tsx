@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronRight, FileText, X } from "lucide-react";
 import { TextPreview } from "./text-preview.js";
-import type { TeamOwnerRead, WorkflowSelection } from "@multi-agent/daemon/team-control";
+import type { TeamOwnerRead, WorkflowSelection } from "@loom/daemon/team-control";
 import { WorkflowOutcomes, WorkflowPicker } from "./workflows.js";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 import { approvePlan, cancelRun, confirmDocument, postTaskComment, selectDocumentStage, sendChatMessage, type ChatMessage, type ChatState, type LiveLeadTurn } from "./clients.js";

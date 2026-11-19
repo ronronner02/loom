@@ -52,7 +52,7 @@ nsis:
   allowToChangeInstallationDirectory: true
   allowElevation: false
   shortcutName: Loom
-  # User data is not the installer's: %LOCALAPPDATA%\Multi-Agent and %APPDATA%\Multi-Agent keep
+  # User data is not the installer's: %LOCALAPPDATA%\Loom and %APPDATA%\Loom keep
   # their projects, runs and recovery records across both upgrade and uninstall (R23).
   deleteAppDataOnUninstall: false
 

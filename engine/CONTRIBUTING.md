@@ -1,32 +1,32 @@
-# Contributing to Multi-Agent
+# Contributing to Loom
 
-Thanks for being here. Multi-Agent is built in the open and by the thing it is: a rig of coding
+Thanks for being here. Loom is built in the open and by the thing it is: a rig of coding
 agents and a small group of people. External pull requests and issues have started arriving
 faster than we planned for, which is the best problem to have. This page says how to get a
 change in with the least friction on both sides.
 
 ## Before you start
 
-- **Bugs:** open an issue with the bug template. Include your Multi-Agent version (`multi-agent --version`),
+- **Bugs:** open an issue with the bug template. Include your Loom version (`loom --version`),
   OS, Node and tmux versions, which harnesses are involved (or none), and the relevant command and output.
   Reports are public: remove credentials, private prompts, personal details and private paths
   before posting. Share a small reproduction rather than a full transcript or instance dump.
 - **Features and behaviour changes:** open an issue or a Discussion in *Ideas* first. Search issues
   and Discussions, and check ROADMAP.md, before proposing a feature. A short "what I am trying to do
   and what stops me" saves both of us a rewrite. Small, obvious fixes do not need an issue.
-- **Questions:** use [Discussions › Q&A](https://github.com/ronronner02/multi-agent/discussions/categories/q-a),
+- **Questions:** use [Discussions › Q&A](https://github.com/ronronner02/loom/discussions/categories/q-a),
   not an issue.
 
 ## Before a security or integration PR
 
-Multi-Agent connects your coding agents to each other: shared context, messaging, coordination and long-running seats.
+Loom connects your coding agents to each other: shared context, messaging, coordination and long-running seats.
 It's designed for your own machine or a trusted private network, for you and people you trust, not for the open
 internet. It doesn't try to act for you in the outside world; your agents already have tools for that.
 
 **Security-related PRs.** If you've found something exploitable, report it privately first (see
 [SECURITY.md](SECURITY.md)) rather than in a public PR. For hardening changes, tell us in the PR description:
 
-- the scenario: how this goes wrong for someone using Multi-Agent as it's designed to be used, and the evidence you have
+- the scenario: how this goes wrong for someone using Loom as it's designed to be used, and the evidence you have
 - who or what causes it, and how they reach the install
 - what the change costs everyone else: a refusal, an extra step, a new setting
 
@@ -43,8 +43,8 @@ repository, and we're happy to link to it.
 Node `^22 || ^24` and a working `tmux` are required. Then:
 
 ```bash
-git clone https://github.com/mvschwarz/multi-agent.git
-cd multi-agent
+git clone https://github.com/mvschwarz/loom.git
+cd loom
 npm ci                 # exactly what package-lock.json records
 npm run build          # all workspaces
 npm test               # repo checks + daemon, cli, tui test suites
@@ -70,8 +70,8 @@ and what each layer can and cannot prove.
 
 For hands-on development, read the [check requirements](docs/reference/developing.md),
 [worktree setup](docs/reference/worktree-builds.md), and
-[machine changes](README.md#what-multi-agent-changes-on-your-machine). Use an isolated environment
-for changes that start daemons or agents; `MULTI_AGENT_HOME` alone does not isolate provider settings.
+[machine changes](README.md#what-loom-changes-on-your-machine). Use an isolated environment
+for changes that start daemons or agents; `LOOM_HOME` alone does not isolate provider settings.
 Permission configuration is an [explicit choice](docs/reference/getting-started.md#have-your-agent-configure-permissions).
 A checked-out tree is not the installed daemon; restarting an installed daemon does not adopt
 your working copy.
@@ -118,10 +118,10 @@ clarifying question or run the reproduction; a maintainer makes the merge decisi
   add a command, route, migration, adapter, skill or scenario.
   [docs/as-built/arteries.md](docs/as-built/arteries.md) lists the areas where a small change has a
   large effect; if your change touches one, read it first.
-- **Using a coding agent?** Claude Code and Codex load the repository's `developing-multi-agent` skill
+- **Using a coding agent?** Claude Code and Codex load the repository's `developing-loom` skill
   when they work in this checkout (`.claude/skills/` and `.agents/skills/`). It points at the maps
   above and at what to run before you push.
-- Repository reference: `docs/reference/`; user documentation: [multi-agent.dev/docs](https://multi-agent.dev/docs).
+- Repository reference: `docs/reference/`; user documentation: [loom.dev/docs](https://loom.dev/docs).
 - Skills: `packages/daemon/specs/agents/shared/skills/`, plugin skills under
   `packages/daemon/assets/plugins/`, and `skills/_canonical/`.
-- Releases: [GitHub Releases](https://github.com/ronronner02/multi-agent/releases) and npm `@multi-agent/cli`.
+- Releases: [GitHub Releases](https://github.com/ronronner02/loom/releases) and npm `@loom/cli`.

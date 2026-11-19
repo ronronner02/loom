@@ -10,7 +10,7 @@
       (function () {
         var choice = "light";
         try {
-          var stored = localStorage.getItem("multi-agent.teamTheme");
+          var stored = localStorage.getItem("loom.teamTheme");
           if (stored === "light" || stored === "dark" || stored === "system") choice = stored;
         } catch (e) {
           /* An unavailable preference store uses the command-center default. */

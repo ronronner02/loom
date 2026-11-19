@@ -2,7 +2,7 @@
 name: claude-compaction-restore
 description: Use when a Claude Code session is about to compact, has just compacted, reached its context limit, resumed after /compact, or must rebuild its working picture from its restore packet, transcript and touched files.
 metadata:
-  multi-agent:
+  loom:
     sibling_skills:
       - claude-compaction-restore
       - agent-operated-software
@@ -38,9 +38,9 @@ files, and test output instead of duplicating them.
 1. Read the restore request and the packet's `restore-instructions.md` and `touched-files.md` when present.
 2. Read the current task, repository instructions, and the files named by the packet in full. Treat the packet
    as a pointer, not as proof that the files still have the same contents.
-3. Re-enter the supported product surface with `multi-agent --help` and `multi-agent team --help`. If a run
-   id is available, read `multi-agent team chat <run-id>`, then the durable `team result` and `team diff`.
-   Use `multi-agent daemon status` when the local engine may have changed state.
+3. Re-enter the supported product surface with `loom --help` and `loom team --help`. If a run
+   id is available, read `loom team chat <run-id>`, then the durable `team result` and `team diff`.
+   Use `loom daemon status` when the local engine may have changed state.
 4. Rebuild the connections: the current goal, the accepted boundaries, the files that implement it, evidence
    already checked, unresolved decisions, and the next authorized action.
 5. Reply with `restored from packet at <path>; resumed at step <X>` and name the packet or map you used.

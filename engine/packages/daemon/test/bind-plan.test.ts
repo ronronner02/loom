@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { resolveBindPlan } from "../src/domain/bind-plan.js";
 
-// OPR.0.5.5.20 — bind intent has unambiguous provenance: only MULTI_AGENT_BIND_HOST selects a
+// OPR.0.5.5.20 — bind intent has unambiguous provenance: only LOOM_BIND_HOST selects a
 // listener, and the routing env is observed but never obeyed. The default is loopback-only, so a
 // host that also runs Tailscale does not publish the owner surfaces on the tailnet.
 

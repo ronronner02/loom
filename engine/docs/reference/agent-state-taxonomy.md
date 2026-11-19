@@ -1,6 +1,6 @@
 # Agent state taxonomy
 
-The formal activity language Multi-Agent's surfaces render from — the desktop app's task
+The formal activity language Loom's surfaces render from — the desktop app's task
 views and the seat activity model. One oracle computes it; surfaces render it. One exception
 remains: a graph node can still derive its own running/needs-input/idle/unknown from the legacy
 `agentActivity` field. Startup, orientation, restore and attention states are separate

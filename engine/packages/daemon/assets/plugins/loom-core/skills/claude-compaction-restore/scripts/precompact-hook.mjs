@@ -9,10 +9,10 @@ const skillRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const restoreScript = path.join(skillRoot, "scripts", "restore-from-jsonl.mjs");
 // P6(C) injectable output-root: the packet base defaults to the shared
 // /tmp/claude-compaction-restore (production), but becomes per-run isolated when the
-// hermetic env-var MULTI_AGENT_COMPACTION_OUT_ROOT is set — so concurrent writers with the
+// hermetic env-var LOOM_COMPACTION_OUT_ROOT is set — so concurrent writers with the
 // same injected clock + sessionId no longer collide on the same `${sessionId}-${stamp}`
-// dir. Mirrors the injectable-clock seam (MULTI_AGENT_TEST_CLOCK_NOW). Empty/absent = /tmp.
-const outRoot = process.env.MULTI_AGENT_COMPACTION_OUT_ROOT || "/tmp/claude-compaction-restore";
+// dir. Mirrors the injectable-clock seam (LOOM_TEST_CLOCK_NOW). Empty/absent = /tmp.
+const outRoot = process.env.LOOM_COMPACTION_OUT_ROOT || "/tmp/claude-compaction-restore";
 const defaultRestoreInstruction =
   "Read the claude-compaction-restore skill and follow its \"If You Just Compacted\" protocol.";
 
@@ -26,25 +26,25 @@ function readHookInput() {
   return JSON.parse(raw);
 }
 
-function getMultiAgentHome() {
-  return process.env.MULTI_AGENT_HOME;
+function getLoomHome() {
+  return process.env.LOOM_HOME;
 }
 
 // A3-R3 injectable clock (slice 51-01): marker.createdAt defaults to real wall-clock,
-// but becomes deterministic when the shared hermetic env-var MULTI_AGENT_TEST_CLOCK_NOW is
+// but becomes deterministic when the shared hermetic env-var LOOM_TEST_CLOCK_NOW is
 // set (an ISO instant). Empty/absent = production real-time.
 function nowIso() {
-  const injected = process.env.MULTI_AGENT_TEST_CLOCK_NOW;
+  const injected = process.env.LOOM_TEST_CLOCK_NOW;
   return typeof injected === "string" && injected.trim().length > 0 ? injected : new Date().toISOString();
 }
 
 function expandInstructionPath(filePath) {
   if (filePath.startsWith("~/")) return path.join(os.homedir(), filePath.slice(2));
-  if (filePath.startsWith("${MULTI_AGENT_HOME}/")) {
-    return path.join(getMultiAgentHome(), filePath.slice("${MULTI_AGENT_HOME}/".length));
+  if (filePath.startsWith("${LOOM_HOME}/")) {
+    return path.join(getLoomHome(), filePath.slice("${LOOM_HOME}/".length));
   }
-  if (filePath.startsWith("$MULTI_AGENT_HOME/")) {
-    return path.join(getMultiAgentHome(), filePath.slice("$MULTI_AGENT_HOME/".length));
+  if (filePath.startsWith("$LOOM_HOME/")) {
+    return path.join(getLoomHome(), filePath.slice("$LOOM_HOME/".length));
   }
   return filePath;
 }
@@ -78,10 +78,10 @@ function sanitizeSeat(value) {
 // (a wrong-seat global is REFUSED). Generic/undeclared/configured-but-absent stay
 // allowed. Returns the path to read, or null when nothing valid for this seat.
 function resolveSeatSafeExtraPath(globalFilePathRaw) {
-  const rawSeat = process.env.MULTI_AGENT_SESSION_NAME || process.env.MULTI_AGENT_SESSION_NAME || "";
+  const rawSeat = process.env.LOOM_SESSION_NAME || process.env.LOOM_SESSION_NAME || "";
   const seatKey = rawSeat ? sanitizeSeat(rawSeat) : "";
   if (seatKey) {
-    const perSeatPath = path.join(getMultiAgentHome(), "compaction", "post-compact-extra", `${seatKey}.md`);
+    const perSeatPath = path.join(getLoomHome(), "compaction", "post-compact-extra", `${seatKey}.md`);
     if (fs.existsSync(perSeatPath)) {
       const declared = declaredSeatOf(fs.readFileSync(perSeatPath, "utf8"));
       if (declared && sanitizeSeat(declared) !== seatKey) return null; // wrong-seat per-seat file
@@ -101,7 +101,7 @@ function resolveSeatSafeExtraPath(globalFilePathRaw) {
 
 function sessionKey(input) {
   const raw = [
-    process.env.MULTI_AGENT_SESSION_NAME,
+    process.env.LOOM_SESSION_NAME,
     input.session_id,
     input.sessionId,
     input.session_name,
@@ -112,7 +112,7 @@ function sessionKey(input) {
 }
 
 function pendingMarkerPath(input) {
-  return path.join(getMultiAgentHome(), "compaction", "restore-pending", `${sessionKey(input)}.json`);
+  return path.join(getLoomHome(), "compaction", "restore-pending", `${sessionKey(input)}.json`);
 }
 
 // R5 absent-when-needed: drop a lightweight EXPECTED sentinel FIRST (before the packet is
@@ -120,13 +120,13 @@ function pendingMarkerPath(input) {
 // Its presence-without-a-marker is what lets the bridge be LOUD about a missing packet
 // (hook died partway / write failed); policy off = no hook = no sentinel = silent.
 function writeExpectedSentinel(input) {
-  const p = path.join(getMultiAgentHome(), "compaction", "restore-pending", `${sessionKey(input)}.expected.json`);
+  const p = path.join(getLoomHome(), "compaction", "restore-pending", `${sessionKey(input)}.expected.json`);
   fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, `${JSON.stringify({
     version: 1,
     managedRefocusPending: typeof input.custom_instructions === "string"
-      && input.custom_instructions.trimStart().startsWith("Multi-Agent managed compaction; wait for the restore request."),
-    sessionName: process.env.MULTI_AGENT_SESSION_NAME || process.env.MULTI_AGENT_SESSION_NAME || null,
+      && input.custom_instructions.trimStart().startsWith("Loom managed compaction; wait for the restore request."),
+    sessionName: process.env.LOOM_SESSION_NAME || process.env.LOOM_SESSION_NAME || null,
     sessionId: input.session_id || input.sessionId || null,
     transcriptPath: input.transcript_path || null,
     createdAt: nowIso(),
@@ -139,9 +139,9 @@ function writePendingRestoreMarker(input, parsed, restoreInstruction, customMess
   const payload = {
     version: 1,
     managedRefocusPending: typeof input.custom_instructions === "string"
-      && input.custom_instructions.trimStart().startsWith("Multi-Agent managed compaction; wait for the restore request."),
+      && input.custom_instructions.trimStart().startsWith("Loom managed compaction; wait for the restore request."),
     createdAt: nowIso(),
-    sessionName: process.env.MULTI_AGENT_SESSION_NAME || process.env.MULTI_AGENT_SESSION_NAME || null,
+    sessionName: process.env.LOOM_SESSION_NAME || process.env.LOOM_SESSION_NAME || null,
     sessionId: input.session_id || input.sessionId || null,
     transcriptPath: input.transcript_path || null,
     cwd: input.cwd || null,
@@ -156,15 +156,15 @@ function writePendingRestoreMarker(input, parsed, restoreInstruction, customMess
   return markerPath;
 }
 
-// Slice 27 — read the Multi-Agent config directly (no daemon HTTP dependency
+// Slice 27 — read the Loom config directly (no daemon HTTP dependency
 // so the hook still works when the daemon isn't running or isn't
 // reachable from this process). Returns "" for either field when the
 // config is missing, malformed, or the policy isn't set. If the policy is
-// enabled but restore text has not been written yet, use Multi-Agent's default
+// enabled but restore text has not been written yet, use Loom's default
 // instruction to load the canonical restore skill. Inline instructions and
 // file-path content are both included when both are configured.
 function readClaudeCompactionMessage() {
-  const configPath = path.join(getMultiAgentHome(), "config.json");
+  const configPath = path.join(getLoomHome(), "config.json");
   let inline = "";
   let filePath = "";
   let inlineConfigured = false;
@@ -222,13 +222,13 @@ function buildSystemMessage(restoreInstruction, customMessage) {
 }
 
 try {
-  // Slice 51-01 RIDER (leak-visibility, review-r1 escalation): MULTI_AGENT_TEST_CLOCK_NOW is
+  // Slice 51-01 RIDER (leak-visibility, review-r1 escalation): LOOM_TEST_CLOCK_NOW is
   // read by nowIso() to make createdAt deterministic in tests — but a LEAKED var in a
   // real seat would silently FREEZE production createdAt. Announce loudly on stderr when
   // active so any leak is visible in seat logs; absence stays silent (production path).
   // MUST stay byte-identical to STUB_CLOCK_ANNOUNCEMENT in stub-runner.ts.
-  if (typeof process.env.MULTI_AGENT_TEST_CLOCK_NOW === "string" && process.env.MULTI_AGENT_TEST_CLOCK_NOW.trim().length > 0) {
-    process.stderr.write("MULTI_AGENT_TEST_CLOCK_NOW active — timestamps are injected\n");
+  if (typeof process.env.LOOM_TEST_CLOCK_NOW === "string" && process.env.LOOM_TEST_CLOCK_NOW.trim().length > 0) {
+    process.stderr.write("LOOM_TEST_CLOCK_NOW active — timestamps are injected\n");
   }
   const input = readHookInput();
   writeExpectedSentinel(input); // R5: sentinel FIRST, before the packet + marker (catches hook-died-partway)
@@ -251,11 +251,11 @@ try {
   }
 
   const parsed = JSON.parse(result.stdout);
-  const baseRestore = `Pre-compaction restore seed packet prepared at ${parsed.outputDir}. This hook output is informational. After compaction, Multi-Agent may send a later normal user message asking you to restore from this packet; treat that later normal user message as the action request. The restore protocol is: load/read the claude-compaction-restore skill, run "node ~/.claude/skills/claude-compaction-restore/scripts/restore-from-jsonl.mjs --out /tmp/claude-compaction-restore --json" yourself when needed, read the generated restore-instructions.md, read the generated touched-files.md, identify remembered important files, read those files in full, read root/as-built/codemap docs before real work, then reply with "restored from packet at <path>; resumed at step <X>" with the files you read in full. If any step fails, report the failure explicitly.`;
+  const baseRestore = `Pre-compaction restore seed packet prepared at ${parsed.outputDir}. This hook output is informational. After compaction, Loom may send a later normal user message asking you to restore from this packet; treat that later normal user message as the action request. The restore protocol is: load/read the claude-compaction-restore skill, run "node ~/.claude/skills/claude-compaction-restore/scripts/restore-from-jsonl.mjs --out /tmp/claude-compaction-restore --json" yourself when needed, read the generated restore-instructions.md, read the generated touched-files.md, identify remembered important files, read those files in full, read root/as-built/codemap docs before real work, then reply with "restored from packet at <path>; resumed at step <X>" with the files you read in full. If any step fails, report the failure explicitly.`;
   const markerPath = writePendingRestoreMarker(input, parsed, baseRestore, customMessage);
   emit({
     continue: true,
-    systemMessage: buildSystemMessage(`${baseRestore} Multi-Agent also wrote a pending restore marker at ${markerPath}.`, customMessage),
+    systemMessage: buildSystemMessage(`${baseRestore} Loom also wrote a pending restore marker at ${markerPath}.`, customMessage),
   });
 } catch (error) {
   emit({

@@ -20,8 +20,8 @@ without closing the window; **Engine → Reconnect** starts it again.
 
 ## Reopening and reconnecting
 
-The app keeps its data in `%LOCALAPPDATA%\Multi-Agent`, so projects, runs and sign-ins survive a
-restart; `MULTI_AGENT_DESKTOP_DATA_DIR` overrides that root for tests and manual runs.
+The app keeps its data in `%LOCALAPPDATA%\Loom`, so projects, runs and sign-ins survive a
+restart; `LOOM_DESKTOP_DATA_DIR` overrides that root for tests and manual runs.
 
 The engine inherits the app's own environment, so it reads your real `HOME`/`USERPROFILE`,
 `CODEX_HOME` and `CLAUDE_CONFIG_DIR` and finds the client sign-ins already there.
@@ -104,7 +104,7 @@ The build is unsigned, so Windows may show a SmartScreen warning on first run. V
 source and published checksum before running an installer. Signing and auto-update remain deferred;
 publishing is a separate release operation, not a side effect of `npm run dist`.
 Installing N+1 over N replaces the program files; uninstalling removes them but
-keeps `%LOCALAPPDATA%\Multi-Agent` and `%APPDATA%\Multi-Agent`, including recovery records of
+keeps `%LOCALAPPDATA%\Loom` and `%APPDATA%\Loom`, including recovery records of
 interrupted runs.
 
 The engine tree must be rebuilt before staging (`npm run stage:check` fails when the staged copy
@@ -121,7 +121,7 @@ app from source with `npm start`. Run the unit tests with `npm test`; they cover
 sequence, the dynamic origin, pairing, dependency rows, the folder dialog, the preload boundary,
 reconnect, the lifecycle races between a start in flight and Stop or Reconnect, the close
 confirmation, shutdown, and the staged installer tree, with an in-memory window. The installer
-lifecycle test is opt-in (`MULTI_AGENT_INSTALLER_SMOKE=1` with two artifacts) because it installs
+lifecycle test is opt-in (`LOOM_INSTALLER_SMOKE=1` with two artifacts) because it installs
 an artifact and writes an uninstall entry.
 
 ## How it authenticates

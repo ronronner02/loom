@@ -420,7 +420,7 @@ function writeGateHarness(root, source, invocationPath) {
 }
 
 function withFixture(run) {
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-substance-gate-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-substance-gate-"));
   const repo = join(root, "repo");
   const rules = join(root, "rules.json");
   const review = join(root, "review.json");
@@ -430,7 +430,7 @@ function withFixture(run) {
   execFileSync("git", ["config", "user.email", "qa@example.invalid"], { cwd: repo });
   execFileSync("git", ["config", "user.name", "QA"], { cwd: repo });
   writeFileSync(join(repo, "package.json"), JSON.stringify({
-    name: "multi-agent-substance-gate-fixture",
+    name: "loom-substance-gate-fixture",
     version: "1.0.0",
     files: ["public", "dist", "outside.md", "substance-surfaces.json"],
   }));

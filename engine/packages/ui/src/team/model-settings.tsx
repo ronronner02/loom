@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { TeamModelChoice, TeamModelSettings } from "@multi-agent/daemon/team-control";
+import type { TeamModelChoice, TeamModelSettings } from "@loom/daemon/team-control";
 import { OwnerReadError, useOwnerSession } from "../hooks/useOwnerSession.js";
 import { teamModelSettingsKey, teamsKey, useTeamModelSettings } from "./hooks.js";
 

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { TeamTaskResult } from "@multi-agent/daemon/team-control";
+import type { TeamTaskResult } from "@loom/daemon/team-control";
 import { useOwnerSession } from "./useOwnerSession.js";
 
 /** A finished candidate is cached by digest so rework never reuses an earlier diff. */
@@ -11,7 +11,7 @@ export function useTeamResult(runId: string, taskId: string | null, enabled: boo
     queryFn: async ({ signal }) => {
       const { result } = await request<{ result: TeamTaskResult }>(
         "/runs/" + encodeURIComponent(runId) + "/tasks/" + encodeURIComponent(taskId!) + "/result", { signal });
-      if (result.schema !== "multi-agent-team-result/v1" || result.runId !== runId || result.taskId !== taskId
+      if (result.schema !== "loom-team-result/v1" || result.runId !== runId || result.taskId !== taskId
         || result.manifestDigest !== candidateDigest) {
         throw new Error("invalid_team_result");
       }

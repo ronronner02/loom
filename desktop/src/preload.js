@@ -9,7 +9,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 try {
   const token = ipcRenderer.sendSync('desktop:csrf-token');
   if (typeof token === 'string' && token.length > 0) {
-    window.sessionStorage.setItem('multi-agent.desktop.csrf', token);
+    window.sessionStorage.setItem('loom.desktop.csrf', token);
   }
 } catch {
   // No token, or storage unavailable: the page falls back to its own pairing form.
@@ -25,7 +25,7 @@ ipcRenderer.on('desktop:state', (_event, status) => {
   document.dispatchEvent(new CustomEvent('desktop-status', { detail: status }));
 });
 
-contextBridge.exposeInMainWorld('multiAgentDesktop', {
+contextBridge.exposeInMainWorld('loomDesktop', {
   /** The last status the window sent, or null before the first one. */
   status: async () => current ?? ipcRenderer.invoke('desktop:get-state'),
   pickFolder: () => ipcRenderer.invoke('desktop:pick-folder'),

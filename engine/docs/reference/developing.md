@@ -1,4 +1,4 @@
-# Developing Multi-Agent — gates and lanes
+# Developing Loom — gates and lanes
 
 This is the contributor-facing statement of which checks block a change and which are
 advisory. Every pull request runs the `smoke` workflow on a clean GitHub runner: engine

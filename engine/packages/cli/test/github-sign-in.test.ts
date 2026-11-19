@@ -12,7 +12,7 @@ async function run(fetchImpl: typeof fetch, options: string[] = []) {
   let code = 0;
   try {
     await runProgram(createProgram({ githubDeps: { baseUrl, fetchImpl, ownerToken: "owner" } }),
-      ["node", "multi-agent", "github", "sign-in", ...options], {
+      ["node", "loom", "github", "sign-in", ...options], {
         out: line => out.push(line), err: line => err.push(line), exit: value => { code = value; },
       });
     return { out, err, code };

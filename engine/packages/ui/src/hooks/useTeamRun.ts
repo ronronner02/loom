@@ -10,7 +10,7 @@ export function useTeamRun(runId: string) {
     queryFn: async ({ signal }) => {
       const { read } = await request<{ read: TeamOwnerRead }>(`/runs/${encodeURIComponent(runId)}/read`, { signal });
       parseProtocolVersion(read.protocolVersion);
-      if (read.schema !== "multi-agent-team-read/v1" || read.runId !== runId) throw new OwnerReadError(502, "invalid_team_read");
+      if (read.schema !== "loom-team-read/v1" || read.runId !== runId) throw new OwnerReadError(502, "invalid_team_read");
       return read;
     },
   });

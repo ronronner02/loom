@@ -41,7 +41,7 @@ async function messages(text: string, width = 1) {
 let client: QueryClient;
 beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  sessionStorage.clear(); sessionStorage.setItem("multi-agent.desktop.csrf", "a".repeat(43));
+  sessionStorage.clear(); sessionStorage.setItem("loom.desktop.csrf", "a".repeat(43));
 });
 afterEach(() => { cleanup(); client.clear(); sessionStorage.clear(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}><OwnerSessionProvider>{children}</OwnerSessionProvider></QueryClientProvider>;
@@ -114,7 +114,7 @@ describe("shared owner event stream", () => {
     const calls = fetcher.mock.calls.filter(([path]) => path.endsWith("/events/stream"));
     expect(calls).toHaveLength(1);
     expect(calls[0]![1]?.credentials).toBe("include");
-    expect(new Headers(calls[0]![1]?.headers).get("X-Multi-Agent-CSRF")).toBe("a".repeat(43));
+    expect(new Headers(calls[0]![1]?.headers).get("X-Loom-CSRF")).toBe("a".repeat(43));
     expect(new Headers(calls[0]![1]?.headers).get("Last-Event-ID")).toBe("1");
     snapshotVersion = 1;
     stream.send(wire(event(2)) + wire(event(2)) + wire(event(4, "attempt.acknowledged")) + wire(event(3, "worker.turn.started")));
@@ -228,11 +228,11 @@ describe("shared owner event stream", () => {
     await flush(); await flush(30_000);
     expect(view.result.current.session.paired).toBe(false);
     expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(sessionStorage.getItem("multi-agent.desktop.csrf")).toBeNull();
+    expect(sessionStorage.getItem("loom.desktop.csrf")).toBeNull();
   });
   it.each([401, 403])("stops when the stream handshake is denied after successful replay (%s)", async status => {
     vi.useFakeTimers();
-    const reconnect = vi.fn(); vi.stubGlobal("multiAgentDesktop", { reconnect });
+    const reconnect = vi.fn(); vi.stubGlobal("loomDesktop", { reconnect });
     const fetcher = vi.fn(async (path: string) => path.includes("/replay?")
       ? new Response(JSON.stringify({ protocolVersion: "1.0", runId: RUN_ID, events: [], window: { retainedFrom: 1, latestSeq: 1 }, gap: false }))
       : new Response(JSON.stringify({ code: "owner_anti_forgery_required" }), { status }));

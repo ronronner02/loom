@@ -1,0 +1,31 @@
+{
+  "name": "loom-core",
+  "version": "0.1.9",
+  "description": "Native Loom team skills and worker activity hooks.",
+  "author": {
+    "name": "Mike Schwarz",
+    "url": "https://github.com/mvschwarz"
+  },
+  "homepage": "https://github.com/mvschwarz/loom-plugins",
+  "repository": "github:mvschwarz/loom-plugins",
+  "license": "Apache-2.0",
+  "keywords": [
+    "loom",
+    "agent",
+    "team",
+    "coordination"
+  ],
+  "skills": "./skills",
+  "hooks": "./hooks/codex.json",
+  "interface": {
+    "displayName": "Loom Core",
+    "shortDescription": "Canonical Loom skills and hooks",
+    "longDescription": "Cross-runtime native-team plugin shipping coordination, continuity, and operating-discipline skills, plus activity-tracking hooks. Use as the baseline plugin for any Loom-managed agent.",
+    "developerName": "Mike Schwarz",
+    "category": "Productivity",
+    "capabilities": [
+      "Read"
+    ],
+    "websiteURL": "https://github.com/mvschwarz/loom-plugins"
+  }
+}

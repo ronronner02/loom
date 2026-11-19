@@ -214,7 +214,7 @@ export type RigEvent =
   | { type: "bundle.created"; bundleName: string; bundleVersion: string; archiveHash: string }
   // Teardown events
   | { type: "rig.stopped"; rigId: string }
-  // Multi-agent archive affordance (soft, reversible; NOT a delete)
+  // Loom archive affordance (soft, reversible; NOT a delete)
   | { type: "rig.archived"; rigId: string }
   | { type: "rig.unarchived"; rigId: string }
   // AgentSpec reboot events — pods + startup + continuity
@@ -246,7 +246,7 @@ export type RigEvent =
   // Emitted exactly once by KernelBootTracker when the kernel rig fails to
   // reach ready / partial_ready within the configurable degraded-timer
   // window (default 90s). Observability signal that healthz bound cleanly
-  // but the kernel itself is stuck — operator triage with `multi-agent ps --rig kernel`.
+  // but the kernel itself is stuck — operator triage with `loom ps --rig kernel`.
   | { type: "kernel.agent.degraded"; agents: Array<{ sessionName: string; runtime: string; startupStatus: string }>; firstUnreadySince: string | null; detail: string | null }
   // Chat events
   | { type: "chat.message"; rigId: string; messageId: string; sender: string; kind: string; body: string; topic?: string }

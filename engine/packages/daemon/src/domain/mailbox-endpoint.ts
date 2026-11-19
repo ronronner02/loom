@@ -22,7 +22,7 @@ export const MAILBOX_BOOTSTRAP_NAME = "bootstrap.json";
  * The local pipe namespace. A Windows pipe name is machine-wide: every process on the host can
  * open it by name, and a name that is already served is refused rather than shared.
  */
-export const MAILBOX_PIPE_PREFIX = "\\\\.\\pipe\\multi-agent-mailbox-";
+export const MAILBOX_PIPE_PREFIX = "\\\\.\\pipe\\loom-mailbox-";
 
 /** What a caller derives from one mailbox directory and one bridge generation. */
 export interface MailboxEndpointDescriptor {

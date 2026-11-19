@@ -8,7 +8,7 @@ import ts from "typescript";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const RIGS = "packages/daemon/specs/rigs";
 const SHARED_SKILLS = "packages/daemon/specs/agents/shared/skills";
-const PLUGIN_SKILLS = "packages/daemon/assets/plugins/multi-agent-core/skills";
+const PLUGIN_SKILLS = "packages/daemon/assets/plugins/loom-core/skills";
 // The daemon installs these into the global skill roots; skills/ at the repository
 // root carries the same skills for skills.sh.
 const GLOBAL_SKILLS = "packages/daemon/assets/skills";
@@ -17,7 +17,7 @@ const SKILL_ROOTS = [SHARED_SKILLS, PLUGIN_SKILLS, GLOBAL_SKILLS];
 // Check the current help, onboarding, and native-team skills against the thin CLI.
 export const SCOPE = [
   { file: "docs/reference/help.md" },
-  { file: "packages/daemon/assets/guidance/multi-agent-start.md" },
+  { file: "packages/daemon/assets/guidance/loom-start.md" },
   { file: "packages/daemon/assets/onboarding/01-world-and-purpose.md" },
   { file: "packages/daemon/assets/onboarding/02-self-and-competent-action.md" },
   ...["development-team", "orchestration-team", "review-team"].map((skill) => ({
@@ -32,7 +32,7 @@ export const SCOPE = [
 // Not a builtin alias or an existence assertion. External bundles need their own
 // pinned-repository check; every occurrence is reported as unchecked below.
 const EXTERNAL_TEAMS = new Map([
-  ["workshop", "https://github.com/mvschwarz/multi-agent-world (external bundle)"],
+  ["workshop", "https://github.com/mvschwarz/loom-world (external bundle)"],
 ]);
 const placeholder = (s) => /[<>$…]|\.\.\./.test(s);
 const literalName = (s) => /^[a-z][a-z0-9-]*$/.test(s);
@@ -73,11 +73,11 @@ export function references(text, { printed = false, team } = {}) {
   const spans = [...text.matchAll(/(?<!`)`([^`]+)`(?!`)/g)].map((m) => ({ value: m[1], offset: m.index + 1 }));
   for (const block of text.matchAll(/^```(?:sh|bash|zsh|shell|console)\s*\n([\s\S]*?)^```/gm)) {
     const start = block.index + block[0].indexOf("\n") + 1;
-    for (const m of block[1].matchAll(/^[ \t]*(multi-agent\s+[^\n#]+)/gm)) spans.push({ value: m[1], offset: start + m.index + m[0].indexOf(m[1]) });
+    for (const m of block[1].matchAll(/^[ \t]*(loom\s+[^\n#]+)/gm)) spans.push({ value: m[1], offset: start + m.index + m[0].indexOf(m[1]) });
   }
   if (printed) spans.push({ value: text, offset: 0 });
   for (const { value, offset } of spans) {
-    for (const m of value.matchAll(/\bmulti-agent\s+(?=[a-z-])([^;`]+)/g)) {
+    for (const m of value.matchAll(/\bloom\s+(?=[a-z-])([^;`]+)/g)) {
       add("command", m[0].trim(), offset + m.index, { printed });
     }
     for (const m of value.matchAll(/\b([a-z][a-z0-9-]*@[a-z][a-z0-9-]*)\b/g)) add("seat", m[1], offset + m.index);
@@ -85,7 +85,7 @@ export function references(text, { printed = false, team } = {}) {
       // Unqualified seat names are only meaningful inside their own team's guidance.
       if (!/skill|old name/.test(text.slice(offset + value.length, offset + value.length + 30))) add("local-seat", value, offset, { team });
     }
-    for (const m of value.matchAll(/(?:^|\s)((?:packages|docs|scripts|reference|specs\/rigs|daemon\/docs|daemon\/assets|@multi-agent\/cli\/daemon\/assets|skills)\/[\w./-]+)(?:#[\w/-]+)?/g)) {
+    for (const m of value.matchAll(/(?:^|\s)((?:packages|docs|scripts|reference|specs\/rigs|daemon\/docs|daemon\/assets|@loom\/cli\/daemon\/assets|skills)\/[\w./-]+)(?:#[\w/-]+)?/g)) {
       add("path", m[1], offset + m.index + m[0].indexOf(m[1]));
     }
     const before = text.slice(Math.max(0, offset - 85), offset - 1);
@@ -138,7 +138,7 @@ export function commandReference(value, program, { prose = false } = {}) {
   const words = tokens(value).slice(1);
   let cmd = program;
   let i = 0;
-  const verbs = ["multi-agent"];
+  const verbs = ["loom"];
   for (; i < words.length; i++) {
     const word = words[i];
     if (!cmd.commands.length) break;
@@ -185,7 +185,7 @@ export async function loadAuthorities(root) {
 }
 
 function repositoryPath(value) {
-  return value.replace(/^@multi-agent\/cli\/daemon\/assets\//, "packages/daemon/assets/")
+  return value.replace(/^@loom\/cli\/daemon\/assets\//, "packages/daemon/assets/")
     .replace(/^daemon\/assets\//, "packages/daemon/assets/").replace(/^daemon\/docs\//, "docs/")
     .replace(/^reference\//, "docs/reference/")
     .replace(/^specs\//, "packages/daemon/specs/");
@@ -201,7 +201,7 @@ export async function checkReferences(root, scope, authority) {
       const against = "packages/cli/src/index.ts:createProgram() command tree";
       if (result.error) return fail(against, result.error);
       const first = result.args?.[0];
-      if (["multi-agent up", "multi-agent specs preview", "multi-agent specs show"].includes(result.verbs) && literalName(first ?? "")) {
+      if (["loom up", "loom specs preview", "loom specs show"].includes(result.verbs) && literalName(first ?? "")) {
         await check({ ...ref, kind: "team", value: first });
       }
       const words = tokens(ref.value), rigOption = words.indexOf("--rig");

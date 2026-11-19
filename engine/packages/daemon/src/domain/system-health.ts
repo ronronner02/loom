@@ -128,7 +128,7 @@ export function unknownSystemHealth(
 ): TeamSystemHealth {
   const lights = Object.fromEntries(TEAM_HEALTH_LIGHTS.map(name => [name,
     unknownLight(now, reason ?? name + "_source_unavailable")])) as Record<TeamHealthLightName, TeamHealthLight>;
-  return { schema: "multi-agent-system-health/v1", protocolVersion: TEAM_SYSTEM_HEALTH_VERSION,
+  return { schema: "loom-system-health/v1", protocolVersion: TEAM_SYSTEM_HEALTH_VERSION,
     checkedAt: checkedAt(now), timeoutMs, overall: "unknown", lights, latestAttempts: {} };
 }
 export async function readSystemHealth(sources: SystemHealthSources): Promise<TeamSystemHealth> {
@@ -140,7 +140,7 @@ export async function readSystemHealth(sources: SystemHealthSources): Promise<Te
   const lights = Object.fromEntries(probeResults) as Record<TeamHealthLightName, TeamHealthLight>;
   const attemptsValid = attemptsResult?.kind === "value" && validAttempts(attemptsResult.value);
   const latestAttempts = attemptsValid ? attemptsResult.value : {};
-  return { schema: "multi-agent-system-health/v1", protocolVersion: TEAM_SYSTEM_HEALTH_VERSION,
+  return { schema: "loom-system-health/v1", protocolVersion: TEAM_SYSTEM_HEALTH_VERSION,
     checkedAt: checkedAt(now), timeoutMs, overall: overall(lights, attemptsResult !== null && !attemptsValid), lights, latestAttempts,
     ...(sources.isolation ? { runtime: { isolation: sources.isolation } } : {}) };
 }
@@ -150,7 +150,7 @@ export function createSystemHealthReader(sources: SystemHealthSources): () => Pr
 function validHealth(value: unknown): value is TeamSystemHealth {
   if (!value || typeof value !== "object") return false;
   const result = value as TeamSystemHealth;
-  if (result.schema !== "multi-agent-system-health/v1" || result.protocolVersion !== TEAM_SYSTEM_HEALTH_VERSION
+  if (result.schema !== "loom-system-health/v1" || result.protocolVersion !== TEAM_SYSTEM_HEALTH_VERSION
     || typeof result.checkedAt !== "string" || !Number.isFinite(Date.parse(result.checkedAt))
     || !Number.isFinite(result.timeoutMs) || result.timeoutMs <= 0 || result.timeoutMs > SYSTEM_HEALTH_PROBE_TIMEOUT_MS
     || !["ok", "degraded", "failed", "unknown"].includes(result.overall) || !result.lights || !validAttempts(result.latestAttempts)) return false;

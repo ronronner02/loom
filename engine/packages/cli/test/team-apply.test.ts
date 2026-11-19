@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { createProgram } from "../src/index.js";
 import type { TeamStartDeps } from "../src/commands/team.js";
 
-// MVP slice 3 — `multi-agent team apply` and `multi-agent team diff` against a real temp repository.
+// MVP slice 3 — `loom team apply` and `loom team diff` against a real temp repository.
 //
 // The daemon is answered by an injected fetch; everything below it is real git, so the
 // assertions are about the bytes landing in a tree, not about a call being made. `apply` must
@@ -38,7 +38,7 @@ function deps(fetchImpl: typeof fetch): TeamStartDeps {
 /** A daemon that answers the run read and the result read; `status` lets a case drive a refusal. */
 function daemon(overrides: { status?: number; result?: unknown } = {}) {
   const status = overrides.status ?? 200;
-  const result = overrides.result ?? { schema: "multi-agent-team-result/v1", runId: "run", taskId: "task",
+  const result = overrides.result ?? { schema: "loom-team-result/v1", runId: "run", taskId: "task",
     attemptId: "attempt-1", repositoryRoot: "", base: "commit", baseIdentifier: "a".repeat(40),
     manifestDigest: "sha256:" + "b".repeat(64), files: [], patch: PATCH };
   return vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith("/read")
@@ -58,7 +58,7 @@ async function run(argv: string[], teamDeps: TeamStartDeps): Promise<string[]> {
   try {
     const program = createProgram({ teamStartDeps: teamDeps });
     program.exitOverride();
-    await program.parseAsync(["node", "multi-agent", ...argv]);
+    await program.parseAsync(["node", "loom", ...argv]);
     return lines;
   } finally {
     log.mockRestore(); error.mockRestore(); process.exitCode = saved;
@@ -66,7 +66,7 @@ async function run(argv: string[], teamDeps: TeamStartDeps): Promise<string[]> {
 }
 
 /** The result the daemon serves for a repository at `root`. */
-const at = (repositoryRoot: string) => ({ schema: "multi-agent-team-result/v1", runId: "run", taskId: "task",
+const at = (repositoryRoot: string) => ({ schema: "loom-team-result/v1", runId: "run", taskId: "task",
   attemptId: "attempt-1", repositoryRoot, base: "commit", baseIdentifier: "a".repeat(40),
   manifestDigest: "sha256:" + "b".repeat(64), files: [], patch: PATCH });
 
@@ -74,7 +74,7 @@ let directory: string;
 beforeEach(() => { directory = realpathSync(mkdtempSync(join(tmpdir(), "mvp3-apply-"))); });
 afterEach(() => { vi.restoreAllMocks(); if (existsSync(directory)) rmSync(directory, { recursive: true, force: true }); });
 
-describe("multi-agent team diff", () => {
+describe("loom team diff", () => {
   it("prints the patch unchanged", async () => {
     const chunks: string[] = [];
     const write = vi.spyOn(process.stdout, "write").mockImplementation(((chunk: string) => {

@@ -13,29 +13,29 @@ export function resolveDataRoots(options: {
   home?: string;
 } = {}): DataRoots {
   const env = options.env ?? process.env;
-  const override = env.MULTI_AGENT_HOME?.trim();
+  const override = env.LOOM_HOME?.trim();
   if (override) return { state: override, config: override };
   const home = options.home ?? homedir();
   if ((options.platform ?? process.platform) === "win32") {
     return {
-      state: win32.join(env.LOCALAPPDATA || win32.join(home, "AppData", "Local"), "Multi-Agent"),
-      config: win32.join(env.APPDATA || win32.join(home, "AppData", "Roaming"), "Multi-Agent"),
+      state: win32.join(env.LOCALAPPDATA || win32.join(home, "AppData", "Local"), "Loom"),
+      config: win32.join(env.APPDATA || win32.join(home, "AppData", "Roaming"), "Loom"),
     };
   }
-  const root = join(home, ".multi-agent");
+  const root = join(home, ".loom");
   return { state: root, config: root };
 }
 
-export function getMultiAgentHome(): string {
+export function getLoomHome(): string {
   return resolveDataRoots().state;
 }
 
 export function getStatePath(filename: string): string {
-  return join(getMultiAgentHome(), filename);
+  return join(getLoomHome(), filename);
 }
 
 export function getConfigPath(filename: string): string {
   return join(resolveDataRoots().config, filename);
 }
 
-export const MULTI_AGENT_HOME = getMultiAgentHome();
+export const LOOM_HOME = getLoomHome();

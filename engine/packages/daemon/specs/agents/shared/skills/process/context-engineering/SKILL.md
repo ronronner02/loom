@@ -10,7 +10,7 @@ description: >-
   serve. Historical 2024–2025 snapshot; not normative for present-day frontier models — see the
   Status section.
 metadata:
-  multi-agent:
+  loom:
     stage: provisional
 ---
 
@@ -20,11 +20,11 @@ metadata:
 
 This skill is a provisional historical research snapshot of context-engineering practice as
 published in 2024–2025. It is NOT normative. Do not apply it prescriptively to current frontier
-models without re-verification. On any conflict, Multi-Agent current skills, explicit user rulings,
-and directly measured Multi-Agent practice PREVAIL over this document. Treat these areas as
+models without re-verification. On any conflict, Loom current skills, explicit user rulings,
+and directly measured Loom practice PREVAIL over this document. Treat these areas as
 particularly suspect pending re-verification: compaction/summarization guidance, minimal-upfront
 versus broad orientation, just-in-time lookup assumptions, fixed context ceilings, and
-single-agent versus multi-agent advice.
+single-agent versus loom advice.
 
 Curated distillation of the best publicly available expertise on context engineering for coding
 agents, drawn from primary sources at Anthropic, OpenAI, and leading practitioners (Manus,
@@ -127,7 +127,7 @@ so they inform the next step rather than either vanishing or flooding the window
 full agent traces, not just individual messages" and "Actions carry implicit decisions, and
 conflicting decisions carry bad results." Two workers given the same task summary but not each
 other's traces will make incompatible implicit choices (their example: subagents building
-visually clashing pieces of the same game) (Cognition, *Don't Build Multi-Agents*). Any handoff
+visually clashing pieces of the same game) (Cognition, *Don't Build Looms*). Any handoff
 or summary that transmits conclusions without the decisions behind them is lossy in the way that
 breaks systems.
 
@@ -254,7 +254,7 @@ window (Breunig, *How to Fix Your Context*). Anthropic's research system is the 
 orchestrator spawns parallel subagents, each exploring one facet with a clean window, each
 returning a *condensed* summary — typically 1,000–2,000 tokens — to the coordinator.
 "Subagents facilitate compression by operating in parallel with their own context windows"
-(Anthropic, *Multi-agent research system*). The multi-agent system beat single-agent Claude
+(Anthropic, *Loom research system*). The loom system beat single-agent Claude
 Opus 4 by 90.2% on their internal research eval, at the price of ~15x the tokens of a chat
 (Anthropic, ibid.).
 
@@ -270,7 +270,7 @@ workers make conflicting implicit decisions and current models can't negotiate t
 "running multiple agents in collaboration only results in fragile systems" for building
 software. Their prescription is a single agent with full traces plus a compressor (Cognition,
 ibid.). OpenAI's builder guidance points the same direction: maximize a single agent's
-capability first and reach for multi-agent orchestration only when single-agent complexity
+capability first and reach for loom orchestration only when single-agent complexity
 demonstrably fails (OpenAI, *A practical guide to building agents*). See §6 for the
 reconciliation.
 
@@ -280,7 +280,7 @@ reconciliation.
 not a vibe. Anthropic's hard-won spec for what every delegated task must contain: **an
 objective, an output format, guidance on tools and sources, and clear task boundaries.**
 Without it, "agents duplicate work, leave gaps, or fail to find necessary information"
-(Anthropic, *Multi-agent research system*).
+(Anthropic, *Loom research system*).
 
 **Effort scaling belongs in the contract:** encode explicit rules — "simple fact-finding
 requires just 1 agent with 3–10 tool calls, direct comparisons might need 2–4 subagents with
@@ -366,7 +366,7 @@ Add the operational failures from production systems:
 
 5. **Context rot at scale** — silent degradation well before the window is full (Chroma).
 6. **Coordination failures** — duplicated work, gaps, 50 subagents on a trivial query,
-   conflicting implicit decisions between parallel workers (Anthropic, *Multi-agent*;
+   conflicting implicit decisions between parallel workers (Anthropic, *Loom*;
    Cognition).
 7. **Kitchen-sink sessions and correction spirals** — Claude Code's docs name the human-loop
    versions: unrelated tasks sharing one window; and repeated corrections polluting context
@@ -382,7 +382,7 @@ Add the operational failures from production systems:
 ## 5. How the best teams operate
 
 **They measure token-shaped things.** Anthropic found token usage alone explains 80% of
-performance variance in their research eval (Anthropic, *Multi-agent*); Manus optimizes
+performance variance in their research eval (Anthropic, *Loom*); Manus optimizes
 KV-cache hit rate as the top-line production metric (Manus). Elite teams instrument context —
 fill levels, cache hits, tokens per task — before theorizing.
 
@@ -392,7 +392,7 @@ critique its own failures, refine, re-run against held-out sets (Anthropic, *Wri
 tools*; *Agent Skills*). Prompts start minimal and grow only where failures demand (P8). And
 automated evals aren't sufficient: human testers caught Anthropic's agents "consistently
 choosing SEO-optimized content farms over authoritative sources" — a context-quality failure no
-programmatic eval flagged (Anthropic, *Multi-agent*).
+programmatic eval flagged (Anthropic, *Loom*).
 
 **They keep the always-loaded core tiny and push everything else behind disclosure.** Concise
 checked-in CLAUDE.md-class files for what applies every session; skills for everything
@@ -411,7 +411,7 @@ quality practices.
 
 **They match architecture to task shape.** Anthropic's own selection heuristic: compaction for
 long conversational flows; note-taking for iterative work with milestones (coding fits here);
-multi-agent for parallel-explorable research (Anthropic, *Effective context engineering*).
+loom for parallel-explorable research (Anthropic, *Effective context engineering*).
 
 ---
 
@@ -426,7 +426,7 @@ multi-agent for parallel-explorable research (Anthropic, *Effective context engi
 | Long task nearing window limit | Compaction (recall-first, then precision); or clear stale tool results | Anthropic CE / context mgmt |
 | Long task with milestones | Structured notes + todo recitation | Anthropic CE, Manus |
 | Cross-session persistence | File-based memory outside the window | Anthropic context mgmt, Manus |
-| Breadth-first research / investigation / review | Parallel subagents, condensed returns, explicit delegation contract + effort scaling | Anthropic multi-agent |
+| Breadth-first research / investigation / review | Parallel subagents, condensed returns, explicit delegation contract + effort scaling | Anthropic loom |
 | Coherent build/edit on one artifact | Single agent, full traces, compressor for length — not parallel workers | Cognition |
 | Many tools available | Loadout selection; consolidate; namespace; no overlap | Breunig, Anthropic tools |
 | Cost/latency pressure | Stable prefix + append-only + cache breakpoints; mask don't remove | Manus, Anthropic caching |
@@ -437,8 +437,8 @@ multi-agent for parallel-explorable research (Anthropic, *Effective context engi
 
 ## 7. Contested territory and thin spots (curator flags)
 
-- **Multi-agent vs. single-agent is genuinely contested.** Anthropic's 90.2% win (read-heavy
-  research) and Cognition's "don't build multi-agents" (write-heavy engineering) are both
+- **Loom vs. single-agent is genuinely contested.** Anthropic's 90.2% win (read-heavy
+  research) and Cognition's "don't build looms" (write-heavy engineering) are both
   primary, both credible, and resolve on task shape: parallelize *reads*, serialize *writes*,
   and make every boundary-crossing an engineered contract. Present both; don't flatten this
   into one rule.
@@ -460,7 +460,7 @@ multi-agent for parallel-explorable research (Anthropic, *Effective context engi
 ## Sources
 
 1. Anthropic — Effective context engineering for AI agents — https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
-2. Anthropic — How we built our multi-agent research system — https://www.anthropic.com/engineering/multi-agent-research-system
+2. Anthropic — How we built our loom research system — https://www.anthropic.com/engineering/loom-research-system
 3. Anthropic — Equipping agents for the real world with Agent Skills — https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills
 4. Anthropic — Writing effective tools for agents — https://www.anthropic.com/engineering/writing-tools-for-agents
 5. Anthropic/Claude — Managing context on the Claude Developer Platform (context editing, memory tool) — https://claude.com/blog/context-management
@@ -469,7 +469,7 @@ multi-agent for parallel-explorable research (Anthropic, *Effective context engi
 8. Chroma — Context Rot: How Increasing Input Tokens Impacts LLM Performance — https://www.trychroma.com/research/context-rot
 9. Drew Breunig — How Long Contexts Fail — https://www.dbreunig.com/2025/06/22/how-contexts-fail-and-how-to-fix-them.html
 10. Drew Breunig — How to Fix Your Context — https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html
-11. Cognition — Don't Build Multi-Agents — https://cognition.com/blog/dont-build-multi-agents
+11. Cognition — Don't Build Looms — https://cognition.com/blog/dont-build-looms
 12. Manus (Yichao "Peak" Ji) — Context Engineering for AI Agents: Lessons from Building Manus — https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
 13. LangChain — Context Engineering for Agents — https://www.langchain.com/blog/context-engineering-for-agents
 14. Philipp Schmid — The New Skill in AI is Context Engineering — https://www.philschmid.de/context-engineering

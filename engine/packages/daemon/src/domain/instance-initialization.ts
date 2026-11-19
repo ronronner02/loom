@@ -10,7 +10,7 @@ import {
   DEFAULT_SYSTEM_WORLD_RELATIVE_PATH,
 } from "./system-world.js";
 
-export interface MultiAgentInstanceInitializationOptions {
+export interface LoomInstanceInitializationOptions {
   home: string;
   configHome?: string;
   workspaceRoot?: string;
@@ -21,7 +21,7 @@ export interface MultiAgentInstanceInitializationOptions {
   fs?: InitializationFsOps;
 }
 
-export interface MultiAgentInstanceInitializationResult {
+export interface LoomInstanceInitializationResult {
   ok: boolean;
   home: string;
   createdPaths: string[];
@@ -29,17 +29,17 @@ export interface MultiAgentInstanceInitializationResult {
   dryRun: boolean;
 }
 
-export function multiAgentContextLibraryRoots(contextRoot: string): [string, string] {
+export function loomContextLibraryRoots(contextRoot: string): [string, string] {
   return [contextRoot, join(contextRoot, "system")];
 }
 
-/** Reconcile one canonical Multi-Agent instance layout. This is the shared owner
+/** Reconcile one canonical Loom instance layout. This is the shared owner
  * for CLI setup and daemon first-start. It owns empty roots and config.json;
  * S01 owns workspace contents, S04 owns skill contents, and topology owns its
  * contents. */
-export function ensureMultiAgentInstance(
-  options: MultiAgentInstanceInitializationOptions,
-): MultiAgentInstanceInitializationResult {
+export function ensureLoomInstance(
+  options: LoomInstanceInitializationOptions,
+): LoomInstanceInitializationResult {
   const fs = options.fs ?? nodeInitializationFs();
   const dryRun = options.dryRun ?? false;
   const configHome = options.configHome ?? options.home;
@@ -47,7 +47,7 @@ export function ensureMultiAgentInstance(
   const contextRoot = options.contextRoot ?? join(options.home, "context");
   const skillsRoot = options.skillsRoot ?? join(options.home, "skills");
   const topologyRoot = options.topologyRoot ?? join(options.home, "topology");
-  const [contextLibraryRoot, systemContextRoot] = multiAgentContextLibraryRoots(contextRoot);
+  const [contextLibraryRoot, systemContextRoot] = loomContextLibraryRoots(contextRoot);
   const directories = [...new Set([
     options.home,
     configHome,
@@ -110,7 +110,7 @@ export function ensureMultiAgentInstance(
 }
 
 export function formatInstanceInitializationConflicts(
-  result: Pick<MultiAgentInstanceInitializationResult, "conflicts">,
+  result: Pick<LoomInstanceInitializationResult, "conflicts">,
 ): string {
   return result.conflicts
     .map((conflict) => `${conflict.path}: expected ${conflict.expected}, found ${conflict.actual}`)

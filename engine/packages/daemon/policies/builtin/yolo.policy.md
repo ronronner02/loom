@@ -22,7 +22,7 @@ this policy; it points at that setting. The flag surface is stable enough for
 deterministic code, so it does not pay the skill-indirection tax.
 
 **Selection and native enforcement are separate.** A member policy overrides the
-multi-agent policy. A resolved config-surface selection chooses Multi-Agent's normal launch
+loom policy. A resolved config-surface selection chooses Loom's normal launch
 mode and takes precedence over ambient YOLO. Native configuration and managed
 restrictions still matter; recording a policy does not translate config rules.
 

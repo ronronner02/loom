@@ -5,7 +5,7 @@
 > `mission-slice-sop` skill all point HERE —
 > they must not restate this document in full (restatement is how drift is born).
 
-Multi-Agent is a software factory the human steers from a high altitude. The human
+Loom is a software factory the human steers from a high altitude. The human
 records intent; agents turn intent into a plan, the plan into a build, the
 build into proof. The TUI projects authored work on disk and, where an owning
 proof policy is selected, derives readiness from recorded judgments. These
@@ -242,7 +242,7 @@ Unknown is reported as unknown, not failure.
 - **Skill**: `mission-slice-sop` teaches **Part A**, the light default. **Part B**
   is defined below and applies only when assigned — never self-selected.
 - **Bootstrap**: the shipped `pm` rig culture points its seats at the skill
-  and this document; the generic `multi-agent-start.md` overlay no longer does.
+  and this document; the generic `loom-start.md` overlay no longer does.
 
 # PART B — THE RIGOROUS OVERLAY (assigned only)
 
@@ -373,13 +373,13 @@ an append-only pile where the human can't tell final from superseded.
 
 ## Scratch-daemon hermeticity: the DB a scratch daemon opens is the one you named
 
-A scratch daemon launch **strips the inherited environment's `MULTI_AGENT_DB` and names an explicit
-scratch DB path under the scratch `MULTI_AGENT_HOME`** — both halves, every launch:
+A scratch daemon launch **strips the inherited environment's `LOOM_DB` and names an explicit
+scratch DB path under the scratch `LOOM_HOME`** — both halves, every launch:
 
 ```bash
-env -u MULTI_AGENT_DB \
-  MULTI_AGENT_HOME="$SCRATCH_HOME" \
-  MULTI_AGENT_DB="$SCRATCH_HOME/multi-agent.sqlite" \
+env -u LOOM_DB \
+  LOOM_HOME="$SCRATCH_HOME" \
+  LOOM_DB="$SCRATCH_HOME/loom.sqlite" \
   node <daemon entry> …
 ```
 
@@ -387,7 +387,7 @@ An inherited fleet DB reaching a scratch daemon is a **harness defect regardless
 the scratch context read or wrote state it never owned, and whether anything visibly broke is
 luck, not hermeticity.
 
-**The discriminator that keeps this rule honest:** an explicit `MULTI_AGENT_DB` still WINS by design
+**The discriminator that keeps this rule honest:** an explicit `LOOM_DB` still WINS by design
 (`daemon-db-path.ts`) — deliberate split-path configuration remains legitimate and
 untouched. This rule governs **inheritance into scratch contexts**, where nobody
 decided anything: strip what you did not choose, then choose.

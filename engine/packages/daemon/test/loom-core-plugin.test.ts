@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const PLUGIN_ROOT = path.resolve(import.meta.dirname, "../assets/plugins/multi-agent-core");
+const PLUGIN_ROOT = path.resolve(import.meta.dirname, "../assets/plugins/loom-core");
 const EXPECTED_SKILLS = [
   "agent-operated-software",
   "agent-operated-workflows",
@@ -13,7 +13,7 @@ const EXPECTED_SKILLS = [
   "software-for-agents",
 ];
 
-describe("multi-agent-core plugin", () => {
+describe("loom-core plugin", () => {
   it("has both runtime manifests, the license, and the README", () => {
     expect(fs.existsSync(path.join(PLUGIN_ROOT, ".claude-plugin/plugin.json"))).toBe(true);
     expect(fs.existsSync(path.join(PLUGIN_ROOT, ".codex-plugin/plugin.json"))).toBe(true);

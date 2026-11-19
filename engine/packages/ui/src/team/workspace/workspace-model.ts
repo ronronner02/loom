@@ -1,4 +1,4 @@
-import type { TeamAttemptView, TeamOwnerRead, TeamReviewView, TeamSeatView } from "@multi-agent/daemon/team-control";
+import type { TeamAttemptView, TeamOwnerRead, TeamReviewView, TeamSeatView } from "@loom/daemon/team-control";
 
 /** The most recent attempt a seat ran; a seat that never ran has none. */
 export function attemptForSeat(read: TeamOwnerRead | undefined, seat: TeamSeatView): TeamAttemptView | undefined {

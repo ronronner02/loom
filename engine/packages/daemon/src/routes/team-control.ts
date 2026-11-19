@@ -43,7 +43,7 @@ export interface TeamControlOptions {
    * Land an approved task on the run's integration branch.
    *
    * The daemon's own sweep calls the same owner; this is the owner-recorded outcome path
-   * (`multi-agent team done --findings`), which approves a review without an automatic turn. Absent
+   * (`loom team done --findings`), which approves a review without an automatic turn. Absent
    * leaves the commit unlanded and the outcome recorded, exactly as .
    */
   integrateTask?: (runId: string, taskId: string) => Promise<unknown>;

@@ -26,8 +26,8 @@ nodes, and carry no chain file).
 ### The topology tree
 
 Rooted at the typed config key **`topology.root`** (resolution
-`env MULTI_AGENT_TOPOLOGY_ROOT > config file > derived default
-$MULTI_AGENT_HOME/topology`). Never hardcode the path: resolve `topology.root` from the settings on any machine. The instance altitude **is the
+`env LOOM_TOPOLOGY_ROOT > config file > derived default
+$LOOM_HOME/topology`). Never hardcode the path: resolve `topology.root` from the settings on any machine. The instance altitude **is the
 top of the root** (there is no instance directory to find; the root is the
 instance):
 
@@ -51,7 +51,7 @@ Established chain names on the topology tree:
   is two different files.
 - `CRAFT.md` — how work is done at that altitude (shipped at instance, rig and
   seat), with `ORCHESTRATION-CRAFT.md` at rig level for orchestration practice.
-- `CULTURE.md` — team norms. Note that startup delivers the multi-agent spec's own
+- `CULTURE.md` — team norms. Note that startup delivers the loom spec's own
   `culture_file` (a path beside `rig.yaml`), not a `CULTURE.md` under
   `topology.root`.
 
@@ -72,7 +72,7 @@ defaults.)
 
 ## Legacy location and the advisory
 
-Before this convention the topology tree lived at `~/.multi-agent/shared-docs/rigs/`
+Before this convention the topology tree lived at `~/.loom/shared-docs/rigs/`
 (design decision 2026-08-14: an arbitrary folder on one machine, not a product
 path). That location **stays readable** as a per-level fallback at the team and seat levels, so
 existing teams migrate instead of breaking. The refocus trace, `seat:` profile atoms and handover priming read

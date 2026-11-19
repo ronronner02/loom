@@ -1,19 +1,19 @@
 import { join } from "node:path";
 
-export function contextUsageDirectory(multiAgentHome: string): string {
-  return join(multiAgentHome, "state", "context-usage");
+export function contextUsageDirectory(loomHome: string): string {
+  return join(loomHome, "state", "context-usage");
 }
 
-export function legacyContextUsageDirectory(multiAgentHome: string): string {
-  return join(multiAgentHome, "context");
+export function legacyContextUsageDirectory(loomHome: string): string {
+  return join(loomHome, "context");
 }
 
-export function providerUsageDirectory(multiAgentHome: string): string {
-  return join(multiAgentHome, "state", "provider-usage");
+export function providerUsageDirectory(loomHome: string): string {
+  return join(loomHome, "state", "provider-usage");
 }
 
-export function legacyProviderUsageDirectory(multiAgentHome: string): string {
-  return join(multiAgentHome, "provider-usage");
+export function legacyProviderUsageDirectory(loomHome: string): string {
+  return join(loomHome, "provider-usage");
 }
 
 export function telemetrySidecarFilename(sessionName: string): string {

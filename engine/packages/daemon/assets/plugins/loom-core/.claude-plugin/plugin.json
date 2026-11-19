@@ -1,16 +1,16 @@
 {
-  "name": "multi-agent-core",
+  "name": "loom-core",
   "version": "0.1.9",
-  "description": "Native Multi-Agent team skills and worker activity hooks.",
+  "description": "Native Loom team skills and worker activity hooks.",
   "author": {
     "name": "Mike Schwarz",
     "url": "https://github.com/mvschwarz"
   },
-  "homepage": "https://github.com/mvschwarz/multi-agent-plugins",
-  "repository": "github:mvschwarz/multi-agent-plugins",
+  "homepage": "https://github.com/mvschwarz/loom-plugins",
+  "repository": "github:mvschwarz/loom-plugins",
   "license": "Apache-2.0",
   "keywords": [
-    "multi-agent",
+    "loom",
     "agent",
     "team",
     "coordination"
