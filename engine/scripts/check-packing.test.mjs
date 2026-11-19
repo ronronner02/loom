@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { npmCommand } from "./platform-commands.mjs";
@@ -80,9 +81,14 @@ test("the private product-factory VPS runbook and its pointers do not ship", () 
     `${privateRunbook} is private operator canon and must not ship in the public repo or package`,
   );
 
-  // Every public surface a reader or an agent actually reaches is scanned: the packaged
-  // component doc, the repository changelog and the plugin skill that ships it.
+  // Every public surface a reader or an agent actually reaches is scanned: the entire shipped
+  // reference set (staged into the package verbatim), the packaged component doc, the repository
+  // changelog and the plugin skill that ships it.
+  const shippedReference = readdirSync("docs/reference", { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath ?? entry.path, entry.name));
   const publicPointerSources = [
+    ...shippedReference,
     "README.md",
     "../CHANGELOG.md",
     "packages/daemon/assets/plugins/loom-core/skills/agent-operated-software/SKILL.md",
