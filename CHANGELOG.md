@@ -1,11 +1,31 @@
 # Changelog
 
-- 记录格式：`- v版本号 YYYY-MM-DD HH:MM:SS 作者: 变更摘要 [(user-visible)]`
-- 说明：
-  - `v版本号` 使用本次变更对应的发布版本
-  - 日期时间必须使用 `YYYY-MM-DD HH:MM:SS`
-  - `作者` 填写提交人或变更责任人
-  - `变更摘要` 使用中文，简明说明本次改动
-  - 用户可感知的变更在末尾追加 `(user-visible)`
+## Unreleased
 
-- v1.15.3 2026-10-13 09:42:11 leo: 使用 spec-first 初始化项目
+This entry summarizes a repository cleanup. Nothing here changes how the app runs.
+
+### Documentation
+
+- The documentation set is now `README.md`, `docs/architecture.md`, `docs/development.md`,
+  `docs/operations.md`, `docs/design.md` and this changelog. `docs/development.md` absorbs the old
+  development standards, including the UI copy rule that other documents cite.
+- `AGENTS.md` describes the current product and workspace instead of a retired plan, and `CLAUDE.md`
+  is a pointer to it.
+- The shipped reference set under `engine/docs/reference/` keeps the pages the CLI, agents and
+  studies actually read, and drops the ones that described removed subsystems.
+- Package READMEs (`engine/`, `desktop/`, `companions/loom/`) match the current product.
+
+### Repository
+
+- Historical material left the working tree and stays in git history: plans, task packs,
+  acceptance evidence, design mockups and redesign folders, release notes, the as-built pages, and
+  the retired community files under `engine/`.
+- The contract tests that read tracked plan and task documents now read their own fixtures, so the
+  checks still run but no longer depend on a historical file.
+- `.gitignore` covers the host runtime folders and the local probe artifacts a checkout tends to
+  accumulate.
+
+## v0.1.0
+
+First published release: the native Windows desktop app, the engine daemon, the Web UI, the
+`loom` CLI and the optional companion bundle.
