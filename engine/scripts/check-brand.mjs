@@ -40,8 +40,9 @@ const vendoredSkillAllowlist = new Set([
   "engine/skills/_canonical/process/verification-before-completion/SKILL.md",
   "engine/scripts/skill-edge-digests.generated.json",
 ]);
-// Files that must name an old identifier because their contract is to read it: the one-time data
-// migration and the browser preference migration.
+// Files that must name an old spelling because their contract is to read or point at it: the
+// one-time data and preference migrations, and references to historical files that keep their
+// original names.
 const migrationAllowlist = new Set([
   "engine/packages/daemon/src/migrate-data-root.ts",
   "engine/packages/daemon/test/migrate-data-root.test.ts",
@@ -60,6 +61,10 @@ const migrationAllowlist = new Set([
   // A browser-access test names a host header it must refuse.
   "engine/packages/daemon/test/browser-boundary.test.ts",
   "companions/loom/scripts/configure-local.py",
+  // These name the historical plan and task files, which keep the names they were written under.
+  "docs/design/t015-tui-design.md",
+  "engine/packages/daemon/test/role-charter.test.ts",
+  "engine/packages/daemon/test/team-assignment.test.ts",
 ]);
 
 export function scanBrand(root) {
