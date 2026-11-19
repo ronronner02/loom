@@ -11,7 +11,12 @@ import { execFileSync } from "node:child_process";
 export const specFirstCli = (() => {
   try {
     const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-    const prefix = execFileSync(npm, ["prefix", "-g"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    // Windows cannot spawn a `.cmd` without a shell; `shell: true` would then warn that the
+    // arguments are unescaped. The package manager is looked up on PATH directly instead.
+    const lookup = process.platform === "win32"
+      ? [process.env.ComSpec ?? "cmd.exe", ["/d", "/c", "npm prefix -g"]]
+      : [npm, ["prefix", "-g"]];
+    const prefix = execFileSync(lookup[0], lookup[1], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
     const entry = process.platform === "win32"
       ? `${prefix}\\node_modules\\spec-first\\bin\\spec-first.js`
       : `${prefix}/lib/node_modules/spec-first/bin/spec-first.js`;

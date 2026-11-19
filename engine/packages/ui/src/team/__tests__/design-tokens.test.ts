@@ -120,7 +120,7 @@ describe("command-center design tokens", () => {
   });
 
   it("documents every semantic color token in the shared design document", () => {
-    const document = readFileSync(resolve(team, "../../../../../docs/design/command-center/DESIGN.md"), "utf8");
+    const document = readFileSync(resolve(team, "../../../../../docs/design.md"), "utf8");
     expect(palette("dark").length).toBeGreaterThan(20);
     for (const name of palette("dark")) expect(document).toContain(`\`${name}\``);
   });

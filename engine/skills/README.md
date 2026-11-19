@@ -14,7 +14,6 @@ without spelunking through `packages/daemon/specs/`.
 | Path | Contents |
 |---|---|
 | `_canonical/` | The 17 mirrored skills, organized under `pm/`, `pods/`, and `process/`. Do not edit files here directly — see "Authoring" below. |
-| `CHANGELOG.md` | Append-only log of skill changes per curation cycle close. Hand-authored. |
 | `LICENSE` | Apache-2.0, matching the parent project. |
 
 ## What a skill is

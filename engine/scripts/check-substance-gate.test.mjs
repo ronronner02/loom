@@ -381,7 +381,7 @@ test("exact-line allowances reach content and derived scans and are recorded in 
 test("the release ceremony names the gate and its durable receipt", () => {
   const pkg = JSON.parse(readFileSync("package.json", "utf8"));
   assert.equal(pkg.scripts["gate:substance"], "node scripts/check-substance-gate.mjs");
-  const ceremony = readFileSync("docs/releases/README.md", "utf8");
+  const ceremony = readFileSync("../docs/development.md", "utf8");
   assert.match(ceremony, /substance gate/i);
   assert.match(ceremony, /gate:substance/);
   assert.match(ceremony, /receipt/i);

@@ -1,6 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -63,14 +62,19 @@ it.each(["repository", "policy", "digest", "inactive", "role", "path", "output",
 it.each(["lead", "reviewer"] as const)("%s never acquires assigned-tree writes", async role => { const input = fixture(); input.assignment.role = role; input.context = { ...input.context, role, client: "codex" }; await expect(prepareTeamAssignment(input)).rejects.toThrow("Role permission denied"); });
 it.each(["valid", "stale", "invalid", "task", "changed"])("honors upstream task-pack validation: %s", async kind => { const input = fixture(); writeFileSync(join(input.binding.repository.root, "tasks.md"), "task pack"); const validate = vi.fn(async () => { const r = receipt(input); if (kind === "stale") r.validation.source_plan_hash = "mismatch"; if (kind === "invalid") r.task_pack_validity = "invalid"; if (kind === "task") r.task_pack.contract.tasks[0]!.files = ["other"]; if (kind === "changed") writeFileSync(join(input.binding.repository.root, "tasks.md"), "changed"); return r; }); input.taskPack = { path: "tasks.md", targetRepository: "fixture", validate }; if (kind === "valid") expect((await prepareTeamAssignment(input)).taskPackDigest).toBe(hashBytes("task pack")); else await expect(prepareTeamAssignment(input)).rejects.toThrow(); expect(validate).toHaveBeenCalledOnce(); });
 it.skipIf(specFirstCli === null)("accepts the actual upstream validator receipt for a real task pack", async () => {
-  // The real validator is a developer-installed CLI the engine does not depend on.
+  // The real validator is a developer-installed CLI the engine does not depend on. The pack it
+  // reads is this suite's own fixture: a single-unit plan and the one task derived from it, so the
+  // case keeps driving a genuine receipt without depending on a repository document.
   const SPEC_FIRST_CLI = specFirstCli!;
-  const repo = resolve(fileURLToPath(new URL("../../../..", import.meta.url))), planRef = "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md", path = "docs/tasks/2026-10-13-001-feat-multi-agent-team-tasks.md";
-  const root = mkdtempSync(join(tmpdir(), "assignment-pack-")); roots.push(root); mkdirSync(join(root, "docs/plans"), { recursive: true }); mkdirSync(join(root, "docs/tasks"), { recursive: true });
-  const planText = readFileSync(join(repo, planRef), "utf8").replace(/^status: partially-shipped$/m, "status: active");
+  const fixtures = fileURLToPath(new URL("./fixtures/task-pack", import.meta.url));
+  const planRef = "docs/plans/fixture-plan.md", path = "docs/tasks/fixture-tasks.md";
+  const planText = readFileSync(join(fixtures, planRef), "utf8");
+  // The validator resolves both paths under the --repo root, so the fixture is copied into a
+  // scratch root that mirrors the fixture's own layout before the real CLI reads it.
+  const root = mkdtempSync(join(tmpdir(), "assignment-pack-")); roots.push(root);
+  mkdirSync(join(root, "docs/plans"), { recursive: true }); mkdirSync(join(root, "docs/tasks"), { recursive: true });
   writeFileSync(join(root, planRef), planText);
-  const planLines = planText.split("\n"), body = planLines.slice(planLines.findIndex((line, i) => i > 0 && line === "---") + 1).join("\n");
-  writeFileSync(join(root, path), readFileSync(join(repo, path), "utf8").replace(/^source_plan_hash: .*$/m, `source_plan_hash: sha256:${createHash("sha256").update(body, "utf8").digest("hex")}`));
+  writeFileSync(join(root, path), readFileSync(join(fixtures, path), "utf8"));
   const input = fixture();
   input.binding.planRef = planRef;
   input.binding.planDigest = hashBytes(planText);
@@ -78,10 +82,10 @@ it.skipIf(specFirstCli === null)("accepts the actual upstream validator receipt 
   input.binding.writePaths = ["engine/packages/daemon/src/domain/team-assignment.ts"];
   input.currentBinding = structuredClone(input.binding);
   input.assignment.paths = [...input.binding.writePaths];
-  input.assignment.dependencies = ["T006"];
+  input.assignment.dependencies = [];
   input.outputs = [...input.assignment.paths];
   input.dependencySatisfied = () => true;
-  input.taskPack = { path, targetRepository: "ronronner02/loom", validate: async (pack, testRoot) =>
+  input.taskPack = { path, targetRepository: "loom/loom", validate: async (pack, testRoot) =>
     JSON.parse(execFileSync(process.execPath, [SPEC_FIRST_CLI, "tasks", "validate", pack, "--repo", testRoot, "--json"], { cwd: testRoot, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" })) };
   input.context = { ...input.context, assignment: input.assignment, outputs: input.outputs };
   expect((await prepareTeamAssignment(input)).taskPackDigest).toBe(hashBytes(readFileSync(resolve(root, path))));
