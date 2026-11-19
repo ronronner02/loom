@@ -10,7 +10,15 @@
       (function () {
         var choice = "light";
         try {
-          var stored = localStorage.getItem("loom.teamTheme");
+          // A browser from before the rename keeps the preference under the old key; the
+          // application moves it, and this first paint must not flash the wrong palette.
+          var key = "loom.teamTheme", previous = "multi-agent.teamTheme";
+          var stored = localStorage.getItem(key);
+          if (stored === null && localStorage.getItem(previous) !== null) {
+            stored = localStorage.getItem(previous);
+            localStorage.setItem(key, stored);
+            localStorage.removeItem(previous);
+          }
           if (stored === "light" || stored === "dark" || stored === "system") choice = stored;
         } catch (e) {
           /* An unavailable preference store uses the command-center default. */

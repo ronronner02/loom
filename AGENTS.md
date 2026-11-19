@@ -37,7 +37,7 @@ These rules apply to every agent working in this repository. The owner reset the
 - **On the owner's machine:**
   - OS-neutral units work in worktrees of WSL `/home/leo/src/loom` under `/home/leo/scratch/<unit>/`. Units that need Windows verification work in worktrees of the Windows clone `D:\ma\repo` under `D:\ma\<unit>`; keep the path short because of Git's worktree length limit. Never edit `D:\Loom`, which is a read-only mirror.
   - The C: drive is nearly full: create nothing on it. Point `TEMP`, `TMP` and `npm_config_cache` at `D:\ma\tmp` and `D:\ma\npm-cache` in every Windows command, and put temp homes, Electron user data and fixtures under `D:\ma\tmp`.
-  - Node is at `/opt/loom/toolchain/node/bin`.
+  - Node and npm come from PATH.
   - Scratch goes under `/home/leo/scratch/<task-id>/`.
   - From Windows, run scripts with `wsl.exe -e bash <file>`, never `wsl.exe -- bash -c '…'`: its outer shell expands `$VAR` to an empty string.
 

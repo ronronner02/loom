@@ -31,14 +31,11 @@ Local implementation, review, commit, push, PR creation and merge are separate a
 
 | Tool | Version | Source |
 | --- | --- | --- |
-| Node.js / npm | v24.21.0 / 11.19.0 | `/opt/loom/toolchain/node` (checksum-pinned; see `docs/operations.md`) |
+| Node.js / npm | v24.21.0 / 11.19.0 | on PATH |
 | C/C++ build | gcc/g++ 15.2.0, GNU Make 4.4.1, python3 | `apt install build-essential` (node-gyp for `better-sqlite3`) |
 | SQLite (bundled by `better-sqlite3` 13.0.3) | 3.53.4, Node ABI 137 | `engine/node_modules` |
 | Git | Linux git; credentials through Git Credential Manager for Windows (repo-local `credential.helper`) | |
 
-```bash
-export PATH=/opt/loom/toolchain/node/bin:$PATH
-```
 
 ## Engine Commands
 

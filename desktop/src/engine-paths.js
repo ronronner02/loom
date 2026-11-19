@@ -35,4 +35,9 @@ function daemonEntry() {
   return path.join(engineRoot(), DAEMON_ENTRY_PATH);
 }
 
-module.exports = { engineRoot, daemonEntry };
+/** The engine module that moves a carried-over installation's data root. */
+function dataRootMigration() {
+  return require(path.join(engineRoot(), 'packages', 'daemon', 'dist', 'migrate-data-root.js'));
+}
+
+module.exports = { engineRoot, daemonEntry, dataRootMigration };

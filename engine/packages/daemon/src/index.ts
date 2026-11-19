@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { closeHttpServer, createDaemonShutdown, DAEMON_SHUTDOWN_RECEIPT, trackHttpServerResponses } from "./daemon-shutdown.js";
-import { LOOM_HOME, resolveDataRoots } from "./data-paths.js";
+import { getLoomHome, resolveDataRoots, migrateDataRootsOnce } from "./data-paths.js";
 import { resolveDaemonDbPath } from "./daemon-db-path.js";
 import { createDaemon } from "./startup.js";
 import { resolveClientDependencies } from "./domain/executable-resolver.js";
@@ -126,12 +126,16 @@ export async function startServer(port?: number) {
   if (!Number.isInteger(p) || p < 0 || p > 65_535) {
     throw new Error(`LOOM_PORT must be an integer in [0, 65535], got "${process.env.LOOM_PORT ?? p}"`);
   }
+  // An installation carried over from the former data root is moved into Loom's own before the
+  // resolver's eager constants are read below, so every derived path and the database name are
+  // the new ones. An explicit LOOM_HOME names a root the caller owns and no migration touches it.
+  migrateDataRootsOnce();
   // D15 — anchor the default db under LOOM_HOME, never a bare CWD-relative
   // filename (which could open the shared fleet db). Explicit LOOM_DB wins.
-  const dbPath = resolveDaemonDbPath(process.env.LOOM_DB, LOOM_HOME);
+  const dbPath = resolveDaemonDbPath(process.env.LOOM_DB, getLoomHome());
   const instanceConfig = new SettingsStore().resolveConfig();
   const initialization = ensureLoomInstance({
-    home: LOOM_HOME,
+    home: getLoomHome(),
     configHome: resolveDataRoots().config,
     workspaceRoot: instanceConfig.workspaceRoot,
     contextRoot: instanceConfig.contextRoot,
@@ -254,7 +258,7 @@ export async function startServer(port?: number) {
     }],
   ];
   const shutdown = createDaemonShutdown({
-    receiptPath: path.join(LOOM_HOME, DAEMON_SHUTDOWN_RECEIPT),
+    receiptPath: path.join(getLoomHome(), DAEMON_SHUTDOWN_RECEIPT),
     phases: shutdownPhases,
     // A service failure, open connection, or lost recorder drain is never clean.
     markClean: () => deps.daemonLifecycleStore.recordStop(deps.daemonBootEpoch, new Date().toISOString()),

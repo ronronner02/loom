@@ -22,7 +22,7 @@ import { isNetworkProxy } from "../network-proxy.js";
 
 const DEFAULT_CONFIG_PATH = getConfigPath("config.json");
 
-const DEFAULT_WORKSPACE_ROOT = path.join(
+const DEFAULT_WORKSPACE_ROOT = () => path.join(
   getLoomHome(),
   "workspace",
 );
@@ -30,18 +30,18 @@ const DEFAULT_WORKSPACE_ROOT = path.join(
 // OPR.0.5.3.6 D1/D2 — the topology tree's derived default. The instance
 // altitude is the TOP of this root: <root>/<CHAIN>.md, then
 // <root>/rigs/<rig>/<CHAIN>.md, then <root>/rigs/<rig>/seats/<seat>/<CHAIN>.md.
-const DEFAULT_TOPOLOGY_ROOT = path.join(
+const DEFAULT_TOPOLOGY_ROOT = () => path.join(
   getLoomHome(),
   "topology",
 );
 
 // OPR.0.5.9.5 Wave B — canonical addressable context library.
-const DEFAULT_CONTEXT_ROOT = path.join(
+const DEFAULT_CONTEXT_ROOT = () => path.join(
   getLoomHome(),
   "context",
 );
 
-const DEFAULT_SKILLS_ROOT = path.join(
+const DEFAULT_SKILLS_ROOT = () => path.join(
   getLoomHome(),
   "skills",
 );
@@ -544,12 +544,12 @@ function getDefaultValue(key: SettingsValidKey, workspaceRoot: string): string |
     case "host.selected": return "local";
     // OPR.0.4.6.MH1 FR-4 — the own-host display-name default (PRD-named).
     case "host.name": return "localhost";
-    case "workspace.root": return DEFAULT_WORKSPACE_ROOT;
+    case "workspace.root": return DEFAULT_WORKSPACE_ROOT();
     // OPR.0.5.3.6 D1 — derived under $LOOM_HOME, never a shared-docs literal.
-    case "topology.root": return DEFAULT_TOPOLOGY_ROOT;
-    case "context.root": return DEFAULT_CONTEXT_ROOT;
+    case "topology.root": return DEFAULT_TOPOLOGY_ROOT();
+    case "context.root": return DEFAULT_CONTEXT_ROOT();
     case "context.system_world": return "default";
-    case "skills.root": return DEFAULT_SKILLS_ROOT;
+    case "skills.root": return DEFAULT_SKILLS_ROOT();
     case "onboarding.default_pack.enabled": return true;
     case "launch.non_interruptive": return false;
     case "health.context_pressure.warning_percent": return 95;
@@ -1179,7 +1179,7 @@ export class SettingsStore {
     if (envVal) return envVal;
     const fileVal = getNestedValue(fileConfig, KEY_TO_PATH["workspace.root"]) as string | undefined;
     if (fileVal) return fileVal;
-    return DEFAULT_WORKSPACE_ROOT;
+    return DEFAULT_WORKSPACE_ROOT();
   }
 
   private readConfigFile(): Record<string, unknown> {

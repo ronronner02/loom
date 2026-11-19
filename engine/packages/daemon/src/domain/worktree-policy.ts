@@ -59,6 +59,8 @@ export const WORKTREE_ADMIN_CEILING = process.platform === "win32" ? 249 : null;
 export function defaultWorktreeRoot(environment: NodeJS.ProcessEnv = process.env): string {
   const configured = environment.LOOM_WORKTREE_ROOT?.trim();
   if (configured) return resolve(configured);
+  // The state root must be read now, not at import: the daemon resolves it after the carried-over
+  // data folder has been moved, and a root captured earlier names the folder that no longer exists.
   return join(resolveDataRoots({ env: environment, platform: isWindows() ? "win32" : "linux" }).state, "wt");
 }
 

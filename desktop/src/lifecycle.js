@@ -28,15 +28,17 @@ const { dependencyRows } = require('./dependencies.js');
  * @param {object} opts
  * @param {(patch: object) => void} opts.publish – send a status patch to the window
  * @param {object} opts.bridge – `engine-bridge.js`
- * @param {string} opts.dataDirRoot – the app's data root; the engine's own state sits in `engine/`
+ * @param {() => string} opts.dataDirRoot – the app's data root; the engine's own state sits in `engine/`
  * @param {string} opts.daemonEntry – the daemon module to fork
+ * @param {() => {dataRoot: string, outcome: string, error: Error|null}} opts.migrateInstallation – move a carried-over installation before the engine starts
+ * @param {(root: string) => void} opts.updateDataDirRoot – adopt the root the migration settled on
  * @param {(lifecycle: object) => Promise<boolean>} opts.connect – health-check, pair and load the UI
  * @param {(lifecycle: object) => void} opts.showFirstRunPage – replace an orphaned engine page
  * @param {() => Promise<number|undefined>} opts.countRunningAttempts – the quit probe
  * @param {() => object|null} opts.getWindow – the window a dialog should parent to, if any
  */
 function createLifecycleModule(opts) {
-  const { publish, bridge, dataDirRoot, daemonEntry, connect, showFirstRunPage, countRunningAttempts, getWindow } = opts;
+  const { publish, bridge, dataDirRoot, migrateInstallation, updateDataDirRoot, daemonEntry, connect, showFirstRunPage, countRunningAttempts, getWindow } = opts;
 
   /** The one engine lifecycle variable. Everything below transitions it or reads it. */
   let phase = 'stopped';
@@ -93,7 +95,17 @@ function createLifecycleModule(opts) {
   }
 
   async function runStart() {
-    const dataDir = path.join(dataDirRoot, 'engine');
+    const migration = migrateInstallation?.();
+    if (migration?.error) {
+      // A half-moved installation is never started against; the error names both paths.
+      publishFailed(migration.error);
+      return;
+    }
+    if (migration?.outcome === 'moved') {
+      updateDataDirRoot?.(migration.dataRoot);
+      console.log(`[desktop] data folder moved to ${migration.dataRoot}`);
+    }
+    const dataDir = path.join(dataDirRoot(), 'engine');
     fs.mkdirSync(dataDir, { recursive: true });
 
     let started;

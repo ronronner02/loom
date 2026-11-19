@@ -32,8 +32,7 @@ _ma_node_dir() {
       2>/dev/null | sort -rV) \
       "${VOLTA_HOME:-$HOME/.volta}/bin" \
       "$HOME/.local/bin" \
-      /usr/local/bin \
-      /opt/loom/toolchain/node/bin; do
+      /usr/local/bin; do
     _ma_node_ok "$dir" && { printf '%s' "$dir"; return 0; }
   done
   return 1
