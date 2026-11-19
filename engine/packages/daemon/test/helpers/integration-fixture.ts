@@ -9,7 +9,7 @@
 import type Database from "better-sqlite3";
 import { expect, vi } from "vitest";
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDb } from "../../src/db/connection.js";
@@ -34,8 +34,23 @@ export const unusedUsage = { activeMs: 0, inputTokens: { value: null, reason: "u
 export const git = (cwd: string, ...args: string[]): string =>
   execFileSync("git", ["-C", cwd, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
-export function repository(parent: string): string {
-  const root = realpathSync(mkdtempSync(join(parent, "owner-")));
+/**
+ * One owner repository, built by git once per worker and copied per case.
+ *
+ * Every case used to build this with six git processes of its own. On a Windows runner a git
+ * process costs tens of milliseconds, and the suite runs every case in the order they are written,
+ * so those processes also kept the worker's loop busy in long unbroken stretches — the shape that
+ * makes a slow worker miss vitest's reporting deadline. A template built once and copied
+ * (`cpSync`, which copies a directory tree in one pass) leaves each case with the copies and the
+ * commits it actually asserts on.
+ *
+ * The copy is a repository, not a linked worktree: it carries its own `.git` directory, so a case
+ * that adds commits, branches and worktrees behaves exactly as it did over a fresh `git init`.
+ */
+let ownerTemplate: string | null = null;
+function ownerTemplateRepository(): string {
+  if (ownerTemplate !== null) return ownerTemplate;
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "u7-owner-template-")));
   git(root, "init", "--quiet", "--initial-branch=main");
   git(root, "config", "core.autocrlf", "false");
   git(root, "config", "user.email", "test@example.invalid");
@@ -44,6 +59,13 @@ export function repository(parent: string): string {
   writeFileSync(join(root, "src", "base.ts"), "export const base = 1;\n");
   git(root, "add", ".");
   git(root, "commit", "--quiet", "-m", "base");
+  ownerTemplate = root;
+  return root;
+}
+
+export function repository(parent: string): string {
+  const root = realpathSync(mkdtempSync(join(parent, "owner-")));
+  cpSync(ownerTemplateRepository(), root, { recursive: true });
   return root;
 }
 
