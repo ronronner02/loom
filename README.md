@@ -2,167 +2,135 @@
   <img src="engine/packages/ui/public/loom-icon.png" alt="Loom" width="88" height="88" />
   <h1>Loom</h1>
   <p>
-    <strong>Chat-first loom orchestration for coding teams — with traceable tasks, independent reviews, and verifiable execution evidence.</strong>
+    <strong>A local-first desktop app that runs a team of coding agents on your repository.</strong>
   </p>
   <p>
-    <a href="#installation">Installation</a> •
-    <a href="#features">Features</a> •
-    <a href="#architecture">Architecture</a> •
-    <a href="#development">Development</a> •
-    <a href="#operations">Operations</a>
+    <a href="#install">Install</a> •
+    <a href="#first-run">First run</a> •
+    <a href="#using-loom">Using Loom</a> •
+    <a href="#the-optional-companion">Companion</a> •
+    <a href="#development">Development</a>
   </p>
 </div>
 
 ---
 
-## Overview
+## What Loom is
 
-**Loom** is a local-first desktop and web command center for coordinating native coding assistants (**Claude Code** and **Codex**) on real repositories. Create or register a GitHub-backed project from a local folder, agree on a plan and specialist roster with the Lead agent in chat, monitor live task execution and diffs, and review or merge delivered pull requests into your branch.
+Loom coordinates the coding assistants you already use — **Claude Code**, **Codex** and
+**Gemini** — on a real repository. You describe a goal in chat, agree on a plan and a team with a
+**lead** agent, approve it once, and Loom turns the plan into tasks that specialist agents pick
+up in their own worktrees. Every task's candidate is reviewed independently before it lands on an
+integration branch, and you merge that branch when you are ready.
 
-The orchestration engine lives in `engine/` and runs natively as a supervised child process inside the Windows desktop app (`desktop/`), or standalone on Linux/macOS.
+It runs as a native Windows desktop app, with the engine as its own child process. There is no
+separate server to run, no terminal to keep open, and no account beyond the ones your assistants
+already use.
 
----
+## Install
 
-## Features
+1. Download **`Loom-Setup-<version>-x64.exe`** from the
+   [GitHub releases page](https://github.com/ronronner02/loom/releases).
+2. Run the per-user installer. It needs no administrator elevation and installs for the current
+   user only.
+3. Ensure **Git for Windows** and **Node.js 22 or 24** are installed, and sign in locally to the
+   assistants you plan to use (`claude`, `codex`, `gemini`). Loom launches the real executables
+   that are already on your machine.
+4. Launch **Loom**. The optional GitHub CLI is bundled, so GitHub sign-in needs no separate
+   install.
 
-- **Chat-First Command Center**: Centered conversation stream with inline plan approval, decision prompts, and workflow outcomes, paired with a slim `64px` navigation rail (`Chat`, `Overview`, `Tasks`, `Workspace`, `Documents`) and an on-demand `320px` status & context panel.
-- **Native Windows Desktop & Bundled Runtime**: Runs the Node.js engine natively on Windows 10/11 x64 with a bundled `gh.exe` CLI and per-user NSIS installer—no WSL2 or `tmux` required.
-- **Owner & Dedicated Agent GitHub Accounts**: Authenticate your personal GitHub account via device flow and optionally configure a dedicated agent GitHub account for automated PR delivery, issue intake, and review routing.
-- **Traceable Tasks, Flow & Reviews**: Searchable task list and dependency-stage board, live tool-call workspace, execution flow replay, unified diffs, and independent read-only review gates.
-- **Configurable Agent Governance**: Customize model policies (`claude-code` / `codex`), specialist `SOUL` profiles, prompt sections (`Communication`, `Scope`, `Delivery`), and GitHub Issue auto-intake rules in **Settings → Agents**.
-- **Light & Dark Themes**: Warm neutral light canvas (`#FAF8F5`) by default with full dark theme (`#171615`) and system-following support, plus English and Simplified Chinese (`zh-CN`) localization.
+The installer is unsigned, so Windows may show a SmartScreen warning on first run. Verify the
+release source and published checksum before running an installer.
 
----
+**Where data lives.** Application state is in `%LOCALAPPDATA%\Loom` (SQLite database
+`loom.sqlite`), configuration in `%APPDATA%\Loom`. `LOOM_HOME` overrides both, and
+`LOOM_DESKTOP_DATA_DIR` overrides the desktop's root. See
+[`docs/operations.md`](docs/operations.md) for the full layout.
 
-## Installation
+## First run
 
-### Windows Desktop (Recommended)
+The setup screen appears before the GitHub gate, because a network that blocks GitHub also
+blocks sign-in, and the proxy that fixes it lives here.
 
-1. Download **`Loom-Setup-0.1.1-x64.exe`** from the [GitHub Releases](../../releases) page.
-2. Run the per-user installer (no administrator elevation required).
-3. Ensure **Git for Windows** and **Node.js 22 or 24** are installed, and sign in locally to **Claude Code** (`claude`) and/or **Codex** (`codex`) for the assistants you plan to use.
-4. Launch **Loom** and complete the GitHub device sign-in when prompted.
+- **Tools** — Git, GitHub CLI, Claude Code, Codex and Gemini each show as found (with the
+  resolved path) or missing (with the one install line that fixes it).
+- **Agent sign-in** — whether an installed client already has a signed-in account.
+- **Proxy** — one value that covers GitHub operations and every agent CLI; empty means no proxy.
 
-> **Data & State Locations (Windows)**
-> - Application state: `%LOCALAPPDATA%\Loom` (SQLite database: `loom.sqlite`)
-> - Configuration: `%APPDATA%\Loom`
-> - Overrides: `LOOM_HOME` (engine root), `LOOM_DESKTOP_DATA_DIR` (desktop root)
+Then choose **Sign in to GitHub**, approve the one-time code, and create your first project:
+select a folder, review the files that would be uploaded, and confirm. A new folder becomes a
+private GitHub repository with its initial commit pushed. An existing `origin` is registered
+without a push or a visibility change.
 
-### Optional self-hosted companion
+## Using Loom
 
-The separate **`Loom-Companion-0.1.1.zip`** source bundle provides a server scheduler, a dedicated local runner, and mobile reply pages. It is optional: installing or starting the desktop does not connect to a companion or configure a server.
+1. **Chat with the lead.** Describe the goal, or choose **New work** for another run in the same
+   project. The lead drafts a plan, asks questions, and proposes the specialist roster.
+2. **Approve once.** **Approve plan** binds the plan's exact contents and the roster. After that,
+   the lead admits tasks and agents work without asking you about each one.
+3. **Watch the work.** **Overview** shows progress, integration history, the Flow replay, Merge
+   and token analytics. **Tasks** has a searchable list, the dependency Board, and every attempt
+   with its reports and diff. **Workspace** shows live seat activity, the project Inbox (GitHub
+   Issues) and Reviews & Diffs. **Documents** holds the versioned Exploration, Requirements and
+   Plan.
+4. **Answer escalations.** The lead asks in chat when a decision is outside the approved scope.
+   A blocked run offers **Resume**; a budget block shows the increase before you confirm it.
+5. **Merge.** Inspect the task diffs and the integration commits, then **Merge**. This updates
+   your clean, currently checked-out local branch; it does not push.
 
-Each operator supplies their own HTTPS host, credentials, and notification channel. No personal server configuration or account pairing is distributed. The companion's tasks are currently independent of desktop teams; automatic desktop-to-phone synchronization is not included in this release. See the [companion setup](companions/loom/README.md) and [integration boundary](companions/loom/INTEGRATION.md).
+Workers are direct child processes with one Git worktree per task. That separates tasks; it is
+not an operating-system sandbox, and [`docs/operations.md`](docs/operations.md) says exactly what
+is and is not enforced. An API is available for scripts and diagnostics through the `loom`
+executable (`team`, `daemon`, `github`), but the desktop window is the primary surface.
 
----
+## The optional companion
 
-## Quick Start (From Source)
+`Loom-Companion-<version>.zip` is a separate, self-hosted bundle: a task scheduler, a Windows
+runner and phone reply pages. It is optional. Installing or starting the desktop does not connect
+to a companion or configure a server, and the two do not currently share tasks.
 
-### Prerequisites
+Each user supplies their own HTTPS host, credentials and notification channel. See
+[the companion README](companions/loom/README.md) and
+[its integration boundary](companions/loom/INTEGRATION.md).
 
-- **Windows 10/11 x64** (or Linux)
-- **Node.js 22 or 24** & **npm**
-- **Git** on `PATH`
-- **Claude Code** (`claude`) and/or **Codex** (`codex`) signed in locally
+## Development
 
-### Build & Run Desktop
+Prerequisites: Windows 10/11 x64 (or Linux), Node.js 22 or 24, Git, and at least one signed-in
+assistant for a live run.
 
 ```powershell
 cd engine
-npm ci --no-audit --no-fund
+npm ci --ignore-scripts --no-audit --no-fund
 npm run build
 
 cd ../desktop
-npm ci --no-audit --no-fund
+npm ci --ignore-scripts --no-audit --no-fund
 npm start
 ```
 
-The desktop host spawns the local engine on an ephemeral loopback port, pairs the window automatically via an `HttpOnly` session cookie + CSRF token, and verifies local dependencies on startup. See [desktop/README.md](desktop/README.md) for packaging details.
+The desktop starts the engine on an ephemeral loopback port, pairs the window through a one-time
+code over a private channel, and loads the daemon's own UI.
 
-### Build & Run Engine on Linux
-
-```bash
-./setup.sh
-./scripts/start.sh
-```
-
-After `./setup.sh` completes, use `engine/node_modules/.bin/loom --help` for CLI commands.
-
----
-
-## Usage Workflow
-
-### 1. Sign In & Create a Project
-1. Open **Loom** and choose **Sign in to GitHub → Open GitHub** to authorize via device code.
-2. Click **Create project** (or **Open existing**), pick a local folder, and review the resolved files and exclusions.
-3. For a new folder, Loom initializes Git, adds a default `.gitignore` if missing, creates the initial commit, provisions a **private** GitHub repository, and pushes `origin`.
-
-### 2. Plan & Deliver
-1. Describe your goal in **Chat** (or click **New work**).
-2. Collaborate with the Lead agent as it drafts the plan and proposes specialist seats.
-3. Click **Approve plan** to grant scoped execution and dispatch worker turns.
-
-### 3. Monitor, Review & Merge
-- **Overview**: Run summary, system health, live **Flow** replay, PR merge controls, and 7/30-day native token **Usage & Analytics**.
-- **Tasks**: Searchable task workbench with attempt history, worker reports, owner comments, hold/resume controls, and dependency **Board**.
-- **Workspace**: Live agent seats and tool activity, Project **Inbox** (GitHub Issues), and **Reviews & Diffs**.
-- **Documents**: Versioned Exploration, Requirements, and Plan documents with side-by-side comparison.
-
-### CLI Equivalent
-
-```bash
-loom github status
-loom team create /absolute/path/to/project --name project-name --dry-run
-loom team create /absolute/path/to/project --name project-name
-loom team start "Describe the change you want" --planning --rig <team-name>
-loom team chat <run-id>
-loom team chat <run-id> "Your answers and requested changes"
-loom team approve-plan <run-id>
-loom team resume <run-id>
-loom team merge <run-id>
-```
-
----
-
-## Architecture
-
-| Directory | Description |
+| Task | Command |
 | --- | --- |
-| `engine/packages/daemon` | Hono HTTP/SSE control plane, SQLite state store, worker supervisor, Git/GitHub CLI integration |
-| `engine/packages/ui` | React + TanStack Router + TanStack Query + Lucide command-center web UI |
-| `engine/packages/cli` | `loom` CLI entrypoint and browser pairing command |
-| `engine/packages/i18n` | English (`en`) and Simplified Chinese (`zh-CN`) translation catalogs |
-| `desktop/` | Electron desktop wrapper, native folder picker, dependency probe, and Windows NSIS packager |
-| `companions/loom/` | Optional self-hosted scheduler, separate local runner, and mobile reply forms; not part of desktop startup |
-| `docs/` | Architecture, [design system](docs/design/command-center/DESIGN.md), [operations guide](docs/operations.md), and validation records |
+| Repository guards | `cd engine && npm run test:repo` |
+| Typecheck | `cd engine && npm run lint` |
+| Focused suite | `cd engine && npm run smoke` |
+| Desktop tests | `cd desktop && npm test` |
+| Windows installer | `cd desktop && npm run dist` |
 
----
+[`docs/development.md`](docs/development.md) has the test matrix, the CI jobs, the Windows
+specifics, the code standards and the release ceremony.
 
-## Development & Testing
+## Documentation
 
-```bash
-# Build all engine packages
-cd engine && npm run build
-
-# Run UI unit & router integration tests
-cd engine/packages/ui && npx vitest run src/team/__tests__
-
-# Run desktop unit & packaging tests
-cd desktop && npm test
-
-# Build Windows NSIS installer (outputs to desktop/dist/)
-cd desktop && npm run dist
-```
-
----
-
-## Operations & Documentation
-
-- [Operations Guide](docs/operations.md) — GitHub sign-in, project creation, recovery, workflows, and budget controls
-- [Design System](docs/design/command-center/DESIGN.md) — Color tokens, typography, spacing, layout, and accessibility rules
-- [Desktop Packaging](desktop/README.md) — Engine staging, bundled `gh.exe` verification, and NSIS build configuration
-- [Validation Records](docs/validation/2026-11-07-command-center/acceptance.json) — Acceptance evidence and runtime verification
+- [Architecture](docs/architecture.md) — processes, packages, storage, the run lifecycle and the
+  security boundaries that exist
+- [Development](docs/development.md) — build, test, standards, release
+- [Operations](docs/operations.md) — data, first run, projects, delivery, recovery, the companion
+- [Design system](docs/design.md) — tokens, type, spacing, layout
+- [Agent execution rules](AGENTS.md) — how agents work in this repository
 
 ## License
 
-See [LICENSE](engine/LICENSE) and [NOTICE](NOTICE) for license and third-party attribution details.
+See [LICENSE](engine/LICENSE) and [NOTICE](NOTICE).
