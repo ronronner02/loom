@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { execFileSync } from "node:child_process";
 import {
-  cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync,
+  cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -131,14 +131,17 @@ describe("migrateDataRoot — every branch of the one-time move", () => {
     } finally { cleanup(); }
   });
 
-  it("moves the Windows state and configuration roots together", () => {
-    const { local, roaming, home, cleanup } = layout();
+  it("moves state and configuration roots a host keeps in two places", () => {
+    const { local, roaming, cleanup } = layout();
     try {
       seedInstallation(join(local, "Multi-Agent"));
       mkdirSync(join(roaming, "Multi-Agent"), { recursive: true });
       writeFileSync(join(roaming, "Multi-Agent", "config.json"), '{"kept":true}\n');
-      const env = { LOCALAPPDATA: local, APPDATA: roaming };
-      const result = migrateDataRootsOnce({ platform: "win32", env, home, log: () => {} });
+      // Windows keeps these apart, and the two roots move together. A Windows platform asked
+      // from a POSIX runner resolves backslash paths that nothing here can open, so the case
+      // drives the pair directly; the roots it moves are the real ones this host can see.
+      const result = migrateDataRoot({ dataRoot: join(local, "Loom"), legacyRoot: join(local, "Multi-Agent"),
+        extraPairs: [{ dataRoot: join(roaming, "Loom"), legacyRoot: join(roaming, "Multi-Agent") }], log: () => {} });
       expect(result.outcome).toBe("moved");
       expect(readFileSync(join(local, "Loom", "engine", DB_FILENAME)).length).toBeGreaterThan(0);
       expect(readFileSync(join(roaming, "Loom", "config.json"), "utf8")).toBe('{"kept":true}\n');
@@ -296,16 +299,24 @@ describe("repointWorktreeLinks — a worktree whose repository moved", () => {
       cpSync(legacyRoot, dataRoot, { recursive: true });
       rmSync(legacyRoot, { recursive: true, force: true });
       const newWorktree = join(dataRoot, "engine", "wt", "run-1");
-      const posix = (value: string) => value.split("\\").join("/");
-      expect(gitRead(join(newWorktree, ".git"))).toContain(posix(join(legacyRoot, "projects", "moved")));
+      // A runner whose TEMP is an 8.3 short path spells the same directory two ways. Where both
+      // sides exist the comparison asks the OS, so a spelling cannot decide it.
+      const canonical = (value: string) => realpathSync.native(value).split("\\").join("/").toLowerCase();
+      const pointerOf = (worktree: string) => gitRead(join(worktree, ".git")).replace(/^gitdir:\s*/, "").trim();
+      // Before the move the pointer named an admin entry inside the old root, which the move has
+      // just removed; only the entry's own tail is left to check.
+      expect(pointerOf(newWorktree).split("\\").join("/").toLowerCase())
+        .toContain("/projects/moved/.git/worktrees/run-1");
 
       const repointed = repointWorktreeLinks(dataRoot, legacyRoot, dataRoot);
       expect(repointed).toBeGreaterThanOrEqual(1);
-      // Git can enter the moved worktree again, which it cannot while either link is stale.
+      // The pointer now names the admin entry under the moved repository, and git enters the
+      // worktree again — which it cannot while either link is stale.
+      expect(canonical(pointerOf(newWorktree))).toBe(canonical(join(dataRoot, "projects", "moved", ".git", "worktrees", "run-1")));
       expect(git(newWorktree, "rev-parse", "--show-toplevel")).toContain("run-1");
-      // The worktree of the repository that stayed put still names that repository.
-      const keptLink = gitRead(join(dataRoot, "engine", "wt", "run-2", ".git"));
-      expect(keptLink).toContain(posix(join(root, "kept")));
+      // The worktree of the repository that stayed put still names that repository, unchanged.
+      expect(canonical(pointerOf(join(dataRoot, "engine", "wt", "run-2"))))
+        .toBe(canonical(join(root, "kept", ".git", "worktrees", "run-2")));
     } finally { cleanup(); }
   });
 });
