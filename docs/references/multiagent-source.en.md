@@ -1,4 +1,4 @@
-# spec-first Multi-Agent Team: Requirements and Provisional Technology Selection
+# spec-first Loom Team: Requirements and Provisional Technology Selection
 
 > Document status: Research phase / provisional proposal  
 > Updated: 2026-10-13  
@@ -6,7 +6,7 @@
 
 ## 1. Project Goal
 
-Build a multi-agent collaboration team that uses the existing **spec-first** project as its shared foundation for engineering standards and task management. Claude Code, Codex CLI, Pi, DSH, and other tools should continue running in their native CLIs, while a separate, capable model acts as the lead agent to break down goals, assign tasks, coordinate collaboration, track progress, and consolidate results.
+Build a loom collaboration team that uses the existing **spec-first** project as its shared foundation for engineering standards and task management. Claude Code, Codex CLI, Pi, DSH, and other tools should continue running in their native CLIs, while a separate, capable model acts as the lead agent to break down goals, assign tasks, coordinate collaboration, track progress, and consolidate results.
 
 The user wants a terminal TUI dashboard to view the team's overall activity, including each agent's status, task progress, inter-agent communication, execution logs, errors, and acceptance results. The first phase focuses on running locally on Windows, with Mac and VPS support added later.
 
@@ -111,9 +111,9 @@ Repository: <https://github.com/mco-org/squad>
 
 **Important limitation:** Squad is not a confirmed infrastructure choice. It is the first candidate for validating collaboration mechanisms. Replace it if its TUI or CLI coverage does not meet the requirements.
 
-### 4.2 Primary TUI Candidate: multiagents
+### 4.2 Primary TUI Candidate: looms
 
-Repository: <https://github.com/zetbrush/multiagents>
+Repository: <https://github.com/zetbrush/looms>
 
 **Proposed role:** Evaluate its TUI, messaging, planning, shared knowledge, task review, and statistics. If needed, consider it as a replacement for Squad, rather than assuming both should run together.
 
@@ -142,7 +142,7 @@ Useful for studying native CLI session management, live terminal output, and mul
 
 Repository: <https://github.com/christag/agency>
 
-Useful for studying agent identity, long-lived roles, memory, proposals, and decision governance. It could serve as a future role-governance layer, but should stay out of phase one unless Squad / multiagents fail to meet the corresponding requirements.
+Useful for studying agent identity, long-lived roles, memory, proposals, and decision governance. It could serve as a future role-governance layer, but should stay out of phase one unless Squad / looms fail to meet the corresponding requirements.
 
 #### Runner
 
@@ -154,7 +154,7 @@ Supports a lead / worker team model and multiple native CLIs, making its team or
 
 Repository: <https://github.com/mblua/AgentsCommander>
 
-A reference for native terminals, multi-agent rooms, messaging, and isolated working copies. Its primary interface is a desktop UI, so it is an architectural reference or fallback rather than the first choice.
+A reference for native terminals, loom rooms, messaging, and isolated working copies. Its primary interface is a desktop UI, so it is an architectural reference or fallback rather than the first choice.
 
 #### AgentMonitor
 
@@ -168,7 +168,7 @@ The current approach is not a final decision. Validate it in the following order
 
 1. **Standards layer:** Keep the existing spec-first workflow rather than building a duplicate Spec / Plan / Task system.
 2. **Initial collaboration validation:** Try Squad locally on Windows to verify messaging, roles, task handoffs, and history.
-3. **TUI evaluation:** Test multiagents separately to assess its terminal-monitoring experience and whether a separate model running through a CLI can act as the lead.
+3. **TUI evaluation:** Test looms separately to assess its terminal-monitoring experience and whether a separate model running through a CLI can act as the lead.
 4. **Executor adaptation:** First validate the complete Claude Code + Codex CLI workflow, then test Pi and DSH.
 5. **Custom-development boundary:** Write thin adapters or supplementary TUI views only when existing projects lack required capabilities. Do not begin by rewriting a complete scheduler.
 6. **Additional nodes:** Once the single-machine workflow is stable, investigate Mac / VPS nodes, authentication, Git worktrees, disconnection recovery, and remote logs.
@@ -203,7 +203,7 @@ The current approach is not a final decision. Validate it in the following order
                           |
                           v
              Terminal TUI dashboard
-        (evaluate multiagents first; reuse
+        (evaluate looms first; reuse
           or extend a lightweight TUI
                    if necessary)
 ```
@@ -248,11 +248,11 @@ Use one real, small software task to validate the following end-to-end workflow:
 
 ## 8. Next Actions
 
-1. Read the latest Squad and multiagents README files, installation guides, CLI drivers, communication protocols, and TUI implementations.
+1. Read the latest Squad and looms README files, installation guides, CLI drivers, communication protocols, and TUI implementations.
 2. Install and run them in a Windows test environment, keeping destructive experiments out of important project directories.
 3. Use Claude Code + Codex CLI for a small task and inspect assignment, messaging, review, and state recovery.
 4. Inspect the current spec-first commands, artifact directories, and extension mechanisms to identify reusable interfaces.
-5. Make an explicit choice between Squad and multiagents based on hands-on results.
+5. Make an explicit choice between Squad and looms based on hands-on results.
 6. Only then decide whether to write adapters, add TUI functionality, or introduce remote nodes.
 
 ---
@@ -261,7 +261,7 @@ Use one real, small software task to validate the following end-to-end workflow:
 
 - spec-first: <https://github.com/leo-kuang-ai/spec-first>
 - Squad: <https://github.com/mco-org/squad>
-- multiagents: <https://github.com/zetbrush/multiagents>
+- looms: <https://github.com/zetbrush/looms>
 - Agent Dashboard: <https://github.com/dustinblack/agent-dashboard>
 - Agency: <https://github.com/christag/agency>
 - Runner: <https://github.com/yicheng47/runner>
@@ -276,7 +276,7 @@ The original file ends with the following export-related snippet. It is preserve
 
 ```text
 """
-path = "/mnt/data/spec-first-multi-agent-team-requirements-and-provisional-selection.md"
+path = "/mnt/data/spec-first-loom-team-requirements-and-provisional-selection.md"
 convert_text(md, "md", format="md", outputfile=path, extra_args=["--standalone"])
 print(path)
 ```

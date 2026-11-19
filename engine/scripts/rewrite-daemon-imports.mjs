@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Packaging step (build-package.sh): point the CLI's compiled imports of
-// `@multi-agent/daemon/<subpath>` at the daemon copy the CLI package already ships in
+// `@loom/daemon/<subpath>` at the daemon copy the CLI package already ships in
 // `daemon/dist`, so the published package has no dependency on the unpublished
-// `@multi-agent/daemon` and any package manager can install it (#66).
+// `@loom/daemon` and any package manager can install it (#66).
 //
 // Files are parsed with the TypeScript compiler the build already uses, and only real
 // module specifiers are rewritten: import and export declarations, and `import()` or
@@ -18,7 +18,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
-const PACKAGE = "@multi-agent/daemon";
+const PACKAGE = "@loom/daemon";
 const isDaemonSpecifier = (value) => value === PACKAGE || value.startsWith(`${PACKAGE}/`);
 
 // The daemon module specifiers in one file, from its syntax tree.
@@ -95,11 +95,11 @@ export function rewriteDaemonImports({ cliDir, daemonPackageJsonPath }) {
   const targetFor = (subpath, file) => {
     const target = targets.get(`.${subpath}`);
     if (!target) {
-      throw new Error(`${file}: @multi-agent/daemon${subpath} has no entry in the daemon exports map`);
+      throw new Error(`${file}: @loom/daemon${subpath} has no entry in the daemon exports map`);
     }
     const absolute = resolve(stagedDaemon, target);
     if (!existsSync(absolute)) {
-      throw new Error(`${file}: @multi-agent/daemon${subpath} maps to ${target}, which is not staged at ${absolute}`);
+      throw new Error(`${file}: @loom/daemon${subpath} maps to ${target}, which is not staged at ${absolute}`);
     }
     return absolute;
   };
@@ -126,7 +126,7 @@ export function rewriteDaemonImports({ cliDir, daemonPackageJsonPath }) {
  * Point the vendored daemon's imports of an unpublished workspace package at the copy the CLI
  * package ships beside it.
  *
- * `@multi-agent/i18n` is `private: true`, so a global install cannot resolve it, and the daemon's
+ * `@loom/i18n` is `private: true`, so a global install cannot resolve it, and the daemon's
  * compiled output imports it by name for the role and client vocabulary. `build-package.sh`
  * stages the built package at `cli/daemon/i18n-dist`, and this step rewrites the name to the relative
  * path that reaches it, so the published artifact has no dependency on an unpublished package.
@@ -219,11 +219,11 @@ if (invokedDirectly()) {
       cliDir: join(repoRoot, "packages", "cli"),
       daemonPackageJsonPath: join(repoRoot, "packages", "daemon", "package.json"),
     });
-    console.log(`Rewrote ${rewritten} @multi-agent/daemon import(s) in ${files} file(s) to the shipped daemon/dist.`);
+    console.log(`Rewrote ${rewritten} @loom/daemon import(s) in ${files} file(s) to the shipped daemon/dist.`);
     const stagedDaemon = join(repoRoot, "packages", "cli", "daemon");
     const workspace = rewriteWorkspaceImports({
       cliDir: join(repoRoot, "packages", "cli"), stagedDaemon,
-      packages: { "@multi-agent/i18n": join(stagedDaemon, "i18n-dist", "index.js") },
+      packages: { "@loom/i18n": join(stagedDaemon, "i18n-dist", "index.js") },
     });
     console.log(`Rewrote ${workspace.rewritten} unpublished workspace import(s) in ${workspace.files} file(s).`);
   } catch (error) {

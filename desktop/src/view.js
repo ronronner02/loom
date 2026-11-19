@@ -29,7 +29,7 @@ function createViewModule(opts) {
     if (!paired) return false;
     // A stop that landed while pairing was in flight owns the outcome; do not load its page.
     if (lifecycle.getOrigin() !== paired.origin || !lifecycle.getEngine()) return false;
-    if (process.env.MULTI_AGENT_DESKTOP_SCREENSHOT) {
+    if (process.env.LOOM_DESKTOP_SCREENSHOT) {
       // The first-run page is on screen now; let it paint before the capture.
       await settleDelay(2_000);
       await windowModule.captureIfRequested('-setup');
@@ -46,7 +46,7 @@ function createViewModule(opts) {
     setCsrfToken(null);
     console.log(`[desktop] window loaded ${paired.origin}/team after pairing`);
     publish({ phase: 'ready', message: 'Connected to the local engine.', connected: true });
-    if (process.env.MULTI_AGENT_DESKTOP_SCREENSHOT) {
+    if (process.env.LOOM_DESKTOP_SCREENSHOT) {
       await settleDelay(3_000);
       await windowModule.captureIfRequested();
     }

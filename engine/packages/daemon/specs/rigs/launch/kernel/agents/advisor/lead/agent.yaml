@@ -14,7 +14,7 @@ profiles:
       skills: [orchestration-team, requirements-writer]
       guidance: []
       subagents: []
-      plugins: [shared:multi-agent-core]
+      plugins: [shared:loom-core]
       runtime_resources: [shared:claude-default-settings, shared:claude-default-mcp, shared:codex-default-config, shared:claude-activity-hooks]
 
 startup:

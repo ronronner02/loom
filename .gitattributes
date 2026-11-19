@@ -34,7 +34,7 @@
 # Skill trees are hashed byte-for-byte into skill-edge-digests.generated.json; keep LF across platforms.
 engine/skills/** text eol=lf
 engine/packages/daemon/specs/agents/shared/skills/** text eol=lf
-engine/packages/daemon/assets/plugins/multi-agent-core/skills/** text eol=lf
+engine/packages/daemon/assets/plugins/loom-core/skills/** text eol=lf
 engine/scripts/skill-edge-digests.generated.json text eol=lf
 # Committed policy files are hashed byte-for-byte (SHA-256) by check-packing-policies.test.mjs;
 # keep LF across platforms so the authority hash holds on a Windows checkout.

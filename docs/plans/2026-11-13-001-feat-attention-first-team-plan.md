@@ -385,7 +385,7 @@ Daemon paths are under `engine/packages/daemon/src/`; config paths are under `en
   - Hold toggles, and the Needs-you count updates.
   - A question row's answer posts to that task's thread.
   - The chat panel hides activity rows.
-- **Verification:** UI tests; a native desktop source run with screenshots at 1440 and 390 px in light and dark themes (the `MULTI_AGENT_DESKTOP_SCREENSHOT` recipe).
+- **Verification:** UI tests; a native desktop source run with screenshots at 1440 and 390 px in light and dark themes (the `LOOM_DESKTOP_SCREENSHOT` recipe).
 
 ### U8. Versioned team sections
 

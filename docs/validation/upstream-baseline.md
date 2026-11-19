@@ -71,4 +71,4 @@ node tools/upstream-import.mjs verify                  # 0 missing, 0 changed, 0
 node --test engine/test/project-baseline.test.mjs      # importer, exporter, pinned-manifest and cutover checks
 ```
 
-`verify` re-downloads the archive into `~/.cache/multi-agent/` the first time, and keeps it only after the checksum matches.
+`verify` re-downloads the archive into `~/.cache/loom/` the first time, and keeps it only after the checksum matches.

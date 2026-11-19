@@ -56,9 +56,9 @@ test("authoring apply uses product policy despite conflicting legacy YAML enviro
     write(script, `import { spawnSync } from "node:child_process";\nconst r = spawnSync(process.execPath, [${JSON.stringify(GENERATOR)}, ...process.argv.slice(2)], { stdio: "inherit" });\nprocess.exitCode = r.status ?? 1;\n`);
     write(join(root, "packages/daemon/specs/agents/shared/skills/alpha/SKILL.md"), "# Alpha from authoring source\n");
     const result = run(MIRROR, root, [], {
-      MULTI_AGENT_PRODUCT_PUBLIC_SKILLS_YAML: legacy.membership,
-      MULTI_AGENT_INTERNAL_TOKENS_YAML: legacy.denylist,
-      MULTI_AGENT_SKILL_EDGE_LAYOUT_YAML: legacy.layout,
+      LOOM_PRODUCT_PUBLIC_SKILLS_YAML: legacy.membership,
+      LOOM_INTERNAL_TOKENS_YAML: legacy.denylist,
+      LOOM_SKILL_EDGE_LAYOUT_YAML: legacy.layout,
     });
     assert.equal(result.status, 0, result.stderr);
     for (const name of NAMES) {
@@ -69,7 +69,7 @@ test("authoring apply uses product policy despite conflicting legacy YAML enviro
 });
 
 function withFixture(check) {
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-product-control-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-product-control-"));
   const membership = {
     product_public: { clean: ["alpha"], ship_after_fix: [], ship_misses_add: [], sanitize_borderlines_ship: [] },
     vendored_ship_with_provenance: [], not_public: {}, pending_author_public: [],

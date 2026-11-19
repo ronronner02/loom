@@ -2,8 +2,8 @@ import { Buffer } from "node:buffer";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import type Database from "better-sqlite3";
 
-export const OWNER_COOKIE = "multi_agent_owner";
-export const OWNER_CSRF_HEADER = "X-Multi-Agent-CSRF";
+export const OWNER_COOKIE = "loom_owner";
+export const OWNER_CSRF_HEADER = "X-Loom-CSRF";
 export const PAIRING_TTL_MS = 60_000;
 export const OWNER_IDLE_MS = 30 * 60_000;
 export const OWNER_ABSOLUTE_MS = 12 * 60 * 60_000;

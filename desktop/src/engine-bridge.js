@@ -85,7 +85,7 @@ function startEngine(opts) {
   state.child = electron.utilityProcess.fork(entry, [], {
     env,
     execArgv: [],
-    serviceName: 'multi-agent-daemon',
+    serviceName: 'loom-daemon',
     stdio: 'pipe',
   });
   const child = state.child;

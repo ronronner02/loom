@@ -11,7 +11,7 @@ import {
 const roots: string[] = [];
 
 function freshRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-system-world-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-system-world-"));
   roots.push(root);
   return root;
 }
@@ -23,8 +23,8 @@ afterEach(() => {
 describe("System World", () => {
   it("parses the shipped selector without embedding skill bytes", () => {
     expect(parseSystemWorldManifest(DEFAULT_SYSTEM_WORLD_MANIFEST)).toEqual({
-      schema: "multi-agent.system-world/v0alpha1",
-      id: "multi-agent-default",
+      schema: "loom.system-world/v0alpha1",
+      id: "loom-default",
       version: "0.5.9",
       context: [
         { ref: "onboarding-width" },
@@ -39,13 +39,13 @@ describe("System World", () => {
     const contextRoot = freshRoot();
     mkdirSync(join(contextRoot, "system"));
     writeFileSync(join(contextRoot, "system", "system-world.yaml"), DEFAULT_SYSTEM_WORLD_MANIFEST);
-    writeFileSync(join(contextRoot, "replacement.yaml"), DEFAULT_SYSTEM_WORLD_MANIFEST.replace("multi-agent-default", "operator-world"));
+    writeFileSync(join(contextRoot, "replacement.yaml"), DEFAULT_SYSTEM_WORLD_MANIFEST.replace("loom-default", "operator-world"));
 
     expect(resolveSystemWorld({ contextRoot, selection: "default", source: "default" })).toMatchObject({
       ok: true,
       state: "default",
       source: "default",
-      manifest: { id: "multi-agent-default" },
+      manifest: { id: "loom-default" },
     });
     expect(resolveSystemWorld({ contextRoot, selection: "replacement.yaml", source: "file" })).toMatchObject({
       ok: true,

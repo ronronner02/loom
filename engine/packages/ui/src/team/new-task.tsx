@@ -5,11 +5,11 @@ import { ChevronDown } from "lucide-react";
 import { Sheet } from "./sheet.js";
 import { OwnerReadError, useOwnerSession } from "../hooks/useOwnerSession.js";
 import { runsKey, type TeamSummary } from "./hooks.js";
-import type { WorkflowSelection } from "@multi-agent/daemon/team-control";
+import type { WorkflowSelection } from "@loom/daemon/team-control";
 import { WorkflowPicker } from "./workflows.js";
 
 /**
- * Start a run from the UI, through the same owner endpoint `multi-agent team start` calls: the
+ * Start a run from the UI, through the same owner endpoint `loom team start` calls: the
  * goal is the only required field, and the team is chosen from the teams the daemon lists, so
  * nobody types an id. A refused start shows the daemon's own reason.
  *

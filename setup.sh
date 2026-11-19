@@ -31,11 +31,11 @@ npm ci --no-audit --no-fund
 npm run build
 node --input-type=module <<'NODE'
 import { installPinnedFramework } from "./packages/daemon/dist/integrations/framework/source.js";
-import { MULTI_AGENT_HOME } from "./packages/daemon/dist/data-paths.js";
-console.log("Verified workflow source at " + installPinnedFramework(MULTI_AGENT_HOME));
+import { LOOM_HOME } from "./packages/daemon/dist/data-paths.js";
+console.log("Verified workflow source at " + installPinnedFramework(LOOM_HOME));
 NODE
 # npm links a workspace bin only when its build output already exists, so a fresh
-# clone's `npm ci` leaves `multi-agent` unlinked. Relinking after the build fixes that.
+# clone's `npm ci` leaves `loom` unlinked. Relinking after the build fixes that.
 npm rebuild -w packages/cli >/dev/null
 
 CONFIG_DIR="$(node --input-type=module -e 'import { resolveDataRoots } from "./packages/daemon/dist/data-paths.js"; console.log(resolveDataRoots().config)')"
@@ -47,7 +47,7 @@ else
   umask 077
   mkdir -p "$CONFIG_DIR"
   token="$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')"
-  printf 'MULTI_AGENT_MODE=managed\nMULTI_AGENT_OWNER_TOKEN=%s\n' "$token" >"$OWNER_ENV"
+  printf 'LOOM_MODE=managed\nLOOM_OWNER_TOKEN=%s\n' "$token" >"$OWNER_ENV"
   chmod 600 "$OWNER_ENV"
   echo "Created the owner token at $OWNER_ENV (mode 600)."
 fi

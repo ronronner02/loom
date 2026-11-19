@@ -1,11 +1,11 @@
 ---
 name: session-diagnostics
-description: Read-only, evidence-grounded diagnostics for Multi-Agent runs and sessions. Use when a run stalled, repeated work, drifted from its plan/KTDs, or spiked in cost/time, and you need a forensic report citing exact artifact/transcript path:line evidence.
+description: Read-only, evidence-grounded diagnostics for Loom runs and sessions. Use when a run stalled, repeated work, drifted from its plan/KTDs, or spiked in cost/time, and you need a forensic report citing exact artifact/transcript path:line evidence.
 ---
 
 # Session & Run Diagnostics
 
-Investigate what actually happened in a Multi-Agent run or coding-agent session by reading run artifacts, transcripts, and activity logs read-only, and produce an evidence-grounded forensic report.
+Investigate what actually happened in a Loom run or coding-agent session by reading run artifacts, transcripts, and activity logs read-only, and produce an evidence-grounded forensic report.
 
 **Core principle:** Every finding cites `path:line` (or `artifact:line`). No citation, no finding. Never modify run state, transcripts, or source files during diagnosis.
 

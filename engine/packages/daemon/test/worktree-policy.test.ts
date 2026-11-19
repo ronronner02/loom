@@ -77,23 +77,23 @@ describe("worktree policy constants", () => {
     }
   });
 
-  it("defaults the Windows root to %LOCALAPPDATA%\\Multi-Agent\\wt and POSIX to ~/.multi-agent/wt", () => {
+  it("defaults the Windows root to %LOCALAPPDATA%\\Loom\\wt and POSIX to ~/.loom/wt", () => {
     // The platform is the one the module reads, so each expectation names that platform's
-    // spelling. `MULTI_AGENT_HOME` is blanked by name, not spread: the suite's own value
+    // spelling. `LOOM_HOME` is blanked by name, not spread: the suite's own value
     // relocates the state root and would describe a different default than this case asserts.
-    const environment: NodeJS.ProcessEnv = { ...process.env, MULTI_AGENT_HOME: "" };
+    const environment: NodeJS.ProcessEnv = { ...process.env, LOOM_HOME: "" };
     if (windows) {
       environment.LOCALAPPDATA = "C:\\Users\\owner\\AppData\\Local";
-      expect(defaultWorktreeRoot(environment)).toBe(join("C:\\Users\\owner\\AppData\\Local", "Multi-Agent", "wt"));
+      expect(defaultWorktreeRoot(environment)).toBe(join("C:\\Users\\owner\\AppData\\Local", "Loom", "wt"));
     } else {
       // The POSIX default is the per-user home, which this module reads from the OS rather
       // than from the environment it is handed.
-      expect(defaultWorktreeRoot(environment)).toBe(join(homedir(), ".multi-agent", "wt"));
+      expect(defaultWorktreeRoot(environment)).toBe(join(homedir(), ".loom", "wt"));
     }
   });
 
   it("lets an explicit override win on both hosts", () => {
-    expect(defaultWorktreeRoot({ MULTI_AGENT_WORKTREE_ROOT: windows ? "D:\\short\\wt" : "/short/wt" }))
+    expect(defaultWorktreeRoot({ LOOM_WORKTREE_ROOT: windows ? "D:\\short\\wt" : "/short/wt" }))
       .toBe(windows ? "D:\\short\\wt" : "/short/wt");
   });
 

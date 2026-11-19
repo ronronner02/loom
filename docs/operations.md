@@ -9,28 +9,28 @@ dependencies on the first-run screen. Use **Reconnect** after resolving one.
 ## Data and configuration
 
 One resolver supplies the CLI and engine paths. Windows mutable state is
-`%LOCALAPPDATA%\Multi-Agent`; configuration is `%APPDATA%\Multi-Agent`. Both are
-`~/.multi-agent` on other platforms. `MULTI_AGENT_HOME` overrides both roots and is
+`%LOCALAPPDATA%\Loom`; configuration is `%APPDATA%\Loom`. Both are
+`~/.loom` on other platforms. `LOOM_HOME` overrides both roots and is
 also where a manually started daemon writes `daemon.json`, `daemon.log`, and
-`multi-agent.sqlite`. `MULTI_AGENT_DB` explicitly selects another database file.
+`loom.sqlite`. `LOOM_DB` explicitly selects another database file.
 No previous product home or environment alias is read or migrated.
 
-The desktop retains `%LOCALAPPDATA%\Multi-Agent\engine` for its engine state and
-sets `MULTI_AGENT_HOME` to that directory when it forks. A desktop profile override,
-`MULTI_AGENT_DESKTOP_DATA_DIR`, retains the same `engine` child layout. Its engine
+The desktop retains `%LOCALAPPDATA%\Loom\engine` for its engine state and
+sets `LOOM_HOME` to that directory when it forks. A desktop profile override,
+`LOOM_DESKTOP_DATA_DIR`, retains the same `engine` child layout. Its engine
 configuration shares this explicit home. Provider configuration and sign-in remain
 in the owner's normal client environment.
 
-Use `multi-agent daemon start --port <port>` for a manual engine and
-`multi-agent daemon status` or `multi-agent daemon stop` for its lifecycle. All
-other retained commands use HTTP and wait for readiness. `MULTI_AGENT_URL` selects
+Use `loom daemon start --port <port>` for a manual engine and
+`loom daemon status` or `loom daemon stop` for its lifecycle. All
+other retained commands use HTTP and wait for readiness. `LOOM_URL` selects
 an explicit engine origin. The desktop uses an OS-assigned port and exposes its
 browser handoff through **Open browser**; do not assume a fixed desktop port.
 
 ## Create a team for your repository
 
 From a fresh clone, run `./setup.sh`, add `engine/node_modules/.bin` to `PATH`, run
-`MULTI_AGENT_UI_ENABLED=true ./scripts/start.sh`. The
+`LOOM_UI_ENABLED=true ./scripts/start.sh`. The
 [README quick start](../README.md#quick-start) gives the complete sequence. Setup creates
 the owner credential and installs GitHub CLI; the start script loads the credential
 and starts a managed daemon on loopback. Workers run as the engine's own user, so no
@@ -57,11 +57,11 @@ Open `http://127.0.0.1:7433/team`. A new browser needs a one-time pairing code; 
 Windows desktop app obtains and exchanges it automatically. Use the owner CLI to mint a one-time code:
 
 ```bash
-multi-agent team pair-browser
+loom team pair-browser
 ```
 
 The command prints only the code so it can be pasted directly into the browser. For
-scripts or diagnostics, use `multi-agent team pair-browser --json` to receive the code and
+scripts or diagnostics, use `loom team pair-browser --json` to receive the code and
 its expiry timestamp. The code expires after 60 seconds and is single-use.
 
 Enter the printed code in the browser's pairing field.
@@ -79,8 +79,8 @@ before mounting the project and run views. If the code expires or sign-in fails,
 choose **Try again** for a new flow. A missing GitHub CLI requires `./setup.sh`.
 
 ```bash
-multi-agent github status
-multi-agent github status --json
+loom github status
+loom github status --json
 ```
 
 These commands inspect the daemon's account; they do not start sign-in or print a token.
@@ -100,8 +100,8 @@ you choose **Retry**. It does not sign GitHub out or stop the team.
 After sign-in, preview and create a named project from the terminal:
 
 ```bash
-multi-agent team create /absolute/path/to/project --name project-name --dry-run
-multi-agent team create /absolute/path/to/project --name project-name
+loom team create /absolute/path/to/project --name project-name --dry-run
+loom team create /absolute/path/to/project --name project-name
 ```
 
 The second command asks for confirmation. For non-interactive use, review the dry run
@@ -136,7 +136,7 @@ upload is the engine's only push; delivery and Merge remain local.
 For CLI compatibility, an unnamed Create registers a repository that already has a commit:
 
 ```bash
-multi-agent team create /absolute/path/to/existing-repository
+loom team create /absolute/path/to/existing-repository
 ```
 
 This path does not create or push a GitHub repository. Its defaults remain a Claude Code
@@ -154,10 +154,10 @@ either artifact.
 The CLI requires `--planning` for this flow:
 
 ```bash
-multi-agent team start "Describe the change you want" --planning --rig <team-name>
-multi-agent team chat <run-id>
-multi-agent team chat <run-id> "Your answers and requested changes"
-multi-agent team approve-plan <run-id>
+loom team start "Describe the change you want" --planning --rig <team-name>
+loom team chat <run-id>
+loom team chat <run-id> "Your answers and requested changes"
+loom team approve-plan <run-id>
 ```
 
 Use the team name printed by Create and the run id printed by Start. `--rig` may be
@@ -275,10 +275,10 @@ written outputs.
 ### Pinned source installation
 
 `./setup.sh` installs the exact catalog revision under
-`$MULTI_AGENT_HOME/framework/<revision>` (using the application's normal per-user state
-home when `MULTI_AGENT_HOME` is unset). Git must be able to fetch the pinned repository.
+`$LOOM_HOME/framework/<revision>` (using the application's normal per-user state
+home when `LOOM_HOME` is unset). Git must be able to fetch the pinned repository.
 To use an already installed, verified source package, set
-`MULTI_AGENT_FRAMEWORK_ROOT` to its absolute path before setup and daemon launch.
+`LOOM_FRAMEWORK_ROOT` to its absolute path before setup and daemon launch.
 
 Installation checks the fetched revision and records the complete file set and
 SHA-256 hashes. Repository link blobs are checked out as inert files, not followed
@@ -317,7 +317,7 @@ Read the block reason and resolve any external problem, then choose **Resume** i
 the run's primary action or use:
 
 ```bash
-multi-agent team resume <run-id>
+loom team resume <run-id>
 ```
 
 Resume clears a resumable block and offers pending work to dispatch, including a
@@ -325,9 +325,9 @@ failed lead. It does not restart the daemon or rerun finished tasks. Time and re
 budget blocks require a positive increase in that budget in the same action:
 
 ```bash
-multi-agent team resume <run-id> --add-minutes 30
-multi-agent team resume <run-id> --add-retries 1
-multi-agent team resume <run-id> --add-review-rounds 1
+loom team resume <run-id> --add-minutes 30
+loom team resume <run-id> --add-retries 1
+loom team resume <run-id> --add-review-rounds 1
 ```
 
 Use the option that matches the displayed budget block. Review exhaustion can also
@@ -341,7 +341,7 @@ Review the task diffs and the integration commits, then choose **Merge** in the 
 or run:
 
 ```bash
-multi-agent team merge <run-id>
+loom team merge <run-id>
 ```
 
 This updates the currently checked-out branch in the repository the team was created
@@ -352,7 +352,7 @@ Merge does not push; publishing the resulting branch is a separate owner action.
 
 Readiness requires landed work, completed implementation/review tasks and no failed
 task. Merge is also refused while the lead task is pending, in progress or blocked.
-[PR #138](https://github.com/ronronner02/multi-agent/pull/138) (`abb344f`) fixed the
+[PR #138](https://github.com/ronronner02/loom/pull/138) (`abb344f`) fixed the
 lead-evidence and premature-merge defect recorded in the
 [U11 acceptance record](validation/2026-11-06-autonomous-team/README.md).
 
@@ -379,8 +379,8 @@ for the product; a host that needs one enforces it around the engine itself.
 The desktop starts and stops its own native engine child and recovers interrupted
 work from durable attempt and process facts on restart. The team API remains owner
 scoped. A manual engine can receive its owner credential in
-`MULTI_AGENT_OWNER_TOKEN`; the engine consumes and clears that value before it
-launches workers. `multi-agent daemon stop` reports the observed shutdown outcome.
+`LOOM_OWNER_TOKEN`; the engine consumes and clears that value before it
+launches workers. `loom daemon stop` reports the observed shutdown outcome.
 Inspect the engine home's `daemon.log` and `daemon-shutdown.json` when recovery
 requires attention.
 
@@ -399,19 +399,19 @@ The repository in WSL is the development source. Build and test in the task's ow
 
 Outside the repository:
 
-- `~/.local/state/multi-agent/cutover/` holds the cutover record and the byte manifest of the Windows workspace.
-- `~/.local/state/multi-agent/exports/` holds export records.
-- `~/.cache/multi-agent/` holds the checksum-verified upstream archive.
+- `~/.local/state/loom/cutover/` holds the cutover record and the byte manifest of the Windows workspace.
+- `~/.local/state/loom/exports/` holds export records.
+- `~/.cache/loom/` holds the checksum-verified upstream archive.
 
 Keep these directories when rolling back: they are the record of what the Windows copy held.
 
 ## Rollback
 
-The engine keeps all of its state under `$MULTI_AGENT_HOME`, so a rollback removes that
+The engine keeps all of its state under `$LOOM_HOME`, so a rollback removes that
 directory, after preserving any evidence you still need:
 
 ```bash
-rm -rf "$MULTI_AGENT_HOME"
+rm -rf "$LOOM_HOME"
 ```
 
 The Windows workspace and the owner account are never modified by the installation.

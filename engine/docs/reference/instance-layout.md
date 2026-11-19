@@ -1,11 +1,11 @@
-# Multi-Agent instance layout
+# Loom instance layout
 
-A Multi-Agent instance keeps its managed state under one configured
-`$MULTI_AGENT_HOME`. `multi-agent daemon start` and a direct daemon first start reconcile the
+A Loom instance keeps its managed state under one configured
+`$LOOM_HOME`. `loom daemon start` and a direct daemon first start reconcile the
 same additive layout before the database is opened or the listener binds.
 
 ```text
-$MULTI_AGENT_HOME/
+$LOOM_HOME/
   config.json             # typed instance settings; created as an empty object
   state/                  # runtime-owned durable state
   context/                # addressable context library (`context.root`)
@@ -39,10 +39,10 @@ read the same way but is not the intended path.
 | Surface | Value |
 | --- | --- |
 | Config key | `context.root` |
-| Environment | `MULTI_AGENT_CONTEXT_ROOT` |
-| Default | `$MULTI_AGENT_HOME/context` |
+| Environment | `LOOM_CONTEXT_ROOT` |
+| Default | `$LOOM_HOME/context` |
 
-The removed `context.packs_root`, `context.packsRoot` and `MULTI_AGENT_CONTEXT_PACKS_ROOT`
+The removed `context.packs_root`, `context.packsRoot` and `LOOM_CONTEXT_PACKS_ROOT`
 spellings are refused with guidance to use `context.root`; they are not compatibility
 aliases.
 
@@ -60,7 +60,7 @@ second name continues to refer to the previous file.
 
 ## Data directories
 
-On Windows, mutable state is under `%LOCALAPPDATA%\Multi-Agent` and configuration under
-`%APPDATA%\Multi-Agent`. Other platforms use `~/.multi-agent` for both. `MULTI_AGENT_HOME`
+On Windows, mutable state is under `%LOCALAPPDATA%\Loom` and configuration under
+`%APPDATA%\Loom`. Other platforms use `~/.loom` for both. `LOOM_HOME`
 overrides the state root for an isolated process. Legacy product directories and environment
 names are not read.

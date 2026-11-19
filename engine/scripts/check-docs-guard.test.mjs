@@ -37,7 +37,7 @@ test("buildDocsGuardMessage explains the policy and offending files", () => {
 // 572bc477 — docs/DESIGN.md is RATIFIED doctrine, and the guard failed to encode it.
 //
 // `docs/as-built/ui/library-specs-and-design-system.md` §4 states it outright: "The canonical
-// Multi-Agent visual/design system is `docs/DESIGN.md` (at the repo `docs/` root, NOT under
+// Loom visual/design system is `docs/DESIGN.md` (at the repo `docs/` root, NOT under
 // `docs/as-built/`). Q1 is ratified: DESIGN.md stays at root, byte-identical."
 //
 // Root placement is therefore a deliberate, recorded decision — not drift to be tidied away.
@@ -45,7 +45,7 @@ test("buildDocsGuardMessage explains the policy and offending files", () => {
 //   docs/as-built/  — all 24 files there carry `last-verified-against-source`; DESIGN.md is not
 //                     source-derived, and Q1 explicitly rules this out anyway
 //   docs/reference/ — that directory SHIPS (build-package.sh stages it into the package and the
-//                     daemon materializes it to $MULTI_AGENT_HOME/reference/), so moving there would
+//                     daemon materializes it to $LOOM_HOME/reference/), so moving there would
 //                     start distributing the brand spec to every install
 //   docs/releases/  — not a release note
 // So this one file is named explicitly rather than relocated, and the directory allowlist is
@@ -95,7 +95,7 @@ test("the real check-docs-guard.mjs exits 0 against the actual repository", () =
 // without running on Windows. This proves the CLI actually reaches main() by giving it a tree
 // whose only tracked doc is blocked.
 test("the CLI entry runs the guard when executed directly", () => {
-  const repo = mkdtempSync(join(tmpdir(), "multi-agent-docs-guard-entry-"));
+  const repo = mkdtempSync(join(tmpdir(), "loom-docs-guard-entry-"));
   try {
     mkdirSync(join(repo, "docs/plans"), { recursive: true });
     writeFileSync(join(repo, "docs/plans/example.md"), "fixture\n");
@@ -120,7 +120,7 @@ const windowsFilenameLimits = process.platform === "win32" ? "POSIX file names o
 
 // Git quotes non-ASCII, tabs and newlines in its default line-based output.
 test("the real tracked-path reader preserves unusual documentation filenames", { skip: windowsFilenameLimits }, () => {
-  const repo = mkdtempSync(join(tmpdir(), "multi-agent-docs-guard-"));
+  const repo = mkdtempSync(join(tmpdir(), "loom-docs-guard-"));
   try {
     const paths = ["docs/notes\nextra.md", "docs/équipe.md", "docs/reference/topic\tname.md"];
     execFileSync("git", ["init", "--quiet", repo]);

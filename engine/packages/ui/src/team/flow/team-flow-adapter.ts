@@ -1,4 +1,4 @@
-import type { TeamAttemptView, TeamModelSettings, TeamReplayEvent, TeamSeatView } from "@multi-agent/daemon/team-control";
+import type { TeamAttemptView, TeamModelSettings, TeamReplayEvent, TeamSeatView } from "@loom/daemon/team-control";
 import type { FlowEvent, FlowNodeState, FlowRole, FlowSeat } from "./flow-events.js";
 
 function bodyPayload(body: string): Record<string, unknown> {

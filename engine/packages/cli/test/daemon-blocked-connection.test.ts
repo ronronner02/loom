@@ -18,12 +18,12 @@ import { createProcessLiveness, signalProbe } from "../src/commands/daemon.js";
 import path from "node:path";
 
 const URL = "http://127.0.0.1:7433";
-const DOWN_ADVICE = /multi-agent daemon start|'multi-agent up'|if it is down/i;
+const DOWN_ADVICE = /loom daemon start|'loom up'|if it is down/i;
 const WIDENING = /full_bypass|danger-full-access|network_access/i;
 const TODAY_DOWN_ACTION =
-  "Confirm the daemon is reachable with 'multi-agent daemon status'; if it is down, start it with 'multi-agent daemon start'.";
+  "Confirm the daemon is reachable with 'loom daemon status'; if it is down, start it with 'loom daemon start'.";
 const UNKNOWN_WRITE_ACTION =
-  "Check 'multi-agent daemon status' on the affected host; if it is down, start it with 'multi-agent daemon start'. Reconcile using the recovery ID before any retry. A lost connection does not prove the write failed.";
+  "Check 'loom daemon status' on the affected host; if it is down, start it with 'loom daemon start'. Reconcile using the recovery ID before any retry. A lost connection does not prove the write failed.";
 
 function failingFetch(code: string): typeof fetch {
   return (async () => {
@@ -155,19 +155,19 @@ describe("transport render: blocked is not down", () => {
 
 describe("status probe keeps the cause", () => {
   it("records EPERM on every probe path, and never calls a blocked probe 'stopped'", async () => {
-    process.env.MULTI_AGENT_URL = URL;
+    process.env.LOOM_URL = URL;
     try {
       const viaUrl = await getDaemonStatus(lifecycleDeps({ fetch: probeFailing("EPERM") }));
       expect(viaUrl.state).toBe("unverified");
       expect(viaUrl.probeErrorCode).toBe("EPERM");
     } finally {
-      delete process.env.MULTI_AGENT_URL;
+      delete process.env.LOOM_URL;
     }
     const noState = await getDaemonStatus(lifecycleDeps({ fetch: probeFailing("EPERM") }));
     expect(noState.state).toBe("unverified");
     expect(noState.probeErrorCode).toBe("EPERM");
 
-    const state = { pid: 4242, port: 7433, db: "/x/multi-agent.sqlite", startedAt: new Date().toISOString() };
+    const state = { pid: 4242, port: 7433, db: "/x/loom.sqlite", startedAt: new Date().toISOString() };
     const alive = await getDaemonStatus(lifecycleDeps({
       fetch: probeFailing("EPERM"),
       exists: (p: string) => p.endsWith("daemon.json"),
@@ -185,7 +185,7 @@ describe("offline help guide path (reachable without the daemon)", () => {
   // the injected `exists` is asked about exactly the candidates the resolver derives.
   const checkoutDocs = path.resolve(path.join("/r", "packages", "cli", "src"), "..", "..", "..", "docs", "reference", "help.md");
   const checkoutBundled = path.resolve(path.join("/r", "packages", "cli", "src"), "..", "daemon", "docs", "reference", "help.md");
-  const installedBase = path.join("/p", "lib", "node_modules", "@multi-agent", "cli", "dist");
+  const installedBase = path.join("/p", "lib", "node_modules", "@loom", "cli", "dist");
   const installedBundled = path.resolve(installedBase, "..", "daemon", "docs", "reference", "help.md");
   const installedOutside = path.resolve(path.join("/p", "lib", "node_modules"), "docs", "reference", "help.md");
 
@@ -207,7 +207,7 @@ describe("offline help guide path (reachable without the daemon)", () => {
 // EPERM and `ps` cannot run, so the old boolean liveness said "dead", status said `stale`, and the
 // precheck told the seat to start a daemon before any health probe ran.
 describe("sandboxed liveness: EPERM on kill(pid, 0) is not a dead daemon", () => {
-  const STATE = { pid: 4242, port: 7433, db: "/x/multi-agent.sqlite", startedAt: new Date().toISOString() };
+  const STATE = { pid: 4242, port: 7433, db: "/x/loom.sqlite", startedAt: new Date().toISOString() };
   const withState = (over: Partial<LifecycleDeps>): LifecycleDeps => lifecycleDeps({
     exists: (p: string) => p.endsWith("daemon.json"),
     readFile: (p: string) => (p.endsWith("daemon.json") ? JSON.stringify(STATE) : null),

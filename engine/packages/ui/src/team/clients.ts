@@ -1,4 +1,4 @@
-import type { ProjectAttachment, AttemptActivity, TeamAttemptView, TurnProgress, DocumentPins, ProjectDocumentStage, ProjectDocumentVersion, ProjectDocumentWorkflow } from "@multi-agent/daemon/team-control";
+import type { ProjectAttachment, AttemptActivity, TeamAttemptView, TurnProgress, DocumentPins, ProjectDocumentStage, ProjectDocumentVersion, ProjectDocumentWorkflow } from "@loom/daemon/team-control";
 import { OwnerReadError, type useOwnerSession } from "../hooks/useOwnerSession.js";
 
 /**

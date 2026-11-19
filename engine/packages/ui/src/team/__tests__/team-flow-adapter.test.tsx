@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { TeamModelSettings, TeamReplayEvent, TeamSeatView } from "@multi-agent/daemon/team-control";
+import type { TeamModelSettings, TeamReplayEvent, TeamSeatView } from "@loom/daemon/team-control";
 import { adaptTeamEvents, mapTeamAttemptStates, mapTeamSeats } from "../flow/team-flow-adapter.js";
 import { mapTeamEvents } from "../flow/flow-events.js";
 import { resolveVendorForNode } from "../flow/vendor-avatars.js";

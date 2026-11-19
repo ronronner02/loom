@@ -1,5 +1,5 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
-import type { AttemptActivity, TeamAttemptView, TeamModelChoice, TeamModelSettings, TeamOwnerRead, TeamRunState, TurnUsage } from "@multi-agent/daemon/team-control";
+import type { AttemptActivity, TeamAttemptView, TeamModelChoice, TeamModelSettings, TeamOwnerRead, TeamRunState, TurnUsage } from "@loom/daemon/team-control";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 import { readIntegration, readChat, type ChatState, type IntegrationState } from "./clients.js";
 

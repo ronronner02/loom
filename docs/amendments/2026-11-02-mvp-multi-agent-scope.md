@@ -1,4 +1,4 @@
-# 2026-11-02: MVP scope for multi-agent runs
+# 2026-11-02: MVP scope for loom runs
 
 **Decided by:** the owner, 2026-11-02.
 
@@ -19,7 +19,7 @@ consequences:
 - "Definition of Done" still means the ReevesAgents comparison and a five-harness
   adversarial suite. Under the reset that is no longer the milestone.
 
-Separately, the MVP as shipped is not multi-agent. In production code on `main`:
+Separately, the MVP as shipped is not loom. In production code on `main`:
 
 - `routes/team-start.ts` is the only non-test caller of `createTask`, and it creates one
   implementer task named `task-1`;
@@ -31,7 +31,7 @@ Separately, the MVP as shipped is not multi-agent. In production code on `main`:
   `addTask` as `plan-change-required` and suspends the run, but nothing applies an
   updated binding and adds the tasks.
 
-The owner's objective is the original plan's multi-agent behavior — lead, scoped
+The owner's objective is the original plan's loom behavior — lead, scoped
 implementers, independent review — delivered through the MVP surfaces. The terminal UI
 is not part of that objective.
 
@@ -43,9 +43,9 @@ is not part of that objective.
    says "both clients", read "the owner browser client".
 2. **`workers.isolation: none` stays the default and the supported mode for this
    milestone.** Hardened isolation remains parked (T038, PR #85) and is not a
-   prerequisite for any slice below. A slice may not depend on `/etc/multi-agent`, the
+   prerequisite for any slice below. A slice may not depend on `/etc/loom`, the
    `ma-*` accounts, sudo, or the bubblewrap launcher.
-3. **The milestone delivers multi-agent runs.** Four slices, in order. Each is done when
+3. **The milestone delivers loom runs.** Four slices, in order. Each is done when
    its demo command works on a fresh clone and smoke CI passes.
    - **C1 — Run growth.** An owner action that applies an updated plan binding to a
      running run and adds tasks to it. Implements the path `task-edit.ts` already

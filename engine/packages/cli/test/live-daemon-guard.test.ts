@@ -1,7 +1,7 @@
 // Hermeticity guard — WRITE-direction sibling of the gate's hermetic checker.
 // A cli TEST process must not be able to reach the LIVE daemon by default STATE_FILE
-// discovery; an unscoped WRITE (e.g. `multi-agent broadcast`) would then leak into the live
-// topology. The guard fails LOUD when the resolved Multi-Agent home is not fixture-scoped.
+// discovery; an unscoped WRITE (e.g. `loom broadcast`) would then leak into the live
+// topology. The guard fails LOUD when the resolved Loom home is not fixture-scoped.
 //
 // This is the KNOWN-NEGATIVE: a check that can only pass is not a check — so we prove
 // the guard FIRES on a deliberately-live home, and passes on a fixture home.

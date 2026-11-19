@@ -20,7 +20,7 @@ function fixture(files) {
     writeFileSync(path, text);
   };
   write(daemonPackageJsonPath, JSON.stringify({
-    name: "@multi-agent/daemon",
+    name: "@loom/daemon",
     exports: {
       "./attention": { types: "./dist/attention-surface.d.ts", import: "./dist/attention-surface.js" },
       "./crash-cart": { types: "./dist/crash-cart-surface.js", import: "./dist/crash-cart-surface.js" },
@@ -37,13 +37,13 @@ function fixture(files) {
 test("rewrites static, side-effect, re-export and dynamic imports in nested CLI paths", () => {
   const f = fixture({
     "dist/commands/attention.js": [
-      'import { a } from "@multi-agent/daemon/attention";',
-      "import '@multi-agent/daemon/crash-cart';",
-      'export { a as b } from "@multi-agent/daemon/attention";',
-      'const m = await import("@multi-agent/daemon/crash-cart");',
+      'import { a } from "@loom/daemon/attention";',
+      "import '@loom/daemon/crash-cart';",
+      'export { a as b } from "@loom/daemon/attention";',
+      'const m = await import("@loom/daemon/crash-cart");',
       "",
     ].join("\n"),
-    "dist/bin-wrapper.js": 'const c = await import( "@multi-agent/daemon/crash-cart" );\n',
+    "dist/bin-wrapper.js": 'const c = await import( "@loom/daemon/crash-cart" );\n',
   });
   try {
     const result = rewriteDaemonImports({ cliDir: f.cliDir, daemonPackageJsonPath: f.daemonPackageJsonPath });
@@ -63,9 +63,9 @@ test("rewrites static, side-effect, re-export and dynamic imports in nested CLI 
 
 test("leaves prose, comments and non-import strings unchanged", () => {
   const text = [
-    "// LAZY-imports the narrow @multi-agent/daemon/crash-cart surface.",
-    "/** the bytes live in `@multi-agent/daemon`. */",
-    'const label = "@multi-agent/daemon/attention";',
+    "// LAZY-imports the narrow @loom/daemon/crash-cart surface.",
+    "/** the bytes live in `@loom/daemon`. */",
+    'const label = "@loom/daemon/attention";',
     "",
   ].join("\n");
   const f = fixture({ "dist/prose.js": text });
@@ -78,7 +78,7 @@ test("leaves prose, comments and non-import strings unchanged", () => {
 });
 
 test("fails on a subpath with no exports entry, including the bare package name", () => {
-  for (const specifier of ["@multi-agent/daemon/not-exported", "@multi-agent/daemon"]) {
+  for (const specifier of ["@loom/daemon/not-exported", "@loom/daemon"]) {
     const f = fixture({ "dist/x.js": `import { x } from "${specifier}";\n` });
     try {
       assert.throws(
@@ -93,7 +93,7 @@ test("fails on a subpath with no exports entry, including the bare package name"
 });
 
 test("fails when the mapped target was not staged", () => {
-  const f = fixture({ "dist/x.js": 'import { x } from "@multi-agent/daemon/missing-file";\n' });
+  const f = fixture({ "dist/x.js": 'import { x } from "@loom/daemon/missing-file";\n' });
   try {
     assert.throws(
       () => rewriteDaemonImports({ cliDir: f.cliDir, daemonPackageJsonPath: f.daemonPackageJsonPath }),
@@ -105,7 +105,7 @@ test("fails when the mapped target was not staged", () => {
 });
 
 test("a second run is a no-op", () => {
-  const f = fixture({ "dist/x.js": 'import { a } from "@multi-agent/daemon/attention";\n' });
+  const f = fixture({ "dist/x.js": 'import { a } from "@loom/daemon/attention";\n' });
   try {
     rewriteDaemonImports({ cliDir: f.cliDir, daemonPackageJsonPath: f.daemonPackageJsonPath });
     const once = f.read("dist/x.js");
@@ -118,9 +118,9 @@ test("a second run is a no-op", () => {
 
 test("leaves import-shaped text in comments, strings and templates unchanged", () => {
   const text = [
-    '// import x from "@multi-agent/daemon/attention";',
-    "const example = 'import x from \"@multi-agent/daemon/attention\"';",
-    'const other = `import x from "@multi-agent/daemon/attention"`;',
+    '// import x from "@loom/daemon/attention";',
+    "const example = 'import x from \"@loom/daemon/attention\"';",
+    'const other = `import x from "@loom/daemon/attention"`;',
     "export {};",
     "",
   ].join("\n");
@@ -136,9 +136,9 @@ test("leaves import-shaped text in comments, strings and templates unchanged", (
 test("rewrites real imports that carry comments or use a template literal", () => {
   const f = fixture({
     "dist/x.js": [
-      'const a = import /* kept */ ("@multi-agent/daemon/attention");',
-      'import b from /* kept */ "@multi-agent/daemon/attention";',
-      "const c = import(`@multi-agent/daemon/crash-cart`);",
+      'const a = import /* kept */ ("@loom/daemon/attention");',
+      'import b from /* kept */ "@loom/daemon/attention";',
+      "const c = import(`@loom/daemon/crash-cart`);",
       "",
     ].join("\n"),
   });
@@ -156,7 +156,7 @@ test("rewrites real imports that carry comments or use a template literal", () =
 });
 
 test("fails on an unmapped subpath hidden behind a comment", () => {
-  const f = fixture({ "dist/x.js": 'const x = import /* kept */ ("@multi-agent/daemon/unknown");\n' });
+  const f = fixture({ "dist/x.js": 'const x = import /* kept */ ("@loom/daemon/unknown");\n' });
   try {
     assert.throws(
       () => rewriteDaemonImports({ cliDir: f.cliDir, daemonPackageJsonPath: f.daemonPackageJsonPath }),
@@ -169,10 +169,10 @@ test("fails on an unmapped subpath hidden behind a comment", () => {
 
 test("fails on a non-literal module argument naming the package, and on unparseable files", () => {
   const cases = [
-    ['const x = import("@multi-agent/daemon/" + name);\n', /non-literal module argument/],
-    ["const x = import(`@multi-agent/daemon/${name}`);\n", /non-literal module argument/],
-    ['const x = require("@multi-agent/daemon/" + name);\n', /non-literal module argument/],
-    ['import { from "@multi-agent/daemon/attention";\n', /cannot parse/],
+    ['const x = import("@loom/daemon/" + name);\n', /non-literal module argument/],
+    ["const x = import(`@loom/daemon/${name}`);\n", /non-literal module argument/],
+    ['const x = require("@loom/daemon/" + name);\n', /non-literal module argument/],
+    ['import { from "@loom/daemon/attention";\n', /cannot parse/],
   ];
   for (const [text, expected] of cases) {
     const f = fixture({ "dist/x.js": text });
@@ -215,10 +215,10 @@ test("runs when executed directly from paths with spaces, # or a symlinked paren
     symlinkSync(parent, linked);
     const cases = [["plain", parent], ["with space", parent], ["with#hash", parent], ["space and #hash", parent], ["via link", linked]];
     for (const [name, base] of cases) {
-      const root = miniatureRepo(parent, name, 'import { a } from "@multi-agent/daemon/attention";\n');
+      const root = miniatureRepo(parent, name, 'import { a } from "@loom/daemon/attention";\n');
       const result = runDirect(join(base, name));
       assert.equal(result.status, 0, `${name}: ${result.stderr}`);
-      assert.match(result.stdout, /Rewrote 1 @multi-agent\/daemon import\(s\) in 1 file\(s\)/, name);
+      assert.match(result.stdout, /Rewrote 1 @loom\/daemon import\(s\) in 1 file\(s\)/, name);
       assert.equal(readFileSync(join(root, "packages/cli/dist/x.js"), "utf8"), 'import { a } from "../daemon/dist/attention-surface.js";\n', name);
     }
   } finally {
@@ -230,7 +230,7 @@ test("runs when executed directly from paths with spaces, # or a symlinked paren
 test("still fails the build when executed directly with an unmapped import", { skip: noSymlinks }, () => {
   const parent = realpathSync(mkdtempSync(join(tmpdir(), "rewrite-direct-")));
   try {
-    const compiled = 'import { x } from "@multi-agent/daemon/not-exported";\n';
+    const compiled = 'import { x } from "@loom/daemon/not-exported";\n';
     const root = miniatureRepo(parent, "space and #hash", compiled);
     const result = runDirect(root);
     assert.equal(result.status, 1);
@@ -242,7 +242,7 @@ test("still fails the build when executed directly with an unmapped import", { s
 });
 
 test("points the vendored daemon's unpublished workspace import at the copy ships beside it", () => {
-  // @multi-agent/i18n is private and unpublished: a global install resolves nothing for it. The
+  // @loom/i18n is private and unpublished: a global install resolves nothing for it. The
   // packaged build stages its dist next to the vendored daemon and rewrites the name, so the
   // published artifact imports a file that exists rather than a package the registry does not have.
   const root = mkdtempSync(join(tmpdir(), "rewrite-workspace-"));
@@ -253,12 +253,12 @@ test("points the vendored daemon's unpublished workspace import at the copy ship
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, text);
     };
-    const displayNames = 'import { CATALOGS } from "@multi-agent/i18n";\nexport const x = CATALOGS;\n';
-    const dynamicSibling = 'const m = await import("@multi-agent/i18n");\n';
+    const displayNames = 'import { CATALOGS } from "@loom/i18n";\nexport const x = CATALOGS;\n';
+    const dynamicSibling = 'const m = await import("@loom/i18n");\n';
     const plain = "export const plain = 1;\n";
     // The shape the built daemon actually ships: a doc comment that names the package, then the
     // import that is the only thing this step may touch.
-    const commentOnly = "/** Keys come from `@multi-agent/i18n`, the one vocabulary. */\nexport const x = 1;\n";
+    const commentOnly = "/** Keys come from `@loom/i18n`, the one vocabulary. */\nexport const x = 1;\n";
     write(join(stagedDaemon, "dist", "domain", "display-names.js"), displayNames);
     write(join(stagedDaemon, "dist", "index.js"), dynamicSibling);
     write(join(stagedDaemon, "dist", "plain.js"), plain);
@@ -266,7 +266,7 @@ test("points the vendored daemon's unpublished workspace import at the copy ship
     write(stagedI18n, "export const CATALOGS = {};\n");
 
     const result = rewriteWorkspaceImports({
-      cliDir, stagedDaemon, packages: { "@multi-agent/i18n": stagedI18n },
+      cliDir, stagedDaemon, packages: { "@loom/i18n": stagedI18n },
     });
     assert.equal(result.rewritten, 2);
     assert.equal(result.files, 2);
@@ -281,7 +281,7 @@ test("points the vendored daemon's unpublished workspace import at the copy ship
     // wrong module to every later reader of the shipped file.
     write(join(stagedDaemon, "dist", "described.js"), commentOnly);
     const second = rewriteWorkspaceImports({
-      cliDir, stagedDaemon, packages: { "@multi-agent/i18n": stagedI18n },
+      cliDir, stagedDaemon, packages: { "@loom/i18n": stagedI18n },
     });
     assert.equal(second.rewritten, 0);
     assert.equal(readFileSync(join(stagedDaemon, "dist", "described.js"), "utf8"), commentOnly);
@@ -296,12 +296,12 @@ test("fails the build when the unpublished package was not staged", () => {
     const cliDir = join(root, "cli");
     const stagedDaemon = join(cliDir, "daemon");
     const file = join(stagedDaemon, "dist", "display-names.js");
-    const source = 'import { CATALOGS } from "@multi-agent/i18n";\n';
+    const source = 'import { CATALOGS } from "@loom/i18n";\n';
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, source);
     assert.throws(
       () => rewriteWorkspaceImports({
-        cliDir, stagedDaemon, packages: { "@multi-agent/i18n": join(stagedDaemon, "i18n-dist", "index.js") },
+        cliDir, stagedDaemon, packages: { "@loom/i18n": join(stagedDaemon, "i18n-dist", "index.js") },
       }),
       /is not staged at/);
     assert.equal(readFileSync(file, "utf8"), source);

@@ -6,7 +6,7 @@ import { createProgram } from "../src/index.js";
 import { teamCommand, type TeamStartDeps } from "../src/commands/team.js";
 
 /**
- * MVP slice 2 — `multi-agent team start "<goal>"`.
+ * MVP slice 2 — `loom team start "<goal>"`.
  *
  * Drives the registered verb through the real Commander program, with the daemon answered by
  * an injected fetch. What matters is the contract with the endpoint: the goal and the named
@@ -33,7 +33,7 @@ async function run(argv: string[], startDeps: TeamStartDeps): Promise<{ lines: s
     program.exitOverride();
     program.commands.find(command => command.name() === "team")!.commands
       .find(command => command.name() === "start")!;
-    await program.parseAsync(["node", "multi-agent", ...argv]);
+    await program.parseAsync(["node", "loom", ...argv]);
     return { lines, code: process.exitCode };
   } catch (thrown) {
     const error = thrown as Error & { code?: string };
@@ -46,7 +46,7 @@ async function run(argv: string[], startDeps: TeamStartDeps): Promise<{ lines: s
 
 afterEach(() => { vi.restoreAllMocks(); });
 
-describe("multi-agent team start", () => {
+describe("loom team start", () => {
   it.each([false, true])("sends the selected workflow with read-only set to %s", async readOnly => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify(receipt), { status: 201 }));
     const result = await run(["team", "start", "Inspect the current plan", "--workflow", "spec-plan",
@@ -106,9 +106,9 @@ describe("multi-agent team start", () => {
     // shell has the daemon running and no credential of its own.
     const configHome = mkdtempSync(join(tmpdir(), "mvp2-owner-"));
     writeFileSync(join(configHome, "owner.env"),
-      "MULTI_AGENT_MODE=managed\nMULTI_AGENT_OWNER_TOKEN=token-from-owner-env\n");
-    const saved = process.env.MULTI_AGENT_HOME;
-    process.env.MULTI_AGENT_HOME = configHome;
+      "LOOM_MODE=managed\nLOOM_OWNER_TOKEN=token-from-owner-env\n");
+    const saved = process.env.LOOM_HOME;
+    process.env.LOOM_HOME = configHome;
     try {
       const fetchImpl = vi.fn(async () => new Response(JSON.stringify(receipt), { status: 201 })) as unknown as typeof fetch;
       const result = await run(["team", "start", "Add a health endpoint"], { ...deps(fetchImpl, null), ownerToken: undefined });
@@ -116,7 +116,7 @@ describe("multi-agent team start", () => {
       const init = (fetchImpl as unknown as { mock: { calls: Array<[string, RequestInit]> } }).mock.calls[0]![1];
       expect(new Headers(init.headers).get("authorization")).toBe("Bearer token-from-owner-env");
     } finally {
-      if (saved === undefined) delete process.env.MULTI_AGENT_HOME; else process.env.MULTI_AGENT_HOME = saved;
+      if (saved === undefined) delete process.env.LOOM_HOME; else process.env.LOOM_HOME = saved;
       rmSync(configHome, { recursive: true, force: true });
     }
   });
@@ -126,7 +126,7 @@ describe("multi-agent team start", () => {
     const result = await run(["team", "start", "Add a health endpoint"], deps(fetchImpl, null));
     expect(result.code).toBe(1);
     expect(fetchImpl).not.toHaveBeenCalled();
-    expect(result.lines.join("\n")).toContain("no owner credential. Set MULTI_AGENT_OWNER_TOKEN or configure the owner token.");
+    expect(result.lines.join("\n")).toContain("no owner credential. Set LOOM_OWNER_TOKEN or configure the owner token.");
   });
 
   it("reports the daemon's refusal instead of printing a run", async () => {
@@ -140,7 +140,7 @@ describe("multi-agent team start", () => {
 });
 
 describe("team command registration", () => {
-  it("is reachable as `multi-agent team start` and takes the goal as its one argument", () => {
+  it("is reachable as `loom team start` and takes the goal as its one argument", () => {
     const command = teamCommand(deps(vi.fn() as unknown as typeof fetch));
     const start = command.commands.find(entry => entry.name() === "start")!;
     expect(start.description()).toMatch(/create a run and a task/);

@@ -5,7 +5,7 @@ this through their terminal or through the Mission Control UI.
 
 ## First action
 
-Run `multi-agent whoami --json`, then wait for the person. Don't greet: the
+Run `loom whoami --json`, then wait for the person. Don't greet: the
 operator (`operator.agent`) is the first agent the person talks to. It
 greets them and helps them pick a first team.
 
@@ -19,9 +19,9 @@ they can ask.
 
 - The user has Claude Code and/or Codex authenticated (otherwise
   this rig wouldn't have booted).
-- Multi-Agent runs on macOS and Linux. Don't assume which one this host
+- Loom runs on macOS and Linux. Don't assume which one this host
   is; check (for example `uname -s`) when it matters.
-- The user knows Multi-Agent exists but may not remember every rig name
+- The user knows Loom exists but may not remember every rig name
   or command. Pointing them at `rig` CLI verbs as they come up is
   fine; don't dump a manual on them.
 - The user can interrupt you any time. If you're in the middle of a
@@ -29,8 +29,8 @@ they can ask.
 
 ## What's already running
 
-- `multi-agent whoami --json` returns your identity.
-- `multi-agent ps --nodes --rig kernel --json` shows the kernel's 4-member
+- `loom whoami --json` returns your identity.
+- `loom ps --nodes --rig kernel --json` shows the kernel's 4-member
   topology (3 agents + the shared operator terminal).
 - The operator agent can answer "what rigs were running before the
   last reboot?" from the daemon's persisted state.

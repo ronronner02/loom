@@ -7,7 +7,7 @@
  * intake.
  *
  * This module currently provides the FAIL-CLOSED guard (proof item 4). The
- * scratch HOME/MULTI_AGENT_HOME scaffold + forced-local daemon spawn + injected-clock
+ * scratch HOME/LOOM_HOME scaffold + forced-local daemon spawn + injected-clock
  * plumb-through layer on top of this guard (added as subsequent units).
  *
  * Doctrine: a helper that silently falls back to an ambient daemon reproduces the
@@ -36,21 +36,21 @@ import { delimiter, join } from "node:path";
  * refusal message is stable across runs.
  *
  * Provenance (verified at source, base 13e26355):
- * - MULTI_AGENT_URL   — client base URL (cli/src/client.ts:86, default http://127.0.0.1:7433)
- * - MULTI_AGENT_HOST — client host override (cli/src/index.test.ts:24-31)
- * - MULTI_AGENT_HOST_SELECTED      — host-selection env half; resolution order
- *     env MULTI_AGENT_HOST_SELECTED > ~/.multi-agent/config.json (disk) > "local"
+ * - LOOM_URL   — client base URL (cli/src/client.ts:86, default http://127.0.0.1:7433)
+ * - LOOM_HOST — client host override (cli/src/index.test.ts:24-31)
+ * - LOOM_HOST_SELECTED      — host-selection env half; resolution order
+ *     env LOOM_HOST_SELECTED > ~/.loom/config.json (disk) > "local"
  *     (cli/src/host-selection.ts:7). The scratch-HOME layer covers the DISK half;
  *     this guard covers the ENV half — without it a persisted/env selection
  *     silently retargets a remote daemon BEFORE the scratch layer applies
  *     (the documented D-class third leak vector).
- * - MULTI_AGENT_PORT — client port (cli/src/config-store.ts:343)
+ * - LOOM_PORT — client port (cli/src/config-store.ts:343)
  */
 export const DAEMON_TARGET_ENV_VARS = [
-  "MULTI_AGENT_URL",
-  "MULTI_AGENT_HOST",
-  "MULTI_AGENT_HOST_SELECTED",
-  "MULTI_AGENT_PORT",
+  "LOOM_URL",
+  "LOOM_HOST",
+  "LOOM_HOST_SELECTED",
+  "LOOM_PORT",
 ] as const;
 
 export type DaemonTargetEnvVar = (typeof DAEMON_TARGET_ENV_VARS)[number];
@@ -82,7 +82,7 @@ type EnvLike = Record<string, string | undefined>;
  * Inspect an environment for an inherited daemon-target var. Returns the FIRST
  * (in DAEMON_TARGET_ENV_VARS order) non-empty match, or null when clean.
  *
- * An exported-but-empty var (e.g. `MULTI_AGENT_URL=`) does not point at a daemon and
+ * An exported-but-empty var (e.g. `LOOM_URL=`) does not point at a daemon and
  * is treated as absent. Pure and synchronous — no network, no side effects.
  */
 export function detectForeignDaemonTarget(
@@ -120,7 +120,7 @@ export function assertNoForeignDaemon(env: EnvLike = process.env): void {
  * `injectClockNow`. Named with TEST semantics on purpose — a `TEST` var visible in
  * production reads as obviously wrong.
  */
-export const TEST_CLOCK_ENV_VARS = ["MULTI_AGENT_TEST_CLOCK_NOW"] as const;
+export const TEST_CLOCK_ENV_VARS = ["LOOM_TEST_CLOCK_NOW"] as const;
 
 export type TestClockEnvVar = (typeof TEST_CLOCK_ENV_VARS)[number];
 
@@ -147,7 +147,7 @@ export class AmbientClockHazardError extends Error {
 
 /**
  * Inspect an environment for an inherited injected-clock var. Returns the first
- * non-empty match, or null when clean. Empty (`MULTI_AGENT_TEST_CLOCK_NOW=`) is absent.
+ * non-empty match, or null when clean. Empty (`LOOM_TEST_CLOCK_NOW=`) is absent.
  * Pure and synchronous — no network, no side effects.
  */
 export function detectAmbientClockHazard(env: EnvLike = process.env): AmbientClockHazard | null {
@@ -245,7 +245,7 @@ export function assertNoAmbientTmux(env: EnvLike = process.env): void {
  * Not fail-closed triggers on their own (they carry no target address), but they
  * must never bleed into a scenario-local daemon's environment.
  */
-const CREDENTIAL_ENV_VARS = ["MULTI_AGENT_AUTH_BEARER_TOKEN", "MULTI_AGENT_OWNER_TOKEN"] as const;
+const CREDENTIAL_ENV_VARS = ["LOOM_AUTH_BEARER_TOKEN", "LOOM_OWNER_TOKEN"] as const;
 
 /**
  * The owner credential the scaffold's own daemon boots with. The daemon refuses to start
@@ -260,8 +260,8 @@ export interface HermeticScaffold {
   root: string;
   /** Scratch HOME (no real settings/policy/trust bleed in or out). */
   home: string;
-  /** Scratch MULTI_AGENT_HOME (operator state, incl. the host-selection config.json disk half). */
-  multiAgentHome: string;
+  /** Scratch LOOM_HOME (operator state, incl. the host-selection config.json disk half). */
+  loomHome: string;
   /** Scratch state dir (the scenario-local daemon's db lives here). */
   stateDir: string;
   /**
@@ -287,7 +287,7 @@ export interface PrepareHermeticEnvOptions {
   baseEnv?: EnvLike;
   /**
    * The A3-R3 injected clock. When set, the scaffold's child env carries
-   * MULTI_AGENT_TEST_CLOCK_NOW = this value (an ISO timestamp) so the compaction bridge
+   * LOOM_TEST_CLOCK_NOW = this value (an ISO timestamp) so the compaction bridge
    * stamps deterministically; when omitted, the var stays UNSET and the bridge falls
    * back to real-time `new Date()` (production behavior). This is the ONLY sanctioned
    * way the var is set — a pre-existing one in baseEnv is refused as a leak.
@@ -299,16 +299,16 @@ export interface PrepareHermeticEnvOptions {
  * Build a per-run hermetic scaffold. FAILS CLOSED FIRST: if the base env points at
  * a foreign daemon target, throws HermeticEnvError before creating any scaffold
  * (zero traffic, zero filesystem side effects). Otherwise creates scratch
- * HOME/MULTI_AGENT_HOME/state dirs and returns a CLEAN child-process env with the
+ * HOME/LOOM_HOME/state dirs and returns a CLEAN child-process env with the
  * daemon-target + credential vars scrubbed and the scratch paths set.
  *
  * Does NOT mutate the caller's env object or process.env — the runner process
  * stays as it is; only spawned children receive the scrubbed scratch env. State
  * lives INSIDE the scaffold (the hermeticity lesson).
  *
- * The scratch MULTI_AGENT_HOME covers the DISK half of the host-selection leak vector
- * (~/.multi-agent/config.json); the fail-closed guard covers the ENV half
- * (MULTI_AGENT_HOST_SELECTED). Together the scaffold cannot silently retarget.
+ * The scratch LOOM_HOME covers the DISK half of the host-selection leak vector
+ * (~/.loom/config.json); the fail-closed guard covers the ENV half
+ * (LOOM_HOST_SELECTED). Together the scaffold cannot silently retarget.
  */
 export function prepareHermeticEnv(opts: PrepareHermeticEnvOptions = {}): HermeticScaffold {
   const baseEnv = opts.baseEnv ?? process.env;
@@ -321,16 +321,16 @@ export function prepareHermeticEnv(opts: PrepareHermeticEnvOptions = {}): Hermet
   // operator's server. Refuse before any filesystem effect, like the others.
   assertNoAmbientTmux(baseEnv);
 
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-scenario-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-scenario-"));
   const home = join(root, "home");
-  const multiAgentHome = join(root, "multi-agent-home");
+  const loomHome = join(root, "loom-home");
   const stateDir = join(root, "state");
   // Keep both compatibility and explicit socket paths below sun_path's cap.
   const tmuxTmpDir = join(root, "tx");
   const tmuxSocketPath = join(root, "tmux.sock");
   const tmuxWrapperDir = join(root, "bin");
   const tmuxWrapperPath = join(tmuxWrapperDir, "tmux");
-  for (const dir of [home, multiAgentHome, stateDir, tmuxTmpDir, tmuxWrapperDir]) {
+  for (const dir of [home, loomHome, stateDir, tmuxTmpDir, tmuxWrapperDir]) {
     mkdirSync(dir, { recursive: true });
   }
 
@@ -358,7 +358,7 @@ process.exit(result.status ?? 1);
   const env: Record<string, string | undefined> = { ...baseEnv };
   for (const name of DAEMON_TARGET_ENV_VARS) delete env[name];
   for (const name of CREDENTIAL_ENV_VARS) delete env[name];
-  env.MULTI_AGENT_OWNER_TOKEN = SCAFFOLD_OWNER_TOKEN;
+  env.LOOM_OWNER_TOKEN = SCAFFOLD_OWNER_TOKEN;
   // Scrub any injected-clock var (defense in depth behind the fail-closed guard) so
   // only an explicit injectClockNow can set it below — never an inherited value.
   for (const name of TEST_CLOCK_ENV_VARS) delete env[name];
@@ -367,17 +367,17 @@ process.exit(result.status ?? 1);
   env.XDG_STATE_HOME = join(home, ".local", "state");
   env.XDG_DATA_HOME = join(home, ".local", "share");
   env.XDG_CACHE_HOME = join(home, ".cache");
-  env.MULTI_AGENT_HOME = multiAgentHome;
+  env.LOOM_HOME = loomHome;
   // D5 compatibility half: replace inherited TMUX_TMPDIR. The wrapper's explicit
   // -S socket is the identity-bearing half, so a missing directory cannot make a
   // later invocation fall back to the operator's default server.
   env.TMUX_TMPDIR = tmuxTmpDir;
   env.PATH = `${tmuxWrapperDir}${delimiter}${originalPath}`;
-  // A3-R3 injected clock: the ONLY sanctioned way MULTI_AGENT_TEST_CLOCK_NOW is set —
+  // A3-R3 injected clock: the ONLY sanctioned way LOOM_TEST_CLOCK_NOW is set —
   // the scaffold's own value, never an inherited one. Omitted => unset => the bridge
   // stamps real-time (production behavior).
   if (opts.injectClockNow !== undefined) {
-    env.MULTI_AGENT_TEST_CLOCK_NOW = opts.injectClockNow;
+    env.LOOM_TEST_CLOCK_NOW = opts.injectClockNow;
   }
 
   const cleanup = () => {
@@ -406,7 +406,7 @@ process.exit(result.status ?? 1);
   return {
     root,
     home,
-    multiAgentHome,
+    loomHome,
     stateDir,
     tmuxTmpDir,
     tmuxSocketPath,

@@ -2,7 +2,7 @@
 
 ## Our pledge
 
-We as members, contributors, and maintainers pledge to make participation in Multi-Agent a
+We as members, contributors, and maintainers pledge to make participation in Loom a
 harassment-free experience for everyone, regardless of age, body size, visible or invisible
 disability, ethnicity, sex characteristics, gender identity and expression, level of experience,
 education, socio-economic status, nationality, personal appearance, race, caste, color, religion, or sexual
@@ -48,7 +48,7 @@ pull requests) and when an individual is officially representing the project in 
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behaviour may be reported to the
-maintainers at **conduct@multi-agent.dev**. All complaints will be reviewed and investigated
+maintainers at **conduct@loom.dev**. All complaints will be reviewed and investigated
 promptly and fairly.
 All maintainers are obligated to respect the privacy and security of the reporter of any incident.
 
@@ -71,5 +71,5 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
 version 2.1 by Coraline Ada Ehmke, available at
 https://www.contributor-covenant.org/version/2/1/code_of_conduct.html and licensed under
 [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/).
-This adaptation names Multi-Agent and its maintainers and summarizes the enforcement guidelines. Community impact guidelines
+This adaptation names Loom and its maintainers and summarizes the enforcement guidelines. Community impact guidelines
 were inspired by [Mozilla's code of conduct enforcement ladder](https://github.com/mozilla/diversity).

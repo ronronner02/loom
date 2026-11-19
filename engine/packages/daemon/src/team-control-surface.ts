@@ -618,7 +618,7 @@ export class TeamReadModel {
       const attempts = this.attempts(runId, tasks);
       const approvals: TeamApproval[] = this.deps.governance.listApprovals(runId);
       return {
-        schema: "multi-agent-team-read/v1",
+        schema: "loom-team-read/v1",
         protocolVersion: TEAM_READ_MODEL_VERSION,
         runId,
         generatedAt: this.now(),

@@ -72,15 +72,15 @@ function createLifecycleModule(opts) {
   function engineEnv(dataDir) {
     const env = {
       ...process.env,
-      MULTI_AGENT_HOME: dataDir,
-      MULTI_AGENT_MODE: 'managed',
+      LOOM_HOME: dataDir,
+      LOOM_MODE: 'managed',
       // Loopback only: no LAN or Tailscale fallback.
-      MULTI_AGENT_BIND_HOST: '127.0.0.1',
+      LOOM_BIND_HOST: '127.0.0.1',
       // The team UI is enabled by environment (settings-store ENV_MAP) instead of writing
       // config.json, which would overwrite the owner's settings.
-      MULTI_AGENT_UI_ENABLED: 'true',
+      LOOM_UI_ENABLED: 'true',
     };
-    delete env.MULTI_AGENT_OWNER_TOKEN;
+    delete env.LOOM_OWNER_TOKEN;
     return env;
   }
 

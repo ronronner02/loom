@@ -4,12 +4,12 @@
  *
  * This test runs the NSIS artifact, so it is opt-in: it writes an HKCU uninstall entry, creates
  * Start Menu shortcuts and needs a built installer, and the owner's machine already has a
- * Multi-Agent install that must not be disturbed. Run it only in the isolated profile the plan's
+ * Loom install that must not be disturbed. Run it only in the isolated profile the plan's
  * installer smoke owns:
  *
- *   MULTI_AGENT_INSTALLER_SMOKE=1 \
- *   MULTI_AGENT_INSTALLER_N=<path to nsis artifact> \
- *   MULTI_AGENT_INSTALLER_N_PLUS_ONE=<path to the next artifact> \
+ *   LOOM_INSTALLER_SMOKE=1 \
+ *   LOOM_INSTALLER_N=<path to nsis artifact> \
+ *   LOOM_INSTALLER_N_PLUS_ONE=<path to the next artifact> \
  *   node --test test/installer.test.js
  *
  * Both installers are silent-installed into a scratch directory under the run temp root, with
@@ -25,9 +25,9 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-const versionN = process.env.MULTI_AGENT_INSTALLER_N;
-const versionNPlusOne = process.env.MULTI_AGENT_INSTALLER_N_PLUS_ONE;
-const enabled = process.env.MULTI_AGENT_INSTALLER_SMOKE === '1' && versionN && versionNPlusOne;
+const versionN = process.env.LOOM_INSTALLER_N;
+const versionNPlusOne = process.env.LOOM_INSTALLER_N_PLUS_ONE;
+const enabled = process.env.LOOM_INSTALLER_SMOKE === '1' && versionN && versionNPlusOne;
 
 const skipReason = !enabled
   ? 'installer smoke is opt-in: it installs an artifact and writes an HKCU uninstall entry'
@@ -65,8 +65,8 @@ function install(artifact, profile) {
 
 /** Write the two data roots and a recovery record the way a stopped run leaves them. */
 function seedUserData(profile) {
-  const state = path.join(profile.localAppData, 'Multi-Agent');
-  const config = path.join(profile.appData, 'Multi-Agent');
+  const state = path.join(profile.localAppData, 'Loom');
+  const config = path.join(profile.appData, 'Loom');
   fs.mkdirSync(path.join(state, 'engine', 'state'), { recursive: true });
   fs.mkdirSync(config, { recursive: true });
   fs.writeFileSync(path.join(state, 'engine', 'state', 'marker.json'), JSON.stringify({ projects: 1 }));

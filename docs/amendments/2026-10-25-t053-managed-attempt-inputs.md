@@ -4,7 +4,7 @@ Date: 2026-10-25
 Authority: the owner's instruction of 2026-10-25, following T047's intake stop.
 Status: owner-authorized; execution requires its own Track A intake and required review. This status is not an approval record.
 Rebased: 2026-10-26, onto `6113c3f`, after `docs/amendments/2026-10-26-simplification.md`. The four gaps below were rechecked there and still hold.
-Source: `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md`, U5 and U2.
+Source: `docs/plans/2026-10-13-001-feat-loom-team-plan.md`, U5 and U2.
 Blocked work: T047.
 
 ## Decision and unchanged scope
@@ -21,7 +21,7 @@ Each was verified against source rather than inferred. All four are *authority* 
 
 | Input | State on `main` | Why it is not T047 wiring |
 | --- | --- | --- |
-| Worker control credentials | Every production construction of `TeamControlCredentials` sets only `ownerToken` (`startup.ts`, `index.ts`, `server.ts`). The only environment variable read is `MULTI_AGENT_OWNER_TOKEN`. `resolveManagedWorkerScope` requires a `workers[]` entry matching the task's `destinationSession`, and `writeBootstrap` throws `mailbox_bootstrap_credential_unavailable` without one. | Issuing a worker token and storing it is minting a grant. No production path, provisioning script or operations document defines where such a token comes from, so this is a new authority surface. |
+| Worker control credentials | Every production construction of `TeamControlCredentials` sets only `ownerToken` (`startup.ts`, `index.ts`, `server.ts`). The only environment variable read is `LOOM_OWNER_TOKEN`. `resolveManagedWorkerScope` requires a `workers[]` entry matching the task's `destinationSession`, and `writeBootstrap` throws `mailbox_bootstrap_credential_unavailable` without one. | Issuing a worker token and storing it is minting a grant. No production path, provisioning script or operations document defines where such a token comes from, so this is a new authority surface. |
 | Per-seat mailbox capability | `produceManagedAttempt` requires `mailbox:{43}`. The only minting site is `ChatRepository`, as a side effect of a send. No session, seat, run or task record carries a capability. | Choosing the capability a seat's mailbox authenticates with establishes a new persistent identity, not a lookup. |
 | Per-task `outputs` / `permissions` | Caller-supplied to both `admitForLaunch` and `produceManagedAttempt`. `parseAssignment` persists only `{taskId, role, paths, dependencies}`. In the launch path both are read back *out of the context manifest*, so the projection is the only store and cannot itself be produced from the persisted row. | Recording a task's declared outputs and permissions changes the durable task contract and the `task.created` payload. |
 | Worker uid/gid | No `src/` code resolves a worker name to a uid. Every occurrence compares a uid it was handed; the value comes from the privileged `--inspect` preflight, which requires an attempt that already exists. | Resolving from the provisioned identity reads the host's worker accounts, which provisioning installs. That is a new host-fact reader, not a launch-path edit. |

@@ -13,15 +13,15 @@ import {
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import {
-  ensureMultiAgentInstance,
-  multiAgentContextLibraryRoots,
+  ensureLoomInstance,
+  loomContextLibraryRoots,
 } from "../src/domain/instance-initialization.js";
 import { symlinkRefusal } from "./helpers/symlink.js";
 
 const roots: string[] = [];
 
 function freshRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), "multi-agent-instance-init-"));
+  const root = mkdtempSync(join(tmpdir(), "loom-instance-init-"));
   roots.push(root);
   return root;
 }
@@ -48,12 +48,12 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-describe("canonical Multi-Agent instance initialization", () => {
+describe("canonical Loom instance initialization", () => {
   it("creates configuration separately from mutable state", () => {
     const parent = freshRoot();
     const home = join(parent, "local");
     const configHome = join(parent, "roaming");
-    const result = ensureMultiAgentInstance({ home, configHome });
+    const result = ensureLoomInstance({ home, configHome });
     expect(result.ok).toBe(true);
     expect(readFileSync(join(configHome, "config.json"), "utf8")).toBe("{}\n");
     expect(existsSync(join(home, "config.json"))).toBe(false);
@@ -63,16 +63,16 @@ describe("canonical Multi-Agent instance initialization", () => {
   it("declares the canonical addressable and System World library roots together", () => {
     // The first root is the one it is given, verbatim; the second is its `system` child.
     const contextRoot = join("/", "instance", "context");
-    expect(multiAgentContextLibraryRoots(contextRoot)).toEqual([contextRoot, join(contextRoot, "system")]);
+    expect(loomContextLibraryRoots(contextRoot)).toEqual([contextRoot, join(contextRoot, "system")]);
   });
 
   it("creates the canonical roots plus the S01 workspace through one idempotent owner", () => {
     const parent = freshRoot();
     const home = join(parent, "home");
 
-    const first = ensureMultiAgentInstance({ home });
+    const first = ensureLoomInstance({ home });
     const firstTree = tree(home);
-    const second = ensureMultiAgentInstance({ home });
+    const second = ensureLoomInstance({ home });
 
     expect(first.ok).toBe(true);
     expect(first.createdPaths.length).toBeGreaterThan(0);
@@ -83,7 +83,7 @@ describe("canonical Multi-Agent instance initialization", () => {
       { path: "state", kind: "directory" },
       { path: "context", kind: "directory" },
       { path: "context/system", kind: "directory" },
-      { path: "context/system/system-world.yaml", kind: "file", content: expect.stringContaining("schema: multi-agent.system-world/v0alpha1") },
+      { path: "context/system/system-world.yaml", kind: "file", content: expect.stringContaining("schema: loom.system-world/v0alpha1") },
       { path: "skills", kind: "directory" },
       { path: "workspace", kind: "directory" },
       { path: "workspace/missions", kind: "directory" },
@@ -105,7 +105,7 @@ describe("canonical Multi-Agent instance initialization", () => {
     writeFileSync(join(home, "config.json"), "{\"operator\":true}\n");
     writeFileSync(join(home, "workspace", "SPEC.md"), "# Mine\n");
 
-    const result = ensureMultiAgentInstance({ home });
+    const result = ensureLoomInstance({ home });
 
     expect(result.ok).toBe(true);
     expect(readFileSync(join(home, "config.json"), "utf8")).toBe("{\"operator\":true}\n");
@@ -117,7 +117,7 @@ describe("canonical Multi-Agent instance initialization", () => {
     mkdirSync(home, { recursive: true });
     writeFileSync(join(home, "context"), "owned file\n");
 
-    const result = ensureMultiAgentInstance({ home });
+    const result = ensureLoomInstance({ home });
 
     expect(result.ok).toBe(false);
     expect(result.conflicts).toEqual([
@@ -135,7 +135,7 @@ describe("canonical Multi-Agent instance initialization", () => {
     mkdirSync(outside);
     symlinkSync(outside, join(home, "context"));
 
-    const result = ensureMultiAgentInstance({ home });
+    const result = ensureLoomInstance({ home });
 
     expect(result.conflicts).toContainEqual({
       path: join(home, "context"),

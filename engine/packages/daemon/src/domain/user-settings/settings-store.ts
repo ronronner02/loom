@@ -17,13 +17,13 @@ import { readFileSync, writeFileSync, mkdirSync, unlinkSync, existsSync, lstatSy
 import { randomUUID } from "node:crypto";
 import * as path from "node:path";
 import * as os from "node:os";
-import { getMultiAgentHome, getConfigPath } from "../../data-paths.js";
+import { getLoomHome, getConfigPath } from "../../data-paths.js";
 import { isNetworkProxy } from "../network-proxy.js";
 
 const DEFAULT_CONFIG_PATH = getConfigPath("config.json");
 
 const DEFAULT_WORKSPACE_ROOT = path.join(
-  getMultiAgentHome(),
+  getLoomHome(),
   "workspace",
 );
 
@@ -31,24 +31,24 @@ const DEFAULT_WORKSPACE_ROOT = path.join(
 // altitude is the TOP of this root: <root>/<CHAIN>.md, then
 // <root>/rigs/<rig>/<CHAIN>.md, then <root>/rigs/<rig>/seats/<seat>/<CHAIN>.md.
 const DEFAULT_TOPOLOGY_ROOT = path.join(
-  getMultiAgentHome(),
+  getLoomHome(),
   "topology",
 );
 
 // OPR.0.5.9.5 Wave B — canonical addressable context library.
 const DEFAULT_CONTEXT_ROOT = path.join(
-  getMultiAgentHome(),
+  getLoomHome(),
   "context",
 );
 
 const DEFAULT_SKILLS_ROOT = path.join(
-  getMultiAgentHome(),
+  getLoomHome(),
   "skills",
 );
 
 /** Retained topology helpers use the current state root only. */
 export function resolveLegacyTopologyRigsRoot(): string {
-  const sharedDocsRoot = path.join(getMultiAgentHome(), "shared-docs");
+  const sharedDocsRoot = path.join(getLoomHome(), "shared-docs");
   return path.join(sharedDocsRoot, "rigs");
 }
 
@@ -58,7 +58,7 @@ export const SETTINGS_VALID_KEYS = [
   // OPR.0.4.6.MH1 FR-1 — the persisted host-selection pointer, ONE
   // static key, lockstep with cli/src/config-store.ts VALID_KEYS (the
   // twins parity test pins both). Default "local" (unset ≡ local host).
-  // Value registry-validation lives at the `multi-agent host select` verb.
+  // Value registry-validation lives at the `loom host select` verb.
   "host.selected",
   // OPR.0.4.6.MH1 FR-4 — the own-host display name (arch Ruling 1: home =
   // the settings twins, never hosts.yaml). Default "localhost".
@@ -83,8 +83,8 @@ export const SETTINGS_VALID_KEYS = [
   "workspace.projects_root",
   "workspace.catalog_path",
   // OPR.0.5.3.6 D1 — the TOPOLOGY tree root (instance altitude at its top,
-  // rigs/<rig>/seats/<seat> beneath). Derived default $MULTI_AGENT_HOME/topology;
-  // keying to the home makes the ~/.multi-agent-vs-$MULTI_AGENT_HOME split a
+  // rigs/<rig>/seats/<seat> beneath). Derived default $LOOM_HOME/topology;
+  // keying to the home makes the ~/.loom-vs-$LOOM_HOME split a
   // non-question (a box with two homes is two instances, each with its own
   // topology tree). Legacy shared-docs/rigs stays readable as a fallback WITH
   // a named advisory — resolveLegacyTopologyRigsRoot below is the one home
@@ -175,7 +175,7 @@ export const SETTINGS_VALID_KEYS = [
   // VALID_KEYS (each side's exact-equality parity test pins its own list). A
   // flip is read at the next daily maintenance tick — never retroactive to an
   // in-flight sweep.
-  // Pickup-receipt stall threshold; net-new key, MULTI_AGENT_* only,
+  // Pickup-receipt stall threshold; net-new key, LOOM_* only,
   // CLI-settable twin lockstep with cli/src/config-store.ts VALID_KEYS. Fresh-read per
   // derivation (a flip applies to the next projection read; never retroactive).
   // Standing stuck sweep: cadence + the A1 unclaimed-obligation age.
@@ -197,72 +197,72 @@ export const SETTINGS_VALID_KEYS = [
 export type SettingsValidKey = typeof SETTINGS_VALID_KEYS[number];
 
 const ENV_MAP: Partial<Record<SettingsValidKey, { primary: string }>> = {
-  "daemon.port": { primary: "MULTI_AGENT_PORT" },
-  "daemon.host": { primary: "MULTI_AGENT_HOST" },
-  "db.path": { primary: "MULTI_AGENT_DB" },
-  "workspace.root": { primary: "MULTI_AGENT_WORKSPACE_ROOT" },
-  "workspace.slices_root": { primary: "MULTI_AGENT_WORKSPACE_SLICES_ROOT" },
-  "workspace.steering_path": { primary: "MULTI_AGENT_WORKSPACE_STEERING_PATH" },
-  "workspace.specs_root": { primary: "MULTI_AGENT_WORKSPACE_SPECS_ROOT" },
-  "workspace.projects_root": { primary: "MULTI_AGENT_WORKSPACE_PROJECTS_ROOT" },
-  "workspace.catalog_path": { primary: "MULTI_AGENT_WORKSPACE_CATALOG_PATH" },
-  "context.root": { primary: "MULTI_AGENT_CONTEXT_ROOT" },
-  "context.system_world": { primary: "MULTI_AGENT_CONTEXT_SYSTEM_WORLD" },
-  "skills.root": { primary: "MULTI_AGENT_SKILLS_ROOT" },
-  "onboarding.default_pack.enabled": { primary: "MULTI_AGENT_ONBOARDING_DEFAULT_PACK_ENABLED" },
-  "launch.non_interruptive": { primary: "MULTI_AGENT_LAUNCH_NON_INTERRUPTIVE" },
-  "health.context_pressure.warning_percent": { primary: "MULTI_AGENT_HEALTH_CONTEXT_PRESSURE_WARNING_PERCENT" },
-  "health.context_pressure.critical_percent": { primary: "MULTI_AGENT_HEALTH_CONTEXT_PRESSURE_CRITICAL_PERCENT" },
-  "progress.scan_roots": { primary: "MULTI_AGENT_PROGRESS_SCAN_ROOTS" },
-  "ui.preview.refresh_interval_seconds": { primary: "MULTI_AGENT_UI_PREVIEW_REFRESH_INTERVAL_SECONDS" },
-  "ui.preview.max_pins": { primary: "MULTI_AGENT_UI_PREVIEW_MAX_PINS" },
-  "ui.timezone": { primary: "MULTI_AGENT_UI_TIMEZONE" },
-  "ui.enabled": { primary: "MULTI_AGENT_UI_ENABLED" },
-  "ui.setup_complete": { primary: "MULTI_AGENT_UI_SETUP_COMPLETE" },
-  "ui.preview.default_lines": { primary: "MULTI_AGENT_UI_PREVIEW_DEFAULT_LINES" },
-  "recovery.auto_drive_provider_prompts": { primary: "MULTI_AGENT_RECOVERY_AUTO_DRIVE_PROVIDER_PROMPTS" },
-  "recovery.provider_auth_env_allowlist": { primary: "MULTI_AGENT_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST" },
-  "agents.advisor_session": { primary: "MULTI_AGENT_AGENTS_ADVISOR_SESSION" },
-  "host.selected": { primary: "MULTI_AGENT_HOST_SELECTED" },
-  "host.name": { primary: "MULTI_AGENT_HOST_NAME" },
-  // OPR.0.4.6.WF5 FR-2 — new key, MULTI_AGENT_* only.
-  "workflow.exception_routing": { primary: "MULTI_AGENT_WORKFLOW_EXCEPTION_ROUTING" },
-  "agents.operator_session": { primary: "MULTI_AGENT_AGENTS_OPERATOR_SESSION" },
-  "workspace.operator_seat_name": { primary: "MULTI_AGENT_WORKSPACE_OPERATOR_SEAT_NAME" },
-  "feed.subscriptions.action_required": { primary: "MULTI_AGENT_FEED_SUBSCRIPTIONS_ACTION_REQUIRED" },
-  "feed.subscriptions.approvals": { primary: "MULTI_AGENT_FEED_SUBSCRIPTIONS_APPROVALS" },
-  "feed.subscriptions.shipped": { primary: "MULTI_AGENT_FEED_SUBSCRIPTIONS_SHIPPED" },
-  "feed.subscriptions.progress": { primary: "MULTI_AGENT_FEED_SUBSCRIPTIONS_PROGRESS" },
-  "feed.subscriptions.audit_log": { primary: "MULTI_AGENT_FEED_SUBSCRIPTIONS_AUDIT_LOG" },
+  "daemon.port": { primary: "LOOM_PORT" },
+  "daemon.host": { primary: "LOOM_HOST" },
+  "db.path": { primary: "LOOM_DB" },
+  "workspace.root": { primary: "LOOM_WORKSPACE_ROOT" },
+  "workspace.slices_root": { primary: "LOOM_WORKSPACE_SLICES_ROOT" },
+  "workspace.steering_path": { primary: "LOOM_WORKSPACE_STEERING_PATH" },
+  "workspace.specs_root": { primary: "LOOM_WORKSPACE_SPECS_ROOT" },
+  "workspace.projects_root": { primary: "LOOM_WORKSPACE_PROJECTS_ROOT" },
+  "workspace.catalog_path": { primary: "LOOM_WORKSPACE_CATALOG_PATH" },
+  "context.root": { primary: "LOOM_CONTEXT_ROOT" },
+  "context.system_world": { primary: "LOOM_CONTEXT_SYSTEM_WORLD" },
+  "skills.root": { primary: "LOOM_SKILLS_ROOT" },
+  "onboarding.default_pack.enabled": { primary: "LOOM_ONBOARDING_DEFAULT_PACK_ENABLED" },
+  "launch.non_interruptive": { primary: "LOOM_LAUNCH_NON_INTERRUPTIVE" },
+  "health.context_pressure.warning_percent": { primary: "LOOM_HEALTH_CONTEXT_PRESSURE_WARNING_PERCENT" },
+  "health.context_pressure.critical_percent": { primary: "LOOM_HEALTH_CONTEXT_PRESSURE_CRITICAL_PERCENT" },
+  "progress.scan_roots": { primary: "LOOM_PROGRESS_SCAN_ROOTS" },
+  "ui.preview.refresh_interval_seconds": { primary: "LOOM_UI_PREVIEW_REFRESH_INTERVAL_SECONDS" },
+  "ui.preview.max_pins": { primary: "LOOM_UI_PREVIEW_MAX_PINS" },
+  "ui.timezone": { primary: "LOOM_UI_TIMEZONE" },
+  "ui.enabled": { primary: "LOOM_UI_ENABLED" },
+  "ui.setup_complete": { primary: "LOOM_UI_SETUP_COMPLETE" },
+  "ui.preview.default_lines": { primary: "LOOM_UI_PREVIEW_DEFAULT_LINES" },
+  "recovery.auto_drive_provider_prompts": { primary: "LOOM_RECOVERY_AUTO_DRIVE_PROVIDER_PROMPTS" },
+  "recovery.provider_auth_env_allowlist": { primary: "LOOM_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST" },
+  "agents.advisor_session": { primary: "LOOM_AGENTS_ADVISOR_SESSION" },
+  "host.selected": { primary: "LOOM_HOST_SELECTED" },
+  "host.name": { primary: "LOOM_HOST_NAME" },
+  // OPR.0.4.6.WF5 FR-2 — new key, LOOM_* only.
+  "workflow.exception_routing": { primary: "LOOM_WORKFLOW_EXCEPTION_ROUTING" },
+  "agents.operator_session": { primary: "LOOM_AGENTS_OPERATOR_SESSION" },
+  "workspace.operator_seat_name": { primary: "LOOM_WORKSPACE_OPERATOR_SEAT_NAME" },
+  "feed.subscriptions.action_required": { primary: "LOOM_FEED_SUBSCRIPTIONS_ACTION_REQUIRED" },
+  "feed.subscriptions.approvals": { primary: "LOOM_FEED_SUBSCRIPTIONS_APPROVALS" },
+  "feed.subscriptions.shipped": { primary: "LOOM_FEED_SUBSCRIPTIONS_SHIPPED" },
+  "feed.subscriptions.progress": { primary: "LOOM_FEED_SUBSCRIPTIONS_PROGRESS" },
+  "feed.subscriptions.audit_log": { primary: "LOOM_FEED_SUBSCRIPTIONS_AUDIT_LOG" },
   // plugin-primitive Phase 3a slice 3.5 — net-new key post-rename;
-  // MULTI_AGENT_X primary only per the post-rename 5-key boundary doctrine
+  // LOOM_X primary only per the post-rename 5-key boundary doctrine
   // Each setting has one environment name.
-  "runtime.codex.hooks_enabled": { primary: "MULTI_AGENT_RUNTIME_CODEX_HOOKS_ENABLED" },
-  "runtime.readiness_timeout_seconds": { primary: "MULTI_AGENT_RUNTIME_READINESS_TIMEOUT_SECONDS" },
-  // Slice 27 — Claude auto-compaction policy. Net-new keys; MULTI_AGENT_X
+  "runtime.codex.hooks_enabled": { primary: "LOOM_RUNTIME_CODEX_HOOKS_ENABLED" },
+  "runtime.readiness_timeout_seconds": { primary: "LOOM_RUNTIME_READINESS_TIMEOUT_SECONDS" },
+  // Slice 27 — Claude auto-compaction policy. Net-new keys; LOOM_X
   // primary only.
-  "policies.claude_compaction.enabled": { primary: "MULTI_AGENT_POLICIES_CLAUDE_COMPACTION_ENABLED" },
-  "policies.claude_compaction.threshold_percent": { primary: "MULTI_AGENT_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT" },
-  "policies.claude_compaction.pre_compact_instruction": { primary: "MULTI_AGENT_POLICIES_CLAUDE_COMPACTION_PRE_COMPACT_INSTRUCTION" },
-  "policies.claude_compaction.compact_instruction": { primary: "MULTI_AGENT_POLICIES_CLAUDE_COMPACTION_COMPACT_INSTRUCTION" },
-  "policies.claude_compaction.message_inline": { primary: "MULTI_AGENT_POLICIES_CLAUDE_COMPACTION_MESSAGE_INLINE" },
-  "policies.claude_compaction.message_file_path": { primary: "MULTI_AGENT_POLICIES_CLAUDE_COMPACTION_MESSAGE_FILE_PATH" },
-  "policies.claude_compaction.post_restore_audit_instruction": { primary: "MULTI_AGENT_POLICIES_CLAUDE_COMPACTION_POST_RESTORE_AUDIT_INSTRUCTION" },
-  "policies.idle_gate_qitem.scan_interval_seconds": { primary: "MULTI_AGENT_POLICIES_IDLE_GATE_QITEM_SCAN_INTERVAL_SECONDS" },
-  "policies.idle_gate_qitem.active_wake_interval_seconds": { primary: "MULTI_AGENT_POLICIES_IDLE_GATE_QITEM_ACTIVE_WAKE_INTERVAL_SECONDS" },
-  "policies.idle_gate_qitem.auto_register": { primary: "MULTI_AGENT_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER" },
-  "policies.idle_gate_qitem.opt_in_sessions": { primary: "MULTI_AGENT_POLICIES_IDLE_GATE_QITEM_OPT_IN_SESSIONS" },
-  "snapshots.periodic.enabled": { primary: "MULTI_AGENT_SNAPSHOTS_PERIODIC_ENABLED" },
-  "snapshots.periodic.interval_seconds": { primary: "MULTI_AGENT_SNAPSHOTS_PERIODIC_INTERVAL_SECONDS" },
-  "snapshots.periodic.retention_keep": { primary: "MULTI_AGENT_SNAPSHOTS_PERIODIC_RETENTION_KEEP" },
-  "output.compact": { primary: "MULTI_AGENT_OUTPUT_COMPACT" },
-  "provider.usage_windows": { primary: "MULTI_AGENT_PROVIDER_USAGE_WINDOWS" },
-  // OPR.0.4.6.FS-1 W2 — retention knobs; net-new keys, MULTI_AGENT_* primary only.
-  // Net-new key; MULTI_AGENT_* primary only.
-  "team.leadClient": { primary: "MULTI_AGENT_TEAM_LEAD_CLIENT" },
-  "team.maxSeats": { primary: "MULTI_AGENT_TEAM_MAX_SEATS" },
-  "team.maxConcurrentAgents": { primary: "MULTI_AGENT_TEAM_MAX_CONCURRENT_AGENTS" },
-  "network.proxy": { primary: "MULTI_AGENT_NETWORK_PROXY" },
+  "policies.claude_compaction.enabled": { primary: "LOOM_POLICIES_CLAUDE_COMPACTION_ENABLED" },
+  "policies.claude_compaction.threshold_percent": { primary: "LOOM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT" },
+  "policies.claude_compaction.pre_compact_instruction": { primary: "LOOM_POLICIES_CLAUDE_COMPACTION_PRE_COMPACT_INSTRUCTION" },
+  "policies.claude_compaction.compact_instruction": { primary: "LOOM_POLICIES_CLAUDE_COMPACTION_COMPACT_INSTRUCTION" },
+  "policies.claude_compaction.message_inline": { primary: "LOOM_POLICIES_CLAUDE_COMPACTION_MESSAGE_INLINE" },
+  "policies.claude_compaction.message_file_path": { primary: "LOOM_POLICIES_CLAUDE_COMPACTION_MESSAGE_FILE_PATH" },
+  "policies.claude_compaction.post_restore_audit_instruction": { primary: "LOOM_POLICIES_CLAUDE_COMPACTION_POST_RESTORE_AUDIT_INSTRUCTION" },
+  "policies.idle_gate_qitem.scan_interval_seconds": { primary: "LOOM_POLICIES_IDLE_GATE_QITEM_SCAN_INTERVAL_SECONDS" },
+  "policies.idle_gate_qitem.active_wake_interval_seconds": { primary: "LOOM_POLICIES_IDLE_GATE_QITEM_ACTIVE_WAKE_INTERVAL_SECONDS" },
+  "policies.idle_gate_qitem.auto_register": { primary: "LOOM_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER" },
+  "policies.idle_gate_qitem.opt_in_sessions": { primary: "LOOM_POLICIES_IDLE_GATE_QITEM_OPT_IN_SESSIONS" },
+  "snapshots.periodic.enabled": { primary: "LOOM_SNAPSHOTS_PERIODIC_ENABLED" },
+  "snapshots.periodic.interval_seconds": { primary: "LOOM_SNAPSHOTS_PERIODIC_INTERVAL_SECONDS" },
+  "snapshots.periodic.retention_keep": { primary: "LOOM_SNAPSHOTS_PERIODIC_RETENTION_KEEP" },
+  "output.compact": { primary: "LOOM_OUTPUT_COMPACT" },
+  "provider.usage_windows": { primary: "LOOM_PROVIDER_USAGE_WINDOWS" },
+  // OPR.0.4.6.FS-1 W2 — retention knobs; net-new keys, LOOM_* primary only.
+  // Net-new key; LOOM_* primary only.
+  "team.leadClient": { primary: "LOOM_TEAM_LEAD_CLIENT" },
+  "team.maxSeats": { primary: "LOOM_TEAM_MAX_SEATS" },
+  "team.maxConcurrentAgents": { primary: "LOOM_TEAM_MAX_CONCURRENT_AGENTS" },
+  "network.proxy": { primary: "LOOM_NETWORK_PROXY" },
 };
 
 const KEY_TO_PATH: Record<SettingsValidKey, string[]> = {
@@ -503,7 +503,7 @@ const DEFAULT_CLAUDE_COMPACTION_EXTRA_INSTRUCTION_RELATIVE_PATH = path.join(
   "post-compact-extra.md",
 );
 
-export const DEFAULT_CLAUDE_COMPACTION_EXTRA_INSTRUCTION_FILE_CONTENT = `# Multi-Agent Post-Compact Extra Instructions
+export const DEFAULT_CLAUDE_COMPACTION_EXTRA_INSTRUCTION_FILE_CONTENT = `# Loom Post-Compact Extra Instructions
 
 No mission-specific extra restore instructions are configured yet.
 
@@ -512,12 +512,12 @@ when this session needs more context than the canonical claude-compaction-restor
 skill provides.
 `;
 
-export function defaultClaudeCompactionExtraInstructionFilePath(multiAgentHome = getMultiAgentHome()): string {
-  return path.join(multiAgentHome, DEFAULT_CLAUDE_COMPACTION_EXTRA_INSTRUCTION_RELATIVE_PATH);
+export function defaultClaudeCompactionExtraInstructionFilePath(loomHome = getLoomHome()): string {
+  return path.join(loomHome, DEFAULT_CLAUDE_COMPACTION_EXTRA_INSTRUCTION_RELATIVE_PATH);
 }
 
-export function ensureDefaultClaudeCompactionFiles(multiAgentHome = getMultiAgentHome()): string {
-  const filePath = defaultClaudeCompactionExtraInstructionFilePath(multiAgentHome);
+export function ensureDefaultClaudeCompactionFiles(loomHome = getLoomHome()): string {
+  const filePath = defaultClaudeCompactionExtraInstructionFilePath(loomHome);
   if (!existsSync(filePath)) {
     mkdirSync(path.dirname(filePath), { recursive: true });
     writeFileSync(filePath, DEFAULT_CLAUDE_COMPACTION_EXTRA_INSTRUCTION_FILE_CONTENT, "utf-8");
@@ -532,9 +532,9 @@ function getDefaultValue(key: SettingsValidKey, workspaceRoot: string): string |
   switch (key) {
     case "daemon.port": return 7433;
     case "daemon.host": return "127.0.0.1";
-    case "db.path": return path.join(getMultiAgentHome(), "multi-agent.sqlite");
+    case "db.path": return path.join(getLoomHome(), "loom.sqlite");
     case "transcripts.enabled": return true;
-    case "transcripts.path": return path.join(getMultiAgentHome(), "transcripts");
+    case "transcripts.path": return path.join(getLoomHome(), "transcripts");
     // V1 pre-release CLI/daemon Item 1 — capture-pane rotation defaults.
     case "transcripts.lines": return 1000;
     case "transcripts.poll_interval_seconds": return 2;
@@ -545,7 +545,7 @@ function getDefaultValue(key: SettingsValidKey, workspaceRoot: string): string |
     // OPR.0.4.6.MH1 FR-4 — the own-host display-name default (PRD-named).
     case "host.name": return "localhost";
     case "workspace.root": return DEFAULT_WORKSPACE_ROOT;
-    // OPR.0.5.3.6 D1 — derived under $MULTI_AGENT_HOME, never a shared-docs literal.
+    // OPR.0.5.3.6 D1 — derived under $LOOM_HOME, never a shared-docs literal.
     case "topology.root": return DEFAULT_TOPOLOGY_ROOT;
     case "context.root": return DEFAULT_CONTEXT_ROOT;
     case "context.system_world": return "default";
@@ -674,7 +674,7 @@ const KEY_CONSTRAINTS: Partial<Record<SettingsValidKey, (raw: string, coerced: s
   // daemon.port had no entry, so a stored 99999 reached the next daemon start
   // and died with a raw ERR_SOCKET_BAD_PORT
   // from serve(). The check range-validates the value the runtime actually
-  // consumes — the same parseInt the boot path runs on MULTI_AGENT_PORT
+  // consumes — the same parseInt the boot path runs on LOOM_PORT
   // (startServer) — rather than the raw input format, so everything that
   // resolves today keeps resolving: 7433abc, 7433.5 and +7433 resolve to
   // 7433, 1e4 to 1, 0x1D11 to 0, and a quoted in-range port in config.json
@@ -864,7 +864,7 @@ export class SettingsStore {
       return { [warningKey]: warning, [criticalKey]: critical };
     }
     process.stderr.write(
-      `[multi-agent-settings] context-pressure policy rejected: warning (${warning.value}) must be less than critical (${critical.value}); falling back to 95/99 defaults\n`,
+      `[loom-settings] context-pressure policy rejected: warning (${warning.value}) must be less than critical (${critical.value}); falling back to 95/99 defaults\n`,
     );
     return {
       [warningKey]: { value: 95, source: "default", defaultValue: 95 },
@@ -886,7 +886,7 @@ export class SettingsStore {
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         process.stderr.write(
-          `[multi-agent-settings] env override for ${key} rejected: ${reason}; falling back to file/default\n`,
+          `[loom-settings] env override for ${key} rejected: ${reason}; falling back to file/default\n`,
         );
       }
     }
@@ -905,7 +905,7 @@ export class SettingsStore {
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         process.stderr.write(
-          `[multi-agent-settings] file value for ${key} rejected: ${reason}; falling back to default\n`,
+          `[loom-settings] file value for ${key} rejected: ${reason}; falling back to default\n`,
         );
       }
     }
@@ -950,7 +950,7 @@ export class SettingsStore {
 
   /**
    * Slice 27 — read the Claude auto-compaction policy as a typed snapshot.
-   * Called per-poll by ContextMonitor so live edits to ~/.multi-agent/config.json
+   * Called per-poll by ContextMonitor so live edits to ~/.loom/config.json
    * take effect within one polling interval without daemon restart.
    */
   resolveClaudeCompactionPolicy(): ClaudeCompactionPolicy {
@@ -1117,13 +1117,13 @@ export class SettingsStore {
       if (node === null || typeof node !== "object" || Array.isArray(node)) continue; // flat toggle leaves — not host nodes
       if (FEED_HOST_RESERVED_SEGMENTS.has(segment) || !/^[A-Za-z0-9_-]+$/.test(segment)) {
         process.stderr.write(
-          `[multi-agent-settings] feed.subscriptions.${segment} ignored as a host subscription: segment is ${FEED_HOST_RESERVED_SEGMENTS.has(segment) ? "a reserved toggle name" : "not a valid host id segment ([A-Za-z0-9_-]+)"}\n`,
+          `[loom-settings] feed.subscriptions.${segment} ignored as a host subscription: segment is ${FEED_HOST_RESERVED_SEGMENTS.has(segment) ? "a reserved toggle name" : "not a valid host id segment ([A-Za-z0-9_-]+)"}\n`,
         );
         continue;
       }
       const enabled = (node as Record<string, unknown>)["enabled"];
       if (typeof enabled !== "boolean") {
-        process.stderr.write(`[multi-agent-settings] feed.subscriptions.${segment}.enabled ignored: expected boolean, got ${JSON.stringify(enabled)}\n`);
+        process.stderr.write(`[loom-settings] feed.subscriptions.${segment}.enabled ignored: expected boolean, got ${JSON.stringify(enabled)}\n`);
         continue;
       }
       out.push({ hostId: segment, enabled });
@@ -1190,7 +1190,7 @@ export class SettingsStore {
         parsed = JSON.parse(raw) as Record<string, unknown>;
       } catch {
         throw new Error(
-          `Config file at ${this.configPath} is malformed. Fix the JSON or reset with: multi-agent config reset`,
+          `Config file at ${this.configPath} is malformed. Fix the JSON or reset with: loom config reset`,
         );
       }
     }

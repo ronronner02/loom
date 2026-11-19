@@ -7,7 +7,7 @@ no duplicate task or attempt row.
 
 The recorded run was not a clean acceptance pass: its final lead turn failed evidence
 validation and left its task pending, while the branch view still offered Merge.
-That defect is now fixed by [PR #138](https://github.com/ronronner02/multi-agent/pull/138)
+That defect is now fixed by [PR #138](https://github.com/ronronner02/loom/pull/138)
 (`abb344f`). The recorded full daemon suite has seven failures beyond the two
 environment exceptions in the brief; six were test drift, fixed by PR #139
 (`0326993`), and one is the known determinism flake. The original evidence and subsequent fixes are
@@ -42,7 +42,7 @@ It stalled after the lead revised its list to give a read-only review task
 unreadable proposal and recorded as `evidence_invalid`. Nothing retried it. Merge
 was offered even though no implementation task had been admitted and zero commits
 had landed. These defects were fixed by
-[PR #136](https://github.com/ronronner02/multi-agent/pull/136).
+[PR #136](https://github.com/ronronner02/loom/pull/136).
 
 The archived evidence makes the stall inspectable:
 
@@ -167,7 +167,7 @@ validator `text()`, which rejected C0 control characters, including newlines. Th
 request returned `invalid_team_contract`. The run resumed only after the goal path
 used the prose validator. The [progress notes](live-run-progress.txt) record the
 failed request and local fix `4c27c01` on `fix/team-goal-prose`; it is now fixed by
-[PR #137](https://github.com/ronronner02/multi-agent/pull/137), `1034f46`.
+[PR #137](https://github.com/ronronner02/loom/pull/137), `1034f46`.
 
 The failed request has no seq in this run's export because it preceded run creation.
 This wrap-up reports the prior fix and does not claim a new failing-before run for it.
@@ -206,7 +206,7 @@ classify the final attempt as `evidence_invalid`: earlier attempts `9f953c63…`
 The final attempt's `resumeSafe: true` also shows that the failure did not require a
 fresh native session.
 
-The defect is fixed by [PR #138](https://github.com/ronronner02/multi-agent/pull/138)
+The defect is fixed by [PR #138](https://github.com/ronronner02/loom/pull/138)
 (`abb344f`), from `fix/lead-evidence-after-landing`.
 The fix refreshes each delivery lead turn's tree to the integration head and preserves
 its starting base across a restart, keeps the lead's native conversation when its
@@ -222,7 +222,7 @@ The suite ran **once**, in a standalone clone of `1034f46`, with its own
 `npm ci --no-audit --no-fund` and a fresh
 `npm run build -w packages/daemon -w packages/cli`. Linux Node `v24.21.0` and npm
 `11.19.0` were selected by a clean PATH beginning with
-`/opt/multi-agent/toolchain/node/bin`. It used `setsid -w`, stdin from `/dev/null`,
+`/opt/loom/toolchain/node/bin`. It used `setsid -w`, stdin from `/dev/null`,
 `TMUX` and `TMUX_PANE` unset, two workers and an exit-code `.done` marker, following
 [operations](../../operations.md#full-daemon-suite).
 

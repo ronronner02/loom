@@ -2,7 +2,7 @@ import React from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
-import type { TeamModelSettings } from "@multi-agent/daemon/team-control";
+import type { TeamModelSettings } from "@loom/daemon/team-control";
 import { routeTree } from "../../routes.js";
 import { queryClient } from "../../lib/query-client.js";
 import { attempt, health, read, RUN_ID, task } from "./fixtures.js";
@@ -30,9 +30,9 @@ beforeEach(() => {
   observedFlowModel = null; readAttempts = [];
   vi.stubGlobal("IntersectionObserver", class { observe() {} disconnect() {} });
   localStorage.clear(); sessionStorage.clear(); queryClient.clear();
-  localStorage.setItem("multi-agent.interfaceLanguage", "en");
+  localStorage.setItem("loom.interfaceLanguage", "en");
   // This install already finished first-run setup; a fresh one shows that screen before GitHub.
-  localStorage.setItem("multi-agent.setupComplete", "done");
+  localStorage.setItem("loom.setupComplete", "done");
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);

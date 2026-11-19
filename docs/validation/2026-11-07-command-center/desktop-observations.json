@@ -86,7 +86,7 @@
     },
     "currentDesktop": {
       "pid": 14236,
-      "exe": "%LOCALAPPDATA%/Programs/Multi-Agent/Multi-Agent.exe",
+      "exe": "%LOCALAPPDATA%/Programs/Loom/Loom.exe",
       "sameNormalInstance": true,
       "debuggingEnabled": false
     },

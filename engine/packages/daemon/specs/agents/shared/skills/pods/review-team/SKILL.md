@@ -1,8 +1,8 @@
 ---
 name: review-team
-description: Use when reviewing a native Multi-Agent team run or when the selected review boundary is reached.
+description: Use when reviewing a native Loom team run or when the selected review boundary is reached.
 metadata:
-  multi-agent:
+  loom:
     stage: factory-approved
     cli_surfaces_referenced:
       - team chat
@@ -22,7 +22,7 @@ Review the proposed change with fresh scrutiny. Read the task goal, the changed 
 4. Send findings to the lead with file and line evidence:
 
 ```text
-multi-agent team chat <run-id> "<finding, evidence, and requested correction>"
+loom team chat <run-id> "<finding, evidence, and requested correction>"
 ```
 
 A clean review states what was checked and what remains unverified. Do not infer success from a green-looking status without reading the task result and diff.

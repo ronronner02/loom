@@ -2,7 +2,7 @@
   "check": "normal-final-doc-references",
   "cwd": "engine",
   "command": [
-    "/opt/multi-agent/toolchain/node/bin/node",
+    "/opt/loom/toolchain/node/bin/node",
     "--import",
     "tsx",
     "/home/leo/scratch/cc-u10-acceptance/normal-delivery-01/check-references.mjs"

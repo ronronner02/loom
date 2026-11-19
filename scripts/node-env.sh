@@ -33,7 +33,7 @@ _ma_node_dir() {
       "${VOLTA_HOME:-$HOME/.volta}/bin" \
       "$HOME/.local/bin" \
       /usr/local/bin \
-      /opt/multi-agent/toolchain/node/bin; do
+      /opt/loom/toolchain/node/bin; do
     _ma_node_ok "$dir" && { printf '%s' "$dir"; return 0; }
   done
   return 1

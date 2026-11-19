@@ -1,6 +1,6 @@
 name: shared
 version: "1.0"
-description: Shared builtin Multi-Agent resources for packaged team agents
+description: Shared builtin Loom resources for packaged team agents
 
 resources:
   skills:
@@ -38,10 +38,10 @@ resources:
     - id: backlog-capture
       path: skills/pm/backlog-capture
   plugins:
-    - id: multi-agent-core
+    - id: loom-core
       source:
         kind: local
-        path: multi-agent-home:plugins/multi-agent-core
+        path: loom-home:plugins/loom-core
   runtime_resources:
     - id: claude-default-settings
       path: runtime/claude-settings.fragment.json

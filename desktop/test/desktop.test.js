@@ -108,7 +108,7 @@ function preload(pick = async () => String.raw`D:\Client Work\fixture`) {
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
     require: name => {
       assert.equal(name, 'electron'); return {
-        contextBridge: { exposeInMainWorld: (name, value) => { assert.equal(name, 'multiAgentDesktop'); bridge = value; } },
+        contextBridge: { exposeInMainWorld: (name, value) => { assert.equal(name, 'loomDesktop'); bridge = value; } },
         ipcRenderer: {
           sendSync: channel => { assert.equal(channel, 'desktop:csrf-token'); return 'fixture-session-handoff'; },
           invoke: channel => channel === 'desktop:pick-folder' ? pick() : Promise.resolve(status),
@@ -237,7 +237,7 @@ test('a client the resolver never reported reads as missing', () => {
 
 test('preload hands over the anti-forgery token and adds no title bar, footer or padding', async () => {
   const page = preload();
-  assert.equal(page.storage.get('multi-agent.desktop.csrf'), 'fixture-session-handoff');
+  assert.equal(page.storage.get('loom.desktop.csrf'), 'fixture-session-handoff');
   assert.equal(await page.bridge.status(), page.status);
   page.loaded();
   assert.equal(page.document.documentElement.dataset.desktop, 'true');

@@ -6,7 +6,7 @@
       "layout": "mirror-of-spec"
     },
     "plugin": {
-      "path": "packages/daemon/assets/plugins/multi-agent-core/skills",
+      "path": "packages/daemon/assets/plugins/loom-core/skills",
       "layout": "flat"
     },
     "spec": {

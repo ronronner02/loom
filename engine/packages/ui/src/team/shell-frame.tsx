@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import type { InterfaceI18n, MessageKey } from "@multi-agent/i18n";
+import type { InterfaceI18n, MessageKey } from "@loom/i18n";
 import { useTranslation } from "react-i18next";
 import { Bell, FolderPlus, GitBranch, Menu, MessageSquare, Search, Settings, X } from "lucide-react";
 import { PomoAvatar, resolvePomoAvatarState, type PomoAvatarState } from "./pomo-avatar.js";

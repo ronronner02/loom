@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
 import { useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import type { InterfaceI18n } from "@multi-agent/i18n";
-import type { TeamReviewView } from "@multi-agent/daemon/team-control";
+import type { InterfaceI18n } from "@loom/i18n";
+import type { TeamReviewView } from "@loom/daemon/team-control";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 import { readableBranch, taskName } from "./display.js";
 import { useTeamWorkspace } from "./workspace-data.js";

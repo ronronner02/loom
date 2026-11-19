@@ -20,4 +20,4 @@ set -a
 set +a
 
 # A managed daemon refuses any listener that is not loopback, so ask for loopback.
-exec "$REPO_ROOT/engine/node_modules/.bin/multi-agent" daemon start --host 127.0.0.1
+exec "$REPO_ROOT/engine/node_modules/.bin/loom" daemon start --host 127.0.0.1

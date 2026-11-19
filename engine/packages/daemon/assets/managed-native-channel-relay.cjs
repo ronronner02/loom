@@ -3,8 +3,8 @@ const fs = require("node:fs");
 const net = require("node:net");
 const { randomUUID } = require("node:crypto");
 
-const SOCKET = "/run/multi-agent/mailbox.sock";
-const ROOT = "/home/worker/.multi-agent/mailbox";
+const SOCKET = "/run/loom/mailbox.sock";
+const ROOT = "/home/worker/.loom/mailbox";
 const BOOTSTRAP = ROOT + "/bootstrap.json";
 const HANDOUTS = ROOT + "/handouts.json";
 const FIELDS = ["authorization", "sessionId", "runId", "attemptId", "generation", "taskId", "capability"];

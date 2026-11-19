@@ -7,26 +7,26 @@ This rig runs HashiCorp Vault in dev mode as a managed environment service. Vaul
 ## Access
 
 - **Address:** `http://127.0.0.1:8200`
-- **Dev root token:** `multi-agent-dev-token`
+- **Dev root token:** `loom-dev-token`
 - **UI:** `http://127.0.0.1:8200/ui`
 - **API:** `http://127.0.0.1:8200/v1`
 
 ## Ground Yourself First
 
-Before making topology or registration claims, ground yourself with Multi-Agent identity:
+Before making topology or registration claims, ground yourself with Loom identity:
 
 ```bash
-multi-agent whoami --json
+loom whoami --json
 ```
 
-Trust the startup identity context Multi-Agent gives you. Do not claim that the rig is unlaunched, unattached, or unregistered unless `multi-agent whoami --json` or another direct Multi-Agent command proves it.
+Trust the startup identity context Loom gives you. Do not claim that the rig is unlaunched, unattached, or unregistered unless `loom whoami --json` or another direct Loom command proves it.
 
 ## Checking Status
 
-Use Multi-Agent env surfaces first:
+Use Loom env surfaces first:
 
 ```bash
-multi-agent env status <rig-name>
+loom env status <rig-name>
 ```
 
 For direct Vault health checks:

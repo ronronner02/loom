@@ -4112,7 +4112,7 @@ Several release-blocking polish items landed in the CLI/daemon:
 
 Baseline for this changelog. Key shipped capabilities at `0.2.0`:
 
-- Pod-aware multi-agent runtime with RigSpec, AgentSpec, pods, and seats.
+- Pod-aware loom runtime with RigSpec, AgentSpec, pods, and seats.
 - Rig-scoped environment management.
 - Filesystem-backed spec library for built-in and user roots.
 - Daemon-backed stream, queue, project, view, watchdog, and workflow primitives.

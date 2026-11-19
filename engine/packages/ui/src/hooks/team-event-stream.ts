@@ -1,4 +1,4 @@
-import type { TeamReadModel } from "@multi-agent/daemon/team-control";
+import type { TeamReadModel } from "@loom/daemon/team-control";
 
 export type TeamReplay = ReturnType<TeamReadModel["replay"]>;
 export type TeamEvent = TeamReplay["events"][number];

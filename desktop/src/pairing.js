@@ -9,7 +9,7 @@
 const { session } = require('electron');
 const { isDaemonHealth } = require('./origin.js');
 
-const OWNER_COOKIE = 'multi_agent_owner';
+const OWNER_COOKIE = 'loom_owner';
 
 /**
  * Mint a one-time code over the daemon's private parent channel and exchange it.

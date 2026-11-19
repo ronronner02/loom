@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ConfigStore } from "./config-store.js";
-import { getMultiAgentHome } from "@multi-agent/daemon/data-paths";
+import { getLoomHome } from "@loom/daemon/data-paths";
 import { fetchWithTimeout, FetchTimeoutError } from "./fetch-with-timeout.js";
 
 /** The header carrying the caller's seat identity, derived ONCE at the transport chokepoint. */
-export const SENDER_IDENTITY_HEADER = "X-Multi-Agent-Session";
+export const SENDER_IDENTITY_HEADER = "X-Loom-Session";
 
 /**
  * P18 sender-provenance — derive the caller's identity from the seat ENV (never a request-body
@@ -16,7 +16,7 @@ export const SENDER_IDENTITY_HEADER = "X-Multi-Agent-Session";
  * chokepoint: `DaemonClient.fetch` stamps this on every request; callers never set it by hand.
  */
 export function senderIdentityHeaders(): Record<string, string> {
-  const session = process.env.MULTI_AGENT_SESSION_NAME?.trim();
+  const session = process.env.LOOM_SESSION_NAME?.trim();
   return session ? { [SENDER_IDENTITY_HEADER]: session } : {};
 }
 
@@ -108,8 +108,8 @@ interface DaemonClientOptions {
 /** Routing state published by daemon start, not a health check or sibling-home discovery. */
 function localDaemonUrl(): string | undefined {
   try {
-    // Resolve at construction time: embedders may change MULTI_AGENT_HOME after import.
-    const state = JSON.parse(fs.readFileSync(path.join(getMultiAgentHome(), "daemon.json"), "utf-8"));
+    // Resolve at construction time: embedders may change LOOM_HOME after import.
+    const state = JSON.parse(fs.readFileSync(path.join(getLoomHome(), "daemon.json"), "utf-8"));
     if (!state || !Number.isSafeInteger(state.pid) || state.pid <= 0
       || !Number.isInteger(state.port) || state.port < 1 || state.port > 65535
       || (state.host !== undefined && (typeof state.host !== "string" || !state.host.trim()))) return undefined;
@@ -132,7 +132,7 @@ export class DaemonClient {
     if (baseUrl) {
       this.baseUrl = baseUrl;
     } else {
-      const envUrl = process.env.MULTI_AGENT_URL;
+      const envUrl = process.env.LOOM_URL;
       if (envUrl) {
         this.baseUrl = envUrl;
       } else {
@@ -213,14 +213,14 @@ export class DaemonClient {
       // the daemon may be up but saturated. Surface it as a subclass so callers
       // still catch DaemonConnectionError, but the CLI can say "slow, not stopped".
       if (err instanceof FetchTimeoutError) {
-        throw new DaemonTimeoutError(`The Multi-Agent daemon at ${this.baseUrl} did not respond in time: ${msg}`);
+        throw new DaemonTimeoutError(`The Loom daemon at ${this.baseUrl} did not respond in time: ${msg}`);
       }
       // Headers prove that the daemon received the request, but not that a write
       // finished. A dropped body must preserve unknown-outcome guidance.
       if (responseStatus !== undefined) throw new DaemonResponseError(responseStatus, "");
       const causeCode = connectionErrorCode(err);
       throw new DaemonConnectionError(
-        `Cannot connect to the Multi-Agent daemon at ${this.baseUrl}: ${msg}${causeCode && !msg.includes(causeCode) ? ` (${causeCode})` : ""}`,
+        `Cannot connect to the Loom daemon at ${this.baseUrl}: ${msg}${causeCode && !msg.includes(causeCode) ? ` (${causeCode})` : ""}`,
         causeCode,
       );
     }

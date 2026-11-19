@@ -2,7 +2,7 @@
 
 Date: 2026-11-05
 
-Scope: decision 3 bullet C4 and decision 5 of `docs/amendments/2026-11-02-mvp-multi-agent-scope.md`.
+Scope: decision 3 bullet C4 and decision 5 of `docs/amendments/2026-11-02-mvp-loom-scope.md`.
 C4 replaces T024-T030 with one recorded end-to-end run on a demo repository, including the
 failure cases a real run reaches: a rejected approval, a review rework, a cancellation and a
 restart, with **at least one review round that changed the candidate**.

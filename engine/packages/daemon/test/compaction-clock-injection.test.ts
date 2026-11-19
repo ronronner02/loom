@@ -9,13 +9,13 @@
 //
 // A5 ruling (sourcefit cbbb4903 → A3-R3): the slice ADDS a bounded injectable clock —
 // real wall-clock by default (production), deterministic when the shared hermetic
-// env-var MULTI_AGENT_TEST_CLOCK_NOW is set. The determinism pin: run the SAME script
+// env-var LOOM_TEST_CLOCK_NOW is set. The determinism pin: run the SAME script
 // sequence twice under the SAME injected clock and get byte-identical compaction-asset
 // stamps (the packet dir path + every marker timestamp).
 //
 // These tests spawn the REAL asset scripts as subprocesses (the class-fix floor:
 // real-spawn, never an in-memory shortcut — the exact precompact-hook.test.ts
-// convention) with an isolated MULTI_AGENT_HOME, so the on-disk stamps match what Claude
+// convention) with an isolated LOOM_HOME, so the on-disk stamps match what Claude
 // observes at PreCompact/SessionStart/PostCompact time.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -26,7 +26,7 @@ import { join, resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ASSET_ROOT = resolve(HERE, "..", "assets", "plugins", "multi-agent-core");
+const ASSET_ROOT = resolve(HERE, "..", "assets", "plugins", "loom-core");
 const HOOK_SCRIPT = resolve(ASSET_ROOT, "skills", "claude-compaction-restore", "scripts", "precompact-hook.mjs");
 const BRIDGE_SCRIPT = resolve(ASSET_ROOT, "hooks", "scripts", "compaction-restore-bridge.cjs");
 
@@ -38,31 +38,31 @@ const INJECTED_ISO = "2021-06-06T06:06:06.000Z";
 const INJECTED_STAMP = INJECTED_ISO.replace(/[:.]/g, "-");
 const SEAT = "clock-seat@kernel";
 
-function assetEnv(multiAgentHome: string, injectClockNow?: string): NodeJS.ProcessEnv {
+function assetEnv(loomHome: string, injectClockNow?: string): NodeJS.ProcessEnv {
   return {
     ...process.env,
-    MULTI_AGENT_HOME: multiAgentHome,
-    MULTI_AGENT_SESSION_NAME: SEAT,
+    LOOM_HOME: loomHome,
+    LOOM_SESSION_NAME: SEAT,
     // Absence => production real-time fallback; presence => deterministic injection.
-    MULTI_AGENT_TEST_CLOCK_NOW: injectClockNow,
+    LOOM_TEST_CLOCK_NOW: injectClockNow,
     // P6(C): every test owns a UNIQUE packet output-root under its own tmp home, so two
     // concurrent writers (same injected clock => same stamp) never collide on the shared
     // /tmp/claude-compaction-restore path — the desk-ruled cross-writer flake, killed.
-    MULTI_AGENT_COMPACTION_OUT_ROOT: join(dirname(multiAgentHome), "packets"),
+    LOOM_COMPACTION_OUT_ROOT: join(dirname(loomHome), "packets"),
   } as NodeJS.ProcessEnv;
 }
 
-function markerPathFor(multiAgentHome: string): string {
-  return join(multiAgentHome, "compaction", "restore-pending", `${SEAT}.json`);
+function markerPathFor(loomHome: string): string {
+  return join(loomHome, "compaction", "restore-pending", `${SEAT}.json`);
 }
 
-function readMarker(multiAgentHome: string): Record<string, unknown> {
-  return JSON.parse(readFileSync(markerPathFor(multiAgentHome), "utf8"));
+function readMarker(loomHome: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(markerPathFor(loomHome), "utf8"));
 }
 
 // Write a pending restore marker directly (bridge-only tests need no writer run).
-function seedMarker(multiAgentHome: string, overrides: Record<string, unknown> = {}): void {
-  const p = markerPathFor(multiAgentHome);
+function seedMarker(loomHome: string, overrides: Record<string, unknown> = {}): void {
+  const p = markerPathFor(loomHome);
   mkdirSync(dirname(p), { recursive: true });
   const data = {
     version: 1,
@@ -92,65 +92,65 @@ function writeFixtureJsonl(dir: string): string {
 }
 
 function runBridge(
-  multiAgentHome: string,
+  loomHome: string,
   input: Record<string, unknown>,
   injectClockNow?: string,
 ): { stdout: string; stderr: string; status: number | null } {
   const result = spawnSync(process.execPath, [BRIDGE_SCRIPT], {
     input: JSON.stringify(input),
     encoding: "utf8",
-    env: assetEnv(multiAgentHome, injectClockNow),
+    env: assetEnv(loomHome, injectClockNow),
   });
   return { stdout: result.stdout || "", stderr: result.stderr || "", status: result.status };
 }
 
 function runHook(
-  multiAgentHome: string,
+  loomHome: string,
   input: Record<string, unknown>,
   injectClockNow?: string,
 ): { stdout: string; stderr: string; status: number | null } {
   const result = spawnSync(process.execPath, [HOOK_SCRIPT], {
     input: JSON.stringify(input),
     encoding: "utf8",
-    env: assetEnv(multiAgentHome, injectClockNow),
+    env: assetEnv(loomHome, injectClockNow),
   });
   return { stdout: result.stdout || "", stderr: result.stderr || "", status: result.status };
 }
 
 describe("A3-R3 compaction-asset clock/stamp injection (real-spawn)", () => {
   let tmpDir: string;
-  let multiAgentHome: string;
+  let loomHome: string;
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), "compaction-clock-"));
-    multiAgentHome = join(tmpDir, ".multi-agent");
+    loomHome = join(tmpDir, ".loom");
   });
   afterEach(() => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("bridge stamps marker.deliveredAt from MULTI_AGENT_TEST_CLOCK_NOW (delivery path)", () => {
-    seedMarker(multiAgentHome);
-    const bridge = runBridge(multiAgentHome, { hook_event_name: "UserPromptSubmit" }, INJECTED_ISO);
+  it("bridge stamps marker.deliveredAt from LOOM_TEST_CLOCK_NOW (delivery path)", () => {
+    seedMarker(loomHome);
+    const bridge = runBridge(loomHome, { hook_event_name: "UserPromptSubmit" }, INJECTED_ISO);
     expect(bridge.status).toBe(0);
-    const marker = readMarker(multiAgentHome);
+    const marker = readMarker(loomHome);
     expect(marker["deliveryCount"]).toBe(1);
     expect(marker["deliveredAt"]).toBe(INJECTED_ISO);
   });
 
-  it("bridge stamps marker.postCompactAt from MULTI_AGENT_TEST_CLOCK_NOW (PostCompact path)", () => {
-    seedMarker(multiAgentHome);
-    const bridge = runBridge(multiAgentHome, { hook_event_name: "PostCompact" }, INJECTED_ISO);
+  it("bridge stamps marker.postCompactAt from LOOM_TEST_CLOCK_NOW (PostCompact path)", () => {
+    seedMarker(loomHome);
+    const bridge = runBridge(loomHome, { hook_event_name: "PostCompact" }, INJECTED_ISO);
     expect(bridge.status).toBe(0);
-    const marker = readMarker(multiAgentHome);
+    const marker = readMarker(loomHome);
     expect(marker["postCompactAt"]).toBe(INJECTED_ISO);
   });
 
   it("PreCompact writer stamps marker.createdAt + the packet-dir path from the injected clock", () => {
     const jsonl = writeFixtureJsonl(tmpDir);
-    const hook = runHook(multiAgentHome, { transcript_path: jsonl, cwd: tmpDir }, INJECTED_ISO);
+    const hook = runHook(loomHome, { transcript_path: jsonl, cwd: tmpDir }, INJECTED_ISO);
     expect(hook.status).toBe(0);
-    const marker = readMarker(multiAgentHome);
+    const marker = readMarker(loomHome);
     expect(marker["createdAt"]).toBe(INJECTED_ISO);
     // The packet output dir carries the injected timestamped-path element.
     expect(String(marker["outputDir"])).toContain(INJECTED_STAMP);
@@ -159,7 +159,7 @@ describe("A3-R3 compaction-asset clock/stamp injection (real-spawn)", () => {
 
   it("DETERMINISM PIN: the full writer→bridge sequence twice under the SAME clock → byte-identical asset stamps", () => {
     const runOnce = (): { createdAt: unknown; outputDir: unknown; deliveredAt: unknown; postCompactAt: unknown } => {
-      const home = join(mkdtempSync(join(tmpdir(), "compaction-clock-run-")), ".multi-agent");
+      const home = join(mkdtempSync(join(tmpdir(), "compaction-clock-run-")), ".loom");
       const jsonl = writeFixtureJsonl(dirname(home));
       expect(runHook(home, { transcript_path: jsonl, cwd: dirname(home) }, INJECTED_ISO).status).toBe(0);
       // The delivery event carries the SAME transcript identity the marker recorded (the real
@@ -186,10 +186,10 @@ describe("A3-R3 compaction-asset clock/stamp injection (real-spawn)", () => {
   });
 
   it("PRESERVATION: absent clock var → real wall-clock stamps (production fallback intact, never the sentinel)", () => {
-    seedMarker(multiAgentHome);
-    const bridge = runBridge(multiAgentHome, { hook_event_name: "UserPromptSubmit" });
+    seedMarker(loomHome);
+    const bridge = runBridge(loomHome, { hook_event_name: "UserPromptSubmit" });
     expect(bridge.status).toBe(0);
-    const marker = readMarker(multiAgentHome);
+    const marker = readMarker(loomHome);
     const deliveredAt = String(marker["deliveredAt"]);
     // A valid ISO instant that is NOT the injected sentinel — the fallback ran.
     expect(deliveredAt).not.toBe(INJECTED_ISO);
@@ -203,7 +203,7 @@ describe("A3-R3 compaction-asset clock/stamp injection (real-spawn)", () => {
 // concurrent writers with the same sessionId land on the SAME `${sessionId}-${stamp}` dir
 // and race the same restore-summary.json — the desk-ruled cross-writer interference that
 // flaked the suite under fleet load. The fix mirrors the injectable-clock seam: a bounded
-// injectable output-root (MULTI_AGENT_COMPACTION_OUT_ROOT) — real /tmp default in production,
+// injectable output-root (LOOM_COMPACTION_OUT_ROOT) — real /tmp default in production,
 // per-run isolated when the hermetic env-var is set, so each test owns a unique outputDir.
 describe("P6(C) compaction packet output-root injection (per-run isolation)", () => {
   let tmpDir: string;
@@ -215,20 +215,20 @@ describe("P6(C) compaction packet output-root injection (per-run isolation)", ()
   });
 
   function runHookWithRoot(
-    multiAgentHome: string,
+    loomHome: string,
     outRoot: string,
     input: Record<string, unknown>,
   ): { stdout: string; stderr: string; status: number | null } {
     const result = spawnSync(process.execPath, [HOOK_SCRIPT], {
       input: JSON.stringify(input),
       encoding: "utf8",
-      env: { ...assetEnv(multiAgentHome, INJECTED_ISO), MULTI_AGENT_COMPACTION_OUT_ROOT: outRoot } as NodeJS.ProcessEnv,
+      env: { ...assetEnv(loomHome, INJECTED_ISO), LOOM_COMPACTION_OUT_ROOT: outRoot } as NodeJS.ProcessEnv,
     });
     return { stdout: result.stdout || "", stderr: result.stderr || "", status: result.status };
   }
 
-  it("SEAM: the hook writes the packet UNDER the injected MULTI_AGENT_COMPACTION_OUT_ROOT, never the shared /tmp default", () => {
-    const home = join(tmpDir, ".multi-agent");
+  it("SEAM: the hook writes the packet UNDER the injected LOOM_COMPACTION_OUT_ROOT, never the shared /tmp default", () => {
+    const home = join(tmpDir, ".loom");
     const outRoot = join(tmpDir, "packets");
     const jsonl = writeFixtureJsonl(tmpDir);
     const hook = runHookWithRoot(home, outRoot, { transcript_path: jsonl, cwd: tmpDir });
@@ -245,14 +245,14 @@ describe("P6(C) compaction packet output-root injection (per-run isolation)", ()
     const mk = (tag: string) => {
       const cwd = join(tmpDir, tag);
       mkdirSync(cwd, { recursive: true });
-      return { home: join(cwd, ".multi-agent"), outRoot: join(cwd, "packets"), cwd, jsonl: writeFixtureJsonl(cwd) };
+      return { home: join(cwd, ".loom"), outRoot: join(cwd, "packets"), cwd, jsonl: writeFixtureJsonl(cwd) };
     };
     const a = mk("w-a");
     const b = mk("w-b");
     const spawnOne = (w: ReturnType<typeof mk>): Promise<number | null> =>
       new Promise((res) => {
         const cp = spawn(process.execPath, [HOOK_SCRIPT], {
-          env: { ...assetEnv(w.home, INJECTED_ISO), MULTI_AGENT_COMPACTION_OUT_ROOT: w.outRoot } as NodeJS.ProcessEnv,
+          env: { ...assetEnv(w.home, INJECTED_ISO), LOOM_COMPACTION_OUT_ROOT: w.outRoot } as NodeJS.ProcessEnv,
         });
         cp.stdin.end(JSON.stringify({ transcript_path: w.jsonl, cwd: w.cwd }));
         cp.on("close", (code) => res(code));

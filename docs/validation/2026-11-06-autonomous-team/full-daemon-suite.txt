@@ -59,7 +59,7 @@ AssertionError: expected "spy" to be called 1 times, but got 2 times
 AssertionError: expected 'tmux new-session -d -s \'r00-path-env…' to contain '-e \'PATH=/proof/openrig/bin:/usr/bin…'
 
 Expected: "-e 'PATH=/proof/openrig/bin:/usr/bin:/bin'"
-Received: "tmux new-session -d -s 'r00-path-env-rig-worker' -e 'OPENRIG_TRANSCRIPTS_LINES=' -e 'OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS=' -e 'OPENRIG_NODE_ID=01M6R30QFKJ3MH5NZQS3JBR21T' -e 'OPENRIG_SESSION_NAME=r00-path-env-rig-worker' -e 'OPENRIG_RUNTIME=codex' -e 'PATH=/proof/openrig/bin:/usr/bin:/bin:/opt/multi-agent/toolchain/clients/bin' -e 'OPENRIG_HOME=/tmp/.openrig-test-fixture-home-WPOv8g' -e 'OPENRIG_PORT=17433' -e 'OPENRIG_HOST=127.0.0.1' -e 'OPENRIG_URL=http://127.0.0.1:17433' -e 'OPENRIG_ACTIVITY_HOOK_TOKEN=[REDACTED]' -e 'HOME=/tmp/.openrig-test-fixture-home-WPOv8g-user-home' -e 'USER=leo' -e 'LOGNAME=leo' -e 'CODEX_HOME=/tmp/.openrig-test-fixture-home-WPOv8g-user-home/.codex' -e 'OPENRIG_OCCUPANT_GENERATION=4245498e-4fc7-4352-832d-0518d0f71119' -P -F '#{pane_id}'"
+Received: "tmux new-session -d -s 'r00-path-env-rig-worker' -e 'OPENRIG_TRANSCRIPTS_LINES=' -e 'OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS=' -e 'OPENRIG_NODE_ID=01M6R30QFKJ3MH5NZQS3JBR21T' -e 'OPENRIG_SESSION_NAME=r00-path-env-rig-worker' -e 'OPENRIG_RUNTIME=codex' -e 'PATH=/proof/openrig/bin:/usr/bin:/bin:/opt/loom/toolchain/clients/bin' -e 'OPENRIG_HOME=/tmp/.openrig-test-fixture-home-WPOv8g' -e 'OPENRIG_PORT=17433' -e 'OPENRIG_HOST=127.0.0.1' -e 'OPENRIG_URL=http://127.0.0.1:17433' -e 'OPENRIG_ACTIVITY_HOOK_TOKEN=[REDACTED]' -e 'HOME=/tmp/.openrig-test-fixture-home-WPOv8g-user-home' -e 'USER=leo' -e 'LOGNAME=leo' -e 'CODEX_HOME=/tmp/.openrig-test-fixture-home-WPOv8g-user-home/.codex' -e 'OPENRIG_OCCUPANT_GENERATION=4245498e-4fc7-4352-832d-0518d0f71119' -P -F '#{pane_id}'"
 
  ❯ test/startup.test.ts:427:29
     425|         .find((cmd) => cmd.includes("tmux new-session"));
@@ -83,7 +83,7 @@ AssertionError: expected { …(11) } to match object { …(4) }
     "HOME": "/tmp/openrig-gap7-default-bEhuwd/daemon-home",
     "OPENAI_API_KEY": "[REDACTED]",
 -   "PATH": "/proof/openrig/bin:/usr/bin:/bin",
-+   "PATH": "/proof/openrig/bin:/usr/bin:/bin:/opt/multi-agent/toolchain/clients/bin",
++   "PATH": "/proof/openrig/bin:/usr/bin:/bin:/opt/loom/toolchain/clients/bin",
   }
 
  ❯ test/startup.test.ts:455:38

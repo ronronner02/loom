@@ -44,7 +44,7 @@ export function resolveLaunchCwd(
   return resolveAuthoredCwd(authoredCwd, specRoot);
 }
 
-export function getMultiAgentInstallRoot(): string {
+export function getLoomInstallRoot(): string {
   return nodePath.resolve(import.meta.dirname, "../..");
 }
 
@@ -58,18 +58,18 @@ export function isFilesystemRoot(cwd: string): boolean {
   return resolved === nodePath.parse(resolved).root;
 }
 
-export function getMultiAgentInstallCwdError(
+export function getLoomInstallCwdError(
   resolvedCwd: string,
   cwdOverride?: string | null,
-  installRoot: string = getMultiAgentInstallRoot(),
+  installRoot: string = getLoomInstallRoot(),
 ): string | null {
   // The filesystem root is not refused (#226): an explicit --cwd / or `cwd: /` is the person's
-  // choice, and `multi-agent up` warns when it defaulted to '/' itself.
+  // choice, and `loom up` warns when it defaulted to '/' itself.
   if (cwdOverride && cwdOverride.trim().length > 0) {
     return null;
   }
   if (!isPathInsideRoot(resolvedCwd, installRoot)) {
     return null;
   }
-  return `Resolved cwd '${resolvedCwd}' is inside the Multi-Agent installation '${installRoot}', which is not a valid project workspace. Pass --cwd <path> to launch into your project directory.`;
+  return `Resolved cwd '${resolvedCwd}' is inside the Loom installation '${installRoot}', which is not a valid project workspace. Pass --cwd <path> to launch into your project directory.`;
 }

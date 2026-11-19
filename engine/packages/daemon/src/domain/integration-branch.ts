@@ -77,7 +77,7 @@ export interface IntegrationDeps {
   governance: PlanGovernance;
   /** Where the daemon's per-run worktrees live: the same root plan worktree uses. */
   worktreeRoot: () => string;
-  /** The candidate's own patch and manifest, the way `multi-agent team apply` and the result read take it. */
+  /** The candidate's own patch and manifest, the way `loom team apply` and the result read take it. */
   candidateManifest: (runId: string, taskId: string) => {
     base: "commit" | "snapshot"; baseIdentifier: string; patch: string; manifestDigest: string };
   /**
@@ -100,8 +100,8 @@ export interface Integration {
 }
 
 /** The daemon's own commit identity on the integration branch, as plan commits use. */
-const DAEMON_GIT_ENV = { GIT_AUTHOR_NAME: "multi-agent", GIT_AUTHOR_EMAIL: "multi-agent@localhost",
-  GIT_COMMITTER_NAME: "multi-agent", GIT_COMMITTER_EMAIL: "multi-agent@localhost" };
+const DAEMON_GIT_ENV = { GIT_AUTHOR_NAME: "loom", GIT_AUTHOR_EMAIL: "loom@localhost",
+  GIT_COMMITTER_NAME: "loom", GIT_COMMITTER_EMAIL: "loom@localhost" };
 
 function git(cwd: string, args: readonly string[], input?: string, extraEnv: NodeJS.ProcessEnv = {}): string {
   return execFileSync("git", ["-C", cwd, ...args], { windowsHide: true, encoding: "utf8", input,
@@ -159,7 +159,7 @@ export class IntegrationRepairRequired extends Error {
 
 /** Build immutable Git objects without changing the live index or worktree before the intent commits. */
 function frozenIntegrationTree(worktree: string, parentSha: string, patch: string): string {
-  const directory = mkdtempSync(join(tmpdir(), "multi-agent-integration-"));
+  const directory = mkdtempSync(join(tmpdir(), "loom-integration-"));
   const env = { GIT_INDEX_FILE: join(directory, "index") };
   try {
     git(worktree, ["read-tree", parentSha], undefined, env);
@@ -272,7 +272,7 @@ export function composeIntegration(deps: IntegrationDeps): Integration {
     governance.integrationRecord(run.id).branch ?? runSlug({ runId: run.id, name: run.displayName });
 
   /**
-   * The owner's repository — the checkout `multi-agent team merge` writes into.
+   * The owner's repository — the checkout `loom team merge` writes into.
    *
    * A planning run's binding root is already the run's own worktree, so the owner's repository
    * is the one that worktree was added to: a linked worktree's common git directory lives in

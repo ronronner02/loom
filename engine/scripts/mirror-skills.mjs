@@ -342,7 +342,7 @@ export async function regeneratePublicSkills({
     }
   }
 
-  const temporaryRoot = mkdtempSync(join(tmpdir(), "multi-agent-public-skills-"));
+  const temporaryRoot = mkdtempSync(join(tmpdir(), "loom-public-skills-"));
   try {
     const stagingRoot = join(temporaryRoot, "staging");
     await stagePublicSkills({

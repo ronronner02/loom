@@ -1,4 +1,4 @@
-schema: multi-agent.project/v0alpha1
+schema: loom.project/v0alpha1
 kind: project
 metadata: { id: example }
 missions: { root: missions }

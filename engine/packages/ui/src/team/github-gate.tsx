@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { InterfaceI18n } from "@multi-agent/i18n";
+import type { InterfaceI18n } from "@loom/i18n";
 import { GitBranch, ExternalLink } from "lucide-react";
 import { OwnerReadError, useOwnerSession } from "../hooks/useOwnerSession.js";
 import { TEAM_THEME_PREFERENCES, type useThemePreference } from "./theme.js";

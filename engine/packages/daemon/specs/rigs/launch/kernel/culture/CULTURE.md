@@ -10,14 +10,14 @@ machine and have things happen.
   they want; the advisor figures out what that means, what's involved,
   what the trade-offs are, and what to ask the operator or the queue
   worker to actually do. The advisor doesn't run things; it advises.
-- **operator.agent** operates Multi-Agent itself. Bringing rigs up and
+- **operator.agent** operates Loom itself. Bringing rigs up and
   down, restarting work after a reboot, inspecting topology,
   shepherding install / upgrade / migration ceremonies. The operator
   acts on behalf of the operator.human; ops decisions needing human
   approval escalate.
 - **operator.human** is the shared operator conversation. When the person wants
-  to see their agents or Multi-Agent in a terminal, run
-  `multi-agent terminal open saved:kernel --window`. The advisor keeps a separate tab or
+  to see their agents or Loom in a terminal, run
+  `loom terminal open saved:kernel --window`. The advisor keeps a separate tab or
   tmux window. Detaching preserves the conversation. It is a screen, not proof a
   person is watching or a destination that can answer a queue item. Use the
   registered human delivery channel when a decision is required. The team
@@ -34,7 +34,7 @@ machine and have things happen.
   as if it were a human inbox.
 
 - **Kernel auto-boot has two distinct lifecycle phases.**
-  - *First boot* (no prior kernel rig in SQLite): `multi-agent daemon start`
+  - *First boot* (no prior kernel rig in SQLite): `loom daemon start`
     instantiates the kernel from the shipped variant per the
     runtime-auth probe (dual / claude-only / codex-only).
   - *Subsequent daemon-restarts*: the kernel rig record persists in
@@ -44,24 +44,24 @@ machine and have things happen.
     marks them healthy. A HOST reboot drops tmux entirely; the
     reconciler then marks the kernel's member sessions detached, and
     the operator pod owns the agent-restart workflow ("bring my
-    sessions back online") per the multi-agent-operator skill.
+    sessions back online") per the loom-operator skill.
   Other rigs are NOT auto-instantiated by the daemon at any point —
-  they require explicit operator-initiated `multi-agent up` / `multi-agent restore`
+  they require explicit operator-initiated `loom up` / `loom restore`
   via the agent-driven workflow.
 - **Honest auth-block, not silent fallback.** If neither Claude Code
   nor Codex is authenticated, the daemon refuses to boot the kernel
   and surfaces a 3-part error (fact / reason / fix) per the
   building-agent-software skill discipline. No best-effort
   half-booted state.
-- **Use the current upgrade path.** The operator loads `multi-agent-upgrade`,
+- **Use the current upgrade path.** The operator loads `loom-upgrade`,
   follows the supported migration guidance for the installed version,
-  and verifies daemon plus multi-agent health before closing the operation.
+  and verifies daemon plus loom health before closing the operation.
 - **Skills earn their slot.** Each agent loads a lean roster at
   startup for its role and selected work; other capabilities remain discoverable
   through the installed skill catalog when their triggers apply.
 - **Status flows through the queue.** Substantive ACKs, phase
   boundaries, forensic findings, and verify-routing land as qitems
-  with destinations + tags. Conversational replies use multi-agent send.
+  with destinations + tags. Conversational replies use loom send.
 
 ## What the kernel is NOT
 
@@ -99,9 +99,9 @@ change role responsibilities or authorize work the user has not selected.
 Keep these consequences in your working context through compaction, handover
 and restore; inspect an uncertain outcome before repeating the operation:
 
-- `multi-agent down` terminates the rig's live managed tmux sessions. A daemon-only
+- `loom down` terminates the rig's live managed tmux sessions. A daemon-only
   restart is a different operation; down is not a routine upgrade step.
-- An interrupted or timed-out `multi-agent restore` request can continue server-side.
+- An interrupted or timed-out `loom restore` request can continue server-side.
   Read its attempt/events: it can finish or fail after the client goes away.
 - A timed-out import is not proof of failure. A retry may create a second rig
   with the same name; reconcile the existing result first.

@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
-import { clientLabelKey, roleLabelKey, statusLabelKey, type MessageKey, type StatusDomain } from "@multi-agent/i18n";
-import type { TeamReviewView, TeamSeatView, TeamTaskNameParts, TeamTaskStage } from "@multi-agent/daemon/team-control";
+import { clientLabelKey, roleLabelKey, statusLabelKey, type MessageKey, type StatusDomain } from "@loom/i18n";
+import type { TeamReviewView, TeamSeatView, TeamTaskNameParts, TeamTaskStage } from "@loom/daemon/team-control";
 
 /**
  * How the team surface names things.

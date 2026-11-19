@@ -65,56 +65,56 @@ function mockFs(files?: Record<string, string>): TreeFsOps & { _store: Record<st
   } as TreeFsOps & { _store: Record<string, string> };
 }
 
-const MULTI_AGENT_CORE_TREE = {
-  "/p/multi-agent-core/.claude-plugin/plugin.json": '{"name":"multi-agent-core","version":"0.1.0"}',
-  "/p/multi-agent-core/.codex-plugin/plugin.json": '{"name":"multi-agent-core","version":"0.1.0","description":"multi-agent"}',
-  "/p/multi-agent-core/skills/agent-operated-software/SKILL.md": "# agent-operated-software\nUse for ...",
-  "/p/multi-agent-core/skills/orchestration-team/SKILL.md": "# orchestration-team",
-  "/p/multi-agent-core/hooks/claude.json": '{"hooks":{"SessionStart":[]}}',
-  "/p/multi-agent-core/hooks/codex.json": '{"hooks":{"SessionStart":[]}}',
-  "/p/multi-agent-core/hooks/scripts/activity-relay.cjs": "// relay script body",
-  "/p/multi-agent-core/README.md": "# multi-agent-core plugin",
+const LOOM_CORE_TREE = {
+  "/p/loom-core/.claude-plugin/plugin.json": '{"name":"loom-core","version":"0.1.0"}',
+  "/p/loom-core/.codex-plugin/plugin.json": '{"name":"loom-core","version":"0.1.0","description":"loom"}',
+  "/p/loom-core/skills/agent-operated-software/SKILL.md": "# agent-operated-software\nUse for ...",
+  "/p/loom-core/skills/orchestration-team/SKILL.md": "# orchestration-team",
+  "/p/loom-core/hooks/claude.json": '{"hooks":{"SessionStart":[]}}',
+  "/p/loom-core/hooks/codex.json": '{"hooks":{"SessionStart":[]}}',
+  "/p/loom-core/hooks/scripts/activity-relay.cjs": "// relay script body",
+  "/p/loom-core/README.md": "# loom-core plugin",
 };
 
 describe("plugin directory projection", () => {
   it("copies entire plugin tree to <cwd>/.claude/plugins/<id>/ preserving nested structure", () => {
-    const fs = mockFs(MULTI_AGENT_CORE_TREE);
+    const fs = mockFs(LOOM_CORE_TREE);
 
-    projectFiles(fs, "/p/multi-agent-core", "/cwd/.claude/plugins/multi-agent-core");
+    projectFiles(fs, "/p/loom-core", "/cwd/.claude/plugins/loom-core");
 
-    expect(fs._store["/cwd/.claude/plugins/multi-agent-core/.claude-plugin/plugin.json"]).toBe('{"name":"multi-agent-core","version":"0.1.0"}');
-    expect(fs._store["/cwd/.claude/plugins/multi-agent-core/.codex-plugin/plugin.json"]).toBe('{"name":"multi-agent-core","version":"0.1.0","description":"multi-agent"}');
-    expect(fs._store["/cwd/.claude/plugins/multi-agent-core/skills/agent-operated-software/SKILL.md"]).toBe("# agent-operated-software\nUse for ...");
-    expect(fs._store["/cwd/.claude/plugins/multi-agent-core/skills/orchestration-team/SKILL.md"]).toBe("# orchestration-team");
-    expect(fs._store["/cwd/.claude/plugins/multi-agent-core/hooks/claude.json"]).toBe('{"hooks":{"SessionStart":[]}}');
-    expect(fs._store["/cwd/.claude/plugins/multi-agent-core/hooks/codex.json"]).toBe('{"hooks":{"SessionStart":[]}}');
-    expect(fs._store["/cwd/.claude/plugins/multi-agent-core/hooks/scripts/activity-relay.cjs"]).toBe("// relay script body");
-    expect(fs._store["/cwd/.claude/plugins/multi-agent-core/README.md"]).toBe("# multi-agent-core plugin");
+    expect(fs._store["/cwd/.claude/plugins/loom-core/.claude-plugin/plugin.json"]).toBe('{"name":"loom-core","version":"0.1.0"}');
+    expect(fs._store["/cwd/.claude/plugins/loom-core/.codex-plugin/plugin.json"]).toBe('{"name":"loom-core","version":"0.1.0","description":"loom"}');
+    expect(fs._store["/cwd/.claude/plugins/loom-core/skills/agent-operated-software/SKILL.md"]).toBe("# agent-operated-software\nUse for ...");
+    expect(fs._store["/cwd/.claude/plugins/loom-core/skills/orchestration-team/SKILL.md"]).toBe("# orchestration-team");
+    expect(fs._store["/cwd/.claude/plugins/loom-core/hooks/claude.json"]).toBe('{"hooks":{"SessionStart":[]}}');
+    expect(fs._store["/cwd/.claude/plugins/loom-core/hooks/codex.json"]).toBe('{"hooks":{"SessionStart":[]}}');
+    expect(fs._store["/cwd/.claude/plugins/loom-core/hooks/scripts/activity-relay.cjs"]).toBe("// relay script body");
+    expect(fs._store["/cwd/.claude/plugins/loom-core/README.md"]).toBe("# loom-core plugin");
   });
 
   it("copies entire plugin tree to <cwd>/.codex/plugins/<id>/ preserving nested structure", () => {
-    const fs = mockFs(MULTI_AGENT_CORE_TREE);
+    const fs = mockFs(LOOM_CORE_TREE);
 
-    projectFiles(fs, "/p/multi-agent-core", "/cwd/.codex/plugins/multi-agent-core");
+    projectFiles(fs, "/p/loom-core", "/cwd/.codex/plugins/loom-core");
 
-    expect(fs._store["/cwd/.codex/plugins/multi-agent-core/.claude-plugin/plugin.json"]).toBe('{"name":"multi-agent-core","version":"0.1.0"}');
-    expect(fs._store["/cwd/.codex/plugins/multi-agent-core/.codex-plugin/plugin.json"]).toBe('{"name":"multi-agent-core","version":"0.1.0","description":"multi-agent"}');
-    expect(fs._store["/cwd/.codex/plugins/multi-agent-core/skills/agent-operated-software/SKILL.md"]).toBe("# agent-operated-software\nUse for ...");
-    expect(fs._store["/cwd/.codex/plugins/multi-agent-core/hooks/codex.json"]).toBe('{"hooks":{"SessionStart":[]}}');
-    expect(fs._store["/cwd/.codex/plugins/multi-agent-core/hooks/scripts/activity-relay.cjs"]).toBe("// relay script body");
+    expect(fs._store["/cwd/.codex/plugins/loom-core/.claude-plugin/plugin.json"]).toBe('{"name":"loom-core","version":"0.1.0"}');
+    expect(fs._store["/cwd/.codex/plugins/loom-core/.codex-plugin/plugin.json"]).toBe('{"name":"loom-core","version":"0.1.0","description":"loom"}');
+    expect(fs._store["/cwd/.codex/plugins/loom-core/skills/agent-operated-software/SKILL.md"]).toBe("# agent-operated-software\nUse for ...");
+    expect(fs._store["/cwd/.codex/plugins/loom-core/hooks/codex.json"]).toBe('{"hooks":{"SessionStart":[]}}');
+    expect(fs._store["/cwd/.codex/plugins/loom-core/hooks/scripts/activity-relay.cjs"]).toBe("// relay script body");
   });
 
   it("plugin re-projection is a no-op when the content matches (idempotent)", () => {
     const fs = mockFs({
-      "/p/multi-agent-core/.claude-plugin/plugin.json": "{}",
-      "/cwd/.claude/plugins/multi-agent-core/.claude-plugin/plugin.json": "{}", // already projected with same content
+      "/p/loom-core/.claude-plugin/plugin.json": "{}",
+      "/cwd/.claude/plugins/loom-core/.claude-plugin/plugin.json": "{}", // already projected with same content
     });
 
     let writeCount = 0;
     const origWrite = fs.writeFile;
     fs.writeFile = (p, c) => { writeCount++; origWrite(p, c); };
 
-    projectFiles(fs, "/p/multi-agent-core", "/cwd/.claude/plugins/multi-agent-core");
+    projectFiles(fs, "/p/loom-core", "/cwd/.claude/plugins/loom-core");
 
     // A content match skips the write — no spurious overwrites of unchanged plugin files.
     expect(writeCount).toBe(0);

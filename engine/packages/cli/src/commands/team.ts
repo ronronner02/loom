@@ -1,5 +1,5 @@
-import { resolveDataRoots } from "@multi-agent/daemon/data-paths";
-import type { DocumentPins } from "@multi-agent/daemon/team-control";
+import { resolveDataRoots } from "@loom/daemon/data-paths";
+import type { DocumentPins } from "@loom/daemon/team-control";
 import { realpathSync } from "node:fs";
 import { Command } from "commander";
 import { readFileSync } from "node:fs";
@@ -21,7 +21,7 @@ export { ownerToken, readOwnerTokenFile } from "../owner-credential.js";
 
 export interface TeamStartDeps {
   baseUrl?: string;
-  /** Owner control credential. Defaults to `MULTI_AGENT_OWNER_TOKEN`, then `owner.env`. */
+  /** Owner control credential. Defaults to `LOOM_OWNER_TOKEN`, then `owner.env`. */
   ownerToken?: string | null;
   fetchImpl?: typeof fetch;
 }
@@ -30,7 +30,7 @@ interface StartReceipt { runId: string; rigId: string; taskId: string; seat: str
   /** `planning` until the owner approves the plan; `delivery` otherwise. */
   phase?: string }
 
-/** The team `multi-agent team create` returns; the daemon keeps the seat names to itself. */
+/** The team `loom team create` returns; the daemon keeps the seat names to itself. */
 interface Team {
   id: string; name: string; repository: string;
   seats: Array<{ role: "lead" | "implementer" | "reviewer"; client: "claude-code" | "codex" | "gemini"; model?: string }>;
@@ -38,7 +38,7 @@ interface Team {
 
 /** The result the daemon serves for one finished task; the shape `TeamTaskResult` publishes. */
 interface TeamTaskResult {
-  schema: "multi-agent-team-result/v1"; runId: string; taskId: string; attemptId: string | null;
+  schema: "loom-team-result/v1"; runId: string; taskId: string; attemptId: string | null;
   repositoryRoot: string; base: "commit" | "snapshot"; baseIdentifier: string; manifestDigest: string;
   files: Array<{ path: string; hash: string; tracked: boolean }>; patch: string;
 }
@@ -114,7 +114,7 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
       }
       const token = ownerToken(deps());
       if (!token) {
-        console.error("error: no owner credential. Set MULTI_AGENT_OWNER_TOKEN or configure the owner token.");
+        console.error("error: no owner credential. Set LOOM_OWNER_TOKEN or configure the owner token.");
         process.exitCode = 1;
         return;
       }
@@ -142,10 +142,10 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
       if (receipt.phase === "planning") {
         console.log("");
         console.log("Agree the plan with the lead in the chat:");
-        console.log(`  multi-agent team chat ${receipt.runId} "your message"`);
-        console.log(`  multi-agent team chat ${receipt.runId}        (the conversation so far)`);
+        console.log(`  loom team chat ${receipt.runId} "your message"`);
+        console.log(`  loom team chat ${receipt.runId}        (the conversation so far)`);
         console.log("Then approve it once, which starts the work:");
-        console.log(`  multi-agent team approve ${receipt.runId}`);
+        console.log(`  loom team approve ${receipt.runId}`);
         return;
       }
       console.log("");
@@ -188,7 +188,7 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
       }
       const token = ownerToken(deps());
       if (!token) {
-        console.error("error: no owner credential. Set MULTI_AGENT_OWNER_TOKEN or configure the owner token.");
+        console.error("error: no owner credential. Set LOOM_OWNER_TOKEN or configure the owner token.");
         process.exitCode = 1;
         return;
       }
@@ -236,7 +236,7 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
       console.log(`Repository: ${team.repository}`);
       for (const seat of team.seats) console.log(`  ${seat.role.padEnd(12)} ${seat.client}${seat.model ? "  " + seat.model : ""}`);
       console.log("");
-      console.log(`Next: multi-agent team start "<goal>" --rig ${team.name}${named ? " --planning" : ""}`);
+      console.log(`Next: loom team start "<goal>" --rig ${team.name}${named ? " --planning" : ""}`);
     });
 
   /**
@@ -246,18 +246,18 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
   async function readResult(runId: string, taskId: string | undefined): Promise<TeamTaskResult> {
     const token = ownerToken(deps());
     if (!token) throw new TeamCommandError("control_auth_required",
-      "No owner credential. Set MULTI_AGENT_OWNER_TOKEN or configure the owner token.");
+      "No owner credential. Set LOOM_OWNER_TOKEN or configure the owner token.");
     const client = new DaemonClient(deps().baseUrl, { fetchImpl: deps().fetchImpl, senderIdentity: false });
     await client.waitForReady();
     const headers = { Authorization: "Bearer " + token };
     const resolved = taskId ?? await firstTask(client, runId, headers);
     const response = await client.get<{ protocolVersion: string; result: TeamTaskResult }>(
       `${BASE}/runs/${encodeURIComponent(runId)}/tasks/${encodeURIComponent(resolved)}/result`, { headers });
-    if (response.status === 200 && response.data.result?.schema === "multi-agent-team-result/v1") return response.data.result;
+    if (response.status === 200 && response.data.result?.schema === "loom-team-result/v1") return response.data.result;
     const code = (response.data as { code?: string } | undefined)?.code ?? "team_result_unavailable";
     const message = (response.data as { error?: string } | undefined)?.error ?? "The daemon refused the result read.";
     if (response.status === 401) throw new TeamCommandError(code,
-      "The owner credential was refused. Check MULTI_AGENT_OWNER_TOKEN or configure the owner token.");
+      "The owner credential was refused. Check LOOM_OWNER_TOKEN or configure the owner token.");
     if (response.status === 409) throw new TeamCommandError(code, `${message} Wait for the task to finish, then retry.`);
     throw new TeamCommandError(code, message);
   }
@@ -283,7 +283,7 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
     .action(async (runId: string, message: string | undefined, options: { json?: boolean }) => {
       const token = ownerToken(deps());
       if (!token) throw new TeamCommandError("control_auth_required",
-        "No owner credential. Set MULTI_AGENT_OWNER_TOKEN or configure the owner token.");
+        "No owner credential. Set LOOM_OWNER_TOKEN or configure the owner token.");
       const client = new DaemonClient(deps().baseUrl, { fetchImpl: deps().fetchImpl, senderIdentity: false });
       await client.waitForReady();
       const headers = { Authorization: "Bearer " + token }, path = `${BASE}/runs/${encodeURIComponent(runId)}/chat`;
@@ -335,7 +335,7 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
     .action(async (runId: string, options: { json?: boolean }) => {
       const token = ownerToken(deps());
       if (!token) throw new TeamCommandError("control_auth_required",
-        "No owner credential. Set MULTI_AGENT_OWNER_TOKEN or configure the owner token.");
+        "No owner credential. Set LOOM_OWNER_TOKEN or configure the owner token.");
       const client = new DaemonClient(deps().baseUrl, { fetchImpl: deps().fetchImpl, senderIdentity: false });
       await client.waitForReady();
       const headers = { Authorization: "Bearer " + token };
@@ -384,7 +384,7 @@ export function teamCommand(depsOverride?: TeamStartDeps): Command {
     .action(async (runId: string, options: { json?: boolean }) => {
       const token = ownerToken(deps());
       if (!token) throw new TeamCommandError("control_auth_required",
-        "No owner credential. Set MULTI_AGENT_OWNER_TOKEN or configure the owner token.");
+        "No owner credential. Set LOOM_OWNER_TOKEN or configure the owner token.");
       const client = new DaemonClient(deps().baseUrl, { fetchImpl: deps().fetchImpl, senderIdentity: false });
       await client.waitForReady();
       const headers = { Authorization: "Bearer " + token }, path = `${BASE}/runs/${encodeURIComponent(runId)}`;

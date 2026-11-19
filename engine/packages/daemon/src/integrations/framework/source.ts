@@ -8,7 +8,7 @@ const receiptName = ".framework-receipt.json";
 const hash = (content: Buffer) => createHash("sha256").update(content).digest("hex");
 
 export function localFrameworkRoot(home: string): string {
-  const path = process.env.MULTI_AGENT_FRAMEWORK_ROOT ?? join(home, "framework", FRAMEWORK_PIN.revision);
+  const path = process.env.LOOM_FRAMEWORK_ROOT ?? join(home, "framework", FRAMEWORK_PIN.revision);
   if (!isAbsolute(path)) throw new Error("The configured framework source must be an absolute path");
   return resolve(path);
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Sheet } from "./sheet.js";
-import type { MessageKey } from "@multi-agent/i18n";
+import type { MessageKey } from "@loom/i18n";
 import { OwnerReadError, useOwnerSession } from "../hooks/useOwnerSession.js";
 import { FolderBrowser } from "./folder-browser.js";
 import { latestRunFor, teamsKey, type TeamSummary, type RunSummary } from "./hooks.js";
@@ -33,7 +33,7 @@ export function CreateProject({ open, mode = "create", onOpenChange, onCreated, 
   const [oversized, setOversized] = useState<string[]>([]);
   const nameInput = useRef<HTMLInputElement>(null);
   useEffect(() => { if (failure === "github_repo_exists" && !busy) nameInput.current?.focus(); }, [failure, busy]);
-  const pickFolder = (window as Window & { multiAgentDesktop?: { pickFolder?: () => Promise<string | null> } }).multiAgentDesktop?.pickFolder;
+  const pickFolder = (window as Window & { loomDesktop?: { pickFolder?: () => Promise<string | null> } }).loomDesktop?.pickFolder;
   const changeFolder = (value: string) => { setRepository(value); setPreview(null); setFailure(null); setOversized([]); };
   const browse = async () => {
     if (busy) return;

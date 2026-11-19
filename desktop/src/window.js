@@ -110,11 +110,11 @@ function createWindowModule({ publish, getOrigin }) {
 
   /**
    * A first-run diagnostic for a source run: capture this app's own window to a PNG and log the
-   * text it rendered. It is off unless MULTI_AGENT_DESKTOP_SCREENSHOT names a file, and it never
+   * text it rendered. It is off unless LOOM_DESKTOP_SCREENSHOT names a file, and it never
    * captures or reads anything but this app's own window.
    */
   async function captureIfRequested(suffix = '') {
-    const target = process.env.MULTI_AGENT_DESKTOP_SCREENSHOT;
+    const target = process.env.LOOM_DESKTOP_SCREENSHOT;
     if (!target || !window || window.isDestroyed()) return;
     const file = suffix ? target.replace(/\.png$/i, `${suffix}.png`) : target;
     try {

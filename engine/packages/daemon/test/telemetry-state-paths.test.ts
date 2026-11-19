@@ -9,8 +9,8 @@ import {
   telemetrySidecarFilename,
 } from "../src/domain/telemetry-state-paths.js";
 
-describe("Multi-Agent-owned telemetry paths", () => {
-  const home = "/multi-agent-home";
+describe("Loom-owned telemetry paths", () => {
+  const home = "/loom-home";
   it("owns both telemetry roots beneath state", () => {
     expect(contextUsageDirectory(home)).toBe(path.join(home, "state", "context-usage"));
     expect(providerUsageDirectory(home)).toBe(path.join(home, "state", "provider-usage"));

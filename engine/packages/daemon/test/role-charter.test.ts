@@ -14,7 +14,7 @@ import { leadProtocol, LEAD_PROTOCOL_VERSION } from "../src/integrations/framewo
 // fixture for the owner-granted live check. Nothing here calls a provider.
 
 const repo = (path: string) => new URL(`../../../../${path}`, import.meta.url);
-const plan = readFileSync(repo("docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md"), "utf8");
+const plan = readFileSync(repo("docs/plans/2026-10-13-001-feat-loom-team-plan.md"), "utf8");
 const roles = Object.keys(roleConfiguration) as TeamRole[];
 
 describe("role charters", () => {

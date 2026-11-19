@@ -12,7 +12,7 @@ import {
   stopDaemon,
   type LifecycleDeps,
   type ProcessLiveness,
-  MULTI_AGENT_DIR,
+  LOOM_DIR,
   STATE_FILE,
   resolveBindIntent,
 } from "../daemon-lifecycle.js";
@@ -92,7 +92,7 @@ export function realDeps(): LifecycleDeps {
     processLiveness,
     platform: process.platform,
     ownerToken: () => ownerToken({}),
-    acquireStartLock: () => acquireDaemonStartLock(MULTI_AGENT_DIR),
+    acquireStartLock: () => acquireDaemonStartLock(LOOM_DIR),
     spawn: (cmd, args, opts) => spawn(cmd, args, { ...opts, windowsHide: true } as Parameters<typeof spawn>[2]),
     fetch: async (url, init) => {
       const res = await fetchWithTimeout(globalThis.fetch, url, init ?? {}, {
@@ -158,7 +158,7 @@ export function realDeps(): LifecycleDeps {
 
 export function daemonCommand(depsOverride?: LifecycleDeps, httpDeps?: { baseUrl?: string; fetchImpl?: typeof fetch }): Command {
   const getDeps = () => depsOverride ?? realDeps();
-  const cmd = new Command("daemon").description("Manage the Multi-Agent daemon");
+  const cmd = new Command("daemon").description("Manage the Loom daemon");
 
   cmd
     .command("start")
@@ -184,12 +184,12 @@ export function daemonCommand(depsOverride?: LifecycleDeps, httpDeps?: { baseUrl
         // daemon binds loopback only.
         const hostResolution = configStore.resolveWithSource("daemon.host");
         // Bind intent comes ONLY from the dedicated surfaces: the --host flag, a
-        // FILE-sourced daemon.host, or MULTI_AGENT_BIND_HOST. An env-sourced daemon.host
-        // is the overloaded routing channel (ENV_MAP maps it from MULTI_AGENT_HOST, the
+        // FILE-sourced daemon.host, or LOOM_BIND_HOST. An env-sourced daemon.host
+        // is the overloaded routing channel (ENV_MAP maps it from LOOM_HOST, the
         // exact state a managed environment injects) and never creates intent.
         const intent = resolveBindIntent({
           flagHost: opts.host,
-          envBindHost: process.env["MULTI_AGENT_BIND_HOST"],
+          envBindHost: process.env["LOOM_BIND_HOST"],
           configSource: hostResolution.source,
           configHost: config.daemon.host,
         });
@@ -214,7 +214,7 @@ export function daemonCommand(depsOverride?: LifecycleDeps, httpDeps?: { baseUrl
   cmd
     .command("stop")
     .description("Stop the daemon (10s shutdown budget; 12s process wait; incomplete drain exits nonzero)")
-    .addHelpText("after", "\nSends at most one SIGTERM to a live target and verifies the original PID and listener. Repeated signals join shutdown.\nFor a recorded target, missing/stale receipts and incomplete drains exit nonzero, including retries.\nTarget state is retained until a matching clean receipt; status reads preserve unverified state.\nNo target is a distinct no-op, never clean-drain certification; unbound incomplete evidence stays unverified.\nInspect MULTI_AGENT_HOME/daemon-shutdown.json and daemon.log for the phase and outcome.\nThe bound covers asynchronous shutdown; an event-loop wedge still requires manual recovery.\nOn Windows SIGTERM terminates the process rather than draining it, so a stop reports that no graceful drain ran and the daemon reconciles interrupted work at its next start.\n")
+    .addHelpText("after", "\nSends at most one SIGTERM to a live target and verifies the original PID and listener. Repeated signals join shutdown.\nFor a recorded target, missing/stale receipts and incomplete drains exit nonzero, including retries.\nTarget state is retained until a matching clean receipt; status reads preserve unverified state.\nNo target is a distinct no-op, never clean-drain certification; unbound incomplete evidence stays unverified.\nInspect LOOM_HOME/daemon-shutdown.json and daemon.log for the phase and outcome.\nThe bound covers asynchronous shutdown; an event-loop wedge still requires manual recovery.\nOn Windows SIGTERM terminates the process rather than draining it, so a stop reports that no graceful drain ran and the daemon reconciles interrupted work at its next start.\n")
     .action(async () => {
       try {
         const outcome = await stopDaemon(getDeps());

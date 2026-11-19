@@ -8,7 +8,7 @@ UI_DIR="$REPO_ROOT/packages/ui"
 I18N_DIR="$REPO_ROOT/packages/i18n"
 SUBSTANCE_SURFACE_ROOTS=()
 
-echo "=== Multi-Agent Package Build ==="
+echo "=== Loom Package Build ==="
 echo "Repo root: $REPO_ROOT"
 echo ""
 
@@ -76,7 +76,7 @@ write_build_info "$CLI_DIR/dist/build-info.js"
 mkdir -p "$CLI_DIR/daemon/dist"
 cp -r "$DAEMON_DIR/dist/"* "$CLI_DIR/daemon/dist/"
 
-# The daemon imports @multi-agent/i18n, which is private and so unpublished: a global install
+# The daemon imports @loom/i18n, which is private and so unpublished: a global install
 # could not resolve it. Its built package ships beside the vendored daemon, and
 # rewrite-daemon-imports.mjs points the daemon's import at that copy. Its own dependencies
 # (i18next, string-width) are declared by the CLI for the same reason.
@@ -113,7 +113,7 @@ node -e '
 
 # Built-in policies (OPR.0.4.8.3): canonical source packages/daemon/policies/builtin/
 # ships with the daemon; startup materializes read-only inspection copies at
-# $MULTI_AGENT_HOME/reference/policies/builtin/ (same chain as reference docs below).
+# $LOOM_HOME/reference/policies/builtin/ (same chain as reference docs below).
 if [ -d "$DAEMON_DIR/policies" ]; then
   cp -r "$DAEMON_DIR/policies" "$CLI_DIR/daemon/policies"
 fi
@@ -124,16 +124,16 @@ if [ -d "$REPO_ROOT/docs/reference" ]; then
   cp -r "$REPO_ROOT/docs/reference/"* "$CLI_DIR/daemon/docs/reference/"
 fi
 
-# Earlier builds assembled a bundled copy of the unpublished @multi-agent/daemon here. The package now
+# Earlier builds assembled a bundled copy of the unpublished @loom/daemon here. The package now
 # imports the shipped daemon/dist directly (rewrite step below), so remove any stale copy: it would
 # otherwise shadow the development workspace link for code under packages/cli.
-rm -rf "$CLI_DIR/node_modules/@multi-agent/daemon"
+rm -rf "$CLI_DIR/node_modules/@loom/daemon"
 
 # UI: dist
 mkdir -p "$CLI_DIR/ui/dist"
 cp -r "$UI_DIR/dist/"* "$CLI_DIR/ui/dist/"
 
-# The CLI imports daemon code as @multi-agent/daemon/<subpath>. That package is not published, so
+# The CLI imports daemon code as @loom/daemon/<subpath>. That package is not published, so
 # rewrite those specifiers in the staged JS to the daemon/dist copy shipped above (#66). Fails the
 # build on an unmapped or unstaged subpath and on any daemon import left afterwards.
 node "$REPO_ROOT/scripts/rewrite-daemon-imports.mjs"

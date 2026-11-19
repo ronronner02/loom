@@ -2,15 +2,15 @@
 
 ## Source Authority
 
-Since the cutover on 2026-10-13 (KTD7), the WSL checkout at `/home/leo/src/multi-agent` is the only development source. All engine and active-document edits, builds and tests happen there.
+Since the cutover on 2026-10-13 (KTD7), the WSL checkout at `/home/leo/src/loom` is the only development source. All engine and active-document edits, builds and tests happen there.
 
-The earlier Windows workspace (`D:\Multi-Agent`) is preserved as-is for reference. It is not a second writable source:
+The earlier Windows workspace (`D:\Loom`) is preserved as-is for reference. It is not a second writable source:
 
-- Edit through WSL, for example an editor's WSL integration or `\\wsl.localhost\Ubuntu\home\leo\src\multi-agent`.
+- Edit through WSL, for example an editor's WSL integration or `\\wsl.localhost\Ubuntu\home\leo\src\loom`.
 - Windows edits are conflicts, not sync input.
 - To refresh the Windows copy, run the one-way export below.
 
-The cutover record lives outside the repository at `~/.local/state/multi-agent/cutover/`:
+The cutover record lives outside the repository at `~/.local/state/loom/cutover/`:
 
 - `cutover.json` records the bootstrap commit `98d4feb`, its tree, and the 19 tracked files verified on both sides.
 - `windows-manifest.json` holds byte hashes of all 1,600 Windows workspace files at cutover.
@@ -31,13 +31,13 @@ Local implementation, review, commit, push, PR creation and merge are separate a
 
 | Tool | Version | Source |
 | --- | --- | --- |
-| Node.js / npm | v24.21.0 / 11.19.0 | `/opt/multi-agent/toolchain/node` (checksum-pinned; see `docs/operations.md`) |
+| Node.js / npm | v24.21.0 / 11.19.0 | `/opt/loom/toolchain/node` (checksum-pinned; see `docs/operations.md`) |
 | C/C++ build | gcc/g++ 15.2.0, GNU Make 4.4.1, python3 | `apt install build-essential` (node-gyp for `better-sqlite3`) |
 | SQLite (bundled by `better-sqlite3` 13.0.3) | 3.53.4, Node ABI 137 | `engine/node_modules` |
 | Git | Linux git; credentials through Git Credential Manager for Windows (repo-local `credential.helper`) | |
 
 ```bash
-export PATH=/opt/multi-agent/toolchain/node/bin:$PATH
+export PATH=/opt/loom/toolchain/node/bin:$PATH
 ```
 
 ## Engine Commands
@@ -74,7 +74,7 @@ The following ran on Ubuntu 26.04.1 / WSL2 6.18.33.2 with Node v24.21.0 / npm 11
 | daemon `tmux-pane-cwd-native.test.ts › preserves pipe characters in pane cwd` | Pane fields do not match the expected object | Native tmux 3.6 behavior | U4 / T008 (tmux adapter) |
 | daemon `terminal-pipe-utf8.test.ts › preserves native terminal UTF-8 output…` | `native output timed out` | Native tmux pipe timing on WSL | U4 / T008 |
 | daemon `seat-activity-retirement-hooks.test.ts › adopted … successor's first permission hook` | `tmux -S /tmp/… new-session` failed | Native tmux session start in the test fixture | U4 / T008 |
-| cli `start.test.ts › S20 … env-sourced MULTI_AGENT_HOST through multi-agent start creates NO bind intent` | Auto-start never reaches its mocked spawn | Not diagnosed. The real `SystemPreflight` is ready outside Vitest, so the cause is inside the hermetic fixture. | U9 (bind / loopback surfaces) |
-| cli `up.test.ts › … S20: env-sourced MULTI_AGENT_HOST creates NO bind intent through up auto-start` | Expected port `7472`, got `undefined` | Same S20 auto-start path | U9 |
+| cli `start.test.ts › S20 … env-sourced LOOM_HOST through loom start creates NO bind intent` | Auto-start never reaches its mocked spawn | Not diagnosed. The real `SystemPreflight` is ready outside Vitest, so the cause is inside the hermetic fixture. | U9 (bind / loopback surfaces) |
+| cli `up.test.ts › … S20: env-sourced LOOM_HOST creates NO bind intent through up auto-start` | Expected port `7472`, got `undefined` | Same S20 auto-start path | U9 |
 
 The owning unit must diagnose its tests before changing that area, and must not count them as passing.

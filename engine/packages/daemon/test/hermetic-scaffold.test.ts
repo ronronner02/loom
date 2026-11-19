@@ -9,7 +9,7 @@ import {
 } from "./helpers/hermetic-env.js";
 
 // Slice 51-02 — the hermetic scaffold layer on top of the fail-closed guard.
-// prepareHermeticEnv() builds a per-run scratch HOME/MULTI_AGENT_HOME scaffold and a
+// prepareHermeticEnv() builds a per-run scratch HOME/LOOM_HOME scaffold and a
 // CLEAN child-process env (scrubbed daemon-target vars + scratch paths), WITHOUT
 // mutating the runner process's own environment. It fails closed FIRST (a foreign
 // daemon target aborts before any scaffold is created).
@@ -27,18 +27,18 @@ describe("prepareHermeticEnv scaffold", () => {
   it("fails closed BEFORE creating any scaffold when a foreign daemon target is present", () => {
     let thrown: unknown;
     try {
-      prepareHermeticEnv({ baseEnv: { MULTI_AGENT_URL: "http://foreign:9999", HOME: "/real" } });
+      prepareHermeticEnv({ baseEnv: { LOOM_URL: "http://foreign:9999", HOME: "/real" } });
     } catch (e) {
       thrown = e;
     }
     expect(thrown).toBeInstanceOf(HermeticEnvError);
-    expect((thrown as Error).message).toContain("MULTI_AGENT_URL");
+    expect((thrown as Error).message).toContain("LOOM_URL");
   });
 
-  it("creates an isolated scratch scaffold (root + home + multiAgentHome + stateDir all exist under root)", () => {
+  it("creates an isolated scratch scaffold (root + home + loomHome + stateDir all exist under root)", () => {
     const s = make({ HOME: "/real-home", PATH: "/usr/bin" });
     expect(existsSync(s.root)).toBe(true);
-    for (const dir of [s.home, s.multiAgentHome, s.stateDir]) {
+    for (const dir of [s.home, s.loomHome, s.stateDir]) {
       expect(existsSync(dir)).toBe(true);
       expect(statSync(dir).isDirectory()).toBe(true);
       expect(dir.startsWith(s.root)).toBe(true);
@@ -49,18 +49,18 @@ describe("prepareHermeticEnv scaffold", () => {
     const base = {
       HOME: "/real-home",
       PATH: "/usr/bin",
-      MULTI_AGENT_URL: undefined, // absent -> fine
-      MULTI_AGENT_AUTH_BEARER_TOKEN: "secret",
+      LOOM_URL: undefined, // absent -> fine
+      LOOM_AUTH_BEARER_TOKEN: "secret",
     };
     const s = make(base);
     for (const v of DAEMON_TARGET_ENV_VARS) {
       expect(s.env[v]).toBeUndefined();
     }
     // credential also scrubbed
-    expect(s.env.MULTI_AGENT_AUTH_BEARER_TOKEN).toBeUndefined();
+    expect(s.env.LOOM_AUTH_BEARER_TOKEN).toBeUndefined();
     // scratch paths point INTO the scaffold
     expect(s.env.HOME).toBe(s.home);
-    expect(s.env.MULTI_AGENT_HOME).toBe(s.multiAgentHome);
+    expect(s.env.LOOM_HOME).toBe(s.loomHome);
     // The private tmux wrapper wins command resolution; the caller's PATH is
     // preserved after it so every non-tmux executable resolves as before.
     expect(s.env.PATH).toBe(`${join(s.root, "bin")}${delimiter}/usr/bin`);
@@ -72,7 +72,7 @@ describe("prepareHermeticEnv scaffold", () => {
     const s = make(base);
     // caller's base object untouched
     expect(base.HOME).toBe("/real-home");
-    expect(base.MULTI_AGENT_HOME).toBeUndefined();
+    expect(base.LOOM_HOME).toBeUndefined();
     // process.env untouched (compared to its OWN before-value → insensitive to the ambient env)
     expect(process.env.HOME).toBe(beforeHome);
     // the scaffold's env is a distinct object
@@ -89,7 +89,7 @@ describe("prepareHermeticEnv scaffold", () => {
 
   it("the scratch child env is itself hermetic (no foreign target survives)", () => {
     // The clean env must pass its own fail-closed guard — proving the scrub is complete.
-    const s = make({ MULTI_AGENT_HOST: undefined, HOME: "/real", });
+    const s = make({ LOOM_HOST: undefined, HOME: "/real", });
     expect(() => {
       // re-run the guard over the produced env
       for (const v of DAEMON_TARGET_ENV_VARS) {

@@ -53,7 +53,7 @@ afterEach(() => {
 
 describe("schema upgrades from a shipped baseline", () => {
   it("upgrades an older marked database in place, keeps its rows and leaves a backup beside it", () => {
-    const root = directory(), file = join(root, "multi-agent.sqlite");
+    const root = directory(), file = join(root, "loom.sqlite");
     const db = previousVersion(file);
     const step = restoreSouls(db);
     initializeDatabase(db, file, { upgrades: [step] });
@@ -69,7 +69,7 @@ describe("schema upgrades from a shipped baseline", () => {
   });
 
   it("leaves the older version intact and names the backup when a step fails", () => {
-    const root = directory(), file = join(root, "multi-agent.sqlite");
+    const root = directory(), file = join(root, "loom.sqlite");
     const db = previousVersion(file);
     const step = restoreSouls(db);
     let caught: unknown;
@@ -86,7 +86,7 @@ describe("schema upgrades from a shipped baseline", () => {
   });
 
   it("refuses a database from a newer daemon without changing its bytes", () => {
-    const file = join(directory(), "multi-agent.sqlite");
+    const file = join(directory(), "loom.sqlite");
     const newer = new Database(file);
     newer.exec("CREATE TABLE rigs (id TEXT PRIMARY KEY)");
     newer.pragma(`user_version = ${BASELINE_VERSION + 1}`);
@@ -98,7 +98,7 @@ describe("schema upgrades from a shipped baseline", () => {
   });
 
   it("still refuses an older version no upgrade step reaches", () => {
-    const file = join(directory(), "multi-agent.sqlite");
+    const file = join(directory(), "loom.sqlite");
     const old = track(new Database(file));
     old.exec("CREATE TABLE rigs (id TEXT PRIMARY KEY)");
     old.pragma(`user_version = ${BASELINE_VERSION - 1}`);

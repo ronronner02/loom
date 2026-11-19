@@ -24,7 +24,7 @@ refused once by the launch and never dispatched again. Nothing started a pending
 ## Measured before deciding
 
 All measurements were on the installed Linux build, Claude Code 2.1.296
-(`/opt/multi-agent/toolchain/clients/bin/claude`), in a real tmux 3.6 pane:
+(`/opt/loom/toolchain/clients/bin/claude`), in a real tmux 3.6 pane:
 
 - **`-p` ends the process.** One turn, then exit 0. An interactive client never exits.
 - **`--output-format text` prints nothing until the turn ends** — neither assistant prose nor

@@ -39,7 +39,7 @@ describe("one appearance preference before and after application mount", () => {
     ["system dark", "system", true, "dark"],
   ] as const)("keeps the %s palette across first paint and mount", (_name, preference, osDark, expected) => {
     dark = osDark;
-    localStorage.setItem("multi-agent.theme", expected === "dark" ? "light" : "dark");
+    localStorage.setItem("loom.theme", expected === "dark" ? "light" : "dark");
     if (preference !== null) localStorage.setItem(TEAM_THEME_KEY, preference);
     expect(prepaint).toBeDefined();
     runInNewContext(prepaint!, { localStorage, window, document });

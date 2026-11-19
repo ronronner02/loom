@@ -11,10 +11,10 @@ import { constantTimeEqual, detectTailscaleInterface } from "./auth-bearer-token
  *
  * 1. Target name (Host). Accepted: `localhost`, IP literals, this machine's own
  *    names (OS hostname, and its exact Tailscale MagicDNS name found by a reverse
- *    lookup of its own tailnet IP at Tailscale's resolver) and MULTI_AGENT_ALLOWED_HOSTS.
+ *    lookup of its own tailnet IP at Tailscale's resolver) and LOOM_ALLOWED_HOSTS.
  *    A valid configured bearer token in Authorization waives only this check.
  * 2. Browser origin (Origin), when present. Accepted: the daemon's own UI origin
- *    while `ui.enabled` is on, or an entry in MULTI_AGENT_ALLOWED_ORIGINS. Nothing
+ *    while `ui.enabled` is on, or an entry in LOOM_ALLOWED_ORIGINS. Nothing
  *    waives this check.
  *
  * Requests without Origin (CLI, TUI, MCP, daemon-to-daemon) meet only rule 1.
@@ -29,9 +29,9 @@ export interface BrowserBoundaryOptions {
   authenticateOwnerCookie?: (c: Context) => Response | null;
   /** Configured bearer tokens; a matching Authorization header waives only the target-name check. */
   bearerTokens: Array<string | null | undefined>;
-  /** MULTI_AGENT_ALLOWED_ORIGINS: browser origins only. */
+  /** LOOM_ALLOWED_ORIGINS: browser origins only. */
   allowedOrigins?: string;
-  /** MULTI_AGENT_ALLOWED_HOSTS: target names only. */
+  /** LOOM_ALLOWED_HOSTS: target names only. */
   allowedHosts?: string;
   /** Returns this machine's own extra names (Tailscale MagicDNS). Absent: no discovery. */
   discoverSelfNames?: () => Promise<string[]>;
@@ -153,7 +153,7 @@ function parseAllowedHosts(raw: string | undefined): Set<string> {
   return out;
 }
 
-/** MULTI_AGENT_ALLOWED_ORIGINS: a full `http(s)://…` entry matches that exact origin;
+/** LOOM_ALLOWED_ORIGINS: a full `http(s)://…` entry matches that exact origin;
  *  any other `scheme://…` entry matches the identical string; a bare hostname matches
  *  that hostname on any scheme and port. */
 function parseAllowedOrigins(raw: string | undefined): { origins: Set<string>; hostnames: Set<string>; exact: Set<string> } {
@@ -188,7 +188,7 @@ function shown(value: string): string {
  * drop empty values. Returns `undefined` when absent and `null` when duplicated (ambiguous).
  * Without a Node request (tests, other adapters) it falls back to the Request headers.
  */
-export function rawHeader(c: Context, name: "host" | "origin" | "cookie" | "x-multi-agent-csrf" | "sec-websocket-protocol"): string | undefined | null {
+export function rawHeader(c: Context, name: "host" | "origin" | "cookie" | "x-loom-csrf" | "sec-websocket-protocol"): string | undefined | null {
   const raw = (c.env as { incoming?: { rawHeaders?: unknown } } | undefined)?.incoming?.rawHeaders;
   if (!Array.isArray(raw)) return c.req.header(name);
   const values: string[] = [];
@@ -272,12 +272,12 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
     if (logged.size >= MAX_LOGGED_REFUSALS) {
       if (!suppressionLogged) {
         suppressionLogged = true;
-        warn("[multi-agent] browser boundary: further distinct refusals are not logged");
+        warn("[loom] browser boundary: further distinct refusals are not logged");
       }
       return;
     }
     logged.add(key);
-    warn(`[multi-agent] browser boundary refused ${code}: ${value} (${c.req.method} ${shown(c.req.path)})`);
+    warn(`[loom] browser boundary refused ${code}: ${value} (${c.req.method} ${shown(c.req.path)})`);
   };
 
   /**
@@ -336,10 +336,10 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
           || ![undefined, "same-origin", "none"].includes(c.req.header("Sec-Fetch-Site"))) return await deny("browser_origin_refused");
         c.set("ownerBrowserOrigin" as never, new URL(presentedOrigin!).origin);
         c.set("ownerCookieHeader" as never, cookie);
-        const header = rawHeader(c, "x-multi-agent-csrf");
+        const header = rawHeader(c, "x-loom-csrf");
         const protocols = rawHeader(c, "sec-websocket-protocol");
         const offered = typeof protocols === "string" ? protocols.split(",").map(p => p.trim())
-          .filter(p => p.startsWith("multi-agent-csrf.")).map(p => p.slice("multi-agent-csrf.".length)) : [];
+          .filter(p => p.startsWith("loom-csrf.")).map(p => p.slice("loom-csrf.".length)) : [];
         if (header === null || protocols === null || offered.length > 1
           || (header !== undefined && offered.length === 1 && header !== offered[0])) return await deny("owner_anti_forgery_required");
         c.set("ownerAntiForgery" as never, header ?? offered[0]);
@@ -368,7 +368,7 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
     if (host.kind === "malformed") {
       const value = shown(hostHeader === null ? "(duplicate Host)" : hostHeader ?? "");
       return await refuse(c, "untrusted_host", value,
-        `This Multi-Agent daemon refused a request with an unusable Host header ("${value}"). Address the daemon by localhost, an IP address or this machine's own name.`);
+        `This Loom daemon refused a request with an unusable Host header ("${value}"). Address the daemon by localhost, an IP address or this machine's own name.`);
     }
     if (host.kind === "ok") {
       hostAccepted = await acceptedTarget(host.hostname);
@@ -378,7 +378,7 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
         if (!tokenValid) {
           const value = shown(host.hostname);
           return await refuse(c, "untrusted_host", value,
-            `This Multi-Agent daemon does not accept requests addressed to "${value}". Use localhost, an IP address or this machine's own name, or add this name to MULTI_AGENT_ALLOWED_HOSTS in the daemon's environment and restart the daemon.`);
+            `This Loom daemon does not accept requests addressed to "${value}". Use localhost, an IP address or this machine's own name, or add this name to LOOM_ALLOWED_HOSTS in the daemon's environment and restart the daemon.`);
         }
       }
     }
@@ -393,7 +393,7 @@ export function browserBoundary(options: BrowserBoundaryOptions): MiddlewareHand
       if (!ownUi && !explicitlyAllowedOrigin(originHeader, origin)) {
         const value = shown(originHeader);
         return await refuse(c, "browser_origin_refused", value,
-          `This Multi-Agent daemon refuses browser requests from origin "${value}". Open the Multi-Agent UI from the daemon's own address with the web UI enabled (MULTI_AGENT_UI_ENABLED=true, then restart the daemon), or add this exact origin to MULTI_AGENT_ALLOWED_ORIGINS in the daemon's environment and restart. Web pages on other origins cannot read this response.`);
+          `This Loom daemon refuses browser requests from origin "${value}". Open the Loom UI from the daemon's own address with the web UI enabled (LOOM_UI_ENABLED=true, then restart the daemon), or add this exact origin to LOOM_ALLOWED_ORIGINS in the daemon's environment and restart. Web pages on other origins cannot read this response.`);
       }
     }
 

@@ -71,7 +71,7 @@ describe("scenario-daemon forced-local spawn (integration)", () => {
   it("readEnv points at the helper's own daemon, never a foreign target", async () => {
     scaffold = prepareHermeticEnv({ baseEnv: realBaseEnv() });
     daemon = await spawnScenarioDaemon(scaffold, { rigBin: RIG_BIN });
-    expect(daemon.readEnv.MULTI_AGENT_URL).toBe(daemon.baseUrl);
+    expect(daemon.readEnv.LOOM_URL).toBe(daemon.baseUrl);
     expect(daemon.baseUrl).toContain("127.0.0.1");
   }, 60_000);
 

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Circle, CircleCheck, CircleX, MinusCircle } from "lucide-react";
-import type { AttemptActivity, TeamOwnerRead, TeamReviewView, TeamSeatView, ToolActivityRecord } from "@multi-agent/daemon/team-control";
+import type { AttemptActivity, TeamOwnerRead, TeamReviewView, TeamSeatView, ToolActivityRecord } from "@loom/daemon/team-control";
 import { useAttemptActivity } from "../../hooks/useAttemptActivity.js";
 import { useAttemptStatus } from "../../hooks/useAttemptStatus.js";
 import { attemptForSeat, taskForSeat } from "./workspace-model.js";

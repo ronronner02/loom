@@ -12,14 +12,14 @@
   "stableProjectArchiveSha256": "14e7918e6826771b02231b1846bc0f955f3c3e012e64ca2b763d5346b3b6d0a6",
   "shortcuts": [
     {
-      "path": "%USERPROFILE%\\Desktop\\Multi-Agent.lnk",
-      "target": "%LOCALAPPDATA%/Programs/Multi-Agent/Multi-Agent.exe",
-      "arguments": "--user-data-dir=\"%LOCALAPPDATA%/Multi-Agent/profile\""
+      "path": "%USERPROFILE%\\Desktop\\Loom.lnk",
+      "target": "%LOCALAPPDATA%/Programs/Loom/Loom.exe",
+      "arguments": "--user-data-dir=\"%LOCALAPPDATA%/Loom/profile\""
     },
     {
-      "path": "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Multi-Agent.lnk",
-      "target": "%LOCALAPPDATA%/Programs/Multi-Agent/Multi-Agent.exe",
-      "arguments": "--user-data-dir=\"%LOCALAPPDATA%/Multi-Agent/profile\""
+      "path": "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Loom.lnk",
+      "target": "%LOCALAPPDATA%/Programs/Loom/Loom.exe",
+      "arguments": "--user-data-dir=\"%LOCALAPPDATA%/Loom/profile\""
     }
   ],
   "allUsersLegacyShortcutUnchanged": true,

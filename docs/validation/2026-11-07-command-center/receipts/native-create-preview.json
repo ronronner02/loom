@@ -2,7 +2,7 @@
   "at": "2026-11-08T00:51:19.1610299Z",
   "action": "settled",
   "pid": 14236,
-  "installedExecutable": "%LOCALAPPDATA%/Programs/Multi-Agent/Multi-Agent.exe",
+  "installedExecutable": "%LOCALAPPDATA%/Programs/Loom/Loom.exe",
   "originalWindowHandle": 47778090,
   "normalInstanceReused": true,
   "debuggingEnabled": false,

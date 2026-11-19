@@ -1,6 +1,6 @@
-# Multi-Agent default culture
+# Loom default culture
 
-This is the universal operating floor for every Multi-Agent team. A rig's own culture may add role- or domain-specific guidance on top of it.
+This is the universal operating floor for every Loom team. A rig's own culture may add role- or domain-specific guidance on top of it.
 
 ## Pragmatic truth-seeking
 

@@ -1,4 +1,4 @@
-import { CATALOGS, CLIENT_LABEL_KEYS, ROLE_LABEL_KEYS } from "@multi-agent/i18n";
+import { CATALOGS, CLIENT_LABEL_KEYS, ROLE_LABEL_KEYS } from "@loom/i18n";
 
 /**
  * The readable names the owner read publishes beside the ids.
@@ -86,7 +86,7 @@ export function ordinalTaskName(ordinal: number): string {
  * A role's and a client's label in the stored English form.
  *
  * The stored name is the English fallback; a client localises from the `role`/`client` field
- * using the same keys `@multi-agent/i18n` publishes, so a new client is added in one place and
+ * using the same keys `@loom/i18n` publishes, so a new client is added in one place and
  * neither side can name it differently.
  */
 export function roleLabel(role: string): string {

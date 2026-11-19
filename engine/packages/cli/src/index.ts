@@ -17,8 +17,8 @@ export interface ProgramDeps {
 
 export function createProgram(depsOverride?: ProgramDeps): Command {
   const program = new Command()
-    .name("multi-agent")
-    .description("Manage Multi-Agent teams through the local engine HTTP API")
+    .name("loom")
+    .description("Manage Loom teams through the local engine HTTP API")
     .version(CLI_VERSION);
   program.addCommand(teamCommand(depsOverride?.teamStartDeps));
   program.addCommand(daemonCommand(depsOverride?.daemonDeps, depsOverride?.daemonHttpDeps));

@@ -5,7 +5,7 @@ classify stream-to-queue substrate.
 
 ## First action
 
-`multi-agent whoami --json` to confirm identity, then `multi-agent stream list
+`loom whoami --json` to confirm identity, then `loom stream list
 --limit 20` to see what's already in the intake without a clear
 destination.
 

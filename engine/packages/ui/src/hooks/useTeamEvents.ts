@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import type { TeamOwnerRead } from "@multi-agent/daemon/team-control";
+import type { TeamOwnerRead } from "@loom/daemon/team-control";
 import { OwnerReadError, useOwnerSession } from "./useOwnerSession.js";
 import { createTeamInvalidator } from "./team-query-invalidation.js";
 import { streamTeamEvents, type TeamEventState, type TeamReplay } from "./team-event-stream.js";

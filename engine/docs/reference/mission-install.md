@@ -102,7 +102,7 @@ the mission file first; the slice may narrow or override mission defaults.
 
 The reusable component catalog is repo
 `docs/reference/product-journey-sdlc.md` and installed
-`$MULTI_AGENT_HOME/reference/product-journey-sdlc.md`. A catalog with
+`$LOOM_HOME/reference/product-journey-sdlc.md`. A catalog with
 `root: repository` resolves from `git rev-parse --show-toplevel`; use the
 `loading-addressable-markdown` skill for addressed H2/H3 sections.
 
@@ -193,7 +193,7 @@ The layers compose from surfaces that already exist; no new mechanism is require
 - Runtime: `context profile` and `context work-install` both accept
   `--runtime claude-code` (alias `claude`) or `--runtime codex`. Profile
   composition retains the `claude` manifest/output key; skill projection
-  retains `claude-code`. Profile defaults from `MULTI_AGENT_RUNTIME`, otherwise
+  retains `claude-code`. Profile defaults from `LOOM_RUNTIME`, otherwise
   Claude; work-install requires the flag to inspect or apply skills.
 - Delivery: walk the seat through `world-public` with `--profile <profile>
   --situation <situation> ...` applies the already-inspected profile (walk's

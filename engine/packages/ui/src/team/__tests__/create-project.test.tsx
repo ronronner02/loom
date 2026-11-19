@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createInterfaceI18n } from "@multi-agent/i18n";
+import { createInterfaceI18n } from "@loom/i18n";
 import { I18nextProvider } from "react-i18next";
 import { OwnerReadError } from "../../hooks/useOwnerSession.js";
 import { CreateProject, ProjectsScreen } from "../create-project.js";
@@ -79,7 +79,7 @@ describe("project creation", () => {
 
   it("uses the desktop picker when present instead of reading browser directories", async () => {
     const pickFolder = vi.fn().mockResolvedValue("/mnt/d/Client Work/sample");
-    vi.stubGlobal("multiAgentDesktop", { pickFolder }); await show();
+    vi.stubGlobal("loomDesktop", { pickFolder }); await show();
     fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Folder" })).toHaveProperty("value", "/mnt/d/Client Work/sample"));
     expect(pickFolder).toHaveBeenCalledOnce(); expect(request).not.toHaveBeenCalled();
@@ -87,7 +87,7 @@ describe("project creation", () => {
 
   it("preserves the folder on native picker cancellation and surfaces picker failure", async () => {
     const pickFolder = vi.fn().mockResolvedValueOnce(null).mockRejectedValueOnce(new Error("native failure"));
-    vi.stubGlobal("multiAgentDesktop", { pickFolder }); await show(); fill();
+    vi.stubGlobal("loomDesktop", { pickFolder }); await show(); fill();
     const browse = screen.getByRole("button", { name: "Browse…" });
     fireEvent.click(browse);
     await waitFor(() => expect(browse).toHaveProperty("disabled", false));

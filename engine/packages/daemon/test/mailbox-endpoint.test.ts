@@ -27,9 +27,9 @@ describe("mailbox endpoint naming", () => {
   const generation = "11111111-2222-3333-4444-555555555555";
 
   it("keeps the socket file on POSIX", () => {
-    expect(mailboxEndpoint("/var/lib/multi-agent/sock/local/attempt-1", generation, "posix")).toEqual({
-      transport: "unix", path: "/var/lib/multi-agent/sock/local/attempt-1/" + MAILBOX_SOCKET_NAME,
-      bootstrapPath: "/var/lib/multi-agent/sock/local/attempt-1/bootstrap.json",
+    expect(mailboxEndpoint("/var/lib/loom/sock/local/attempt-1", generation, "posix")).toEqual({
+      transport: "unix", path: "/var/lib/loom/sock/local/attempt-1/" + MAILBOX_SOCKET_NAME,
+      bootstrapPath: "/var/lib/loom/sock/local/attempt-1/bootstrap.json",
     });
   });
 
@@ -63,7 +63,7 @@ describe("mailbox endpoint naming", () => {
   });
 
   it("admits only the registered POSIX socket for the launcher's mailbox fact", () => {
-    const mailboxRoot = "/var/lib/multi-agent/control/mailboxes";
+    const mailboxRoot = "/var/lib/loom/control/mailboxes";
     const socket = { transport: "unix", path: mailboxRoot + "/ma-worker1/run-1/attempt-1/mailbox.sock",
       dev: 9, ino: 22, uid: 990, gid: 990, generation } as const;
     const fact = { mailboxRoot, worker: "ma-worker1", segments: ["run-1", "attempt-1"], controlUid: 990, controlGid: 990 };
@@ -75,7 +75,7 @@ describe("mailbox endpoint naming", () => {
     // A pipe is never mountable by the launcher, however well-formed its name.
     expect(admitsPosixMailboxEndpoint(mailboxEndpoint("/tmp/x", generation, "win32") as never, fact)).toBe(false);
     for (const change of [{ dev: -1 }, { ino: 0 }, { uid: 991 }, { gid: 991 }, { path: socket.path + "-other" },
-      { path: "/var/lib/multi-agent/mailbox.sock" }, { generation: "-leading-dash" }]) {
+      { path: "/var/lib/loom/mailbox.sock" }, { generation: "-leading-dash" }]) {
       expect(admitsPosixMailboxEndpoint({ ...socket, ...change }, fact)).toBe(false);
     }
     for (const change of [{ mailboxRoot: undefined }, { worker: "ma-worker2" }, { segments: ["run-2", "attempt-1"] },

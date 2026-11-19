@@ -31,11 +31,11 @@ const { createIpcModule } = require('./ipc.js');
 
 const DAEMON_ENTRY = daemonEntry();
 
-// The stable data directory. Production is %LOCALAPPDATA%\Multi-Agent; a test or a manual run
-// points MULTI_AGENT_DESKTOP_DATA_DIR somewhere else. When Windows reports no per-user local
+// The stable data directory. Production is %LOCALAPPDATA%\Loom; a test or a manual run
+// points LOOM_DESKTOP_DATA_DIR somewhere else. When Windows reports no per-user local
 // application data, the app's own userData directory is the only correct fallback: never Roaming.
-const DATA_DIR_ROOT = process.env.MULTI_AGENT_DESKTOP_DATA_DIR
-  || path.join(process.env.LOCALAPPDATA || app.getPath('userData'), 'Multi-Agent');
+const DATA_DIR_ROOT = process.env.LOOM_DESKTOP_DATA_DIR
+  || path.join(process.env.LOCALAPPDATA || app.getPath('userData'), 'Loom');
 
 let state = { phase: 'checking', message: 'Starting the local engine…', dependencies: null, connected: false };
 let csrfToken = null;

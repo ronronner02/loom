@@ -2,7 +2,7 @@ import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createInterfaceI18n } from "@multi-agent/i18n";
+import { createInterfaceI18n } from "@loom/i18n";
 import { I18nextProvider } from "react-i18next";
 import { IntakeSettings } from "../intake-settings.js";
 import { InboxScreen } from "../inbox.js";
@@ -145,11 +145,11 @@ describe("project inbox", () => {
     await show(<InboxScreen teamId="team-1" onOpenRun={vi.fn()} />);
     const region = await screen.findByRole("region", { name: "Inbox" });
     request.mockImplementationOnce(async () => {
-      throw new ReadError("intake_start_failed", "A planning run needs a lead seat: name one, or create a team with `multi-agent team create`.");
+      throw new ReadError("intake_start_failed", "A planning run needs a lead seat: name one, or create a team with `loom team create`.");
     });
     fireEvent.click(within(region).getAllByRole("button", { name: "Start" })[0]!);
     expect(await screen.findByRole("alert")).toHaveProperty("textContent",
-      "A planning run needs a lead seat: name one, or create a team with `multi-agent team create`.");
+      "A planning run needs a lead seat: name one, or create a team with `loom team create`.");
   });
 
   it("dismisses an item through its own endpoint and keeps the returned state", async () => {

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const COMPACTION_TEMPLATE = "   `<launch cwd>/.multi-agent/compaction/preparation/<session>/<attempt>/RESTORE-MAP.md`; its parent";
+const COMPACTION_TEMPLATE = "   `<launch cwd>/.loom/compaction/preparation/<session>/<attempt>/RESTORE-MAP.md`; its parent";
 
 test("scanner blocks internal paths before reading content", async () => {
   const scanner = await loadScanner();
@@ -90,7 +90,7 @@ test("exact-line allowances preserve modified lines, adjacent findings and inter
   const line = COMPACTION_TEMPLATE;
   const rules = {
     ...fixtureRules(),
-    path_prefixes: [".multi-agent/compaction/"],
+    path_prefixes: [".loom/compaction/"],
     allowed_context_lines: [line],
   };
   const scan = (text, path = "skills/public/SKILL.md") => scanInternalLeaks({
@@ -106,9 +106,9 @@ test("exact-line allowances preserve modified lines, adjacent findings and inter
     line.trimStart(),
     line.toUpperCase(),
   ]) {
-    assert.ok(scan(modified).some(({ token }) => token === ".multi-agent/compaction/"));
+    assert.ok(scan(modified).some(({ token }) => token === ".loom/compaction/"));
   }
-  assert.deepEqual(scan(`${line}\n.multi-agent/compaction/private.txt\n`).map(({ line }) => line), [2]);
+  assert.deepEqual(scan(`${line}\n.loom/compaction/private.txt\n`).map(({ line }) => line), [2]);
   assert.equal(scan(line, "skills/internal/SKILL.md")[0].kind, "path");
 });
 
@@ -116,19 +116,19 @@ test("generated rules accept the shipped restore skill and reject concrete priva
   const { scanInternalLeaks } = await loadScanner();
   const rules = JSON.parse(readFileSync(new URL("./internal-tokens.generated.json", import.meta.url), "utf8"));
   const bytes = readFileSync(new URL(
-    "../packages/daemon/assets/plugins/multi-agent-core/skills/claude-compaction-restore/SKILL.md",
+    "../packages/daemon/assets/plugins/loom-core/skills/claude-compaction-restore/SKILL.md",
     import.meta.url,
   ));
   assert.ok(!rules.allowed_context_lines.includes(COMPACTION_TEMPLATE));
-  assert.ok(rules.path_prefixes.includes(".multi-agent/compaction/"));
+  assert.ok(rules.path_prefixes.includes(".loom/compaction/"));
   for (const path of [
-    "daemon/assets/plugins/multi-agent-core/skills/claude-compaction-restore/SKILL.md",
+    "daemon/assets/plugins/loom-core/skills/claude-compaction-restore/SKILL.md",
     "daemon/assets/skills/claude-compaction-restore/SKILL.md",
   ]) {
     assert.deepEqual(scanInternalLeaks({ path, bytes, rules }), []);
-    const changed = Buffer.concat([bytes, Buffer.from("\n.multi-agent/compaction/private.txt\n")]);
+    const changed = Buffer.concat([bytes, Buffer.from("\n.loom/compaction/private.txt\n")]);
     assert.ok(scanInternalLeaks({ path, bytes: changed, rules }).some(({ token }) =>
-      token === ".multi-agent/compaction/"));
+      token === ".loom/compaction/"));
   }
 });
 
@@ -161,7 +161,7 @@ async function loadScanner() {
 
 function fixtureRules() {
   return {
-    path_prefixes: ["multi-agent-work/"],
+    path_prefixes: ["loom-work/"],
     seat_and_rig_patterns: ["operator-agent@"],
     host_patterns: ["mm2-"],
     charged_terms: ["founder"],

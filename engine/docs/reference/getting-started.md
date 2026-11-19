@@ -1,7 +1,7 @@
-# Getting started with Multi-Agent
+# Getting started with Loom
 
-Multi-Agent runs a team of coding agents from one local engine. The desktop app is the
-full experience; the `multi-agent` command reaches the same engine for the cases where a
+Loom runs a team of coding agents from one local engine. The desktop app is the
+full experience; the `loom` command reaches the same engine for the cases where a
 terminal is the right tool, and both read the same authenticated team-control state.
 
 This page covers the command line only. For the desktop flow, start the app and follow its
@@ -9,20 +9,20 @@ own screen.
 
 ## Check the engine
 
-The CLI talks to a running engine over its local HTTP API. Read `multi-agent --help` for the
+The CLI talks to a running engine over its local HTTP API. Read `loom --help` for the
 three verbs that exist: `team`, `daemon` and `github`.
 
 ```sh
-multi-agent --version
-multi-agent daemon status
+loom --version
+loom daemon status
 ```
 
-`multi-agent daemon status` reports whether the engine is up and, when it is, where it
+`loom daemon status` reports whether the engine is up and, when it is, where it
 listens. If it is stopped, start it and check again:
 
 ```sh
-multi-agent daemon start
-multi-agent daemon status
+loom daemon start
+loom daemon status
 ```
 
 Use `--port` when another local process owns the default port, and `--host` when the engine
@@ -34,7 +34,7 @@ competing child.
 Stop the engine with:
 
 ```sh
-multi-agent daemon stop
+loom daemon stop
 ```
 
 The stop budget is bounded and the command exits nonzero rather than claiming a clean
@@ -44,10 +44,10 @@ graceful drain that did not run.
 
 ## Create a project and a team
 
-`multi-agent team create` registers a repository and the seats that work on it.
+`loom team create` registers a repository and the seats that work on it.
 
 ```sh
-multi-agent team create <path-to-repository>
+loom team create <path-to-repository>
 ```
 
 By default this registers a local repository with three manual seats — a lead, a set of
@@ -59,7 +59,7 @@ With `--name`, the same verb creates a private GitHub project from the folder in
 only the lead's configured client. Preview that path before it touches GitHub:
 
 ```sh
-multi-agent team create <path-to-repository> --name <project-name> --dry-run
+loom team create <path-to-repository> --name <project-name> --dry-run
 ```
 
 The preview names what would be uploaded and which paths are excluded. Nothing is created or
@@ -69,8 +69,8 @@ the same path registers it instead of creating a second repository.
 GitHub itself must be signed in first:
 
 ```sh
-multi-agent github status
-multi-agent github sign-in
+loom github status
+loom github sign-in
 ```
 
 `github status` exits nonzero when no account is signed in, so it is safe to use as a check.
@@ -79,10 +79,10 @@ command to confirm the account it recorded.
 
 ## Start a run
 
-`multi-agent team start` turns a goal into a run and a task.
+`loom team start` turns a goal into a run and a task.
 
 ```sh
-multi-agent team start "<goal>" --repository <path-to-repository> --write <path>
+loom team start "<goal>" --repository <path-to-repository> --write <path>
 ```
 
 Every flag has a default that reads from the created team, so a freshly registered project
@@ -110,9 +110,9 @@ With `--planning`, the run stops for review before delivery. Talk to the lead in
 chat, then approve the plan once:
 
 ```sh
-multi-agent team chat <run-id> "your message"
-multi-agent team chat <run-id>              # the conversation so far
-multi-agent team approve <run-id>
+loom team chat <run-id> "your message"
+loom team chat <run-id>              # the conversation so far
+loom team approve <run-id>
 ```
 
 Approval reads the plan from the lead's own tree and refuses a missing one by name, so the
@@ -125,8 +125,8 @@ A run's durable result is what the engine recorded, not what a worker's final me
 Read the result and the diff before you merge:
 
 ```sh
-multi-agent team result <run-id>
-multi-agent team diff <run-id>
+loom team result <run-id>
+loom team diff <run-id>
 ```
 
 `team result` prints the finished task's result as JSON, including the patch and the file
@@ -138,11 +138,11 @@ For a run with more than one implementer task, name the one to read with `--task
 
 ## Merge
 
-`multi-agent team merge` merges the run's integration branch into the repository the team
+`loom team merge` merges the run's integration branch into the repository the team
 was created for.
 
 ```sh
-multi-agent team merge <run-id>
+loom team merge <run-id>
 ```
 
 The command reports whether the merge fast-forwarded, made one commit, or was already up to
@@ -151,7 +151,7 @@ date, and names the branch and head it merged.
 ## The owner credential
 
 Every `team` and `github` verb authenticates as the owner. The CLI reads
-`MULTI_AGENT_OWNER_TOKEN` from its environment, then the `owner.env` file in the
+`LOOM_OWNER_TOKEN` from its environment, then the `owner.env` file in the
 per-user configuration directory. A verb with no credential says so and exits nonzero
 rather than sending an unauthenticated request.
 
@@ -161,10 +161,10 @@ this when running the CLI against an engine you started separately.
 ## Where state lives
 
 The engine keeps mutable state below one canonical home. On Windows that is
-`%LOCALAPPDATA%\Multi-Agent`; on other platforms it is `~/.multi-agent`. Configuration lives
-beside it at `%APPDATA%\Multi-Agent` on Windows, and in the same home elsewhere.
+`%LOCALAPPDATA%\Loom`; on other platforms it is `~/.loom`. Configuration lives
+beside it at `%APPDATA%\Loom` on Windows, and in the same home elsewhere.
 
-`MULTI_AGENT_HOME` overrides the state root for an isolated process — an integration test or
+`LOOM_HOME` overrides the state root for an isolated process — an integration test or
 a temporary run. See [the instance layout](instance-layout.md) for what is created there.
 
 ## When something goes wrong
@@ -174,10 +174,10 @@ error.
 
 | Observation | Next action |
 | --- | --- |
-| `daemon status` reports the engine stopped | `multi-agent daemon start`, then check again |
+| `daemon status` reports the engine stopped | `loom daemon start`, then check again |
 | A verb says it cannot connect | Confirm the engine is running on the address the state records; `daemon status` prints it |
-| A verb reports the owner credential was refused | Check `MULTI_AGENT_OWNER_TOKEN` or the `owner.env` file the engine was paired with |
-| `github status` exits nonzero | No GitHub account is signed in; run `multi-agent github sign-in` |
+| A verb reports the owner credential was refused | Check `LOOM_OWNER_TOKEN` or the `owner.env` file the engine was paired with |
+| `github status` exits nonzero | No GitHub account is signed in; run `loom github sign-in` |
 | A result read answers 409 | The task has not finished; wait and retry |
 | A start is refused with the run named | The engine recorded a refusal; read the run in the desktop app for the seat's state |
 | `--port` is rejected | Ports must be integers in `[0, 65535]` |
@@ -187,7 +187,7 @@ help guide at `help.md` covers the same ground with the support-request checklis
 
 ## Permissions
 
-Each seat launches under the permission posture its client was given. Multi-Agent does not
+Each seat launches under the permission posture its client was given. Loom does not
 change a provider account's settings, and it does not sign in for you. If a seat is waiting
 at a first-launch consent prompt, answer it in that seat, or choose a policy that accepts the
 prompt for supported harnesses. The desktop app shows a seat's pending prompt in the run

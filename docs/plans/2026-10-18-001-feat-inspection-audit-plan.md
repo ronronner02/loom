@@ -10,7 +10,7 @@ status: draft
 # Scheduled Inspection and Proactive Audit - Plan
 
 - **Status:** draft, not active. Do not derive a task pack or start execution until Milestone 1 is delivered and the open owner decisions below are settled; then the owner marks this plan active.
-- **Relationship to Milestone 1:** a separate plan. It changes nothing in [the Milestone 1 plan](2026-10-13-001-feat-multi-agent-team-plan.md) or its acceptance; that plan's KTD18 remote phone access is a different deferred item and is not covered here.
+- **Relationship to Milestone 1:** a separate plan. It changes nothing in [the Milestone 1 plan](2026-10-13-001-feat-loom-team-plan.md) or its acceptance; that plan's KTD18 remote phone access is a different deferred item and is not covered here.
 - **Prerequisites:** Milestone 1 delivered (U1-U13), in particular U2 governance grants, U4 restricted launch with the KTD27 client lock, U5 snapshot review and KTD25 extensions, KTD20 reason codes, and U13 health checks.
 - **Principles:** scripts first, snapshot isolation, finding text is always data, no new client adapters, no over-engineering.
 

@@ -2,12 +2,12 @@
   "at": "2026-11-08T00:51:05.9168001Z",
   "action": "select",
   "pid": 14236,
-  "installedExecutable": "%LOCALAPPDATA%/Programs/Multi-Agent/Multi-Agent.exe",
+  "installedExecutable": "%LOCALAPPDATA%/Programs/Loom/Loom.exe",
   "originalWindowHandle": 47778090,
   "normalInstanceReused": true,
   "debuggingEnabled": false,
   "nativeDialogClass": "#32770",
-  "nativeFolderReadback": "%LOCALAPPDATA%/Multi-Agent/TestProjects/desktop-create-20261108-aa15079f",
+  "nativeFolderReadback": "%LOCALAPPDATA%/Loom/TestProjects/desktop-create-20261108-aa15079f",
   "method": "Verified native folder field and physical selection-button input",
   "buttons": [
     {

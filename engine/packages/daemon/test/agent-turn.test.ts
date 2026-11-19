@@ -85,7 +85,7 @@ describe("the managed turn's command line", () => {
             // The client's first session event is what acknowledges the attempt, and what the
             // launcher's readiness wait is satisfied by.
             const event = { type: "session.started", provider: launch.provider, attemptId: launch.attemptId, sequence: 1,
-              timestamp: new Date().toISOString(), rawSummary: "{}", schema: "multi-agent-worker-events/v1",
+              timestamp: new Date().toISOString(), rawSummary: "{}", schema: "loom-worker-events/v1",
               protocolVersion: "1.0", sessionId: "fixture", resumeToken: "fixture" } as WorkerEvent;
             events.push(event);
             deps.onEvent(event);

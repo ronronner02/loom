@@ -29,30 +29,30 @@ describe("a daemon's SIGTERM ends its worker process trees", () => {
   });
 
   function tempDir(): string {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "multi-agent-shutdown-workers-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "loom-shutdown-workers-"));
     tempDirs.push(dir);
     return dir;
   }
 
   it("ends a live worker tree started by a CLI-launched daemon", async () => {
     const home = tempDir();
-    const dbPath = path.join(home, "multi-agent.sqlite");
+    const dbPath = path.join(home, "loom.sqlite");
     const port = await freePort();
     const indexPath = path.resolve(import.meta.dirname, "../src/index.ts");
     const daemon = spawn(process.execPath, ["--import", "tsx", indexPath], {
       env: {
         ...process.env,
         HOME: home,
-        MULTI_AGENT_HOME: home,
+        LOOM_HOME: home,
         // The daemon's own database is where the attempt row is written below.
-        MULTI_AGENT_DB: dbPath,
-        MULTI_AGENT_PORT: String(port),
+        LOOM_DB: dbPath,
+        LOOM_PORT: String(port),
         // The default plan adds an active Tailscale address, which the owner surface refuses on
         // a host that has none of its own; a loopback-only bind is the explicit shape.
-        MULTI_AGENT_BIND_HOST: "127.0.0.1",
+        LOOM_BIND_HOST: "127.0.0.1",
         // A CLI start names its owner credential; the desktop mints one over its parent port.
-        MULTI_AGENT_OWNER_TOKEN: OWNER_TOKEN,
-        MULTI_AGENT_URL: "",
+        LOOM_OWNER_TOKEN: OWNER_TOKEN,
+        LOOM_URL: "",
       },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,

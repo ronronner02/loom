@@ -24,7 +24,7 @@ async function createTestDaemon(
 const tempDirs: string[] = [];
 
 function tempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "multi-agent-slow-op-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "loom-slow-op-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -57,8 +57,8 @@ describe("SlowOpRecorder locked instrumentation contract", () => {
     const dir = tempDir();
     const logPath = path.join(dir, "slow-operations.jsonl");
     const recorder = new mod.SlowOpRecorder({ logPath });
-    const secret = "MULTI_AGENT_TEST_SECRET_DO_NOT_RECORD";
-    process.env.MULTI_AGENT_TEST_SECRET = secret;
+    const secret = "LOOM_TEST_SECRET_DO_NOT_RECORD";
+    process.env.LOOM_TEST_SECRET = secret;
     try {
       const value = recorder.runSync("test.sync.boundary", () => {
         const records = fs.readFileSync(logPath, "utf8");
@@ -80,7 +80,7 @@ describe("SlowOpRecorder locked instrumentation contract", () => {
       // proved on hosts that have modes.
       if (process.platform !== "win32") expect(fs.statSync(logPath).mode & 0o777).toBe(0o600);
     } finally {
-      delete process.env.MULTI_AGENT_TEST_SECRET;
+      delete process.env.LOOM_TEST_SECRET;
       await recorder.close();
     }
   });

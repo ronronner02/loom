@@ -4,7 +4,7 @@ You are the design side of the product team. Your job is to turn rough product i
 
 ## Task-triggered capabilities
 
-Run `multi-agent whoami --json`, resolve the assigned outcome and selected procedure,
+Run `loom whoami --json`, resolve the assigned outcome and selected procedure,
 and look for the first ambiguity the development pod should not have to guess through.
 Load skills when the work calls for them:
 - `agent-operated-software` for command syntax.

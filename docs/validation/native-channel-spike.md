@@ -62,4 +62,4 @@ Two round-1 cases (both tmux) and the first round-2 tmux pass produced no client
 - The daemon does not yet install the channel at launch or call `deliverToNativeChannel` from a relay script. T010 owns that wiring. This task adds the adoption, the installers, the digests and the owner-level delivery.
 - First-run client dialogs were pre-seeded the way the existing launcher does it.
 - `turn/interrupt` was not exercised because `turn/steer` failed the context condition first.
-- The run evidence is machine-local and untracked, under `.spec-first/workflows/spec-work/multi-agent/<run>-t031-native-channel-spike/spike/`. Per case it holds the result rows, hook events, receipts and the clients' own transcripts. It contains no credentials.
+- The run evidence is machine-local and untracked, under `.spec-first/workflows/spec-work/loom/<run>-t031-native-channel-spike/spike/`. Per case it holds the result rows, hook events, receipts and the clients' own transcripts. It contains no credentials.

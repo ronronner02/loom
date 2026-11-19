@@ -1,16 +1,16 @@
 # Help your user get unstuck
 
-This page is for an owner or agent whose Multi-Agent team flow is not working. The desktop app and the
+This page is for an owner or agent whose Loom team flow is not working. The desktop app and the
 command line read the same authenticated team-control state. Use the installed command's help before choosing an option:
 
 ```sh
-multi-agent --help
-multi-agent team --help
-multi-agent daemon --help
-multi-agent github --help
+loom --help
+loom team --help
+loom daemon --help
+loom github --help
 ```
 
-If the daemon is unavailable, `multi-agent daemon status` reports that directly. The same text is installed
+If the daemon is unavailable, `loom daemon status` reports that directly. The same text is installed
 beside the CLI package at `daemon/docs/reference/help.md`; in this source repository it is
 `docs/reference/help.md`.
 
@@ -20,28 +20,28 @@ repository content and credentials out of a support request.
 ## Start with the local engine
 
 ```sh
-multi-agent --version
-multi-agent daemon status
+loom --version
+loom daemon status
 ```
 
-If the daemon is stopped, start it with `multi-agent daemon start` and check the status again. Use an explicit
+If the daemon is stopped, start it with `loom daemon start` and check the status again. Use an explicit
 `--port` when another local process owns the default. The daemon writes its mutable state below the canonical
-Multi-Agent home; set `MULTI_AGENT_HOME` only for an isolated test or temporary run.
+Loom home; set `LOOM_HOME` only for an isolated test or temporary run.
 
 ## Start and inspect a team run
 
 Use the native owner flow:
 
 ```sh
-multi-agent team create <repository>
-multi-agent team start "<goal>" --repository <repository> --write <path>
-multi-agent team chat <run-id> "<question or progress update>"
-multi-agent team result <run-id>
-multi-agent team diff <run-id>
-multi-agent team merge <run-id>
+loom team create <repository>
+loom team start "<goal>" --repository <repository> --write <path>
+loom team chat <run-id> "<question or progress update>"
+loom team result <run-id>
+loom team diff <run-id>
+loom team merge <run-id>
 ```
 
-A planning run pauses for the owner to review the lead conversation and run `multi-agent team approve
+A planning run pauses for the owner to review the lead conversation and run `loom team approve
 <run-id>`. Read the durable result and diff before delivery. A worker's final message alone does not prove
 that the task is complete.
 
@@ -50,22 +50,22 @@ coordination in team chat and the durable result rather than inventing another t
 
 ## GitHub connection problems
 
-Use `multi-agent github status` to inspect the account used by the daemon. Run `multi-agent github sign-in`
+Use `loom github status` to inspect the account used by the daemon. Run `loom github sign-in`
 only when the status and the error show that authentication is the missing decision. A repository creation or
 push remains an owner decision; review the project preview before confirming it.
 
 ## App and data paths
 
 The desktop app and the browser UI at `/team` are other views of the same team-control API. If neither is
-available, use the CLI against the same local daemon. On Windows, mutable state is under `%LOCALAPPDATA%\Multi-Agent` and configuration
-under `%APPDATA%\Multi-Agent`; other platforms default to `~/.multi-agent`. `MULTI_AGENT_HOME` overrides the
+available, use the CLI against the same local daemon. On Windows, mutable state is under `%LOCALAPPDATA%\Loom` and configuration
+under `%APPDATA%\Loom`; other platforms default to `~/.loom`. `LOOM_HOME` overrides the
 mutable state root for an isolated process. Legacy product directories and environment names are not read.
 
 ## Prepare a support request
 
 Record:
 
-- the Multi-Agent version and operating system;
+- the Loom version and operating system;
 - the goal and repository boundary;
 - the exact command and expected result;
 - the observed output or error;

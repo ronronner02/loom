@@ -130,7 +130,7 @@ function bridgeContext() {
 }
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
-const ENV = { MULTI_AGENT_HOME: path.join('C:', 'tmp', 'rig-home') };
+const ENV = { LOOM_HOME: path.join('C:', 'tmp', 'rig-home') };
 const OPTS = { dataDir: path.join('C:', 'tmp', 'engine-data'), env: ENV };
 
 /** A started bridge whose child has reported ready. */
@@ -153,8 +153,8 @@ test('startEngine forks utility process with correct entry and env', async () =>
   assert.ok(bridge.forkEntry(), 'utilityProcess.fork must be called');
   assert.ok(bridge.forkEntry().endsWith('engine-host.js'),
     `entry must end with engine-host.js, got ${bridge.forkEntry()}`);
-  assert.equal(bridge.forkOpts().env.MULTI_AGENT_HOME, ENV.MULTI_AGENT_HOME);
-  assert.equal(bridge.forkOpts().serviceName, 'multi-agent-daemon');
+  assert.equal(bridge.forkOpts().env.LOOM_HOME, ENV.LOOM_HOME);
+  assert.equal(bridge.forkOpts().serviceName, 'loom-daemon');
 
   bridge.child().postMessage({ type: 'ready', port: 54321, pid: 12345 });
 
@@ -228,7 +228,7 @@ test('the bridge has no module-level process state left behind', async () => {
 test('no LAN bind: the bridge passes the daemon its own env and reads back its port', () => {
   const bridge = bridgeContext();
   assert.ok(bridge, 'engine bridge loads without error');
-  assert.ok(!('MULTI_AGENT_BIND_HOST' in ENV), 'the bridge adds no bind override; the daemon binds loopback');
+  assert.ok(!('LOOM_BIND_HOST' in ENV), 'the bridge adds no bind override; the daemon binds loopback');
 });
 
 test('an unexpected exit reaches onExit and an expected one does not', async () => {

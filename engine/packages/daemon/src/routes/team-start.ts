@@ -127,7 +127,7 @@ function summarise(rigRepo: RigRepository, run: TeamRun): TeamRunSummary {
 /**
  * The seat a rig records for a role, when a start names none.
  *
- * `multi-agent team create` records one lead and one reviewer, so a start that names the team's rig
+ * `loom team create` records one lead and one reviewer, so a start that names the team's rig
  * already names every seat a run needs. A rig with no seat for the role keeps the earlier
  * behaviour: no lead, or no reviewer.
  */
@@ -209,7 +209,7 @@ export async function startTeamRun(
     if (active.length !== 1) {
       return c.json({ code: active.length ? "rig_ambiguous" : "rig_required",
         error: active.length ? "More than one rig exists; name the rig to start work on."
-          : "No rig exists; create a team with `multi-agent team create <repository>` first." }, 400);
+          : "No rig exists; create a team with `loom team create <repository>` first." }, 400);
     }
     rig = active[0]!;
   } else {
@@ -226,7 +226,7 @@ export async function startTeamRun(
   // manifest owner builds; the implementer seats then come from the lead's own proposal, so
   // this request names none and there is no single implementer seat to compare against.
   //
-// A rig created by `multi-agent team create` records its seats, so naming the team is enough:
+// A rig created by `loom team create` records its seats, so naming the team is enough:
   // the lead and the reviewer come from the roles it recorded unless this request names them.
   // A planning start is a lead start by definition: its first task is the conversation
   // with the owner, so it needs one of those seats to exist.
@@ -242,7 +242,7 @@ export async function startTeamRun(
   }
   if (planning && leadSeat === null) {
     return c.json({ code: "lead_required",
-      error: "A planning run needs a lead seat: name one, or create a team with `multi-agent team create`." }, 400);
+      error: "A planning run needs a lead seat: name one, or create a team with `loom team create`." }, 400);
   }
   // The generated command header is not part of the owner's input limit.
   const initialWorkflowRequest = workflow && leadSeat !== null

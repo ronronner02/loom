@@ -11,7 +11,7 @@ async function run(args: string[], fetchImpl: typeof fetch) {
   let code = 0;
   try {
     await runProgram(createProgram({ teamStartDeps: { baseUrl, fetchImpl, ownerToken: "owner" },
-      daemonHttpDeps: { baseUrl, fetchImpl } }), ["node", "multi-agent", ...args], {
+      daemonHttpDeps: { baseUrl, fetchImpl } }), ["node", "loom", ...args], {
       out: line => out.push(line), err: line => err.push(line), exit: value => { code = value; },
     });
     return { out, err, code };
@@ -68,17 +68,17 @@ describe("thin CLI surface", () => {
     expect(JSON.parse(result.out[0]!)).toMatchObject({ error: { code: "owner_control_required" } });
   });
   it("an owner command reads nothing local beyond the daemon it addresses", async () => {
-    vi.stubEnv("MULTI_AGENT_SESSION_NAME", "worker@team");
-    vi.stubEnv("MULTI_AGENT_URL", baseUrl);
+    vi.stubEnv("LOOM_SESSION_NAME", "worker@team");
+    vi.stubEnv("LOOM_URL", baseUrl);
     const fetchImpl = vi.fn(async (url: string) => url.endsWith("/healthz") ? json({})
-      : json({ result: { schema: "multi-agent-team-result/v1" } }));
+      : json({ result: { schema: "loom-team-result/v1" } }));
     const output = await run(["team", "result", "run", "--task", "task"], fetchImpl as typeof fetch);
     expect(output.code).toBe(0);
     // The daemon probe and the read: no other endpoint is contacted.
     expect(fetchImpl.mock.calls.map(call => call[0])).toEqual([baseUrl + "/healthz", baseUrl + "/api/team-control/runs/run/tasks/task/result"]);
   });
   it("reads a finished result without inspecting its repository", async () => {
-    const result = { schema: "multi-agent-team-result/v1", taskId: "task", patch: "patch bytes", repositoryRoot: "Z:\\unmounted" };
+    const result = { schema: "loom-team-result/v1", taskId: "task", patch: "patch bytes", repositoryRoot: "Z:\\unmounted" };
     const fetchImpl = vi.fn(async (url: string) => url.endsWith("/healthz") ? json({}) : json({ result }));
     const output = await run(["team", "result", "run", "--task", "task"], fetchImpl as typeof fetch);
     expect(output.code).toBe(0);

@@ -9,14 +9,14 @@ import { DaemonClient } from "../src/client.js";
 import { STATE_FILE, type DaemonState } from "../src/daemon-lifecycle.js";
 
 // Defaults capture the canonical state home at module load.
-const { savedMultiAgentHome } = vi.hoisted(() => {
-  const savedMultiAgentHome = process.env.MULTI_AGENT_HOME;
-  delete process.env.MULTI_AGENT_HOME;
-  return { savedMultiAgentHome };
+const { savedLoomHome } = vi.hoisted(() => {
+  const savedLoomHome = process.env.LOOM_HOME;
+  delete process.env.LOOM_HOME;
+  return { savedLoomHome };
 });
 afterAll(() => {
-  if (savedMultiAgentHome === undefined) delete process.env.MULTI_AGENT_HOME;
-  else process.env.MULTI_AGENT_HOME = savedMultiAgentHome;
+  if (savedLoomHome === undefined) delete process.env.LOOM_HOME;
+  else process.env.LOOM_HOME = savedLoomHome;
 });
 
 describe("ConfigStore", () => {
@@ -27,18 +27,18 @@ describe("ConfigStore", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "config-test-"));
     // Save env vars we'll modify
     savedEnv = {
-      MULTI_AGENT_PORT: process.env["MULTI_AGENT_PORT"],
-      MULTI_AGENT_HOST: process.env["MULTI_AGENT_HOST"],
-      MULTI_AGENT_DB: process.env["MULTI_AGENT_DB"],
-      MULTI_AGENT_TRANSCRIPTS_ENABLED: process.env["MULTI_AGENT_TRANSCRIPTS_ENABLED"],
-      MULTI_AGENT_TRANSCRIPTS_PATH: process.env["MULTI_AGENT_TRANSCRIPTS_PATH"],
+      LOOM_PORT: process.env["LOOM_PORT"],
+      LOOM_HOST: process.env["LOOM_HOST"],
+      LOOM_DB: process.env["LOOM_DB"],
+      LOOM_TRANSCRIPTS_ENABLED: process.env["LOOM_TRANSCRIPTS_ENABLED"],
+      LOOM_TRANSCRIPTS_PATH: process.env["LOOM_TRANSCRIPTS_PATH"],
     };
     // Clear env vars for clean tests
-    delete process.env["MULTI_AGENT_PORT"];
-    delete process.env["MULTI_AGENT_HOST"];
-    delete process.env["MULTI_AGENT_DB"];
-    delete process.env["MULTI_AGENT_TRANSCRIPTS_ENABLED"];
-    delete process.env["MULTI_AGENT_TRANSCRIPTS_PATH"];
+    delete process.env["LOOM_PORT"];
+    delete process.env["LOOM_HOST"];
+    delete process.env["LOOM_DB"];
+    delete process.env["LOOM_TRANSCRIPTS_ENABLED"];
+    delete process.env["LOOM_TRANSCRIPTS_PATH"];
   });
 
   afterEach(() => {
@@ -57,8 +57,8 @@ describe("ConfigStore", () => {
     expect(config.daemon.port).toBe(7433);
     expect(config.daemon.host).toBe("127.0.0.1");
     // The defaults live under the per-user state root, whose spelling is the host's: POSIX
-    // keeps `~/.multi-agent`, Windows keeps `Multi-Agent` under LOCALAPPDATA.
-    expect(basename(config.db.path)).toBe("multi-agent.sqlite");
+    // keeps `~/.loom`, Windows keeps `Loom` under LOCALAPPDATA.
+    expect(basename(config.db.path)).toBe("loom.sqlite");
     expect(isAbsolute(config.db.path)).toBe(true);
     expect(config.transcripts.enabled).toBe(true);
     expect(basename(config.transcripts.path)).toBe("transcripts");
@@ -80,7 +80,7 @@ describe("ConfigStore", () => {
   it("resolve() env vars override config file", () => {
     const configPath = join(tmpDir, "config.json");
     writeFileSync(configPath, JSON.stringify({ daemon: { port: 8888 } }));
-    process.env["MULTI_AGENT_PORT"] = "9999";
+    process.env["LOOM_PORT"] = "9999";
     const store = new ConfigStore(configPath);
     const config = store.resolve();
     expect(config.daemon.port).toBe(9999);
@@ -127,13 +127,13 @@ describe("DaemonClient config integration", () => {
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), "client-config-"));
     savedEnv = {
-      MULTI_AGENT_PORT: process.env["MULTI_AGENT_PORT"],
-      MULTI_AGENT_HOST: process.env["MULTI_AGENT_HOST"],
-      MULTI_AGENT_DB: process.env["MULTI_AGENT_DB"],
+      LOOM_PORT: process.env["LOOM_PORT"],
+      LOOM_HOST: process.env["LOOM_HOST"],
+      LOOM_DB: process.env["LOOM_DB"],
     };
-    delete process.env["MULTI_AGENT_PORT"];
-    delete process.env["MULTI_AGENT_HOST"];
-    delete process.env["MULTI_AGENT_DB"];
+    delete process.env["LOOM_PORT"];
+    delete process.env["LOOM_HOST"];
+    delete process.env["LOOM_DB"];
   });
 
   afterEach(() => {
@@ -157,33 +157,33 @@ describe("DaemonClient config integration", () => {
 describe("DaemonClient config-aware baseUrl", () => {
   it("new DaemonClient() without args resolves baseUrl from config env vars", async () => {
     const saved = {
-      MULTI_AGENT_URL: process.env["MULTI_AGENT_URL"],
-      MULTI_AGENT_PORT: process.env["MULTI_AGENT_PORT"],
-      MULTI_AGENT_HOST: process.env["MULTI_AGENT_HOST"],
+      LOOM_URL: process.env["LOOM_URL"],
+      LOOM_PORT: process.env["LOOM_PORT"],
+      LOOM_HOST: process.env["LOOM_HOST"],
     };
-    delete process.env["MULTI_AGENT_URL"];
-    process.env["MULTI_AGENT_PORT"] = "9999";
-    process.env["MULTI_AGENT_HOST"] = "10.0.0.5";
+    delete process.env["LOOM_URL"];
+    process.env["LOOM_PORT"] = "9999";
+    process.env["LOOM_HOST"] = "10.0.0.5";
     try {
       const { DaemonClient } = await import("../src/client.js");
       const client = new DaemonClient();
       expect(client.baseUrl).toBe("http://10.0.0.5:9999");
     } finally {
-      if (saved.MULTI_AGENT_URL !== undefined) process.env["MULTI_AGENT_URL"] = saved.MULTI_AGENT_URL;
-      else delete process.env["MULTI_AGENT_URL"];
-      if (saved.MULTI_AGENT_PORT !== undefined) process.env["MULTI_AGENT_PORT"] = saved.MULTI_AGENT_PORT;
-      else delete process.env["MULTI_AGENT_PORT"];
-      if (saved.MULTI_AGENT_HOST !== undefined) process.env["MULTI_AGENT_HOST"] = saved.MULTI_AGENT_HOST;
-      else delete process.env["MULTI_AGENT_HOST"];
+      if (saved.LOOM_URL !== undefined) process.env["LOOM_URL"] = saved.LOOM_URL;
+      else delete process.env["LOOM_URL"];
+      if (saved.LOOM_PORT !== undefined) process.env["LOOM_PORT"] = saved.LOOM_PORT;
+      else delete process.env["LOOM_PORT"];
+      if (saved.LOOM_HOST !== undefined) process.env["LOOM_HOST"] = saved.LOOM_HOST;
+      else delete process.env["LOOM_HOST"];
     }
   });
 });
 
 describe("getDaemonStatus host preservation", () => {
-  it("preserves non-localhost host from MULTI_AGENT_URL", async () => {
+  it("preserves non-localhost host from LOOM_URL", async () => {
     const { getDaemonStatus } = await import("../src/daemon-lifecycle.js");
-    const savedUrl = process.env["MULTI_AGENT_URL"];
-    process.env["MULTI_AGENT_URL"] = "http://10.0.0.5:8080";
+    const savedUrl = process.env["LOOM_URL"];
+    process.env["LOOM_URL"] = "http://10.0.0.5:8080";
     try {
       const mockDeps = {
         spawn: vi.fn(() => ({ pid: 1, unref: vi.fn() }) as never),
@@ -201,8 +201,8 @@ describe("getDaemonStatus host preservation", () => {
       expect(status.host).toBe("10.0.0.5");
       expect(status.port).toBe(8080);
     } finally {
-      if (savedUrl !== undefined) process.env["MULTI_AGENT_URL"] = savedUrl;
-      else delete process.env["MULTI_AGENT_URL"];
+      if (savedUrl !== undefined) process.env["LOOM_URL"] = savedUrl;
+      else delete process.env["LOOM_URL"];
     }
   });
 });

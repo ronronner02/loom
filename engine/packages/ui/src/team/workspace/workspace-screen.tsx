@@ -1,7 +1,7 @@
 import { TextPreview } from "../text-preview.js";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { TeamOwnerRead } from "@multi-agent/daemon/team-control";
+import type { TeamOwnerRead } from "@loom/daemon/team-control";
 import { namedSeat, workspaceTabLabel } from "../display.js";
 import { SeatHeading, WorkspaceView } from "./workspace-view.js";
 import { attemptForSeat, taskForSeat } from "./workspace-model.js";

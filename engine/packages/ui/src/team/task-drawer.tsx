@@ -5,7 +5,7 @@ import { useState, type RefObject } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 import { holdTask, postTaskComment, readTaskComments } from "./clients.js";
-import type { TeamOwnerRead, TeamReviewView } from "@multi-agent/daemon/team-control";
+import type { TeamOwnerRead, TeamReviewView } from "@loom/daemon/team-control";
 import { assignedSeat, clockTime, eventSourceLabel, reportStatusLabel, resolutionLabel, statusLabel, TASK_STAGE_LABELS, taskName, verdictLabel } from "./display.js";
 import { TaskProgress } from "./task-progress.js";
 

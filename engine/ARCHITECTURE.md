@@ -1,4 +1,4 @@
-# Multi-Agent architecture
+# Loom architecture
 
 > **This map is not the territory.** It is a zoomed-out guide for finding your way around the
 > code. It is incomplete by design and it may be stale. Where it disagrees with the code, the code
@@ -6,14 +6,14 @@
 > commit `c750304f` (0.6.6 development). Each count shows the command that produced it, so you
 > can re-run it.
 
-## What Multi-Agent is
+## What Loom is
 
-Multi-Agent runs a team of coding agents on your machine as one system. A local daemon keeps the team's
+Loom runs a team of coding agents on your machine as one system. A local daemon keeps the team's
 state in SQLite and runs each agent as an ordinary Claude Code or Codex session (or a plain
 terminal, a Pi or Oh My Pi (OMP) runner, or a scripted test stub) inside tmux. People and agents drive it through the
 `rig` CLI and an MCP server, both of which talk to the daemon over local HTTP, plus the Web UI the
 daemon serves.
-The agents themselves are unmodified. What Multi-Agent adds is the coordination around them: launching
+The agents themselves are unmodified. What Loom adds is the coordination around them: launching
 and restoring agents, delivering messages, keeping durable work in a queue, and giving each agent
 the right skills and context.
 
@@ -21,9 +21,9 @@ the right skills and context.
 
 | Directory | Package | What it is | How it ships |
 |---|---|---|---|
-| `packages/daemon` | `@multi-agent/daemon` (private) | The daemon: HTTP routes, domain services, SQLite migrations, runtime adapters, built-in specs, skills, plugins | Copied into `@multi-agent/cli` |
-| `packages/cli` | `@multi-agent/cli` | The `rig` command, the MCP server, daemon start and stop | The only published package |
-| `packages/ui` | `@multi-agent/ui` (private) | The React Web UI, including the team dashboard at `/team` | Built files copied into `@multi-agent/cli` and served by the daemon |
+| `packages/daemon` | `@loom/daemon` (private) | The daemon: HTTP routes, domain services, SQLite migrations, runtime adapters, built-in specs, skills, plugins | Copied into `@loom/cli` |
+| `packages/cli` | `@loom/cli` | The `rig` command, the MCP server, daemon start and stop | The only published package |
+| `packages/ui` | `@loom/ui` (private) | The React Web UI, including the team dashboard at `/team` | Built files copied into `@loom/cli` and served by the daemon |
 | `packages/test-system` | none (not an npm workspace) | The stub-agent scenario library, the CI scenario harness, live-model eval cases | Not shipped |
 
 **What bundles what.** `packages/cli/package.json` publishes `LICENSE`, `dist`, `daemon`, `ui`
@@ -35,7 +35,7 @@ do not.
 
 **Sharing code between packages.** The CLI imports daemon code only through the subpaths in
 the `exports` field of `packages/daemon/package.json` (21 at this commit), for example
-`@multi-agent/daemon/attention`, which points at `packages/daemon/src/attention-surface.ts`. In
+`@loom/daemon/attention`, which points at `packages/daemon/src/attention-surface.ts`. In
 development they resolve through the npm workspace. At
 package time `scripts/rewrite-daemon-imports.mjs` rewrites them to the shipped `daemon/dist` copy
 and fails the build on a specifier with no `exports` entry. To share new daemon code, add a
@@ -44,7 +44,7 @@ and fails the build on a specifier with no `exports` entry. To share new daemon 
 ## The request path
 
 ```
-  rig (CLI)                     MCP server (multi-agent mcp serve, stdio)
+  rig (CLI)                     MCP server (loom mcp serve, stdio)
        \                                /
         +---- HTTP to the daemon (port 7433 by default) --------------+
                                 |
@@ -86,7 +86,7 @@ and fails the build on a specifier with no `exports` entry. To share new daemon 
 - **`middleware/auth-bearer-token.ts`.** The bearer-token check for operator write routes, plus
   the loopback and Tailscale bind detection used at startup.
 - **Live updates** go out as server-sent events: `routes/events.ts` uses Hono's `streamSSE`.
-- **State** lives in `$MULTI_AGENT_HOME` (default `~/.multi-agent`). The database is `multi-agent.sqlite`
+- **State** lives in `$LOOM_HOME` (default `~/.loom`). The database is `loom.sqlite`
   there (`daemon-db-path.ts`).
 
 **The clients:**
@@ -96,10 +96,10 @@ and fails the build on a specifier with no `exports` entry. To share new daemon 
   through `DaemonClient` (`packages/cli/src/client.ts`) and render the result. A few lifecycle
   (`packages/cli/src/front-door.ts`).
 - **MCP.** `createMcpServer(client)` in `packages/cli/src/mcp-server.ts` registers the tools over
-  the same `DaemonClient`. `multi-agent mcp serve` (`packages/cli/src/commands/mcp.ts`) runs it on stdio.
+  the same `DaemonClient`. `loom mcp serve` (`packages/cli/src/commands/mcp.ts`) runs it on stdio.
 - **Web UI.** Served by the daemon from the bundled `ui/dist`.
 
-**In a development checkout,** `multi-agent daemon start` prefers `packages/daemon/dist` over the bundled
+**In a development checkout,** `loom daemon start` prefers `packages/daemon/dist` over the bundled
 copy (`resolveDaemonPath` in `packages/cli/src/daemon-lifecycle.ts`). Rebuild the package you changed. A daemon
 that is already running keeps running the code it started with.
 
@@ -178,7 +178,7 @@ requires an explicit decision.
 2. Register it in `packages/daemon/src/startup.ts`. The adapter maps are keyed by runtime name:
    `adapters:` (for the pod instantiator) and `runtimeAdapters:`. The context monitor has its own
    map for the runtimes it samples.
-3. Accept the runtime name in multi-agent spec validation: `SUPPORTED_RUNTIMES` in
+3. Accept the runtime name in loom spec validation: `SUPPORTED_RUNTIMES` in
    `packages/daemon/src/domain/rigspec-preflight.ts`. Other runtime lists, such as `RuntimeHint` in
    `domain/discovery-types.ts` and `LEGACY_KNOWN_RUNTIMES` in `domain/rigspec-schema.ts`, may need
    it too; search for an existing runtime name such as `"pi"` to find them.
@@ -193,7 +193,7 @@ Skills ship from three copies in this repository (the "edges"), listed in
 | Edge | Path | Layout |
 |---|---|---|
 | `spec` | `packages/daemon/specs/agents/shared/skills/` | by category (`core`, `pm`, `pods`, `process`) |
-| `plugin` | `packages/daemon/assets/plugins/multi-agent-core/skills/` | flat |
+| `plugin` | `packages/daemon/assets/plugins/loom-core/skills/` | flat |
 | `canonical` | `skills/_canonical/` | public mirror of the `spec` copy |
 
 Each skill in the layout file lists which edges carry it. At this commit, 33 skills are in `spec`
@@ -210,7 +210,7 @@ and `canonical`, 17 only in `plugin`, and 2 in all three.
 - There is no context-pack step. The pack generator, the hand-written pack sources and the
   daemon's pack library were removed with the `/api/context-packs` surface and the `context`
   commands; a shipped skill now ships only as a skill.
-- The daemon serves the shipped packs through `multi-agent context get`; `startup.ts` registers the bundled
+- The daemon serves the shipped packs through `loom context get`; `startup.ts` registers the bundled
   directory as its built-in root.
 
 ### A scenario
@@ -258,7 +258,7 @@ packages.
 - **Docs guard** (`scripts/check-docs-guard.mjs`). Under `docs/`, git may track only
   `docs/as-built/`, `docs/reference/`, `docs/releases/` and exactly `docs/DESIGN.md`;
   `.gitignore` ignores the rest of `docs/`. Remember that `docs/reference/` ships inside the npm
-  package, and the daemon copies its Markdown files to `$MULTI_AGENT_HOME/reference/` when it
+  package, and the daemon copies its Markdown files to `$LOOM_HOME/reference/` when it
   starts. Files in `docs/as-built/` carry a `last-verified-against-source` commit in their
   frontmatter.
 - **Internal-leak guard** (`scripts/internal-leak-scanner.mjs`, with rules in

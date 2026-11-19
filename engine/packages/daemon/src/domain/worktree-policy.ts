@@ -45,19 +45,19 @@ export const WORKTREE_ADMIN_CEILING = process.platform === "win32" ? 249 : null;
 /**
  * Where the daemon's per-run and per-task worktrees live.
  *
- * On Windows the default is `%LOCALAPPDATA%\Multi-Agent\wt`: `%LOCALAPPDATA%` is the per-user
+ * On Windows the default is `%LOCALAPPDATA%\Loom\wt`: `%LOCALAPPDATA%` is the per-user
  * mutable-state location names, and the two short segments keep the default root near
  * 40 characters so a run id and a task id still fit under the ceiling. Elsewhere the default
- * stays `~/.multi-agent/wt`, which is where the existing plan worktrees already are.
+ * stays `~/.loom/wt`, which is where the existing plan worktrees already are.
  *
- * `MULTI_AGENT_HOME` also relocates the default state root.
- * `MULTI_AGENT_WORKTREE_ROOT` overrides both, because a host whose repository sits under a
+ * `LOOM_HOME` also relocates the default state root.
+ * `LOOM_WORKTREE_ROOT` overrides both, because a host whose repository sits under a
  * deep checkout may need a root on another volume; the override is resolved against the
  * daemon's own working directory, so a relative value names one place rather than drifting
  * with each request.
  */
 export function defaultWorktreeRoot(environment: NodeJS.ProcessEnv = process.env): string {
-  const configured = environment.MULTI_AGENT_WORKTREE_ROOT?.trim();
+  const configured = environment.LOOM_WORKTREE_ROOT?.trim();
   if (configured) return resolve(configured);
   return join(resolveDataRoots({ env: environment, platform: isWindows() ? "win32" : "linux" }).state, "wt");
 }
@@ -67,7 +67,7 @@ export class WorktreePathError extends Error {
   readonly code = "worktree_path_too_long";
   constructor(readonly worktree: string, readonly length: number, readonly ceiling: number, readonly kind: "worktree" | "admin") {
     super(`The worktree path is too long for this host: ${length} characters, and Git accepts at most ${ceiling} here. `
-      + "Set MULTI_AGENT_WORKTREE_ROOT to a shorter directory.");
+      + "Set LOOM_WORKTREE_ROOT to a shorter directory.");
     this.name = "WorktreePathError";
   }
 }

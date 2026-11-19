@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { MessageKey } from "@multi-agent/i18n";
-import type { TeamOwnerRead, TeamSeatView, TeamSystemHealth } from "@multi-agent/daemon/team-control";
+import type { MessageKey } from "@loom/i18n";
+import type { TeamOwnerRead, TeamSeatView, TeamSystemHealth } from "@loom/daemon/team-control";
 import { OwnerReadError, useOwnerSession } from "../hooks/useOwnerSession.js";
 import { useAttemptStatus } from "../hooks/useAttemptStatus.js";
 import { useTeamRun } from "../hooks/useTeamRun.js";

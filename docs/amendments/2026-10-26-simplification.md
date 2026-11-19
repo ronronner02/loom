@@ -2,7 +2,7 @@
 
 Date: 2026-10-26
 Authority: the owner's instruction of 2026-10-26 to cut over-engineering and defensive design.
-Source: `docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md`, U5, and `AGENTS.md`.
+Source: `docs/plans/2026-10-13-001-feat-loom-team-plan.md`, U5, and `AGENTS.md`.
 
 ## Decisions
 

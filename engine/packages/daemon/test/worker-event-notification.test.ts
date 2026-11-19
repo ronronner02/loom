@@ -4,7 +4,7 @@ import { workerEventNotification } from "../src/domain/worker-event-notification
 
 const secret = "fixture-secret-do-not-persist";
 const content = `${secret} cat private-fixture.txt ${"private assistant content ".repeat(10_000)}`;
-const base = { schema: "multi-agent-worker-events/v1", protocolVersion: "1.0", provider: "codex", attemptId: "attempt",
+const base = { schema: "loom-worker-events/v1", protocolVersion: "1.0", provider: "codex", attemptId: "attempt",
   sequence: 1, timestamp: "2026-11-12T00:00:00.000Z", rawSummary: content } as const;
 const usage = { inputTokens: 20, cacheReadInputTokens: 3, cacheWriteInputTokens: null, outputTokens: 5, reasoningOutputTokens: 2 };
 const variants: Array<{ event: WorkerEvent; status: Record<string, unknown> }> = [

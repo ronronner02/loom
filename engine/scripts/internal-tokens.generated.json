@@ -1,16 +1,16 @@
 {
   "version": 1,
   "path_prefixes": [
-    "multi-agent-work/",
-    "multi-agent-internal/",
+    "loom-work/",
+    "loom-internal/",
     "/Users/wrandom/",
     "~/code/substrate/",
     "substrate/shared-docs/",
-    ".multi-agent/artifacts/",
-    ".multi-agent/compaction/",
-    ".multi-agent/backups/",
-    ".multi-agent/agent-images/",
-    ".multi-agent/secrets/"
+    ".loom/artifacts/",
+    ".loom/compaction/",
+    ".loom/backups/",
+    ".loom/agent-images/",
+    ".loom/secrets/"
   ],
   "seat_and_rig_patterns": [
     "@skill-library",

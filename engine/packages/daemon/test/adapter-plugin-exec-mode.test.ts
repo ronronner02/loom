@@ -79,7 +79,7 @@ function realFsOps(): TreeFsOps {
 
 // Build a real plugin source tree: an executable nested helper (0755) + a non-exec neighbor (0644).
 function seedPluginTree(root: string) {
-  const skillDir = nodePath.join(root, "multi-agent-core", "skills", "compaction-restore");
+  const skillDir = nodePath.join(root, "loom-core", "skills", "compaction-restore");
   fs.mkdirSync(nodePath.join(skillDir, "scripts"), { recursive: true });
   const hook = nodePath.join(skillDir, "scripts", "precompact-hook.mjs");
   const skillMd = nodePath.join(skillDir, "SKILL.md");
@@ -99,16 +99,16 @@ describe("plugin tree projection preserves executable mode (skills-vendoring QA 
     const rel = seedPluginTree(src);
     const cwd = nodePath.join(base, "cwd");
 
-    projectFiles(realFsOps(), nodePath.join(src, "multi-agent-core"), nodePath.join(cwd, ".claude", "plugins", "multi-agent-core"));
+    projectFiles(realFsOps(), nodePath.join(src, "loom-core"), nodePath.join(cwd, ".claude", "plugins", "loom-core"));
 
     if (process.platform === "win32") {
       // Windows has no POSIX mode bits: chmod can only toggle the read-only attribute, so
       // the mode contract below is a POSIX-host pin. The walker still copies every file here.
-      expect(fs.existsSync(nodePath.join(cwd, ".claude/plugins/multi-agent-core", rel.skillRel))).toBe(true);
+      expect(fs.existsSync(nodePath.join(cwd, ".claude/plugins/loom-core", rel.skillRel))).toBe(true);
       return;
     }
-    const outHook = nodePath.join(cwd, ".claude/plugins/multi-agent-core", rel.hookRel);
-    const outSkill = nodePath.join(cwd, ".claude/plugins/multi-agent-core", rel.skillRel);
+    const outHook = nodePath.join(cwd, ".claude/plugins/loom-core", rel.hookRel);
+    const outSkill = nodePath.join(cwd, ".claude/plugins/loom-core", rel.skillRel);
     expect(fs.existsSync(outHook)).toBe(true);
     expect(perm(outHook)).toBe(0o755);
     expect(perm(outSkill)).toBe(0o644);
@@ -122,13 +122,13 @@ describe("plugin tree projection preserves executable mode (skills-vendoring QA 
     if (process.platform === "win32") return; // no POSIX mode bits to reconcile
 
     // Pre-place a byte-identical projected helper with the WRONG mode — the exact QA state.
-    const outHook = nodePath.join(cwd, ".claude/plugins/multi-agent-core", rel.hookRel);
+    const outHook = nodePath.join(cwd, ".claude/plugins/loom-core", rel.hookRel);
     fs.mkdirSync(nodePath.dirname(outHook), { recursive: true });
-    fs.copyFileSync(nodePath.join(src, "multi-agent-core", rel.hookRel), outHook);
+    fs.copyFileSync(nodePath.join(src, "loom-core", rel.hookRel), outHook);
     fs.chmodSync(outHook, 0o644);
     expect(perm(outHook)).toBe(0o644);
 
-    projectFiles(realFsOps(), nodePath.join(src, "multi-agent-core"), nodePath.join(cwd, ".claude/plugins/multi-agent-core"));
+    projectFiles(realFsOps(), nodePath.join(src, "loom-core"), nodePath.join(cwd, ".claude/plugins/loom-core"));
 
     // Content unchanged (write skipped) but the mode is reconciled to the source 0755.
     expect(perm(outHook)).toBe(0o755);
