@@ -16,6 +16,10 @@
     "./data-paths": {
       "types": "./dist/data-paths.d.ts",
       "import": "./dist/data-paths.js"
+    },
+    "./migrate-data-root": {
+      "types": "./dist/migrate-data-root.d.ts",
+      "import": "./dist/migrate-data-root.js"
     }
   },
   "scripts": {

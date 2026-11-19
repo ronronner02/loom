@@ -5,7 +5,7 @@ import { connectionErrorCode, formatDaemonHostForUrl } from "./client.js";
 import type { DaemonStartLock } from "./daemon-start-lock.js";
 import { DAEMON_STOP_WAIT_MS, DAEMON_SHUTDOWN_RECEIPT, type DaemonShutdownReceipt } from "@loom/daemon/daemon-shutdown";
 import { ConfigStore } from "./config-store.js";
-import { LOOM_HOME } from "@loom/daemon/data-paths";
+import { LOOM_HOME, migrateDataRootsOnce } from "@loom/daemon/data-paths";
 export interface DaemonState {
   pid: number;
   port: number;
@@ -299,6 +299,8 @@ export function buildDaemonEnv(
      */
     host?: string;
     db: string;
+    /** The state root, when the caller resolved one. Absent: the daemon resolves it itself. */
+    loomHome?: string;
   },
 ): Record<string, string> {
   const env: Record<string, string> = {};
@@ -324,6 +326,9 @@ export function buildDaemonEnv(
     env["LOOM_HOST"] = opts.host;
   }
   env["LOOM_DB"] = opts.db;
+  // Naming the root here makes the daemon's own database default agree with the caller's, so a
+  // migrated installation opens the file the CLI recorded rather than a second one.
+  if (opts.loomHome) env["LOOM_HOME"] = opts.loomHome;
 
   return env;
 }
@@ -422,6 +427,9 @@ export async function startDaemon(opts: StartOptions, deps: LifecycleDeps): Prom
 }
 
 async function startOwnedDaemon(opts: StartOptions, deps: LifecycleDeps, lock: DaemonStartLock): Promise<DaemonState> {
+  // A carried-over installation is moved into Loom's root before the state file or the database
+  // is resolved; the move is the daemon's own logic, applied here as early as possible.
+  migrateDataRootsOnce();
   const port = opts.port ?? DEFAULT_PORT;
   const db = opts.db ?? DEFAULT_DB;
   // Preserve the user-explicit-vs-default distinction. `opts.host` is undefined when the
@@ -474,6 +482,7 @@ async function startOwnedDaemon(opts: StartOptions, deps: LifecycleDeps, lock: D
       port,
       host: explicitHost,
       db,
+      loomHome: LOOM_DIR,
     }),
     stdio: ["ignore", logFd, logFd],
     detached: true,

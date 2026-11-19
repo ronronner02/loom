@@ -22,6 +22,7 @@ const { app, Menu, ipcMain, session } = require('electron');
 const path = require('node:path');
 
 const engineBridge = require('./engine-bridge.js');
+const dataRoot = require('./data-root.js');
 const { daemonEntry } = require('./engine-paths.js');
 const { createWindowModule, FIRST_RUN_URL } = require('./window.js');
 const pairing = require('./pairing.js');
@@ -34,8 +35,11 @@ const DAEMON_ENTRY = daemonEntry();
 // The stable data directory. Production is %LOCALAPPDATA%\Loom; a test or a manual run
 // points LOOM_DESKTOP_DATA_DIR somewhere else. When Windows reports no per-user local
 // application data, the app's own userData directory is the only correct fallback: never Roaming.
-const DATA_DIR_ROOT = process.env.LOOM_DESKTOP_DATA_DIR
-  || path.join(process.env.LOCALAPPDATA || app.getPath('userData'), 'Loom');
+// An installation carried over from the product's former name is moved into this root before the
+// engine is forked; `data-root.js` owns that decision and the engine owns the move.
+const LOCAL_APP_DATA = process.env.LOCALAPPDATA || app.getPath('userData');
+let dataDirRoot = process.env.LOOM_DESKTOP_DATA_DIR
+  || path.join(LOCAL_APP_DATA, 'Loom');
 
 let state = { phase: 'checking', message: 'Starting the local engine…', dependencies: null, connected: false };
 let csrfToken = null;
@@ -67,7 +71,13 @@ const view = createViewModule({
 const lifecycle = createLifecycleModule({
   publish,
   bridge: engineBridge,
-  dataDirRoot: DATA_DIR_ROOT,
+  dataDirRoot: () => dataDirRoot,
+  migrateInstallation: () => dataRoot.migrateInstallation({
+    localAppData: LOCAL_APP_DATA,
+    appData: app.getPath('appData'),
+    env: process.env,
+  }),
+  updateDataDirRoot: root => { dataDirRoot = root; },
   daemonEntry: DAEMON_ENTRY,
   connect: engine => view.openTeamView(engine),
   showFirstRunPage: () => view.showFirstRunPage(),
