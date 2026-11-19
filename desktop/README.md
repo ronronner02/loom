@@ -1,8 +1,8 @@
 # Loom for Windows
 
 A native Windows window around the Loom team UI. The engine is the app's own child
-process: the window starts it, connects to it, and shows your projects. No WSL, no terminal, and
-no separate engine install.
+process: the window starts it, connects to it, and shows your projects. No terminal, and no
+separate engine install.
 
 ## What it does
 
@@ -11,9 +11,10 @@ no separate engine install.
    assumes a fixed port.
 2. Pairs the window automatically: the daemon mints a one-time code over that private channel,
    the window exchanges it for an owner session cookie, and the team view loads already connected.
-3. On first run, reads dependency status from the daemon's own executable resolver and shows
-   **Git**, **GitHub CLI**, **Claude Code** and **Codex** as found (with the resolved Windows
-   path) or missing (with the one install line that fixes it).
+3. On first run, reads dependency and sign-in status from the daemon's own executable resolver
+   and shows **Git**, **GitHub CLI**, **Claude Code**, **Codex** and **Gemini** as found (with the
+   resolved Windows path) or missing (with the one install line that fixes it), then the network
+   proxy field shared by GitHub and every agent CLI.
 
 Closing the window stops the engine, because the app owns it. **Engine → Stop engine** stops it
 without closing the window; **Engine → Reconnect** starts it again.
@@ -37,8 +38,8 @@ a dead page.
 ## Sign in and create a project
 
 Install and sign in to the clients you want to use. The lead and workers launch the real
-`claude.exe` and `codex.exe` on this machine. A new project folder does not need git history or a
-plan file.
+`claude.exe`, `codex.exe` or `gemini` on this machine. A new project folder does not need git
+history or a plan file.
 
 1. On first open, choose **Sign in to GitHub**, then **Open GitHub**. Approve the
    displayed one-time code on GitHub. The app opens the project view after verifying
@@ -79,11 +80,11 @@ light or dark and whether the background is animated. The desktop adds no chrome
 
 ## Building
 
-Build the engine first (`cd engine; npm ci; npm run build`), then:
+Build the engine first (`cd engine; npm ci --ignore-scripts; npm run build`), then:
 
 ```powershell
 cd desktop
-npm ci
+npm ci --ignore-scripts
 npm run dist
 ```
 
@@ -117,7 +118,7 @@ credentials, private configuration, and independent runner are not staged into t
 
 The app runs the daemon from `resources/engine/packages/daemon/dist/index.js` when packaged, and
 from `engine/packages/daemon/dist/index.js` in a source checkout (`src/engine-paths.js`). Run the
-app from source with `npm start`. Run the unit tests with `npm test`; they cover the startup
+app from source with `npm start` once the engine is built. Run the unit tests with `npm test`; they cover the startup
 sequence, the dynamic origin, pairing, dependency rows, the folder dialog, the preload boundary,
 reconnect, the lifecycle races between a start in flight and Stop or Reconnect, the close
 confirmation, shutdown, and the staged installer tree, with an in-memory window. The installer

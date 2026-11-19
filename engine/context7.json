@@ -2,29 +2,22 @@
   "url": "https://context7.com/mvschwarz/loom",
   "public_key": "pk_HcRwWEoFBsmU1mo5VIvWw",
   "projectTitle": "Loom",
-  "description": "Build your own network of agents from Claude Code, Codex and Pi: persistent teams with roles, shared context and owned work.",
+  "description": "A local-first desktop app that runs a team of coding agents (Claude Code, Codex, Gemini) on your repository, with independent review before anything merges.",
   "folders": [],
   "excludeFolders": [
-    "docs/releases",
-    "packages/daemon/specs",
     "packages/daemon/test",
-    "packages/test-system",
-    "skills/_canonical/process",
-    "skills/_canonical/pm",
-    "spike",
-    "docker",
+    "skills/_canonical",
     "**/node_modules",
     "**/fixtures"
   ],
   "excludeFiles": [],
   "rules": [
-    "Install with npm install -g @loom/cli. Loom requires Node.js 22 or 24, tmux, and Claude Code or Codex signed in. The starter team uses both, and the kernel operator adapts it when you have only one.",
-    "Preview before launching: loom specs preview <spec>, then loom up <spec> --cwd . --plan, then loom up <spec> --cwd .",
-    "Check seat readiness with loom ps --nodes --rig <rig>, not only daemon health from loom status.",
-    "Inside a rig, an agent runs loom whoami --json first and treats its output as its identity.",
-    "loom send <session> \"message\" types into a peer's terminal and presses Enter; loom capture <session> reads that peer's screen.",
-    "Work another agent must act on goes in the queue (loom queue create or loom queue handoff); a message informs but does not assign work.",
-    "Use loom start to bring rigs back after a reboot or daemon restart.",
-    "Run loom --help for the current command surface; the CLI is authoritative over older examples."
+    "Install the Windows app from the GitHub releases page; it needs Node.js 22 or 24, Git for Windows, and at least one signed-in assistant (claude, codex or gemini).",
+    "The desktop window starts and stops the engine itself. For a manual engine use loom daemon start, loom daemon status and loom daemon stop.",
+    "Create a private GitHub project with loom team create <path> --name <project-name> (preview it with --dry-run), or register a repository that already has a commit with loom team create <path>.",
+    "Plan before work: loom team start \"<goal>\" --planning, discuss it with loom team chat <run-id>, then approve once with loom team approve <run-id>.",
+    "Read the durable result rather than a worker's final message: loom team result <run-id> and loom team diff <run-id>.",
+    "Merge the integration branch with loom team merge <run-id>; it updates your checked-out branch and never pushes.",
+    "Run loom --help, loom team --help, loom daemon --help or loom github --help for the current command surface; the CLI is authoritative over older examples."
   ]
 }

@@ -4,7 +4,7 @@ This is a separate, self-hosted companion for the Loom desktop app. Installing o
 
 The current runner executes tasks independently of the desktop engine. Desktop-created teams and approval requests are not synchronized with this companion yet. See [Desktop integration](INTEGRATION.md) for the current boundary and the intended connection model.
 
-No working server address, account pairing, password, API key, provider configuration, or private workspace is included. Each operator creates their own private configuration outside this source directory.
+No working server address, account pairing, password, API key, provider configuration, or private workspace is included. Each user creates their own private configuration outside this source directory.
 
 A single-owner task queue with local execution and a phone-sized control page. The server stores tasks and interactions; a Windows runner polls over HTTPS and executes only in workspaces listed in its private local configuration.
 
@@ -52,7 +52,7 @@ To reproduce that public bundle from this directory:
 python scripts/package_release.py --output OUTPUT.zip
 ```
 
-This command reads an explicit source-file allowlist and rejects linked inputs. It never reads a private setup directory. `scripts/deploy.py` is different: it creates an authenticated SSH deployment payload containing that operator's server credentials. Never publish a deployment payload, runtime directory, backup, or exported server environment as a release asset.
+This command reads an explicit source-file allowlist and rejects linked inputs. It never reads a private setup directory. `scripts/deploy.py` is different: it creates an authenticated SSH deployment payload containing that user's server credentials. Never publish a deployment payload, runtime directory, backup, or exported server environment as a release asset.
 
 ## Private local setup
 
@@ -110,7 +110,7 @@ Then open `http://127.0.0.1:18761` on that computer. In **Platforms → Add Adap
 
 The API-based pairing procedure used during deployment saves the successful QR-login result privately at `~/loom/secrets/wechat-confirmed.json`. The connector checks that receipt against the enabled adapter and requires a reply context for that exact owner; another sender or a group is not selected automatically. Manual dashboard pairing alone does not create this receipt.
 
-The bundled AstrBot connector is an advanced setup path, not an automatic QR-login wizard. The operator must supply their own successful API pairing receipt on the server before running it. No receipt or personal pairing from an existing deployment is distributed. The ServerChan setup above does not require this receipt.
+The bundled AstrBot connector is an advanced setup path, not an automatic QR-login wizard. The user must supply their own successful API pairing receipt on the server before running it. No receipt or personal pairing from an existing deployment is distributed. The ServerChan setup above does not require this receipt.
 
 After that pairing and the owner's first private message:
 

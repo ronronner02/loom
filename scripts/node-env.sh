@@ -1,10 +1,10 @@
-# Sourced by setup.sh, start.sh and the desktop app's commands. It puts a supported
-# Node.js (22 or 24) first on PATH.
+# Sourced by setup.sh, start.sh and install-gh.sh. It puts a supported Node.js
+# (22 or 24) first on PATH.
 #
-# The desktop app runs these scripts through a non-interactive login shell. Such a
-# shell never reaches the part of ~/.bashrc where nvm, fnm and similar managers put
-# themselves on PATH, so `node` is missing even on a machine where it works in a
-# terminal. This script checks the usual install locations instead.
+# These scripts often run from a non-interactive shell, which never reaches the part
+# of ~/.bashrc where nvm, fnm and similar managers put themselves on PATH: `node` is
+# then missing even on a machine where it works in a terminal. This script checks the
+# usual install locations instead.
 
 case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
