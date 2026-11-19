@@ -22,13 +22,9 @@ export function resolveDataRoots(options: {
   if (override) return { state: override, config: override };
   const home = options.home ?? homedir();
   if ((options.platform ?? process.platform) === "win32") {
-    // The answer names directories that exist on THIS host. A Windows platform asked from a
-    // POSIX process is a test or a stored layout, and the separator must stay the caller's so the
-    // path can be walked; `win32.join` would produce a backslash spelling nothing can open here.
-    const root = (options.platform ?? process.platform) === process.platform ? win32.join : join;
     return {
-      state: root(env.LOCALAPPDATA || root(home, "AppData", "Local"), "Loom"),
-      config: root(env.APPDATA || root(home, "AppData", "Roaming"), "Loom"),
+      state: win32.join(env.LOCALAPPDATA || win32.join(home, "AppData", "Local"), "Loom"),
+      config: win32.join(env.APPDATA || win32.join(home, "AppData", "Roaming"), "Loom"),
     };
   }
   const root = join(home, ".loom");
