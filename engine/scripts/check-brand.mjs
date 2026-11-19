@@ -50,6 +50,7 @@ const migrationAllowlist = new Set([
   "engine/packages/ui/src/team/__tests__/preferences.test.ts",
   "engine/packages/ui/index.html",
   "desktop/src/data-root.js",
+  "desktop/test/data-root.test.js",
   // The policy files name identifiers a scrub must catch; renaming them would stop the scanner
   // from finding the strings it exists to find.
   "engine/scripts/internal-tokens.generated.json",
