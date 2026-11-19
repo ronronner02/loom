@@ -65,7 +65,7 @@ it.each(["valid", "stale", "invalid", "task", "changed"])("honors upstream task-
 it.skipIf(specFirstCli === null)("accepts the actual upstream validator receipt for a real task pack", async () => {
   // The real validator is a developer-installed CLI the engine does not depend on.
   const SPEC_FIRST_CLI = specFirstCli!;
-  const repo = resolve(fileURLToPath(new URL("../../../..", import.meta.url))), planRef = "docs/plans/2026-10-13-001-feat-loom-team-plan.md", path = "docs/tasks/2026-10-13-001-feat-loom-team-tasks.md";
+  const repo = resolve(fileURLToPath(new URL("../../../..", import.meta.url))), planRef = "docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md", path = "docs/tasks/2026-10-13-001-feat-multi-agent-team-tasks.md";
   const root = mkdtempSync(join(tmpdir(), "assignment-pack-")); roots.push(root); mkdirSync(join(root, "docs/plans"), { recursive: true }); mkdirSync(join(root, "docs/tasks"), { recursive: true });
   const planText = readFileSync(join(repo, planRef), "utf8").replace(/^status: partially-shipped$/m, "status: active");
   writeFileSync(join(root, planRef), planText);
