@@ -716,9 +716,11 @@ describe("U5 — the lead turn's end is its reply", () => {
     // The conversation owner cannot see the end of a turn for itself; the sweep is the
     // observation. Without this call the lead's reply is never stored and the chat goes quiet.
     const onAttemptStopped = vi.fn(async () => {});
+    // Stated, not measured: on Windows the real liveness answer is a PowerShell process query
+    // bounded by 15 s, which is the host's cost rather than this case's subject.
     const completion = composeAttemptCompletion({ db, governance, sessions: { findResumeContextByName: () => null,
       updateStartupStatus: () => {} }, currentBinding: () => refreshPlanBinding(governance.getRun("run").binding, policy),
-      onAttemptStopped, intervalMs: 60_000 });
+      onAttemptStopped, intervalMs: 60_000, alive: () => false });
     db.prepare(`INSERT INTO team_attempts (id, run_id, qitem_id, role, provider, identity_json, unknown_reason, state,
       usage_json, active_ms, created_at, updated_at) VALUES ('attempt-gone', 'run', NULL, 'lead', 'claude', ?, NULL, 'running', ?, 0, ?, ?)`)
       .run(JSON.stringify({ nativeSessionId: "gone", tmuxServer: "/tmp/tmux", paneId: "%1", processId: 999_999_999,
