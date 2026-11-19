@@ -431,9 +431,17 @@ function isRulePath(path: string): boolean {
   return name === ".gitignore" || name === ".gitattributes";
 }
 
-/** What the copy recorded for one candidate path: a regular file's bytes, or a link's text. */
+/**
+ * What the copy recorded for one candidate path: a regular file's digest, or a link's text.
+ *
+ * A file is kept as its `sha256` rather than its bytes. The bytes are read once, to write the
+ * copy, and every later comparison is a digest comparison — the copy's entry against the bytes
+ * git staged, and a rule edit against the base's checkout form. Holding the bytes as well meant
+ * reading each file back from the copy immediately after writing it, which doubled a per-file cost
+ * that a few thousand files turn into seconds of a blocked event loop.
+ */
 type SnapshotEntry = SnapshotEntryFile | SnapshotEntryLink;
-interface SnapshotEntryFile { kind: "file"; mode: number; bytes: Buffer }
+interface SnapshotEntryFile { kind: "file"; mode: number; hash: string }
 interface SnapshotEntryLink { kind: "link"; text: Buffer }
 
 /**
@@ -542,7 +550,7 @@ function snapshotCandidate(root: string, destination: string): Map<string, Snaps
         }
         if (!entry.isFile()) throw new Error(`Candidate path is not a regular file: ${path}`);
         const copied = copyRegularFile(directoryDescriptor, name, target, path);
-        entries.set(path, { ...copied, bytes: readFileSync(target) });
+        entries.set(path, copied);
       }
     };
     visit(rootDescriptor, "");
@@ -609,8 +617,11 @@ function snapshotCandidateByPath(directory: string, destination: string, relativ
     if (!entry.isFile()) throw new Error(`Candidate path is not a regular file: ${path}`);
     const stats = statSync(source);
     if (!stats.isFile()) throw new Error(`Candidate path is not a regular file: ${path}`);
-    writeFileSync(target, readFileSync(source));
-    entries.set(path, { kind: "file", mode: stats.mode, bytes: readFileSync(target) });
+    // One read: the bytes are written to the copy (the form `add -A` stages) and hashed here, and
+    // no later step has to read them back.
+    const bytes = readFileSync(source);
+    writeFileSync(target, bytes);
+    entries.set(path, { kind: "file", mode: stats.mode, hash: sha256(bytes) });
   }
 }
 
@@ -622,7 +633,7 @@ function snapshotCandidateByPath(directory: string, destination: string, relativ
  * decides both the mode and the "is a regular file" question from the object the bytes come from.
  */
 function copyRegularFile(directoryDescriptor: number, name: string, target: string, path: string):
-  { kind: "file"; mode: number } {
+  { kind: "file"; mode: number; hash: string } {
   let descriptor: number;
   try {
     descriptor = openSync(`/proc/self/fd/${directoryDescriptor}/${name}`, OPEN_READ | O_NOFOLLOW | O_NONBLOCK);
@@ -634,9 +645,11 @@ function copyRegularFile(directoryDescriptor: number, name: string, target: stri
   try {
     const stats = fstatSync(descriptor);
     if (!stats.isFile()) throw new Error(`Candidate path is not a regular file: ${path}`);
-    writeFileSync(target, readFileSync(descriptor));
+    // One read: the bytes are written to the copy and hashed here, so nothing reads them back.
+    const bytes = readFileSync(descriptor);
+    writeFileSync(target, bytes);
     chmodSync(target, stats.mode & 0o777);
-    return { kind: "file", mode: stats.mode };
+    return { kind: "file", mode: stats.mode, hash: sha256(bytes) };
   } finally {
     closeSync(descriptor);
   }
@@ -683,7 +696,7 @@ function refuseCandidateRules(copied: ReadonlyMap<string, SnapshotEntry>, base: 
     // mode question. Group and other bits are not recorded and cannot be a rule edit.
     const matches = original !== undefined && originalBytes !== undefined
       && ((original.mode === "120000" && entry.kind === "link" && entry.text.equals(originalBytes))
-        || (original.mode !== "120000" && entry.kind === "file" && entry.bytes.equals(originalBytes)
+        || (original.mode !== "120000" && entry.kind === "file" && entry.hash === sha256(originalBytes)
           && (entry.mode & 0o100) === (original.mode === "100755" ? 0o100 : 0)));
     if (!matches) changed.push(path);
   }
@@ -893,10 +906,10 @@ function commitLaneManifest(workspace: CandidateWorkspace & { base: { kind: "com
       if (entry.mode === "120000") strictUtf8(bytes, `The symlink target of ${path}`);
       files.push({ path, hash: sha256(bytes), tracked: base.has(path) });
       const copied = candidateEntries.get(path);
-      const worktree = entry.mode === "120000"
-        ? (copied?.kind === "link" ? copied.text : Buffer.alloc(0))
-        : (copied?.kind === "file" ? copied.bytes : Buffer.alloc(0));
-      if (!worktree.equals(bytes)) cleanedPaths.push(path);
+      const worktreeMatches = entry.mode === "120000"
+        ? (copied?.kind === "link" && copied.text.equals(bytes))
+        : (copied?.kind === "file" && copied.hash === sha256(bytes));
+      if (!worktreeMatches) cleanedPaths.push(path);
     }
     files.sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
 
