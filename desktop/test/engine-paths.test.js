@@ -112,6 +112,32 @@ test('the staged gh is the pinned release and sits where the resolver looks', { 
   assert.ok(fs.existsSync(path.join(RESOURCES_ENGINE, 'plugins', 'github-cli', 'gh.exe')));
 });
 
+test('the staged engine resolves every module it imports', { skip: !staged && 'resources/engine is not staged; run npm run stage' }, () => {
+  // A package the staging closure leaves out makes the daemon throw on import, and the app then
+  // reports a start failure with no window. The check is a real import from the staged build:
+  // plain Node, no Electron and no daemon process. `display-names.js` is named because it is the
+  // module that reaches the workspace package the staging used to drop.
+  const { execFileSync } = require('node:child_process');
+  execFileSync(process.execPath, ['--input-type=module', '-e', `
+    import path from 'node:path';
+    import { pathToFileURL } from 'node:url';
+    const engine = process.argv[1];
+    for (const relative of ['domain/display-names.js', 'team-control-surface.js', 'index.js']) {
+      await import(pathToFileURL(path.join(engine, 'packages', 'daemon', 'dist', relative)).href);
+    }
+  `, RESOURCES_ENGINE], { cwd: DESKTOP_ROOT, encoding: 'utf8', stdio: 'pipe' });
+});
+
+test('the staged engine ships the workspace package its daemon imports', { skip: !staged && 'resources/engine is not staged; run npm run stage' }, () => {
+  const i18n = path.join(RESOURCES_ENGINE, 'node_modules', '@loom', 'i18n');
+  assert.ok(fs.existsSync(path.join(i18n, 'dist', 'index.js')), 'the built entry ships');
+  // The catalogs are JSON data an entry import would silently drop.
+  for (const catalog of ['en.json', 'zh-CN.json']) {
+    assert.ok(fs.existsSync(path.join(i18n, 'dist', 'catalogs', catalog)), `${catalog} ships`);
+  }
+  assert.ok(!fs.lstatSync(i18n).isSymbolicLink(), 'the workspace copy is real files, not a link into the checkout');
+});
+
 test('NOTICE carries the GitHub CLI MIT license', () => {
   const notice = fs.readFileSync(path.join(REPOSITORY_ROOT, 'NOTICE'), 'utf8');
   assert.match(notice, /GitHub CLI/);

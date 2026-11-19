@@ -17,7 +17,7 @@
 // intact. Only what the daemon imports at runtime is installed there; the better-sqlite3 native
 // binding is checked, not rebuilt, because the package ships a prebuild for the Electron ABI.
 
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -70,11 +70,11 @@ function missingInputs() {
  * `node_modules` sources are copied whole minus their build-only weight: a package's test
  * fixtures, docs and C++ sources never load at runtime and cost dozens of megabytes.
  */
-function copyTree(source, target, { skip = [], prune } = {}) {
+function copyTree(source, target, { skip = [], prune, dereference = false } = {}) {
   mkdirSync(path.dirname(target), { recursive: true });
   cpSync(source, target, {
     recursive: true,
-    dereference: false,
+    dereference,
     filter: entry => !skip.some(part => entry === path.join(source, part) || entry.includes(`${path.sep}${part}${path.sep}`))
       && (prune ? prune(entry) : true),
   });
@@ -87,6 +87,12 @@ function copyTree(source, target, { skip = [], prune } = {}) {
  * runtime", so the copy follows the installed layout — including a nested `node_modules` a
  * package version conflict put inside another package — instead of re-deriving it from the
  * dependency lists.
+ *
+ * The closure includes the workspace packages it names (`@loom/i18n`). They are private and
+ * unpublished, so their installed entries are symlinks into `engine/packages/`; `copyPackage`
+ * dereferences each one into real files under `resources/engine`. The npm package build points the
+ * daemon's import at a vendored copy instead (`rewrite-daemon-imports.mjs`); a staged `dist/` is
+ * shipped verbatim, so the package itself has to be here.
  */
 function runtimeClosure() {
   // npm is a `.cmd` shim on Windows, which `execFileSync` cannot launch without a shell; running
@@ -95,11 +101,14 @@ function runtimeClosure() {
   const output = execFileSync(process.execPath, [...npm, 'ls', '--omit=dev', '--all', '--parseable', '-w', 'packages/daemon'],
     { cwd: ENGINE_ROOT, encoding: 'utf8' });
   const modules = path.join(ENGINE_ROOT, 'node_modules') + path.sep;
+  // The workspace root of this answer is the daemon itself, which already ships as
+  // `packages/daemon`; a second copy under `node_modules` would only be dead weight.
+  const daemonPackage = realpathSync(path.join(ENGINE_ROOT, 'packages', 'daemon'));
   return output.split(/\r?\n/).filter(Boolean)
     .map(entry => path.resolve(entry))
     .filter(entry => entry.startsWith(modules))
-    .map(entry => path.relative(ENGINE_ROOT, entry))
-    .filter(entry => !entry.split(path.sep).includes('@loom'));
+    .filter(entry => { try { return realpathSync(entry) !== daemonPackage; } catch { return true; } })
+    .map(entry => path.relative(ENGINE_ROOT, entry));
 }
 
 /** The npm CLI entry point installed beside this Node, or the one the caller came through. */
@@ -136,11 +145,16 @@ function copyPackage(relative) {
   rmSync(target, { recursive: true, force: true });
   const native = relative === path.join('node_modules', 'better-sqlite3');
   const compiled = hasCompiledEntry(JSON.parse(readFileSync(manifestPath, 'utf8')));
+  // An installed workspace package is a symlink into `engine/packages/`; the staged tree is copied
+  // to a temporary directory by the packager, so a link would be kept as a link and point at this
+  // checkout. Dereferencing copies the package's real files.
+  const workspacePackage = relative.split(path.sep).includes('@loom');
   const skip = native ? ['build', 'src', 'deps', 'prebuilds'] : [];
   // Only the file kinds a compiled package never imports leave; `package.json`, `LICENSE` and the
-  // JS entry stay.
+  // JS entry stay. A workspace package's `dist` holds JSON catalogs and declarations this rule
+  // already keeps, so the same pruning applies.
   const prune = compiled && !native ? entry => !BUILD_ONLY_EXTENSIONS.has(path.extname(entry).toLowerCase()) : undefined;
-  copyTree(source, target, { skip, prune });
+  copyTree(source, target, { skip, prune, dereference: workspacePackage });
   if (!native) return;
   // The native binding is a per-target prebuild; Node needs exactly one under `prebuilds/`.
   const prebuild = path.join(source, 'prebuilds', NATIVE_PREBUILD);
@@ -156,6 +170,10 @@ function copyPackage(relative) {
  * The check reads the daemon's own `dist/` for the relative resources it names and asserts each
  * one exists under `resources/engine`. A layout change on either side fails here rather than in
  * the installed app, where a missing file is a daemon that never becomes ready.
+ *
+ * Every bare-specifier import the staged daemon makes must also resolve inside the staged tree.
+ * The daemon's own package import is the case this exists for: a dependency the closure leaves
+ * out is a daemon that throws on import, and the app then reports a start failure with no window.
  */
 function assertLayout() {
   const daemonDist = path.join(RESOURCES_ROOT, 'packages', 'daemon', 'dist');
@@ -178,6 +196,67 @@ function assertLayout() {
   const absent = required.filter(entry => !existsSync(path.join(RESOURCES_ROOT, entry)));
   if (!existsSync(daemonDist)) fail('the daemon dist is missing from the staged tree');
   if (absent.length) fail(`the staged tree is missing: ${absent.join(', ')}`);
+  const unresolved = unresolvedImports(daemonDist);
+  if (unresolved.length) {
+    fail(`the staged tree cannot resolve ${unresolved.length} import(s):\n  ${unresolved.join('\n  ')}`);
+  }
+}
+
+/** A bare specifier in a built module: `from "x"`, `import "x"`, or a re-export. */
+const BARE_IMPORT = /(?:from|import)\s*["']([^"'\n]+)["']/g;
+
+/**
+ * Bare-specifier imports under the staged daemon's build that do not resolve from the staged
+ * engine root.
+ *
+ * The answer is Node's own: the probe module below runs inside `resources/engine`, so the
+ * resolution it gets is the one the daemon's files get at runtime.
+ */
+function unresolvedImports(daemonDist) {
+  // Node's module resolver is the authority: `import.meta.resolve` answers for the module that
+  // calls it, so the probe is written into the staged tree for the length of the check and
+  // removed after. That makes the answer identical to the import the daemon's own files make,
+  // including the ESM conditions a CommonJS `require.resolve` does not apply.
+  const probe = path.join(RESOURCES_ROOT, '.import-probe.mjs');
+  const specifiers = new Map();
+  for (const file of listFiles(daemonDist).filter(entry => entry.endsWith('.js'))) {
+    for (const match of readFileSync(file, 'utf8').matchAll(BARE_IMPORT)) {
+      const specifier = match[1];
+      // A relative or absolute specifier names a file the copy already placed, and a `node:`
+      // built-in always resolves; only a package specifier can be left out of the closure.
+      if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('node:')) continue;
+      if (!specifiers.has(specifier)) specifiers.set(specifier, path.relative(RESOURCES_ROOT, file));
+    }
+  }
+  if (specifiers.size === 0) return [];
+  const list = [...specifiers.keys()];
+  writeFileSync(probe, [
+    '// Written by scripts/stage-engine.mjs to answer resolution from the staged tree.',
+    `const specs = ${JSON.stringify(list)};`,
+    'for (const spec of specs) {',
+    '  try { const url = import.meta.resolve(spec); process.stdout.write(`${spec}\\t${url}\\n`); }',
+    '  catch { process.stdout.write(`${spec}\\tUNRESOLVED\\n`); }',
+    '}',
+    '',
+  ].join('\n'));
+  try {
+    const answer = execFileSync(process.execPath, [probe], { encoding: 'utf8' });
+    return answer.split(/\r?\n/).filter(Boolean)
+      .map(line => line.split('\t'))
+      .filter(([spec, url]) => (url === 'UNRESOLVED' || !existsSync(fileURLToPath(url))))
+      .map(([spec]) => `${specifiers.get(spec)}: ${spec}`);
+  } finally {
+    rmSync(probe, { force: true });
+  }
+}
+
+/** Every file beneath a directory, as absolute paths. */
+function listFiles(directory) {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true })
+    .flatMap(entry => (entry.isDirectory()
+      ? listFiles(path.join(directory, entry.name))
+      : [path.join(directory, entry.name)]));
 }
 
 function stamp() {
