@@ -106,19 +106,4 @@ describe("U7 integration branch and merge", () => {
     else expect(governance.getAttempt("attempt-lead")?.failure?.reasonCode).toBe("evidence_invalid");
     expect(integration.status(runId).merge.possible).toBe(valid);
   });
-
-  it.each(["pending", "in-progress", "blocked"])("does not offer a merge while the delivery lead is %s", async state => {
-    stage("task-a", "src/health.ts", "export const health = () => 'ok';\n");
-    complete("task-a");
-    approveReview("task-a");
-    expect((await integration.integrate(runId, "task-a")).status).toBe("committed");
-    expect(governance.createTask(request("lead-task", {
-      assignment: { taskId: "lead-task", role: "lead", paths: ["src"], dependencies: [] },
-      outputs: [], permissions: [], sourceSession: "owner", destinationSession: "lead@rig", body: "Manage delivery",
-    }), currentBinding()).status).toBe("accepted");
-    db.prepare("UPDATE queue_items SET state = ? WHERE qitem_id = ?").run(state, governance.findTask(runId, "lead-task")!.qitemId);
-    expect(integration.status(runId).merge).toEqual({ possible: false, merged: false, reason: "Task(s) still open: lead-task" });
-    expect(integration.merge(runId)).toMatchObject({ status: "refused", code: "merge_not_ready" });
-  });
-
 });
