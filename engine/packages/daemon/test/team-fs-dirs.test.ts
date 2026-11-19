@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { listProjectDirectories } from "../src/domain/project-bootstrap.js";
+import { canonicalPath } from "../src/domain/platform.js";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
 import { symlinkRefusal } from "./helpers/symlink.js";
 
@@ -51,7 +52,12 @@ describe("folder browser route", () => {
       const roots = await call("", "owner-fs-fixture");
       expect(roots.status).toBe(200);
       expect(roots.headers.get("Cache-Control")).toBe("no-store");
-      expect(await roots.json()).toMatchObject({ protocolVersion: "1.0", roots: expect.arrayContaining([homedir()]), path: null });
+      // The route names the home in the long spelling (`directoryRoots` canonicalises it), and a
+      // Windows `%TEMP%` may hand the same directory to the fixture under its 8.3 name. The
+      // expectation goes through the same resolution rather than comparing the two spellings.
+      expect(await roots.json()).toMatchObject({
+        protocolVersion: "1.0", roots: expect.arrayContaining([canonicalPath(homedir())]), path: null,
+      });
       // A path outside the selectable roots is refused; this host's filesystem root is named
       // in its own spelling.
       const outside = process.platform === "win32" ? "C:\\" : "/";
