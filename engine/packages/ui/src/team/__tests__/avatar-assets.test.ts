@@ -13,9 +13,13 @@ const paths = [
     (["master", "working", "waiting", "messaging", "milestone"] as const).map(state => getVendorAvatarUrl(vendor, state))),
 ];
 
+/** EBML magic: every WebM this ships starts with the same four bytes. */
+const EBML_HEADER = [0x1a, 0x45, 0xdf, 0xa3];
+
 describe("shipped character assets", () => {
-  it.each(paths)("includes the PNG referenced by %s", path => {
+  it.each(paths)("includes the file referenced by %s", path => {
     const bytes = readFileSync(resolve(publicRoot, `.${path}`));
-    expect([...bytes.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    if (path.endsWith(".webm")) expect([...bytes.subarray(0, 4)]).toEqual(EBML_HEADER);
+    else expect([...bytes.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
   });
 });
