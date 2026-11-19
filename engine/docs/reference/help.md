@@ -10,9 +10,8 @@ loom daemon --help
 loom github --help
 ```
 
-If the daemon is unavailable, `loom daemon status` reports that directly. The same text is installed
-beside the CLI package at `daemon/docs/reference/help.md`; in this source repository it is
-`docs/reference/help.md`.
+If the daemon is unavailable, `loom daemon status` reports that directly. This page is installed
+beside the CLI package at `daemon/docs/reference/help.md`, and an agent reads it from there.
 
 Start with the goal, the command that was run, the expected result, and the exact observed error. Keep private
 repository content and credentials out of a support request.

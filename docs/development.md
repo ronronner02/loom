@@ -1,77 +1,210 @@
 # Development
 
-## Source Authority
+How to build Loom, what blocks a change, and the standards the code follows. Architecture and the
+run lifecycle are in [`docs/architecture.md`](architecture.md).
 
-Since the cutover on 2026-10-13 (KTD7), the WSL checkout at `/home/leo/src/loom` is the only development source. All engine and active-document edits, builds and tests happen there.
+## 1. Prerequisites
 
-The earlier Windows workspace (`D:\Loom`) is preserved as-is for reference. It is not a second writable source:
+- **Node.js 22 or 24** and npm. `engine/package.json` records the range; a 20 or 26 will not build.
+- **Git** on `PATH`, with `git worktree` available.
+- At least one of **Claude Code** (`claude`), **Codex** (`codex`) or **Gemini** (`gemini`), signed
+  in locally, to exercise a team. The unit tests do not need any of them.
+- **GitHub CLI** (`gh`) for GitHub sign-in; the Windows installer ships its own copy.
 
-- Edit through WSL, for example an editor's WSL integration or `\\wsl.localhost\Ubuntu\home\leo\src\loom`.
-- Windows edits are conflicts, not sync input.
-- To refresh the Windows copy, run the one-way export below.
+## 2. Install and build
 
-The cutover record lives outside the repository at `~/.local/state/loom/cutover/`:
+```sh
+cd engine
+npm ci --ignore-scripts --no-audit --no-fund
+npm run build
+```
 
-- `cutover.json` records the bootstrap commit `98d4feb`, its tree, and the 19 tracked files verified on both sides.
-- `windows-manifest.json` holds byte hashes of all 1,600 Windows workspace files at cutover.
+`better-sqlite3` ships a prebuilt binary for every supported platform, so the native rebuild its
+install script would run is unnecessary. `--ignore-scripts` also skips the CLI's ABI probe; it has
+its own test.
 
-Not transferred: the untracked host runtime mirrors (`.agents/`, `.claude/`, `.codex/`, `.opencode/`, `.pi/`). To run the spec-first workflows from inside WSL, re-initialize them there.
+`npm run build` compiles the workspaces in dependency order (i18n before the daemon that imports
+it) and builds the UI bundle. A change that only touches one package still needs the full build
+once, because the CLI and the desktop both resolve `@loom/daemon` through package exports that
+point at `dist`.
 
-## Review Requirements
+## 3. Test commands and the CI that runs them
 
-Use `gpt-6.1-sol` and `claude-opus-5-5` for separate, report-only reviews of each logical change. Call the gateway URLs and API credentials configured locally on the owner's machine; never embed credentials in prompts, repository files, command arguments or review logs. Do not substitute models when quota or access is unavailable.
-
-Both reviewers inspect the same frozen candidate, relevant plan sections, tests and verification evidence. Record the requested and returned model identifiers, candidate digest, findings and any coverage limitations. Allow at most two review rounds per logical change: the initial review and one follow-up after corrections. A missing review, a blocking finding or a changed candidate leaves the review gate open.
-
-Dependency and lockfile changes remain separately scoped to T005. T003 may add the shared contract export but does not add or upgrade dependencies. UI/TUI design work at T015-T016 and T019-T022 waits for the owner's review of a design proposal.
-
-Local implementation, review, commit, push, PR creation and merge are separate actions. Without explicit delivery authorization, keep verified changes uncommitted.
-
-## Toolchain
-
-| Tool | Version | Source |
+| Command (in `engine/`) | Runs | CI job |
 | --- | --- | --- |
-| Node.js / npm | v24.21.0 / 11.19.0 | on PATH |
-| C/C++ build | gcc/g++ 15.2.0, GNU Make 4.4.1, python3 | `apt install build-essential` (node-gyp for `better-sqlite3`) |
-| SQLite (bundled by `better-sqlite3` 13.0.3) | 3.53.4, Node ABI 137 | `engine/node_modules` |
-| Git | Linux git; credentials through Git Credential Manager for Windows (repo-local `credential.helper`) | |
+| `npm run test:repo` | The repository guards and script self-tests, the shipped-doc reference check, the docs guard and the skill mirror check | `smoke.yml` on Linux and Windows, `tests.yml` `suites` |
+| `npm run lint` | `tsc --noEmit` for daemon, ui, cli and i18n | `smoke.yml` `smoke` |
+| `npm run smoke` | The focused suite: the team-control surface and its clients | `smoke.yml` `smoke` |
+| `npm run test:workspaces` | The daemon, CLI and i18n Vitest suites | `tests.yml` |
+| `npm run test:ui` | The UI Vitest suite (not part of `npm test`) | `tests.yml` `suites` |
+| `npm test` | `test:repo` then `test:workspaces` | — |
+| `cd desktop && npm test` | The desktop boundary, lifecycle, pairing and staged-tree tests | `smoke.yml` `desktop` |
 
+`.github/workflows/smoke.yml` runs on every pull request: the companion suite, the guards, the
+typecheck, the desktop tests, the smoke set, and a Windows job that stages the installer tree.
+`.github/workflows/tests.yml` is the full suite, sharded — three daemon shards on Linux and eight
+on Windows, plus the CLI, UI, i18n and guard suites on both hosts. Windows runs the git-heavy
+daemon files slowly enough that a smaller shard count puts two in one job and trips Vitest's
+worker reporting deadline; that is why the two hosts use different shard counts.
 
-## Engine Commands
+For a focused run inside a package:
 
-Run these from `engine/`. They are the retained upstream baseline (see `docs/validation/upstream-baseline.md`).
+```sh
+cd engine/packages/daemon
+npx vitest run test/team-assignment.test.ts --maxWorkers=2
+```
 
-| Command | Purpose |
-| --- | --- |
-| `npm ci` | Clean install. Runs only the approved install scripts (`allowScripts`). |
-| `npm run build` | Build every workspace (daemon, ui, cli). |
-| `npm run lint` | Type-check every workspace (`tsc --noEmit`). |
-| `npm test` | Repository checks (`scripts/*.test.mjs`, docs/skill mirrors, context packs), then daemon/cli Vitest. |
-| `npm run test:ui` | Web UI Vitest. |
-| `node packages/cli/scripts/check-abi.mjs` | Native SQLite addon/ABI check. |
+Run one Vitest process at a time. Several suites spawn real child processes and bind sockets, so
+two concurrent runs contend for the same ports and fixture directories.
 
-### Baseline Result (2026-10-13)
+## 4. Windows specifics
 
-The following ran on Ubuntu 26.04.1 / WSL2 6.18.33.2 with Node v24.21.0 / npm 11.19.0, at upstream `cb79b8c` plus the declared adaptations:
+- **Install with `--ignore-scripts`.** Without it, `better-sqlite3`'s install script tries to
+  rebuild a native addon and needs a compiler the machine may not have.
+- **Line endings.** `.gitattributes` sets `* text=auto eol=lf`, so every text file is stored and
+  checked out with LF on every host. Several files are compared byte-for-byte — the skill tree
+  against a digest, the policy files against an authority hash, the shipped README against the
+  packaged copy — and a CRLF checkout would silently change those measurements.
+- **Symlinks.** A non-elevated Windows process cannot create a symbolic link without Developer
+  Mode or the create-symlink privilege. Tests that need one check for that and skip with a reason
+  (`engine/packages/daemon/test/helpers/symlink.ts`) instead of failing.
+- **Long paths in worktrees.** Git for Windows refuses a worktree path longer than 215
+  characters, and `core.longpaths=true` does not lift the ceiling. `domain/worktree-policy.ts`
+  enforces it; a test that creates a worktree under a very long temp directory will hit it.
+- **No console windows.** A child process started without `windowsHide` flashes a console. Every
+  daemon `spawn`/`execFile` sets it, and the desktop forks the engine through Electron's own
+  `utilityProcess`, which has no console window.
 
-| Command | Result |
-| --- | --- |
-| `npm ci` | Exit 0; 436 packages; approved install scripts ran (better-sqlite3, esbuild ×2) |
-| `node packages/cli/scripts/check-abi.mjs` | Exit 0 (SQLite 3.53.4, ABI 137) |
-| `npm run build` | Exit 0 (24 s) |
-| `npm run lint` | Exit 0 (20 s) |
-| `npm test` | **Exit 1 (260 s).** Repository checks: 290 passed, 0 failed. daemon: 15,055 passed, **4 failed**, 5 skipped, 5 todo. cli: 4,238 passed, **2 failed**, 5 skipped. (Recorded before the terminal UI was retired; its 931 tests are no longer part of this run.) |
-| `npm run test:ui` | Exit 0; 1,739 passed, 1 skipped (26 s) |
+## 5. Standards
 
-**Known pre-existing failures.** Six upstream tests fail on this host. Each fails identically with the adaptations removed (pristine `cb79b8c`), so this milestone did not introduce them. They are a recorded limitation, not passes.
+These come from what slowed the project down, not from an external style guide. Other documents
+cite them by number.
 
-| Package / test | Observed | Likely cause | Owner |
-| --- | --- | --- | --- |
-| daemon `auth-bearer-token.test.ts › resolveToIpOrNull … intentionally-unresolvable hostname` | Resolves to `198.18.0.36` | Host DNS answers every name (even `*.invalid` returns `2001:2::50`): a fake-IP proxy/TUN resolver | T004 (owns this middleware) |
-| daemon `tmux-pane-cwd-native.test.ts › preserves pipe characters in pane cwd` | Pane fields do not match the expected object | Native tmux 3.6 behavior | U4 / T008 (tmux adapter) |
-| daemon `terminal-pipe-utf8.test.ts › preserves native terminal UTF-8 output…` | `native output timed out` | Native tmux pipe timing on WSL | U4 / T008 |
-| daemon `seat-activity-retirement-hooks.test.ts › adopted … successor's first permission hook` | `tmux -S /tmp/… new-session` failed | Native tmux session start in the test fixture | U4 / T008 |
-| cli `start.test.ts › S20 … env-sourced LOOM_HOST through loom start creates NO bind intent` | Auto-start never reaches its mocked spawn | Not diagnosed. The real `SystemPreflight` is ready outside Vitest, so the cause is inside the hermetic fixture. | U9 (bind / loopback surfaces) |
-| cli `up.test.ts › … S20: env-sourced LOOM_HOST creates NO bind intent through up auto-start` | Expected port `7472`, got `undefined` | Same S20 auto-start path | U9 |
+### 1. Walking skeleton first
+Before any hardening, build the thinnest path that lets a user do the core job end to end. A slice
+that is secure but unreachable is not progress.
 
-The owning unit must diagnose its tests before changing that area, and must not count them as passing.
+### 2. The default path needs no privileges
+The product runs on a clean machine without sudo, extra users or host provisioning. A component
+that needs one is out of scope, not a setting to add.
+
+### 3. Portable by default
+No user- or machine-specific paths, hosts, proxies or credentials in code, scripts or CI. Use
+per-user config and state directories and environment variables. One setup script and a short
+quick start must be enough for a new developer. Declare supported platforms explicitly.
+
+### 4. Cheap checks, often
+Every change runs the focused tests for the code it touched plus the package's typecheck. Every
+pull request runs the smoke set in CI. The full suite runs before a release, or when the owner
+asks; a suite nobody can run per task gets skipped.
+
+### 5. Stop rules beat persistence
+Stop and re-plan when a slice grows past twice its estimate, when the same fix fails twice, or
+when an investigation runs 30 minutes with no measured lead.
+
+### 6. Review in proportion to risk
+One reviewer reads the diff and runs the demo. A second, independent reviewer is reserved for code
+that guards credentials or reads worker-written data. A finding that only asks for more hardening,
+with no reachable scenario, is recorded as a residual and not implemented.
+
+### 7. Workspace hygiene
+One worktree and one scratch folder per task, both removed when the task lands. No probe scripts or
+logs in the repository.
+
+### 8. Decide and record
+Decide a question the rules or the slice settle, and record the reason in the pull request. Ask the
+owner only about scope, public contracts, architecture or a missing grant, in one batch.
+
+### 9. UI: let the structure explain
+- Leave out unnecessary secondary labels, captions, helper copy, descriptive text and redundant
+  microcopy. Layout, visual hierarchy, spacing and a clear primary action do the explaining.
+- Prefer strong visual hierarchy and self-explanatory structure over text. By default add no
+  slogan-style text, no tutorial paragraphs, and no help text under every section. When extra
+  information is truly needed, use an info icon with a tooltip, not always-visible secondary text.
+- Keep the form labels and accessible names the interface needs. A cleaner screen must not cost
+  accessibility.
+- Dangerous or irreversible actions (delete, submit a permanent change) keep a clear statement of
+  the consequence.
+- With the copy removed, a first-time user must still see where to click next and what it will do.
+- When rewriting an existing screen, remove redundant labels and descriptions first. If clarity
+  drops, improve the layout and the button wording instead of putting the text back.
+
+**Comments** explain non-obvious intent only. No task or decision IDs in new code.
+
+## 6. Working in a worktree
+
+A worktree created from `origin/main` gets its own `node_modules` only after `npm ci` inside it.
+Do not symlink another checkout's `node_modules`: a per-worktree install links `@loom/*` to the
+packages beside it, and a borrowed link makes a build or a typecheck silently read another tree's
+source. The failure it produces is a green build that typechecks the wrong files, which is worse
+than the install it saves.
+
+Scratch files, logs and review packets go in one folder per task outside the checkout, and are
+removed when the task lands.
+
+## 7. Releases
+
+The desktop version lives in `desktop/package.json`; the engine workspace versions are `0.1.0` and
+do not move independently. A release is a manual ceremony:
+
+1. Bump `desktop/package.json` and record the change in `CHANGELOG.md` in user-facing language:
+   group related fixes, name anything that changes setup, permissions, startup, restore or
+   recovery, and say so when verification was limited.
+2. `cd engine && npm ci --ignore-scripts && npm run build`, then `cd ../desktop && npm ci
+   --ignore-scripts && npm run dist`. `npm run dist` stages the daemon tree and the pinned
+   `gh.exe` into `desktop/resources/`, then writes `desktop/dist/Loom-Setup-<version>-x64.exe`.
+3. Run the full suites (`tests.yml` locally, or let CI run them on the release commit), the
+   installer smoke (an installed artifact, run once), and the **substance gate** at the exact cut:
+
+   ```bash
+   bash scripts/build-package.sh
+   npm run gate:substance -- \
+     --review /path/to/substance-review.json \
+     --receipt /path/to/substance-receipt.json \
+     --judge <seat-or-person> \
+     --cut-sha "$(git rev-parse HEAD)"
+   ```
+
+   The gate derives every file under the shipped pack sources, requires a hash-bound human
+   judgment and an individual disposition for each mechanical candidate, scans the complete npm
+   artifact set the packager derived, and writes the durable receipt. The receipt records both the
+   artifact and the scanned file lists, and their difference must be empty. The review JSON
+   carries one entry per file:
+
+   ```json
+   {
+     "surfaces": [{
+       "path": "packages/daemon/assets/guidance/example.md",
+       "sha256": "<sha256 of the reviewed bytes>",
+       "verdict": "ship",
+       "reason": "Generic product guidance.",
+       "candidateDispositions": []
+     }]
+   }
+   ```
+
+   A non-shipping verdict is one of `instance-fact`, `internal-path`, `position-knowledge` or
+   `lore-class`, and carries its reason in the same entry. A missing or stale judgment, an
+   undispositioned candidate, internal substance, a lore-classed pack, a failed full artifact
+   scan, or any artifact absent from the scanned set refuses the cut. Run the gate from the same
+   clean worktree the cut SHA names — it refuses a dirty tree, because a dirty receipt cannot bind
+   the artifact bytes to the commit.
+4. Tag the commit and create the GitHub release with the same notes:
+   `gh release create vX.Y.Z --title "Loom vX.Y.Z" --notes-file <notes>`.
+5. Attach the installer and, when the release includes it, the companion bundle
+   (`companions/loom/scripts/package_release.py`) to that release.
+
+Tag, installer build and publication each need their own authorization; `npm run dist` on its own
+only writes a local artifact.
+
+## 8. Documentation
+
+- **Durable developer docs** live in `docs/` (this file, `architecture.md`, `operations.md`) and at
+  the repository root (`README.md`, `AGENTS.md`, `CHANGELOG.md`, `NOTICE`).
+- **Shipped product docs** live in `engine/docs/reference/`; the package build stages them and
+  agents read them. `engine/scripts/check-docs-guard.mjs` refuses any other tracked file under
+  `engine/docs/`.
+- **History** — plans, task packs, acceptance evidence, design mockups — stays in git history and
+  in the pull request that produced it. The working tree does not carry it.
+- Any Markdown link you add must resolve. The docs guard checks shipped-doc references; a link to
+  a deleted path is a broken page.
