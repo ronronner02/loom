@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, sep } from "node:path";
 
 /**
  * The one-time move of an installation's state from the product's former data root to Loom's.
@@ -298,12 +298,33 @@ export function rewritePath(value: string, legacyRoot: string, dataRoot: string)
  */
 function normalize(value: string): string {
   const trimmed = value.trim();
-  let canonical = trimmed;
-  // `realpathSync.native` asks the OS; the JavaScript resolver leaves an 8.3 short segment as it
-  // is. A machine whose TEMP or home is a short path would otherwise compare a short spelling
-  // against a long one and call one directory two.
-  try { canonical = realpathSync.native(trimmed); } catch { /* the target may be gone; its spelling still counts */ }
+  const canonical = deepestRealParent(trimmed);
   return canonical.replace(/[\\/]+$/, "").replace(/\\/g, "/").replace(/[A-Z]/g, character => character.toLowerCase());
+}
+
+/**
+ * A path with every component that exists resolved by the OS, and the missing tail kept as it
+ * was written.
+ *
+ * `realpathSync` answers nothing for a path whose tail is gone, and the migration compares paths
+ * exactly when a tail has just been removed. Resolving the deepest existing ancestor still asks
+ * the OS about the part that decides the spelling — an 8.3 short segment, a symlink or a link to
+ * a different volume — so two spellings of one directory cannot compare unequal.
+ */
+function deepestRealParent(value: string): string {
+  const missing: string[] = [];
+  let current = value;
+  for (;;) {
+    try {
+      return join(realpathSync.native(current), ...missing.reverse());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") return value;
+      const parent = dirname(current);
+      if (parent === current) return value;
+      missing.push(basename(current));
+      current = parent;
+    }
+  }
 }
 
 function rollback(moved: Array<{ dataRoot: string; legacyRoot: string }>): void {
