@@ -690,8 +690,12 @@ describe("a freed slot dispatches the run's next task", () => {
 
   it("asks the sweep to dispatch once it has recorded a stop", async () => {
     const dispatchPending = vi.fn(async () => {});
+    // The liveness answer is stated, as the neighbouring suites state it. On Windows the real
+    // one is a PowerShell process query bounded by 15 s, so a process the fixture only made up
+    // would be decided by that query's outcome rather than by this case.
     const completion = composeAttemptCompletion({ db, governance, sessions: { findResumeContextByName: () => null,
-      updateStartupStatus: () => {} }, currentBinding: () => binding, dispatchPending, intervalMs: 60_000 });
+      updateStartupStatus: () => {} }, currentBinding: () => binding, dispatchPending, intervalMs: 60_000,
+      alive: () => false });
     expect(admit("task-1", "a@rig").status).toBe("accepted");
     const qitemId = governance.findTask("run", "task-1")!.qitemId;
     // An attempt the sweep will observe gone: its identity names no live process.
