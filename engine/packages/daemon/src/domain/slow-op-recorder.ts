@@ -291,18 +291,30 @@ export class SlowOpRecorder implements SlowOperationInstrumentation {
 
   recordDiagnostic(record: Record<string, unknown>): boolean {
     this.diagnostic.offered++;
-    const coverage = { ...this.diagnostic, pending: this.diagnosticIds.size,
-      recorderHealthy: this.degraded.healthy, maxBytes: this.maxBytes, rotationCount: this.rotationCount };
+    // A record the Worker has already acknowledged as unpersisted is a refused observation now,
+    // consistent with flush(): reporting it as accepted and countably dropped let a lost
+    // measurement read as healthy bounded pressure.
+    if (this.acknowledgedWriteFailure) { this.diagnostic.failed++; return false; }
+    // A record that cannot be serialised with the coverage it carries has already failed; it is
+    // never apparent enqueue pressure, so it counts as failed rather than dropped.
     let bytes: number;
-    try { bytes = Buffer.byteLength(JSON.stringify({ ...record, coverage })); }
-    catch { this.diagnostic.dropped++; return false; }
+    try { bytes = Buffer.byteLength(JSON.stringify({ ...record, coverage: this.coverage() })); }
+    catch { this.diagnostic.failed++; return false; }
     if (this.closed || this.terminalReason !== null || this.diagnosticIds.size >= 1024 || bytes > 1024) {
       this.diagnostic.dropped++; return false;
     }
-    this.diagnostic.enqueued++;
+    // Enqueued only once the append was actually posted: see `postAndWait`'s synchronous-failure
+    // path, which counts the record as failed instead.
+    const coverage = this.coverage();
     void this.postAndWait({ type: "append", logPath: this.logPath, maxBytes: this.maxBytes,
       rotationCount: this.rotationCount, record: { ...record, coverage } }, true).catch(() => {});
     return true;
+  }
+
+  /** The coverage counters as a record carries them. */
+  private coverage(): Record<string, unknown> {
+    return { ...this.diagnostic, pending: this.diagnosticIds.size,
+      recorderHealthy: this.degraded.healthy, maxBytes: this.maxBytes, rotationCount: this.rotationCount };
   }
 
   async flush(): Promise<void> {
@@ -369,10 +381,13 @@ export class SlowOpRecorder implements SlowOperationInstrumentation {
       if (diagnostic) this.diagnosticIds.add(id);
       try {
         this.worker.postMessage({ ...message, id });
+        if (diagnostic) this.diagnostic.enqueued++;
       } catch {
         // Synchronous postMessage failure — the Worker is gone. Same terminal
-        // transition; this waiter is rejected along with any others.
+        // transition; this waiter is rejected along with any others. The record never reached
+        // the Worker, so it is a failure, not an apparent enqueue that later drained.
         this.pending.delete(id);
+        if (diagnostic) this.diagnostic.failed++;
         this.handleTerminalFailure("recorder_post_failed");
         reject(this.terminalError());
       }
@@ -396,7 +411,10 @@ export class SlowOpRecorder implements SlowOperationInstrumentation {
     const error = this.terminalError();
     for (const waiter of this.pending.values()) waiter.reject(error);
     this.pending.clear();
+    // Every record still waiting when the Worker was lost never got an answer: each is a failure,
+    // and none stays counted as enqueued.
     this.diagnostic.failed += this.diagnosticIds.size;
+    this.diagnostic.enqueued -= this.diagnosticIds.size;
     this.diagnosticIds.clear();
   }
 

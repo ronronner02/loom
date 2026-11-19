@@ -24,7 +24,27 @@ it("writes fast diagnostic events asynchronously with bounded backlog, explicit 
     const files = fs.readdirSync(dir); expect(files.length).toBeLessThanOrEqual(4);
     // Windows reports the file's ACL, not POSIX mode bits.
     for (const name of files) { const stat = fs.statSync(path.join(dir, name)); expect(stat.size).toBeLessThanOrEqual(1000); if (process.platform !== "win32") expect(stat.mode & 0o777).toBe(0o600); }
-  } finally { await recorder.close(); }
+  } finally {
+    // A close() over the acknowledged failure rejects on purpose. Left uncaught it would replace
+    // the case's own error with its own and hide what actually failed.
+    await recorder.close().catch(() => {});
+  }
+});
+it("counts a failed write as failed rather than enqueued, and a refused record as dropped", async () => {
+  // The log path is a directory, so every append fails after the record was posted.
+  const { recorder, dir } = fixture();
+  fs.rmSync(path.join(dir, "slow.jsonl"), { force: true });
+  fs.mkdirSync(path.join(dir, "slow.jsonl"));
+  try {
+    expect(recorder.recordDiagnostic({ phase: "write_failure" })).toBe(true);
+    await expect(recorder.flush()).rejects.toThrow("recorder_write_failed");
+    // A write the Worker acknowledged as failed is still a refused observation to the caller, and
+    // an oversize record is refused before it is posted; neither is a bounded-backlog drop.
+    expect(recorder.recordDiagnostic({ phase: "after_failure" })).toBe(false);
+    expect(recorder.recordDiagnostic({ field: "x".repeat(1025) })).toBe(false);
+    // Nothing was persisted: the path is still the directory the fixture planted.
+    expect(fs.statSync(path.join(dir, "slow.jsonl")).isDirectory()).toBe(true);
+  } finally { await recorder.close().catch(() => {}); }
 });
 it("retains write-failure and worker-loss drain refusal", async () => {
   const { recorder, file } = fixture();
