@@ -46,6 +46,7 @@ export function resolveAvatarState(nodeState: FlowNodeState, isMessaging = false
   }
 }
 
+/** Vendor characters are silent looped clips; an unknown model keeps the neutral Pomo stills. */
 export function getVendorAvatarUrl(vendor: VendorId | null, state: AvatarState): string {
-  return vendor ? `/avatars/vendors/${vendor}_${state}.png` : `/avatars/pomo/${state}.png`;
+  return vendor ? `/avatars/vendors/${vendor}_${state}.webm` : `/avatars/pomo/${state}.png`;
 }

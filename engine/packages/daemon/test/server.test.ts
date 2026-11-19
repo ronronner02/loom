@@ -100,23 +100,28 @@ describe("Hono server (production app)", () => {
     }
   });
 
-  it("serves character PNGs as assets", async () => {
+  it("serves character assets with their own content types", async () => {
     const db = createFullTestDb();
     const uiDistDir = createTempUiDist();
     const png = Buffer.from("89504e470d0a1a0a", "hex");
+    const webm = Buffer.from("1a45dfa3", "hex");
+    const assets = [
+      ["avatars/vendors/chatgpt_master.webm", webm, "video/webm"],
+      ["avatars/pomo/master.png", png, "image/png"],
+    ] as const;
     try {
-      for (const file of ["avatars/vendors/chatgpt_master.png", "avatars/pomo/master.png"]) {
+      for (const [file, body] of assets) {
         mkdirSync(join(uiDistDir, file, ".."), { recursive: true });
-        writeFileSync(join(uiDistDir, file), png);
+        writeFileSync(join(uiDistDir, file), body);
       }
       const app = appWithUi(db, uiDistDir);
-      for (const file of ["avatars/vendors/chatgpt_master.png", "avatars/pomo/master.png"]) {
+      for (const [file, body, type] of assets) {
         const response = await app.request(`/${file}`);
         expect(response.status, file).toBe(200);
-        expect(response.headers.get("content-type"), file).toBe("image/png");
-        expect(Buffer.from(await response.arrayBuffer()), file).toEqual(png);
+        expect(response.headers.get("content-type"), file).toBe(type);
+        expect(Buffer.from(await response.arrayBuffer()), file).toEqual(body);
       }
-      expect((await app.request("/avatars/vendors/missing.png")).status).toBe(404);
+      expect((await app.request("/avatars/vendors/missing.webm")).status).toBe(404);
       // A run-carrying database serves only the team pages, never the bundle's index.
       db.prepare("INSERT INTO rigs (id, name) VALUES ('managed', 'managed')").run();
       db.prepare(`INSERT INTO team_runs (id, rig_id, binding_json, binding_digest, state, created_at, updated_at)

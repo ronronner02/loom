@@ -301,7 +301,7 @@ describe("vendor avatars", () => {
     expect(resolveAvatarState("waiting", false)).toBe("waiting");
     expect(resolveAvatarState("complete", false)).toBe("milestone");
     expect(resolveAvatarState("working", true)).toBe("messaging");
-    expect(getVendorAvatarUrl("claude", "working")).toBe("/avatars/vendors/claude_working.png");
+    expect(getVendorAvatarUrl("claude", "working")).toBe("/avatars/vendors/claude_working.webm");
   });
 
   it("does not draw a failed worker with the calm waiting avatar", () => {
@@ -309,11 +309,35 @@ describe("vendor avatars", () => {
     expect(resolveAvatarState("error", false)).toBe("master");
   });
 
-  it("renders vendor avatar images on FlowView nodes", () => {
+  it("keeps the neutral still for a seat whose model is unknown", () => {
+    render(<I18nextProvider i18n={languages.get("en")!}>
+      <FlowView events={[]} seats={[{ id: "lead", role: "lead", model: "custom-private-model" }]} />
+    </I18nextProvider>);
+    expect(document.querySelector("video.flow-node-avatar")).toBeNull();
+    expect(document.querySelector("img.flow-node-avatar")?.getAttribute("src")).toBe("/avatars/pomo/master.png");
+  });
+
+  it("renders vendor avatar clips on FlowView nodes", () => {
     show();
     const leadBtn = screen.getByRole("button", { name: /Lead, lead/i });
-    const img = leadBtn.querySelector("img.flow-node-avatar") as HTMLImageElement | null;
-    expect(img).toBeTruthy();
-    expect(img?.getAttribute("src")).toMatch(/^\/avatars\/vendors\/claude_(master|working|waiting|messaging|milestone)\.png$/);
+    const clip = leadBtn.querySelector("video.flow-node-avatar") as HTMLVideoElement | null;
+    expect(clip).toBeTruthy();
+    expect(clip?.getAttribute("src")).toMatch(/^\/avatars\/vendors\/claude_(master|working|waiting|messaging|milestone)\.webm$/);
+    expect(clip?.muted).toBe(true);
+    expect(clip?.hasAttribute("loop")).toBe(true);
+    expect(clip?.getAttribute("playsinline")).not.toBeNull();
+    expect(clip?.autoplay).toBe(true);
+  });
+
+  it("holds vendor avatar clips on a still frame for reduced motion", () => {
+    Object.defineProperty(window, "matchMedia", { configurable: true, value: vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })) });
+    render(<I18nextProvider i18n={languages.get("en")!}>
+      <FlowView events={[]} seats={[{ id: "lead", role: "lead", model: "claude-sonnet-4" }]} />
+    </I18nextProvider>);
+    // The static list paints each seat while the pause flag is set, so the first frame renders.
+    const clip = document.querySelector("video.flow-node-avatar") as HTMLVideoElement | null;
+    expect(clip).toBeTruthy();
+    expect(clip?.autoplay).toBe(false);
+    expect(clip?.getAttribute("src")).toBe("/avatars/vendors/claude_master.webm");
   });
 });

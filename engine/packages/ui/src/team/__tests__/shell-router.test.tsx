@@ -246,7 +246,7 @@ describe("command-center router integration", () => {
     act(() => { queryClient.setQueryData(["team", RUN_ID, "read"], { ...data, attempts: readAttempts }); });
     const worker = await members.findByRole("button", { name: /^Implementer/ });
     await waitFor(() => expect(worker.getAttribute("data-vendor")).toBe("qwen"));
-    expect(worker.querySelector("img")?.getAttribute("src")).toBe("/avatars/vendors/qwen_working.png");
+    expect(worker.querySelector("video")?.getAttribute("src")).toBe("/avatars/vendors/qwen_working.webm");
     expect(worker.getAttribute("title")).toBe("qwen3-coder / codex");
     expect(members.getAllByRole("button")).toHaveLength(2);
     expect(screen.getByLabelText("Flow event list").textContent).not.toContain(attempt().attemptId);

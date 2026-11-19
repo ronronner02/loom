@@ -88,6 +88,11 @@
   user-select: none;
 }
 
+/* Browsers paint poster and background boxes behind a video; the clip's own alpha is the avatar. */
+video.flow-node-avatar {
+  background: transparent;
+}
+
 .flow-node-label[data-selected="true"] .flow-node-avatar-wrap {
   filter: drop-shadow(0 0 0 2px var(--ui-accent));
 }

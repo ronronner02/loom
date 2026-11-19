@@ -289,13 +289,29 @@ export function FlowView({ events, seats, nodeStates, title, className, maxParti
                     else avatarRefs.current.delete(node.id);
                   }}
                 >
-                  <img
-                    className="flow-node-avatar"
-                    src={avatarUrl}
-                    alt=""
-                    draggable={false}
-                    loading="eager"
-                  />
+                  {/* A vendor change swaps the clip source in place. A remount would restart the
+                      decode from the poster frame and flash; the wrap keeps its own transform. */}
+                  {vendor ? (
+                    <video
+                      className="flow-node-avatar"
+                      src={avatarUrl}
+                      autoPlay={!paused}
+                      loop
+                      muted
+                      playsInline
+                      preload="auto"
+                      aria-hidden="true"
+                      draggable={false}
+                    />
+                  ) : (
+                    <img
+                      className="flow-node-avatar"
+                      src={avatarUrl}
+                      alt=""
+                      draggable={false}
+                      loading="eager"
+                    />
+                  )}
                 </span>
                 <span className="flow-node-pill">
                   <span className="flow-node-dot" aria-hidden="true" />
