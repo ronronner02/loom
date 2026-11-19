@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { execFileSync } from "node:child_process";
 import {
-  cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync,
+  cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -296,16 +296,29 @@ describe("repointWorktreeLinks — a worktree whose repository moved", () => {
       cpSync(legacyRoot, dataRoot, { recursive: true });
       rmSync(legacyRoot, { recursive: true, force: true });
       const newWorktree = join(dataRoot, "engine", "wt", "run-1");
-      const posix = (value: string) => value.split("\\").join("/");
-      expect(gitRead(join(newWorktree, ".git"))).toContain(posix(join(legacyRoot, "projects", "moved")));
+      // Git names the admin entry after the worktree's own directory, so the moved entry is
+      // `worktrees/run-1` whichever base the worktree sits under.
+      // A runner whose TEMP is an 8.3 short path spells the same directory two ways; both sides
+      // of every comparison are canonicalized, so the link is compared canonically too.
+      // A runner whose TEMP is an 8.3 short path spells the same directory two ways; where both
+      // sides exist, the comparison asks the OS so the spellings cannot decide it.
+      const canonical = (value: string) => realpathSync.native(value).toLowerCase();
+      const pointerOf = (worktree: string) => gitRead(join(worktree, ".git")).replace(/^gitdir:\s*/, "").trim();
+      // Before the move the pointer names an admin entry inside the old root, which the move has
+      // just removed; its spelling is what is checked.
+      expect(pointerOf(newWorktree).split("\\").join("/").toLowerCase())
+        .toContain(join(legacyRoot, "projects", "moved", ".git", "worktrees", "run-1").split("\\").join("/").toLowerCase());
 
       const repointed = repointWorktreeLinks(dataRoot, legacyRoot, dataRoot);
       expect(repointed).toBeGreaterThanOrEqual(1);
-      // Git can enter the moved worktree again, which it cannot while either link is stale.
+      // The pointer now names the admin entry under the moved repository, and git enters the
+      // worktree again — which it cannot while either link is stale.
+      expect(canonical(pointerOf(newWorktree)))
+        .toBe(canonical(join(dataRoot, "projects", "moved", ".git", "worktrees", "run-1")));
       expect(git(newWorktree, "rev-parse", "--show-toplevel")).toContain("run-1");
-      // The worktree of the repository that stayed put still names that repository.
-      const keptLink = gitRead(join(dataRoot, "engine", "wt", "run-2", ".git"));
-      expect(keptLink).toContain(posix(join(root, "kept")));
+      // The worktree of the repository that stayed put still names that repository, unchanged.
+      expect(canonical(pointerOf(join(dataRoot, "engine", "wt", "run-2"))))
+        .toBe(canonical(join(root, "kept", ".git", "worktrees", "run-2")));
     } finally { cleanup(); }
   });
 });

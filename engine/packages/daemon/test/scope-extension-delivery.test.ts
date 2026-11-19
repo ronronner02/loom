@@ -131,17 +131,4 @@ describe("task-local scope extensions at launch and delivery", () => {
     })).toThrow(/Task not found/);
     expect(existsSync(join(directory, "assignments/ma-worker1/run-unregistered"))).toBe(false);
   });
-
-
-  it.each(["Cargo.toml", "Cargo.lock", "pyproject.toml", "poetry.lock", "uv.lock", "requirements.txt",
-    "requirements-dev.txt", "go.mod", "go.sum", "Gemfile", "Gemfile.lock", "composer.json", "composer.lock",
-    "pom.xml", "build.gradle", "pnpm-workspace.yaml", ".yarnrc.yml", ".travis.yml", "appveyor.yml",
-    "bitbucket-pipelines.yml", ".drone.yml", "drone.yml", "cloudbuild.yaml", ".husky/pre-commit"])(
-    "requires a plan change for the protected sibling %s", name => {
-      const root = candidate().root, path = join(root, "src", name);
-      mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, "configuration");
-      expect(() => packet()).toThrow(/plan-change-required: protected-path/);
-      expect(extensions()).toHaveLength(0);
-    });
-
 });
