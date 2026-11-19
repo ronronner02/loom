@@ -183,6 +183,7 @@ function mkdirp(directory: string): void {
  * Rename the database and each sibling SQLite keeps beside it.
  *
  * The file may sit directly in the data root or in `engine/`, depending on which host wrote it.
+ * Both places are tried, and the child is spelled the way the check itself must open it.
  */
 export function renameLegacyDatabase(dataRoot: string): void {
   for (const directory of [dataRoot, join(dataRoot, "engine")]) {
@@ -289,10 +290,19 @@ export function rewritePath(value: string, legacyRoot: string, dataRoot: string)
   return join(dataRoot, ...tail.split(/[\\/]+/).filter(Boolean));
 }
 
+/**
+ * A path's canonical spelling, lowercased, with forward slashes.
+ *
+ * Both sides of every comparison are canonicalized, so a spelling that names one directory twice
+ * — the 8.3 short form and the long form on Windows — cannot make them look like two.
+ */
 function normalize(value: string): string {
   const trimmed = value.trim();
   let canonical = trimmed;
-  try { canonical = realpathSync(trimmed); } catch { /* the target may be gone; its spelling still counts */ }
+  // `realpathSync.native` asks the OS; the JavaScript resolver leaves an 8.3 short segment as it
+  // is. A machine whose TEMP or home is a short path would otherwise compare a short spelling
+  // against a long one and call one directory two.
+  try { canonical = realpathSync.native(trimmed); } catch { /* the target may be gone; its spelling still counts */ }
   return canonical.replace(/[\\/]+$/, "").replace(/\\/g, "/").replace(/[A-Z]/g, character => character.toLowerCase());
 }
 
