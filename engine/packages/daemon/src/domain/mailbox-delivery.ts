@@ -73,10 +73,9 @@ export type NativeChannelClient = "claude-code" | "codex";
 export type NativeChannelMechanism = "post-tool-use-hook";
 
 /**
- * adoption, recorded by the spike (docs/validation/native-channel-spike.md).
- * Only these pinned builds deliver through a structured channel; any other build
- * stays on polling. Codex app-server `turn/steer` is not adopted: it records
- * peer text as a user message.
+ * The pinned builds that were measured to deliver through a structured channel; any other
+ * build stays on polling. Codex app-server `turn/steer` is not adopted: it records peer text as
+ * a user message.
  */
 export const NATIVE_CHANNEL_ADOPTION: Readonly<Record<NativeChannelClient, Readonly<Record<string, NativeChannelMechanism>>>> = {
   "claude-code": { "2.1.296": "post-tool-use-hook" },

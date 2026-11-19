@@ -14,7 +14,9 @@ import { leadProtocol, LEAD_PROTOCOL_VERSION } from "../src/integrations/framewo
 // fixture for the owner-granted live check. Nothing here calls a provider.
 
 const repo = (path: string) => new URL(`../../../../${path}`, import.meta.url);
-const plan = readFileSync(repo("docs/plans/2026-10-13-001-feat-multi-agent-team-plan.md"), "utf8");
+// The decisions the planted-defect fixtures cite, kept beside them so this case does not read a
+// plan the repository no longer tracks.
+const decisions = readFileSync(new URL("./fixtures/role-charters/decisions.md", import.meta.url), "utf8");
 const roles = Object.keys(roleConfiguration) as TeamRole[];
 
 describe("role charters", () => {
@@ -140,7 +142,7 @@ describe("planted-defect fixtures", () => {
     expect(fixture.expected.length).toBeGreaterThan(0);
     for (const citation of [...fixture.brief.cited, ...fixture.expected.map(e => e.citation)]) {
       expect(citation).toMatch(/^(KTD|R)\d+$/);
-      expect(plan).toMatch(new RegExp(`^- ${citation}\\. `, "m"));
+      expect(decisions).toMatch(new RegExp(`^- ${citation}\\. `, "m"));
     }
     for (const expected of fixture.expected) {
       if (fixture.role === "reviewer") {

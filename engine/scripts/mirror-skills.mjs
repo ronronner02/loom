@@ -23,7 +23,7 @@ import {
 
 // Mirror canonical skills from packages/daemon/specs/agents/shared/skills/
 // to <repo-root>/skills/_canonical/. Hand-authored files at <repo-root>/skills/
-// (README, CHANGELOG, LICENSE, plugin manifests) live alongside _canonical/
+// (README, LICENSE, plugin manifests) live alongside _canonical/
 // and are NEVER touched by the mirror — strict-ownership lets us add new
 // top-level files without coupling the script to the destination shape.
 

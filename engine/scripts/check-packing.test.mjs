@@ -80,9 +80,11 @@ test("the private product-factory VPS runbook and its pointers do not ship", () 
     `${privateRunbook} is private operator canon and must not ship in the public repo or package`,
   );
 
+  // Every public surface a reader or an agent actually reaches is scanned: the packaged
+  // component doc, the repository changelog and the plugin skill that ships it.
   const publicPointerSources = [
-    "CHANGELOG.md",
-    "docs/as-built/cli-reference.md",
+    "README.md",
+    "../CHANGELOG.md",
     "packages/daemon/assets/plugins/loom-core/skills/agent-operated-software/SKILL.md",
   ];
   for (const source of publicPointerSources) {

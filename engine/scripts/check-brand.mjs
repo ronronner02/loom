@@ -16,12 +16,9 @@ const legacyNames = new RegExp([
   ["open", "rig"].join(""),
   ["rig", "ged"].join(""),
 ].join("|"), "i");
-// History: plans, validation records, amendments, task notes, and the as-built/release record of
-// what the product was at the time. These describe past states and are never rewritten.
-const historicalRoots = [
-  "docs/plans/", "docs/validation/", "docs/amendments/", "docs/tasks/",
-  "engine/docs/as-built/", "engine/docs/releases/",
-];
+// Changelogs, licenses and notices name the product as it was when the entry was written; a
+// historical name in one of them is a record, not a regression.
+
 // Explicit third-party skill files whose source provenance is preserved verbatim.
 const vendoredSkillAllowlist = new Set([
   "engine/packages/daemon/specs/agents/shared/skills/process/agent-browser/SKILL.md",
@@ -61,9 +58,7 @@ const migrationAllowlist = new Set([
   // A browser-access test names a host header it must refuse.
   "engine/packages/daemon/test/browser-boundary.test.ts",
   "companions/loom/scripts/configure-local.py",
-  // These name the historical plan and task files, which keep the names they were written under.
-  "docs/design/t015-tui-design.md",
-  "engine/packages/daemon/test/role-charter.test.ts",
+  // This names a fixture directory path of its own, not an installed product.
   "engine/packages/daemon/test/team-assignment.test.ts",
 ]);
 
@@ -74,8 +69,7 @@ export function scanBrand(root) {
     { cwd: root, encoding: "utf8" }).split("\0").filter(Boolean);
   const findings = [];
   for (const file of new Set([...tracked, ...added])) {
-    if (historicalRoots.some(prefix => file.startsWith(prefix))
-      || /changelog/i.test(basename(file)) || /^(LICENSE|NOTICE)(\..*)?$/i.test(basename(file))
+    if (/changelog/i.test(basename(file)) || /^(LICENSE|NOTICE)(\..*)?$/i.test(basename(file))
       || vendoredSkillAllowlist.has(file) || migrationAllowlist.has(file)) continue;
     // A compiled or vendored archive is not source; it is regenerated from source that is scanned.
     if (/\.(base64|snap)$/.test(file) || file.includes("/node_modules/")) continue;
