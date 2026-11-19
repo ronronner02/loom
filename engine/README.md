@@ -19,7 +19,8 @@ Mutable state defaults to `%LOCALAPPDATA%\Loom` on Windows; configuration
 uses `%APPDATA%\Loom`. Other platforms use `~/.loom` for both.
 `LOOM_HOME` overrides both roots. A fresh engine creates `loom.sqlite`.
 The desktop uses its own data root's `engine` subdirectory as the engine home.
-Existing data from previous product names is never discovered or migrated.
+An installation from the product's former name is moved into these roots on first
+start; nothing is merged, and an existing Loom root always wins.
 
 See the [project quick start](../README.md), [operations](../docs/operations.md), and
 [desktop instructions](../desktop/README.md) for first run, dependency detection,

@@ -92,7 +92,7 @@ describe("target-name rule", () => {
     const g = guarded({ discoverSelfNames: async () => [`${SELF}.`] });
     await new Promise((r) => setTimeout(r, 10));
     expect((await g.send({ host: `${SELF}:7433` })).status).toBe(200);
-    expect((await g.send({ host: "MULTI-AGENT-VM:7433" })).status).toBe(200);
+    expect((await g.send({ host: "LOOM-VM:7433" })).status).toBe(200);
     expect((await g.send({ host: "other-vm:7433" })).status).toBe(403);
   });
 
