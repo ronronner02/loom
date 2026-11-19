@@ -75,6 +75,20 @@ if (process.env["LOOM_E2E_REAL_CODEX"] !== "1") {
   const userHome = `${fixtureHome}-user-home`;
   fs.mkdirSync(userHome, { recursive: true });
   process.env["HOME"] = userHome;
+  // Node resolves `os.homedir()` from USERPROFILE before HOME on Windows. A Windows seat that
+  // sets USERPROFILE therefore kept a real home in view, and the compaction scripts' discovery
+  // (`os.homedir()/.claude/projects`) read the developer's own live transcripts — one hook test
+  // then found a transcript where it required none, on a developer machine only. The Windows
+  // runner sets no USERPROFILE, which is why the same test passed there and the leak went unseen.
+  //
+  // The locator is redirected too, not just the profile: Windows' state root is
+  // `LOCALAPPDATA/Loom`, so leaving LOCALAPPDATA pointing at the real profile would keep the live
+  // installation in view on the very platform this closes. The value keeps the layout the
+  // fallback produces (`<home>/AppData/Local`), so a test that compares the fallback path with
+  // `homedir()` still compares the same shape.
+  process.env["USERPROFILE"] = userHome;
+  process.env["LOCALAPPDATA"] = path.join(userHome, "AppData", "Local");
+  process.env["APPDATA"] = path.join(userHome, "AppData", "Roaming");
   delete process.env["CODEX_HOME"];
   for (const [key, suffix] of Object.entries({
     XDG_CONFIG_HOME: ".config", XDG_STATE_HOME: ".local/state",
