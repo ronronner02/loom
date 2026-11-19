@@ -31,3 +31,34 @@ desktop/.cache/
 
 # oil-ui design workspace: local process files, never part of a delivery
 .oil-ui/
+
+# A checkout installs its dependencies at the root as often as inside a package.
+/node_modules/
+.DS_Store
+Thumbs.db
+
+# Logs and local probe scripts never belong in a commit.
+*.log
+*.err
+*.out
+/tmp-*
+/_*.sh
+/_*.py
+/_*.ps1
+/_*.md
+
+# Local scratch folders that are not product paths.
+/output/
+/reference/
+/cache/
+
+# Host runtime mirrors: spec-first init writes these per machine and they are never shared.
+/.agents/
+/.claude/
+/.codex/
+/.opencode/
+/.pi/
+
+# Root docs are fully tracked, so a scratch note needs an explicit rule to stay out.
+/docs/scratch/
+/docs/notes/

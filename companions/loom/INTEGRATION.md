@@ -7,19 +7,20 @@ The desktop app and the optional companion are independent:
 - The desktop owns its local engine, projects, team runs, agent processes, and native approval flow.
 - The companion owns its separate task queue and expiring mobile reply forms. Its configured local runner executes in explicitly registered workspaces.
 - A phone can submit a task through the companion dashboard and answer that companion task's questions through a notification link.
-- Installing the desktop app does not start the companion, install server services, copy credentials, or enable an outbound connection to an operator's server.
+- Installing the desktop app does not start the companion, install server services, copy credentials, or enable an outbound connection to a user's server.
 
 Use a dedicated companion workspace. Do not give the companion runner and a desktop-managed team concurrent ownership of the same task or worktree. The companion does not currently resume an existing desktop run or forward a desktop approval to a phone.
 
 ## Connecting an existing private deployment
 
-An operator who already has a working companion should retain the existing server data, local runner configuration, credentials, and notification pairing. Publishing or upgrading the desktop package does not migrate that deployment or change its keys. Continue using the companion dashboard for its tasks and the desktop window for desktop teams.
+A user who already has a working companion should retain the existing server data, local runner configuration, credentials, and notification pairing. Publishing or upgrading the desktop package does not migrate that deployment or change its keys. Continue using the companion dashboard for its tasks and the desktop window for desktop teams.
 
-Do not rerun the initial installers against an existing deployment: they intentionally stop when their named resources already exist. Do not copy another operator's configuration or QR-login receipt. Keep server credentials on that server and model-provider credentials on the machine that executes the work.
+Do not rerun the initial installers against an existing deployment: they intentionally stop when their named resources already exist. Do not copy another user's configuration or QR-login receipt. Keep server credentials on that server and model-provider credentials on the machine that executes the work.
 
 ## Intended optional connection model
 
-Direct desktop integration is a separate implementation, not a configuration option in v0.1.1. The intended division of responsibility is:
+Direct desktop integration is a separate implementation, not a configuration option in the
+current release. The intended division of responsibility is:
 
 ```text
 Phone <-> Operator's HTTPS companion <-> Outbound desktop connector <-> Local team engine

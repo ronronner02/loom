@@ -29,7 +29,7 @@
 *.sqlite binary
 *.db binary
 
-# Shell scripts run inside WSL straight from this checkout; keep LF on Windows.
+# Shell scripts run from a Windows checkout too; keep LF on every host.
 *.sh text eol=lf
 # Skill trees are hashed byte-for-byte into skill-edge-digests.generated.json; keep LF across platforms.
 engine/skills/** text eol=lf

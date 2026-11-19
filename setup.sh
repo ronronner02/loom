@@ -14,7 +14,7 @@ die() {
   exit 1
 }
 
-command -v git >/dev/null || die "git is required. Install it with: sudo apt-get install git"
+command -v git >/dev/null || die "git is required. Install it from https://git-scm.com/downloads or your package manager."
 command -v node >/dev/null || die "Node.js 22 or 24 is required and none was found on PATH, in nvm, fnm, Volta or /usr/local/bin. Install it with nvm: nvm install 22"
 command -v npm >/dev/null || die "npm is required; it ships with Node.js."
 

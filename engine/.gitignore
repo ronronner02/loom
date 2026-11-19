@@ -1,15 +1,13 @@
 node_modules/
-node_modules
 dist/
 .DS_Store
 *.log
 
-# All docs are internal except as-built and reference
+# engine/docs/ is not a home for developer documentation: docs/reference/ ships with the package,
+# and check-docs-guard.mjs refuses any other tracked file there. Durable docs live at the
+# repository root or in docs/.
 docs/*
-!docs/as-built/
 !docs/reference/
-!docs/releases/
-!docs/releases/**
 
 notes/*
 
