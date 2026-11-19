@@ -137,13 +137,11 @@ export function repointWorktreeLinks(dataRoot: string, legacyRoot: string, targe
   for (const base of [join(dataRoot, "engine", "wt"), join(dataRoot, "engine", "state", "workers", "assignments")]) {
     for (const { file, pointer } of worktreePointers(base)) {
       const next = rewritePath(pointer, legacyRoot, targetRoot);
-      // `rewritePath` already decides membership by canonicalized comparison, so a short-spelled
-      // target under a long-spelled root is the moved repository. The written pointer is spelled
-      // canonically too: a machine whose TEMP is an 8.3 name must not hand git a spelling that
-      // changes when the directory is re-spelled.
-      if (next === null || !existsSync(canonicalOrSelf(next))) continue;
+      // The admin entry is written fresh: git records it mode 0444, and an in-place rewrite of a
+      // read-only link fails where a replace does not.
+      if (next === null || !existsSync(next)) continue;
       rmSync(file, { force: true });
-      writeFileSync(file, `gitdir: ${canonicalOrSelf(next)}\n`);
+      writeFileSync(file, `gitdir: ${next}\n`);
       repointed += 1;
     }
   }
@@ -184,9 +182,7 @@ function mkdirp(directory: string): void {
 /**
  * Rename the database and each sibling SQLite keeps beside it.
  *
- * The file may sit directly in the data root or in `engine/`, depending on which host wrote it, so
- * both places are tried. Each candidate child is spelled with this process's own separator: the
- * directory is real on this host, and a Windows-style join would name nothing here.
+ * The file may sit directly in the data root or in `engine/`, depending on which host wrote it.
  */
 export function renameLegacyDatabase(dataRoot: string): void {
   for (const directory of [dataRoot, join(dataRoot, "engine")]) {
@@ -293,26 +289,11 @@ export function rewritePath(value: string, legacyRoot: string, dataRoot: string)
   return join(dataRoot, ...tail.split(/[\\/]+/).filter(Boolean));
 }
 
-/**
- * A path's canonical spelling, lowercased, with forward slashes.
- *
- * Both sides of every comparison go through this, so an 8.3 short spelling of one directory is
- * that directory, not a second one.
- */
 function normalize(value: string): string {
   const trimmed = value.trim();
   let canonical = trimmed;
-  // `realpathSync.native` asks the OS, which is the only resolver that expands an 8.3 short
-  // segment; the JavaScript implementation leaves it alone. A machine whose TEMP or home is a
-  // short path would otherwise compare a short spelling against a long one and call one
-  // directory two.
-  try { canonical = realpathSync.native(trimmed); } catch { /* the target may be gone; its spelling still counts */ }
+  try { canonical = realpathSync(trimmed); } catch { /* the target may be gone; its spelling still counts */ }
   return canonical.replace(/[\\/]+$/, "").replace(/\\/g, "/").replace(/[A-Z]/g, character => character.toLowerCase());
-}
-
-/** A path's canonical spelling, or the path itself when nothing is at it. */
-function canonicalOrSelf(value: string): string {
-  try { return realpathSync.native(value); } catch { return value; }
 }
 
 function rollback(moved: Array<{ dataRoot: string; legacyRoot: string }>): void {
