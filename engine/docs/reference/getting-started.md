@@ -51,7 +51,7 @@ loom team create <path-to-repository>
 ```
 
 By default this registers a local repository with three manual seats — a lead, a set of
-implementers and a reviewer — each launched with `claude-code` or `codex`. Choose the
+implementers and a reviewer — each launched with `claude-code`, `codex` or `gemini`. Choose the
 clients with `--lead`, `--implementers` and `--reviewer`; `claude` is shorthand for
 `claude-code`.
 
