@@ -160,17 +160,18 @@ describe("command-center router integration", () => {
     expect(vi.mocked(fetch).mock.calls.some(([url, init]) => String(url).endsWith("/attachments") && init?.method === "POST")).toBe(false);
   });
 
-  it("gates the paired app before any project read when GitHub is signed out", async () => {
+  it("mounts the workspace for a signed-out owner and keeps GitHub out of the first screens", async () => {
     signedIn = false;
     const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ["/team/overview"] }), defaultPendingMinMs: 0 });
     await act(async () => { render(<RouterProvider router={router} />); await router.load(); });
+    // Pairing needs no account check, so none is made before the browser is paired.
     expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).includes("/github/"))).toBe(false);
     const pairing = await screen.findByLabelText("One-time pairing code");
     fireEvent.change(pairing, { target: { value: "fixture-pairing" } });
     fireEvent.submit(pairing.closest("form")!);
-    expect(await screen.findByRole("heading", { name: "Sign in to GitHub" })).toBeTruthy();
-    expect(screen.queryByRole("navigation", { name: "Loom" })).toBeNull();
-    expect(vi.mocked(fetch).mock.calls.some(([path]) => /\/(teams|runs)(?:\?|$)/.test(String(path)))).toBe(false);
+    expect(await screen.findByRole("navigation", { name: "Loom" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Sign in to GitHub" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Setup" })).toBeNull();
   });
 
   it("renders replay events in the Overview Flow sub-tab", async () => {
@@ -345,7 +346,7 @@ describe("command-center router integration", () => {
     await waitFor(() => expect(document.activeElement).toBe(opener));
   });
 
-  it.each([false, true])("retains the open conversation and route through a failed background account check without exposing gated controls (mobile: %s)", async mobileMode => {
+  it.each([false, true])("keeps the open conversation and route through a failed background account check (mobile: %s)", async mobileMode => {
     mobile = mobileMode;
     const router = await openShell();
     fireEvent.click(within(screen.getByRole("navigation", { name: "Loom" })).getByRole("link", { name: "Documents" }));
@@ -356,17 +357,32 @@ describe("command-center router integration", () => {
     fireEvent.change(field, { target: { value: "Retain the current requirements discussion" } });
     accountFailure = true;
     await act(async () => { await queryClient.invalidateQueries({ queryKey: ["team", "github", "status"] }); });
-    expect(await screen.findByRole("alert")).toBeTruthy();
-    expect(screen.queryByRole("dialog", { name: "Lead chat" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
-    expect(field.isConnected).toBe(true);
+    // The account belongs to project creation and to Settings > GitHub; the open conversation is
+    // none of its business, so a failed check neither closes it nor takes work out of reach.
+    expect(screen.getByRole("dialog", { name: "Lead chat" })).toBe(panel);
+    expect(within(panel).getByRole("textbox", { name: "Message" })).toBe(field);
+    expect(field).toHaveProperty("value", "Retain the current requirements discussion");
+    expect(within(panel).getByRole("button", { name: "Send" })).toHaveProperty("disabled", false);
+    expect(router.state.location.pathname).toBe("/team/documents");
+    expect(router.state.location.search.run).toBe(RUN_ID);
     accountFailure = false;
     await act(async () => { await queryClient.invalidateQueries({ queryKey: ["team", "github", "status"] }); });
     await waitFor(() => expect(screen.getByRole("dialog", { name: "Lead chat" })).toBe(panel));
-    expect(within(panel).getByRole("textbox", { name: "Message" })).toBe(field);
-    expect(field).toHaveProperty("value", "Retain the current requirements discussion");
-    expect(router.state.location.pathname).toBe("/team/documents");
-    expect(router.state.location.search.run).toBe(RUN_ID);
+  });
+
+  it("opens first-run setup from Settings and returns to the workspace on Continue", async () => {
+    const router = await openShell();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const settings = await screen.findByRole("dialog", { name: "Settings" });
+    fireEvent.click(within(settings).getByRole("button", { name: "Setup" }));
+    expect(await screen.findByRole("heading", { name: "Setup" })).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull();
+    const cont = screen.getByRole("button", { name: "Continue" });
+    await waitFor(() => expect(cont).toHaveProperty("disabled", false));
+    fireEvent.click(cont);
+    expect(await screen.findByRole("navigation", { name: "Loom" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Setup" })).toBeNull();
+    expect(router.state.location.pathname).toBe("/team/overview");
   });
 
   it("uses Ctrl K and Enter to navigate to the selected task", async () => {

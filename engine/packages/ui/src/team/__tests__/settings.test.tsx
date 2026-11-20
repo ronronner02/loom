@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createInterfaceI18n } from "@loom/i18n";
 import { I18nextProvider } from "react-i18next";
 import { SettingsScreen } from "../settings.js";
-import { GithubGate, githubStatusKey } from "../github-gate.js";
+import { githubStatusKey } from "../github-sign-in.js";
 import { seats } from "./fixtures.js";
 
 const request = vi.fn(), revoke = vi.fn(), onLanguage = vi.fn(), setPreference = vi.fn(), onSetup = vi.fn();
@@ -25,19 +25,22 @@ beforeEach(() => {
     if (path === "/github/status") return { signedIn: true, login: "fixture-owner", host: "github.com" };
     if (path === "/github/logout") return { signedIn: false, login: null, host: "github.com" };
     if (path === "/github/login") return { state: "idle" };
+    if (path === "/setup") return { tools: [
+      { client: "git", ok: true, path: "/bin/git" }, { client: "gh", ok: true, path: "/bin/gh" }, { client: "claude", ok: true, path: "/bin/claude" },
+      { client: "codex", ok: true, path: "/bin/codex" }, { client: "gemini", ok: true, path: "/bin/gemini" },
+    ], signIn: [], proxy: "", complete: false };
     throw new Error("Unexpected request: " + path);
   });
   cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => { cleanup(); cache.clear(); });
 
-async function show(locale: "en" | "zh-CN" = "en", gated = false, teamId?: string) {
+async function show(locale: "en" | "zh-CN" = "en", teamId?: string) {
   const language = await createInterfaceI18n({ language: locale });
-  const settings = <SettingsScreen language={language} onLanguage={onLanguage}
-      appearance={{ preference: "dark", theme: "dark", setPreference }}
-      address="http://127.0.0.1:7433" seats={seats} teamId={teamId} onSetup={onSetup} />;
   return render(<QueryClientProvider client={cache}><I18nextProvider i18n={language.instance}>
-    {gated ? <GithubGate frame={content => content}>{settings}</GithubGate> : settings}
+    <SettingsScreen language={language} onLanguage={onLanguage}
+      appearance={{ preference: "dark", theme: "dark", setPreference }}
+      address="http://127.0.0.1:7433" seats={seats} teamId={teamId} onSetup={onSetup} />
   </I18nextProvider></QueryClientProvider>);
 }
 
@@ -50,7 +53,7 @@ describe("command-center settings", () => {
       return { settings: { teamId: "fixture-team", kind: "project", configured: true,
         lead: { client: "codex", model: "chosen-lead" }, allowedSubagents: [], launches } };
     });
-    await show("en", false, "fixture-team");
+    await show("en", "fixture-team");
     const region = await screen.findByRole("region", { name: "Recent launch evidence" });
     expect(region.tabIndex).toBe(0);
     region.focus(); expect(document.activeElement).toBe(region);
@@ -68,7 +71,7 @@ describe("command-center settings", () => {
       if (init?.method === "PUT") saved = { ...saved, ...JSON.parse(String(init.body)), configured: true };
       return { settings: saved };
     });
-    await show("en", false, "fixture-team");
+    await show("en", "fixture-team");
     fireEvent.change(await screen.findByLabelText("Lead client"), { target: { value: "codex" } });
     fireEvent.change(screen.getByLabelText("Lead model"), { target: { value: "chosen-lead" } });
     fireEvent.click(screen.getByRole("button", { name: "Add allowed model" }));
@@ -93,16 +96,32 @@ describe("command-center settings", () => {
     expect(onLanguage).toHaveBeenCalledWith("zh-CN");
   });
 
-  it("shows the account and publishes a successful sign-out to the gate", async () => {
+  it("shows the account and publishes a successful sign-out", async () => {
     await show(); fireEvent.click(screen.getByRole("button", { name: "GitHub" }));
     expect(await screen.findByText("fixture-owner")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(cache.getQueryData(["team", "github", "status"])).toMatchObject({ signedIn: false }));
     expect(request).toHaveBeenCalledWith("/github/logout", { method: "POST" });
+    // Signed out, the same section offers the sign-in that will be needed to create a project.
+    expect(await screen.findByRole("button", { name: "Sign in to GitHub" })).toBeTruthy();
+  });
+
+  it("signs in with the device flow from the GitHub section", async () => {
+    request.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path === "/github/status") return { signedIn: false, login: null, host: "github.com" };
+      if (path === "/github/login" && init?.method === "POST") return { state: "pending", code: "ABCD-1234", url: "https://github.com/login/device" };
+      if (path === "/github/login") return { state: "idle" };
+      throw new Error("Unexpected request: " + path);
+    });
+    await show(); fireEvent.click(screen.getByRole("button", { name: "GitHub" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Sign in to GitHub" }));
+    expect((await screen.findByText("ABCD-1234")).textContent).toBe("ABCD-1234");
+    expect(screen.getByRole("link", { name: "Open GitHub" }).getAttribute("href")).toBe("https://github.com/login/device");
+    expect(request).toHaveBeenCalledWith("/github/login", { method: "POST" });
   });
 
   it("keeps the app signed out when a pre-logout account read finishes late", async () => {
-    await show("en", true);
+    await show();
     fireEvent.click(await screen.findByRole("button", { name: "GitHub" }));
     expect(await screen.findByText("fixture-owner")).toBeTruthy();
     await waitFor(() => expect(cache.getQueryState(githubStatusKey)?.fetchStatus).toBe("idle"));
@@ -116,7 +135,6 @@ describe("command-center settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     expect(await screen.findByRole("button", { name: "Sign in to GitHub" })).toBeTruthy();
     await act(async () => { finish({ signedIn: true, login: "fixture-owner", host: "github.com" }); await pending; });
-    expect(screen.queryByRole("heading", { name: "Settings" })).toBeNull();
     expect(cache.getQueryData(githubStatusKey)).toMatchObject({ signedIn: false });
     expect(signal.aborted).toBe(true);
   });

@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createInterfaceI18n } from "@loom/i18n";
 import { I18nextProvider } from "react-i18next";
 import { SetupScreen } from "../setup.js";
-import { EntryFrame } from "../github-gate.js";
+import { EntryFrame } from "../entry.js";
 
 const request = vi.fn(), onLanguage = vi.fn(), onContinue = vi.fn(), setPreference = vi.fn();
 vi.mock("../../hooks/useOwnerSession.js", async importOriginal => ({
@@ -138,12 +138,11 @@ describe("first-run setup", () => {
     expect(field.value).toBe("socks5://proxy.test:1080");
   });
 
-  it("records completion and continues to GitHub", async () => {
+  it("continues to the workspace without a save, since the read already decided setup", async () => {
     await show();
-    fireEvent.click(await screen.findByRole("button", { name: "Continue to GitHub" }));
-    await waitFor(() => expect(request).toHaveBeenCalledWith("/setup", expect.objectContaining({ method: "PUT",
-      body: JSON.stringify({ complete: true }) })));
-    await waitFor(() => expect(onContinue).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole("button", { name: "Continue" }));
+    expect(onContinue).toHaveBeenCalledOnce();
+    expect(request.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
   });
 
   it("localizes every setup block", async () => {
@@ -153,20 +152,14 @@ describe("first-run setup", () => {
   });
 });
 
-describe("settings before GitHub sign-in", () => {
-  it("opens from the entry frame and states the account as signed out", async () => {
+describe("settings before a project exists", () => {
+  it("opens from the entry frame", async () => {
     const language = await createInterfaceI18n({ language: "en" });
-    request.mockImplementation(async (path: string) => {
-      if (path === "/setup") return state;
-      if (path === "/github/status") return { signedIn: false, login: null, host: "github.com" };
-      if (path === "/settings") return { settings: { "team.leadClient": { value: "claude-code", source: "default" } } };
-      throw new Error("Unexpected request: " + path);
-    });
     render(<QueryClientProvider client={cache}><I18nextProvider i18n={language.instance}>
       <EntryFrame language={language} onLanguage={onLanguage} appearance={{ preference: "dark", theme: "dark", setPreference: () => {} }}
-        onSettings={() => {}}><p>Gate</p></EntryFrame>
+        onSettings={() => {}}><p>Content</p></EntryFrame>
     </I18nextProvider></QueryClientProvider>);
-    // The entry frame carries the way into Settings before any account check.
+    // The entry frame carries the way into Settings with no account and no project.
     expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
   });
 });
