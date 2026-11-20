@@ -11,7 +11,7 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import type { InterfaceI18n } from "@loom/i18n";
 import { useOwnerSession } from "../hooks/useOwnerSession.js";
 import { TEAM_THEME_PREFERENCES, type useThemePreference } from "./theme.js";
-import { githubStatusKey, useGithubStatus, type GithubStatus } from "./github-gate.js";
+import { GithubSignIn, githubStatusKey, useGithubStatus, type GithubStatus } from "./github-sign-in.js";
 import { clientLabel } from "./display.js";
 import type { TeamSeatSummary } from "./hooks.js";
 
@@ -63,6 +63,7 @@ function GithubAccount() {
     <h2>{t("settings.section.github")}</h2>
     {status.isError ? <p role="alert">{t("github.statusFailed")}</p>
       : <p className="ui-account"><strong>{status.data?.login ?? "—"}</strong><span className="muted">{status.data?.host}</span></p>}
+    <GithubSignIn />
     <button className="btn btn-outline" disabled={busy || !status.data?.signedIn} onClick={async () => {
       setBusy(true); setFailed(false);
       try {
