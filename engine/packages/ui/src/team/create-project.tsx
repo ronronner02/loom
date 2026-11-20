@@ -6,6 +6,7 @@ import type { MessageKey } from "@loom/i18n";
 import { OwnerReadError, useOwnerSession } from "../hooks/useOwnerSession.js";
 import { FolderBrowser } from "./folder-browser.js";
 import { latestRunFor, teamsKey, type TeamSummary, type RunSummary } from "./hooks.js";
+import { GithubSignIn } from "./github-sign-in.js";
 import { clientLabel } from "./display.js";
 
 interface Preview { repository: string; name: string; action: "create" | "push" | "register" | "open"; fileCount: number; excludedPaths: string[] }
@@ -90,12 +91,15 @@ export function CreateProject({ open, mode = "create", onOpenChange, onCreated, 
             <p className="consequence">{t(preview.action === "open" ? "projects.openConsequence" : preview.action === "register" ? "projects.registerConsequence"
               : preview.action === "push" ? "projects.pushConsequence" : "projects.createConsequence", { name: preview.name })}</p>
           </section>}
-          {failure && <p role="alert">{t(ERRORS[failure] ?? (mode === "open" ? "projects.openFailed" : "projects.createFailed"))}</p>}
+          {failure && failure !== "github_not_signed_in" && <p role="alert">{t(ERRORS[failure] ?? (mode === "open" ? "projects.openFailed" : "projects.createFailed"))}</p>}
           {oversized.length > 0 && <div><h3>{t("projects.oversized")}</h3>
             <ul>{oversized.map(path => <li key={path}><code>{path}</code></li>)}</ul></div>}
           <div className="plate-foot"><button className="btn btn-primary" type="submit" disabled={busy || !repository.trim() || (mode === "create" && !name.trim())}>
             {t(busy ? "web.loading" : !preview ? "projects.reviewFiles" : failure === "github_push_failed" ? "projects.retry" : mode === "open" ? "projects.open" : "projects.submit")}
           </button></div>
+          {/* A project is created on GitHub with the owner's account, so the dialog offers the
+              sign-in where the refusal would otherwise leave the owner with nothing to do. */}
+          <GithubSignIn refused={failure === "github_not_signed_in"} />
         </form>}
   </Sheet>;
 }
