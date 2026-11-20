@@ -203,6 +203,18 @@ describe("project creation", () => {
     // The refusal is answered by the control, not by an error line that offers nothing to do.
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  it("hides the inline sign-in once the sign-in it started finishes", async () => {
+    failure = "github_not_signed_in"; await show(); await preview();
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Sign in to GitHub" }));
+    await screen.findByText("ABCD-1234");
+    const pending = request.getMockImplementation()!;
+    request.mockImplementation(async (path: string, init?: RequestInit) =>
+      path === "/github/login" && !init?.method ? { state: "done" } : pending(path, init));
+    await waitFor(() => expect(screen.queryByText("ABCD-1234")).toBeNull(), { timeout: 4_000 });
+    expect(screen.queryByRole("button", { name: "Sign in to GitHub" })).toBeNull();
+  });
 });
 
 

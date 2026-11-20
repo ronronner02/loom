@@ -113,15 +113,13 @@ function SignIn() {
 /** First-run setup: the tools a team needs, and the proxy that reaches them. */
 export function SetupScreen({ onContinue }: { onContinue: () => void }) {
   const { t } = useTranslation();
-  const setup = useSetup();
   return <div className="page page-narrow ui-setup">
     <section className="plate" aria-label={t("setup.title")}>
       <h1 className="display">{t("setup.title")}</h1>
       <NetworkProxy />
       <Tools />
       <SignIn />
-      <div className="plate-foot"><button className="btn btn-primary" disabled={!setup.data}
-        onClick={onContinue}>{t("setup.continue")}</button></div>
+      <div className="plate-foot"><button className="btn btn-primary" onClick={onContinue}>{t("setup.continue")}</button></div>
     </section>
   </div>;
 }

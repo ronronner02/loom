@@ -29,7 +29,9 @@ export function GithubSignIn({ refused = false }: { refused?: boolean }) {
   const { request } = useOwnerSession();
   const cache = useQueryClient();
   const status = useGithubStatus();
-  const signedOut = status.data?.signedIn === false || refused;
+  // The flow's own "done" answers an earlier refusal, so a finished sign-in hides the control.
+  const done = cache.getQueryData<LoginState>(loginKey)?.state === "done";
+  const signedOut = status.data?.signedIn === false || (refused && !done);
   const flow = useQuery({ queryKey: loginKey, retry: false, enabled: signedOut,
     queryFn: ({ signal }) => request<LoginState>("/github/login", { signal }),
     refetchInterval: query => query.state.data?.state === "pending" ? 1_500 : false });

@@ -61,8 +61,8 @@ function GithubAccount() {
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
   return <section className="plate ui-settings-panel" aria-label={t("settings.section.github")}>
     <h2>{t("settings.section.github")}</h2>
-    {status.isError ? <p role="alert">{t("github.statusFailed")}</p>
-      : <p className="ui-account"><strong>{status.data?.login ?? "—"}</strong><span className="muted">{status.data?.host}</span></p>}
+    {/* A failed read is the sign-in control's to state, with its retry. */}
+    {!status.isError && <p className="ui-account"><strong>{status.data?.login ?? "—"}</strong><span className="muted">{status.data?.host}</span></p>}
     <GithubSignIn />
     <button className="btn btn-outline" disabled={busy || !status.data?.signedIn} onClick={async () => {
       setBusy(true); setFailed(false);
