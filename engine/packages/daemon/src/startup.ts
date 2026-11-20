@@ -7,6 +7,7 @@ import type { Hono } from "hono";
 import type Database from "better-sqlite3";
 import { openDatabase } from "./db/connection.js";
 import { RigRepository } from "./domain/rig-repository.js";
+import { OwnerSessions } from "./domain/owner-session.js";
 import { SessionRegistry } from "./domain/session-registry.js";
 import { deriveCanonicalSessionName, isHumanSeatSessionRef, parseSessionName } from "./domain/session-name.js";
 import { resolveExternal } from "./domain/queue-routing/external-admission.js";
@@ -919,6 +920,8 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     readSeatMailboxCapability,
     mailboxDelivery,
     github, githubAgent,
+    // The parent-port mint reads this from `deps`, so it must be the store the exchange route uses.
+    ownerSessions: new OwnerSessions(db),
     rigRepo, db, daemonLifecycleStore, daemonBootEpoch, eventBus,
     workflowRuntime,
     workerLauncher: launcher,
