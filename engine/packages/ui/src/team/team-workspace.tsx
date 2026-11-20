@@ -18,11 +18,9 @@ import { NewWorkSheet } from "./new-task.js";
 import { ChatPanel } from "./chat-panel.js";
 import type { useThemePreference } from "./theme.js";
 
-export function TeamWorkspaceScreen({ language, onLanguage, appearance, onSetup }: {
+export function TeamWorkspaceScreen({ language, onLanguage, appearance }: {
   language: InterfaceI18n; onLanguage: (next: "zh-CN" | "en") => void;
   appearance: ReturnType<typeof useThemePreference>;
-  /** Opens first-run setup, which the screen can leave again once the owner continues. */
-  onSetup: () => void;
 }) {
   const { t } = useTranslation();
   const { paired } = useOwnerSession();
@@ -138,7 +136,8 @@ export function TeamWorkspaceScreen({ language, onLanguage, appearance, onSetup 
       props={{
         seats: workspace.read?.seats ?? workspace.team?.seats ?? [],
         address: window.location.origin,
-        onSetup: () => setSetupOpen(true),
+        // Setup is its own screen; leaving Settings open would put it back after Continue.
+        onSetup: () => { setSetupOpen(true); setSettingsOpen(false); },
         teamId: workspace.team?.seats.some(seat => seat.role === "lead") ? workspace.team.id : undefined,
       }} />
   </ShellFrame>;

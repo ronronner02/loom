@@ -110,30 +110,18 @@ function SignIn() {
   </section>;
 }
 
-/** First-run setup, before the GitHub sign-in it leads to. */
+/** First-run setup: the tools a team needs, and the proxy that reaches them. */
 export function SetupScreen({ onContinue }: { onContinue: () => void }) {
   const { t } = useTranslation();
-  const { request } = useOwnerSession();
-  const cache = useQueryClient();
   const setup = useSetup();
-  const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
-  const complete = async () => {
-    setBusy(true); setFailed(false);
-    try {
-      cache.setQueryData(setupKey, await request<SetupState>("/setup", {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ complete: true }) }));
-      onContinue();
-    } catch { setFailed(true); } finally { setBusy(false); }
-  };
   return <div className="page page-narrow ui-setup">
     <section className="plate" aria-label={t("setup.title")}>
       <h1 className="display">{t("setup.title")}</h1>
       <NetworkProxy />
       <Tools />
       <SignIn />
-      <div className="plate-foot"><button className="btn btn-primary" disabled={busy || !setup.data}
-        onClick={() => void complete()}>{t("setup.continue")}</button></div>
-      {failed && <p role="alert">{t("setup.saveFailed")}</p>}
+      <div className="plate-foot"><button className="btn btn-primary" disabled={!setup.data}
+        onClick={onContinue}>{t("setup.continue")}</button></div>
     </section>
   </div>;
 }

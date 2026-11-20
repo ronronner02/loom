@@ -49,16 +49,17 @@ release source and published checksum before running an installer.
 
 ## First run
 
-The setup screen appears before the GitHub gate, because a network that blocks GitHub also
-blocks sign-in, and the proxy that fixes it lives here.
+The workspace opens directly when every tool is present. Setup appears only when one is missing,
+and **Settings → Setup** reopens it; it is also where the proxy lives, because a network that
+blocks GitHub blocks sign-in itself.
 
 - **Tools** — Git, GitHub CLI, Claude Code, Codex and Gemini each show as found (with the
   resolved path) or missing (with the one install line that fixes it).
 - **Agent sign-in** — whether an installed client already has a signed-in account.
 - **Proxy** — one value that covers GitHub operations and every agent CLI; empty means no proxy.
 
-Then choose **Sign in to GitHub**, approve the one-time code, and create your first project:
-select a folder, review the files that would be uploaded, and confirm. A new folder becomes a
+Create your first project — sign in to GitHub when asked, in the dialog itself: select a folder,
+review the files that would be uploaded, and confirm. A new folder becomes a
 private GitHub repository with its initial commit pushed. An existing `origin` is registered
 without a push or a visibility change.
 

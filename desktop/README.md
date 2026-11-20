@@ -41,9 +41,9 @@ Install and sign in to the clients you want to use. The lead and workers launch 
 `claude.exe`, `codex.exe` or `gemini` on this machine. A new project folder does not need git
 history or a plan file.
 
-1. On first open, choose **Sign in to GitHub**, then **Open GitHub**. Approve the
-   displayed one-time code on GitHub. The app opens the project view after verifying
-   the account.
+1. The workspace opens on first launch when the tools are present; **Create project** asks for
+   GitHub, so sign in there (or in **Settings → GitHub**) and choose **Open GitHub** to approve
+   the one-time code when GitHub needs an account.
 2. Choose **Create project**, use **Browse…** to select a folder, and enter a project name.
    Choose **Review files**, check the resolved path, exclusions and upload consequence,
    then **Create**. A new folder becomes a private GitHub repository with its initial
@@ -64,9 +64,9 @@ history or a plan file.
 
 **Settings** contains General, GitHub, Appearance, Sessions and Agents. General selects
 what client future project leads use; Agents displays the roster rather than editing it.
-GitHub sign-out and revoking this browser session are different actions: sign-out
-returns to the GitHub gate; revocation leaves the desktop disconnected until you
-choose **Reconnect**. In a standalone browser, revocation requires a new pairing code,
+GitHub sign-out and revoking this browser session are different actions: sign-out leaves the
+workspace open and offers the sign-in again in Settings; revocation leaves the desktop
+disconnected until you choose **Reconnect**. In a standalone browser, revocation requires a new pairing code,
 which **Engine → Open in browser** shows and copies. Revoking the owner session does
 not sign GitHub out or stop the team.
 
