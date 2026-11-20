@@ -77,7 +77,9 @@ value before launching any worker. From a source checkout, `./setup.sh` creates 
 
 ## 3. First run
 
-The packaged app opens on a setup screen before the GitHub gate. It shows:
+The packaged app opens on the workspace when every tool it needs is present. Setup appears only
+when one is missing, and its **Continue** opens the workspace once the tools are in place. It
+shows:
 
 - **Tools** — Git, GitHub CLI, Claude Code, Codex and Gemini, found (with the resolved path) or
   missing (with the one install line that fixes it).
@@ -87,17 +89,18 @@ The packaged app opens on a setup screen before the GitHub gate. It shows:
   and applies it to the next call; saving is the whole action, and emptying the field removes the
   proxy.
 
-Completion is stored in settings and remembered by the browser, so a later launch skips it.
-Settings and the GitHub gate's own link reopen it.
+A launch whose tools are all found records completion in the browser, so later launches open the
+workspace without the screen. **Settings → Setup** reopens it at any time.
 
-The setup screen precedes the GitHub check because a network that blocks GitHub blocks sign-in
-itself, and the proxy that fixes it lives on that screen.
+Setup does not wait for GitHub: a network that blocks GitHub blocks sign-in itself, and the proxy
+that fixes it lives on that screen.
 
 ## 4. Sign in to GitHub
 
-Choose **Sign in to GitHub → Open GitHub**. Enter the displayed device code on GitHub and approve
-the flow; the app checks the account before mounting the project and run views. If the code
-expires, choose **Try again**.
+GitHub is needed to create a project and to merge as a pull request, not to open the app. Sign in
+where it is needed: **Settings → GitHub → Sign in to GitHub**, or the same control in Create
+project once it is open. Choose **Open GitHub**, enter the displayed device code and approve the
+flow; if the code expires, choose **Try again**.
 
 ```sh
 loom github status [--json]
@@ -108,8 +111,8 @@ The daemon uses GitHub CLI's own credential store and deliberately ignores inher
 and `GITHUB_TOKEN` values, so an environment variable cannot override the account or defeat
 sign-out. It does not install a global git credential helper.
 
-**Settings → GitHub → Sign out** signs the active account out of that store and returns to the
-sign-in gate; other processes using the same store see the change. **Settings → Sessions → Revoke
+**Settings → GitHub → Sign out** signs the active account out of that store; the same section
+then offers **Sign in to GitHub** again, and other processes using the same store see the change. **Settings → Sessions → Revoke
 this browser** revokes only the current owner session: a standalone browser must pair again, and
 the desktop stays disconnected until **Reconnect**. It does not sign GitHub out or stop the team.
 

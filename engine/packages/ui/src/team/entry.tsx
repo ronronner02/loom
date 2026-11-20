@@ -1,13 +1,11 @@
-import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { createInterfaceI18n, type InterfaceI18n } from "@loom/i18n";
 import { I18nextProvider } from "react-i18next";
 import { OwnerSessionProvider, useOwnerSession } from "../hooks/useOwnerSession.js";
-import { EntryFrame, GithubGate } from "./github-gate.js";
-import { SetupScreen, type SetupState } from "./setup.js";
+import { SetupScreen, useSetup } from "./setup.js";
 import { SettingsSheet } from "./settings-sheet.js";
-import { useThemePreference } from "./theme.js";
+import { TEAM_THEME_PREFERENCES, useThemePreference } from "./theme.js";
 import { TeamWorkspaceScreen } from "./team-workspace.js";
 
 export const INTERFACE_LANGUAGE_KEY = "loom.interfaceLanguage";
@@ -20,62 +18,88 @@ function setupRead(): boolean {
   try { return localStorage.getItem(SETUP_CHOICE_KEY) === "done"; } catch { return false; }
 }
 
+/** The one-time mark that skips setup on a later launch; a storage failure only costs a re-read. */
+function rememberSetup(): void {
+  try { localStorage.setItem(SETUP_CHOICE_KEY, "done"); } catch { /* This load still continues. */ }
+}
+
 /**
- * The composition above the shell: the owner gate first, then first-run setup, the GitHub account
- * check third, the workspace only inside all of them.
+ * The composition above the shell: the owner gate first, then the workspace, with first-run setup
+ * shown only when the machine needs it.
  *
- * The setup screen precedes the GitHub check because a network that blocks GitHub blocks sign-in
- * itself, and the proxy that fixes it lives on that screen. Completion is recorded in settings and
- * remembered here, so a later launch skips it; Settings and the gate's own link reopen it.
+ * Settings needs no GitHub account: its account section starts the sign-in, and the proxy and
+ * tools it shows come from the setup read. It rides inside the frame because the shell's dialog
+ * styles live there. Only a paired browser has a setup read to show, so the way in waits for it.
  */
 export function Entry({ language, onLanguage, appearance, paired }: {
   language: InterfaceI18n; onLanguage: (next: LanguagePreference) => void;
   appearance: ReturnType<typeof useThemePreference>; paired: boolean;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [setupOpen, setSetupOpen] = useState(() => !setupRead());
-  const finishSetup = () => {
-    try { localStorage.setItem(SETUP_CHOICE_KEY, "done"); } catch { /* This load still continues. */ }
-    setSetupOpen(false);
-  };
-  // Settings needs no GitHub account: its account section states signed-out, and the proxy and
-  // tools it shows come from the setup read. It rides inside the frame because the shell's dialog
-  // styles live there. Only a paired browser has a setup read to show, so the way in waits for it.
   const frame = (content: ReactNode) => <EntryFrame language={language} onLanguage={onLanguage} appearance={appearance}
     {...(paired ? { onSettings: () => setSettingsOpen(true) } : {})}>
     {content}
     {paired && <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} language={language}
       onLanguage={onLanguage} appearance={appearance}
-      props={{ address: window.location.origin, seats: [], onSetup: () => { setSettingsOpen(false); setSetupOpen(true); } }} />}
+      props={{ address: window.location.origin, seats: [], onSetup: () => setSettingsOpen(false) }} />}
   </EntryFrame>;
   if (!paired) return frame(<Pairing />);
-  return <FirstRun frame={frame} language={language} onLanguage={onLanguage} appearance={appearance}
-    setupOpen={setupOpen} onSetupDone={finishSetup} onSetup={() => setSetupOpen(true)} />;
+  return <FirstRun frame={frame} language={language} onLanguage={onLanguage} appearance={appearance} />;
 }
 
-/** The setup screen until it is done, then the gate; either screen opens the other on request. */
-function FirstRun({ frame, language, onLanguage, appearance, setupOpen, onSetupDone, onSetup }: {
+/**
+ * The workspace, and the setup screen in front of it only when a tool is missing.
+ *
+ * An install that already finished setup has the browser mark, so it never waits for a read. While
+ * the first read is in flight neither screen shows, so a working install flashes neither setup nor
+ * a workspace that then turns out to need it. All-OK tools record the mark, so the next launch is
+ * decided from the browser alone. A read that fails shows the setup screen rather than guessing the
+ * machine is ready, and keeps showing it while it re-reads, because a refetch reports itself as
+ * pending again and would otherwise swap the screen back to the loading state on every attempt.
+ */
+function FirstRun({ frame, language, onLanguage, appearance }: {
   frame: (content: ReactNode) => ReactNode; language: InterfaceI18n;
   onLanguage: (next: LanguagePreference) => void; appearance: ReturnType<typeof useThemePreference>;
-  setupOpen: boolean; onSetupDone: () => void; onSetup: () => void;
 }) {
-  const { paired, request } = useOwnerSession();
+  const { t } = useTranslation();
+  const [ready, setReady] = useState(setupRead);
+  const [failed, setFailed] = useState(false);
+  const setup = useSetup(!ready);
+  useEffect(() => { if (setup.isError) setFailed(true); }, [setup.isError]);
   useEffect(() => {
-    if (!paired || setupRead()) return;
-    let active = true;
-    // The stored answer survives a cleared browser, so an install that already finished setup is
-    // not asked again; a read that fails leaves the screen up rather than skipping it on a guess.
-    void request<SetupState>("/setup").then(state => {
-      if (!active || !state.complete) return;
-      try { localStorage.setItem(SETUP_CHOICE_KEY, "done"); } catch { /* This load still skips it. */ }
-      onSetupDone();
-    }).catch(() => { /* The screen stays up and reads again on its own. */ });
-    return () => { active = false; };
-  }, [paired, request, onSetupDone]);
-  if (setupOpen) return frame(<SetupScreen onContinue={onSetupDone} />);
-  return <GithubGate frame={frame} onSetup={onSetup}>
-    <TeamWorkspaceScreen language={language} onLanguage={onLanguage} appearance={appearance} onSetup={onSetup} />
-  </GithubGate>;
+    if (ready || !setup.data) return;
+    setReady(setup.data.tools.every(tool => tool.ok));
+  }, [ready, setup.data]);
+  useEffect(() => { if (ready) rememberSetup(); }, [ready]);
+  if (!ready && !failed && !setup.data) return frame(<p role="status">{t("web.loading")}</p>);
+  if (!ready) return frame(<SetupScreen onContinue={() => setReady(true)} />);
+  // The workspace carries its own shell, header and Settings, so it mounts bare rather than inside
+  // the entry frame that the pairing and setup screens use.
+  return <TeamWorkspaceScreen language={language} onLanguage={onLanguage} appearance={appearance} />;
+}
+
+/** The page frame for a paired browser: app name, language and appearance, today's Settings. */
+export function EntryFrame({ language, onLanguage, appearance, children, onSettings }: {
+  language: InterfaceI18n; onLanguage: (next: LanguagePreference) => void;
+  appearance: ReturnType<typeof useThemePreference>; children: ReactNode;
+  /** Settings that need no GitHub account, reachable before any project exists. */
+  onSettings?: () => void;
+}) {
+  const { t } = useTranslation();
+  return <div className="team-shell ui-entry" data-ui-theme={appearance.theme} lang={language.language}>
+    <header className="ui-entry-header"><strong>{t("shell.appName")}</strong>
+      <div className="ui-entry-preferences">
+        <label>{t("team.settings.language")}<select value={language.language} onChange={event => onLanguage(event.target.value as LanguagePreference)}>
+          <option value="en">English</option><option value="zh-CN">中文</option>
+        </select></label>
+        <label>{t("shell.appearance")}<select value={appearance.preference} onChange={event => appearance.setPreference(event.target.value as "dark" | "light" | "system")}>
+          {TEAM_THEME_PREFERENCES.map(theme => <option key={theme} value={theme}>{t(`settings.theme.${theme}`)}</option>)}
+        </select></label>
+        {onSettings && <button type="button" className="btn btn-quiet" onClick={onSettings}>{t("settings.title")}</button>}
+      </div>
+    </header>
+    <main className="ui-entry-main">{children}</main>
+  </div>;
 }
 
 /** The owner-gate screen for a browser that has not paired with this daemon. */
@@ -120,7 +144,7 @@ export function Pairing() {
   </div>;
 }
 
-/** The page root: interface language first, then the owner gate, the GitHub gate and the shell. */
+/** The page root: interface language first, then the owner gate, first-run setup and the shell. */
 export function TeamShell() {
   const [language, setLanguage] = useState<InterfaceI18n | null>(null);
   useEffect(() => {
