@@ -649,12 +649,9 @@ html[data-desktop="true"] .team-shell :is(.sheet, .ui-chat-panel, .ui-mobile-sid
 .team-shell .ui-entry-preferences label, .team-shell .ui-range { display: flex; align-items: center; gap: 8px; color: var(--ui-muted); font-size: 12px; }
 .team-shell .ui-entry-preferences select, .team-shell .ui-range select { min-height: 32px; padding: 4px 8px; border: 1px solid var(--ui-divider); border-radius: var(--ui-radius); background: var(--ui-surface); color: var(--ui-text); }
 .team-shell .ui-entry-main { display: grid; justify-items: center; align-content: safe center; overflow: auto; padding: 24px; }
-.team-shell .ui-github-gate { width: min(480px, 100%); padding: 32px; gap: 24px; }
-.team-shell .ui-github-gate p, .team-shell .ui-device-flow p { margin: 0; }
-.team-shell .ui-gate-icon { width: 32px; height: 32px; color: var(--ui-accent); }
+.team-shell .ui-github-signin { display: grid; gap: 16px; justify-items: start; }
 .team-shell .ui-device-flow { display: grid; gap: 16px; }
 .team-shell .ui-device-flow > code { padding: 16px; border: 1px solid var(--ui-divider); border-radius: var(--ui-radius); background: var(--ui-raised); font: 24px/1.4 var(--ui-mono); letter-spacing: .08em; text-align: center; }
-.team-shell .ui-device-flow small { color: var(--ui-muted); }
 .team-shell .ui-device-flow svg { width: 16px; height: 16px; }
 .team-shell :is(.ui-entry, .ui-settings, .ui-analytics, .ui-create-project) [role="alert"], .team-shell.ui-entry [role="alert"] { color: var(--ui-error); }
 html[data-desktop="true"] .team-shell .ui-entry-header { -webkit-app-region: drag; padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100vw - 138px)) + 16px); }
@@ -777,7 +774,6 @@ html[data-desktop="true"] .team-shell .ui-entry-header :is(button, a, input, sel
 @media (max-width: 760px) {
   .team-shell .ui-entry-header, .team-shell .ui-entry-main { padding: 16px; }
   .team-shell .ui-entry-preferences { gap: 8px; }
-  .team-shell .ui-github-gate { padding: 24px; }
   .team-shell .ui-settings-body { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .team-shell .ui-sections { display: flex; flex-wrap: wrap; gap: 4px; }
   .team-shell .ui-sections button { padding: 8px; }

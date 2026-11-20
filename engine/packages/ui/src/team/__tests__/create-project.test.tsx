@@ -11,11 +11,14 @@ const request = vi.fn(), onCreated = vi.fn();
 vi.mock("../../hooks/useOwnerSession.js", async importOriginal => ({
   ...await importOriginal<typeof import("../../hooks/useOwnerSession.js")>(), useOwnerSession: () => ({ paired: true, request }),
 }));
-let cache: QueryClient, failure: string | null, action: string;
+let cache: QueryClient, failure: string | null, action: string, githubSignedIn: boolean;
 const created = { id: "fixture-team", name: "sample", repository: "/home/fixture/sample", seats: [{ role: "lead", client: "claude-code" }] };
 beforeEach(() => {
-  failure = null; action = "create"; onCreated.mockReset(); request.mockReset();
+  failure = null; action = "create"; githubSignedIn = true; onCreated.mockReset(); request.mockReset();
   request.mockImplementation(async (path: string, init?: RequestInit) => {
+    if (path === "/github/status") return { signedIn: githubSignedIn, login: githubSignedIn ? "fixture-owner" : null, host: "github.com" };
+    if (path === "/github/login" && init?.method === "POST") return { state: "pending", code: "ABCD-1234", url: "https://github.com/login/device" };
+    if (path === "/github/login") return { state: "idle" };
     if (path === "/teams") {
       const input = JSON.parse(String(init?.body));
       if (input.dryRun) return input.openExisting
@@ -42,6 +45,8 @@ async function show(mode: "create" | "open" = "create") {
   }
   return render(<QueryClientProvider client={cache}><I18nextProvider i18n={language.instance}><Fixture /></I18nextProvider></QueryClientProvider>);
 }
+/** The project requests alone; the dialog also reads GitHub status for its sign-in. */
+const teamBodies = () => request.mock.calls.filter(([path]) => path === "/teams").map(([, init]) => JSON.parse(String(init!.body)));
 function fill() {
   fireEvent.change(screen.getByRole("textbox", { name: "Folder" }), { target: { value: "/home/fixture/sample" } });
   fireEvent.change(screen.getByRole("textbox", { name: "Project name" }), { target: { value: "sample" } });
@@ -59,10 +64,10 @@ describe("project creation", () => {
     expect(await screen.findByText("2 included files")).toBeTruthy();
     expect(screen.getByText(".env")).toBeTruthy(); expect(screen.getByText(".ssh/key")).toBeTruthy();
     expect(screen.getByText("Create a private GitHub repository named sample and upload the included files from this folder.")).toBeTruthy();
-    expect(request.mock.calls.map(([, init]) => JSON.parse(String(init.body)).dryRun)).toEqual([true]);
+    expect(teamBodies().map(body => body.dryRun)).toEqual([true]);
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(created));
-    expect(JSON.parse(String(request.mock.calls[1]![1].body))).toEqual({ repository: "/home/fixture/sample", name: "sample" });
+    expect(teamBodies()[1]).toEqual({ repository: "/home/fixture/sample", name: "sample" });
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
@@ -71,10 +76,10 @@ describe("project creation", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Folder" }), { target: { value: "/home/fixture/sample" } });
     fireEvent.click(screen.getByRole("button", { name: "Review files" }));
     expect(await screen.findByText("Open the existing local project sample without creating a GitHub repository or uploading files.")).toBeTruthy();
-    expect(JSON.parse(String(request.mock.calls[0]![1].body))).toEqual({ repository: "/home/fixture/sample", openExisting: true, dryRun: true });
+    expect(teamBodies()[0]).toEqual({ repository: "/home/fixture/sample", openExisting: true, dryRun: true });
     fireEvent.click(screen.getByRole("button", { name: "Open project" }));
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(created));
-    expect(JSON.parse(String(request.mock.calls[1]![1].body))).toEqual({ repository: "/home/fixture/sample", name: "sample", openExisting: true });
+    expect(teamBodies()[1]).toEqual({ repository: "/home/fixture/sample", name: "sample", openExisting: true });
   });
 
   it("uses the desktop picker when present instead of reading browser directories", async () => {
@@ -82,7 +87,8 @@ describe("project creation", () => {
     vi.stubGlobal("loomDesktop", { pickFolder }); await show();
     fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Folder" })).toHaveProperty("value", "/mnt/d/Client Work/sample"));
-    expect(pickFolder).toHaveBeenCalledOnce(); expect(request).not.toHaveBeenCalled();
+    expect(pickFolder).toHaveBeenCalledOnce();
+    expect(request.mock.calls.some(([path]) => path !== "/github/status")).toBe(false);
   });
 
   it("preserves the folder on native picker cancellation and surfaces picker failure", async () => {
@@ -96,7 +102,7 @@ describe("project creation", () => {
     fireEvent.click(browse);
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", "The folder picker did not return a supported folder. Try again.");
     expect(screen.getByRole("textbox", { name: "Folder" })).toHaveProperty("value", "/home/fixture/sample");
-    expect(request).not.toHaveBeenCalled();
+    expect(request.mock.calls.some(([path]) => path !== "/github/status")).toBe(false);
   });
 
   it("returns focus to the Create opener when dismissed", async () => {
@@ -144,7 +150,7 @@ describe("project creation", () => {
     expect(screen.getByText("Retry the initial upload to the private GitHub repository sample.")).toBeTruthy();
     failure = null; fireEvent.click(retry);
     await waitFor(() => expect(onCreated).toHaveBeenCalledOnce());
-    const creates = request.mock.calls.map(([, init]) => JSON.parse(String(init.body))).filter(body => !body.dryRun);
+    const creates = teamBodies().filter(body => !body.dryRun);
     expect(creates).toEqual([{ repository: "/home/fixture/sample", name: "sample" }, { repository: "/home/fixture/sample", name: "sample" }]);
   });
 
@@ -154,9 +160,10 @@ describe("project creation", () => {
   });
 
   it("names the files that are too large and asks for another review", async () => {
-    request.mockImplementationOnce(async () => {
-      throw new OwnerReadError(400, "team_file_too_large", { oversizedPaths: ["assets/recording.mp4"] });
-    });
+    const base = request.getMockImplementation()!;
+    request.mockImplementation(async (path: string, init?: RequestInit) => path === "/teams"
+      ? Promise.reject(new OwnerReadError(400, "team_file_too_large", { oversizedPaths: ["assets/recording.mp4"] }))
+      : base(path, init));
     await show(); fill();
     fireEvent.click(screen.getByRole("button", { name: "Review files" }));
     expect(await screen.findByRole("alert")).toHaveProperty("textContent",
@@ -169,13 +176,32 @@ describe("project creation", () => {
 
   it("keeps the target fixed while a preview is pending", async () => {
     let finish!: (value: object) => void;
-    request.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const base = request.getMockImplementation()!;
+    request.mockImplementation((path: string, init?: RequestInit) => path === "/teams"
+      ? new Promise(resolve => { finish = resolve; }) : base(path, init));
     await show(); fill(); fireEvent.click(screen.getByRole("button", { name: "Review files" }));
     expect(screen.getByRole("textbox", { name: "Folder" })).toHaveProperty("disabled", true);
     expect(screen.getByRole("textbox", { name: "Project name" })).toHaveProperty("disabled", true);
     expect(screen.getByRole("button", { name: "Close" })).toHaveProperty("disabled", true);
     await act(async () => finish({ preview: { repository: "/home/fixture/sample", name: "sample", action, fileCount: 2, excludedPaths: [] } }));
     expect(screen.getByRole("button", { name: "Create" })).toHaveProperty("disabled", false);
+  });
+
+  it("offers the sign-in in the dialog when GitHub is signed out", async () => {
+    githubSignedIn = false; await show();
+    const signIn = await screen.findByRole("button", { name: "Sign in to GitHub" });
+    fireEvent.click(signIn);
+    expect((await screen.findByText("ABCD-1234")).textContent).toBe("ABCD-1234");
+    expect(screen.getByRole("link", { name: "Open GitHub" }).getAttribute("href")).toBe("https://github.com/login/device");
+    expect(request).toHaveBeenCalledWith("/github/login", { method: "POST" });
+  });
+
+  it("offers the sign-in in the dialog when the daemon refuses a create for a signed-out owner", async () => {
+    failure = "github_not_signed_in"; await show(); await preview();
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    expect(await screen.findByRole("button", { name: "Sign in to GitHub" })).toBeTruthy();
+    // The refusal is answered by the control, not by an error line that offers nothing to do.
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
 
